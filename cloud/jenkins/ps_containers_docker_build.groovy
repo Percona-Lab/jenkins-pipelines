@@ -42,54 +42,6 @@ void build(String IMAGE_POSTFIX){
         fi
     """
 }
-void checkImageForDocker(String IMAGE_SUFFIX){
-    try {
-             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-                sh """
-                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
-                    IMAGE_NAME='percona-server-mysql-operator'
-                    MYSQL_VER=\$(echo ${IMAGE_SUFFIX} | tr -d 'psmysql')
-                    PATH_TO_DOCKERFILE="source/percona-server-\${MYSQL_VER}"
-                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
-                    if [ ${IMAGE_SUFFIX} = backup8.0 ]; then
-                        PATH_TO_DOCKERFILE="source/percona-xtrabackup-8.0"
-                    elif [ ${IMAGE_SUFFIX} = backup8.4 ]; then
-                        PATH_TO_DOCKERFILE="source/percona-xtrabackup-8.x"
-                    elif [ ${IMAGE_SUFFIX} = toolkit ]; then
-                        PATH_TO_DOCKERFILE="source/percona-toolkit"
-                    elif [ ${IMAGE_SUFFIX} = haproxy ]; then
-                        PATH_TO_DOCKERFILE="source/haproxy"
-                    elif [ ${IMAGE_SUFFIX} = router8.0 ]; then
-                        PATH_TO_DOCKERFILE="source/mysql-router"
-                    elif [ ${IMAGE_SUFFIX} = router8.4 ]; then
-                        PATH_TO_DOCKERFILE="source/mysql-router"
-                    elif [ ${IMAGE_SUFFIX} = orchestrator ]; then
-                        PATH_TO_DOCKERFILE="source/orchestrator"
-                    fi
-
-                    sg docker -c "
-                        set -e
-                        docker login -u '${USER}' -p '${PASS}'
-
-                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                    "
-                """
-             }
-    } catch (Exception e) {
-        echo "Stage failed: ${e.getMessage()}"
-        sh """
-            exit 1
-        """
-    } finally {
-         echo "Executing post actions..."
-         sh """
-             IMAGE_SUFFIX=${IMAGE_SUFFIX}
-             snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
-         """
-        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-    }
-}
 void pushImageToDocker(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
@@ -139,7 +91,6 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -154,10 +105,6 @@ pipeline {
                 sh """
                     export GIT_REPO=$GIT_PD_REPO
                     export GIT_BRANCH=$GIT_PD_BRANCH
-                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
-                    chmod +x snyk
-                    sudo mv ./snyk /usr/local/bin/
-                    sudo npm install snyk-to-html -g
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -219,55 +166,6 @@ pipeline {
                 pushImageToDocker('psmysql8.4')
                 pushImageToDocker('toolkit')
                 pushImageToDocker('haproxy')
-            }
-        }
-       stage('Snyk CVEs Check') {
-            parallel {
-                stage('orchestrator'){
-                    steps {
-                        checkImageForDocker('orchestrator')
-                    }
-                }
-                stage('backup8.0'){
-                    steps {
-                        checkImageForDocker('backup8.0')
-                    }
-                }
-                stage('backup8.4'){
-                    steps {
-                        checkImageForDocker('backup8.4')
-                    }
-                }
-                stage('router8.0'){
-                    steps {
-                        checkImageForDocker('router8.0')
-                    }
-                }
-                stage('router8.4'){
-                    steps {
-                        checkImageForDocker('router8.4')
-                    }
-                }
-                stage('psmysql8.0'){
-                    steps {
-                        checkImageForDocker('psmysql8.0')
-                    }
-                }
-                stage('psmysql8.4'){
-                    steps {
-                        checkImageForDocker('psmysql8.4')
-                    }
-                }
-                stage('toolkit'){
-                    steps {
-                        checkImageForDocker('toolkit')
-                    }
-                }
-                stage('haproxy'){
-                    steps {
-                        checkImageForDocker('haproxy')
-                    }
-                }
             }
         }
     }

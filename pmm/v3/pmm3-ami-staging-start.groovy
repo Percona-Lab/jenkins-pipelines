@@ -7,10 +7,6 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
-        string(
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
@@ -27,7 +23,7 @@ pipeline {
             description: 'Enable to setup Docker-compose for remote instances',
             name: 'AMI_UPGRADE_TESTING_INSTANCE')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -135,7 +131,7 @@ pipeline {
                             --resources $INSTANCE_ID \
                             --region $AWS_DEFAULT_REGION \
                             --tags Key=Name,Value=${VM_NAME} \
-                            Key=iit-billing-tag,Value=qa \
+                            Key=iit-billing-tag,Value=pmm \
                             Key=stop-after-days,Value=${DAYS}
 
 
@@ -155,7 +151,7 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
-                        
+
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
@@ -208,12 +204,13 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
-                            sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                            cd pmm-ui-tests
-                            sudo PWD=$(pwd) docker-compose up -d mysql
-                            sudo PWD=$(pwd) docker-compose up -d mongo
-                            sudo PWD=$(pwd) docker-compose up -d postgres
-                            sudo PWD=$(pwd) docker-compose up -d proxysql
+                            sudo rm -rf pmm-qa
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git
+                            cd pmm-qa/codeceptjs-e2e
+                            docker compose up -d mysql
+                            docker compose up -d mongo
+                            docker compose up -d postgres
+                            docker compose up -d proxysql
                             sleep 30
                             sudo bash -x testdata/db_setup.sh
                         "
@@ -226,14 +223,14 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, 
-                        channel: '#pmm-notifications', 
-                        color: '#00FF00', 
+                    slackSend botUser: true,
+                        channel: '#pmm-notifications',
+                        color: '#00FF00',
                         message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, 
-                            channel: "@${OWNER_SLACK}", 
-                            color: '#00FF00', 
+                        slackSend botUser: true,
+                            channel: "@${OWNER_SLACK}",
+                            color: '#00FF00',
                             message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     }
                 }

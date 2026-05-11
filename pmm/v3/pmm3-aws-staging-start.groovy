@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -74,11 +74,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['16', '17', '15','14', '13'],
+            choices: ['16', '17', '18', '15','14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16', '17', '15', '14', '13'],
+            choices: ['16', '17', '18', '15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -96,7 +96,7 @@ pipeline {
             --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
-                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+                SETUP_TYPE=replication(Replication)|gr(Group Replication)|(single node if no option passed)
             --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
@@ -128,8 +128,8 @@ pipeline {
             name: 'SERVER_IP'
         )
         string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for qa-integration repository',
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH'
         )
     }
@@ -200,10 +200,9 @@ pipeline {
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo dnf -y install ./percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo dnf repolist
-                        sudo dnf install ansible sysbench mysql -y
                     '''
                 }
             }
@@ -249,7 +248,7 @@ pipeline {
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    sleep 10
+                                    sleep 30
                                     docker logs pmm-server
 
                                     if [ ${ADMIN_PASSWORD} != admin ]; then
@@ -289,14 +288,15 @@ pipeline {
 
                         docker network create pmm-qa || true
 
-                        sudo mkdir -p /srv/qa-integration || :
-                        pushd /srv/qa-integration
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                        sudo rm -rf /srv/pmm-qa
+                        sudo mkdir -p /srv/pmm-qa
+                        pushd /srv/pmm-qa
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         popd
 
-                        sudo chown ec2-user -R /srv/qa-integration
+                        sudo chown ec2-user -R /srv/pmm-qa
 
-                        pushd /srv/qa-integration/pmm_qa
+                        pushd /srv/pmm-qa/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
                             python3 -m venv virtenv
                             . virtenv/bin/activate

@@ -11,7 +11,7 @@ void installDependencies() {
         . virtenv/bin/activate
         python3 --version
         python3 -m pip install --upgrade pip
-        python3 -m pip install --upgrade setuptools
+        python3 -m pip install --upgrade "setuptools<81"
         python3 -m pip install --upgrade setuptools-rust
         python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
        
@@ -176,7 +176,7 @@ pipeline {
             choices: [
                 'ubuntu-noble',
                 'ubuntu-jammy',
-                'ubuntu-focal',  
+                'debian-13',  
                 'debian-12',
                 'debian-11',
                 'oracle-8',
@@ -184,12 +184,14 @@ pipeline {
                 'rhel-8',
                 'rhel-9',
                 'rhel-10',
+                'al-2023',
                 'rhel-8-arm',
                 'rhel-9-arm',
                 'rhel-10-arm',
+                'al-2023-arm',
                 'debian-11-arm',
                 'debian-12-arm',
-                'ubuntu-focal-arm',
+                'debian-13-arm',
                 'ubuntu-jammy-arm',
                 'ubuntu-noble-arm'
             ],

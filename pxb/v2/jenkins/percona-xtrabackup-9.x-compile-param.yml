@@ -1,0 +1,125 @@
+- job:
+    name: percona-xtrabackup-9.x-compile-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: xbparam24
+    node: launcher-x64
+    properties:
+    - groovy-label:
+        script: |
+            return (CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
+        sandbox: true
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtrabackup"
+        description: URL to percona-xtrabackup repository
+    - string:
+        name: BRANCH
+        default: "trunk"
+        description: Tag/Branch for percona-xtrabackup repository
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: CLOUD
+        choices:
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"
+    axes:
+      - axis:
+         type: user-defined
+         name: CMAKE_BUILD_TYPE
+         values:
+          - RelWithDebInfo
+          - Debug
+      - axis:
+         type: user-defined
+         name: DOCKER_OS
+         values:
+         - oraclelinux:9
+         - ubuntu:jammy
+         - ubuntu:noble
+         - debian:bookworm
+         - debian:trixie
+         - asan
+    builders:
+    - trigger-builds:
+      - project: percona-xtrabackup-9.x-compile-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${{DOCKER_OS}}
+          CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
+          CLOUD=${{CLOUD}}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: percona-xtrabackup-9.x-compile-pipeline
+        which-build: specific-build
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_compile_pipeline}}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_compile_pipeline}}" > PIPELINE_BUILD_NUMBER
+        gunzip build.log.gz
+    publishers:
+    - raw:
+        xml: |
+          <io.jenkins.plugins.analysis.core.steps.IssuesRecorder plugin="warnings-ng@11.4.1">
+            <analysisTools>
+              <io.jenkins.plugins.analysis.warnings.Gcc4>
+                <id></id>
+                <name></name>
+                <jenkins plugin="plugin-util-api@4.1.0"/>
+                <pattern>build.log</pattern>
+                <reportEncoding></reportEncoding>
+                <skipSymbolicLinks>false</skipSymbolicLinks>
+              </io.jenkins.plugins.analysis.warnings.Gcc4>
+            </analysisTools>
+            <sourceCodeEncoding></sourceCodeEncoding>
+            <sourceDirectories/>
+            <sourceCodeRetention>EVERY_BUILD</sourceCodeRetention>
+            <ignoreQualityGate>false</ignoreQualityGate>
+            <failOnError>false</failOnError>
+            <healthy>0</healthy>
+            <unhealthy>0</unhealthy>
+            <minimumSeverity plugin="analysis-model-api@12.4.0">
+              <name>LOW</name>
+            </minimumSeverity>
+            <filters/>
+            <isEnabledForFailure>true</isEnabledForFailure>
+            <isAggregatingResults>false</isAggregatingResults>
+            <quiet>false</quiet>
+            <isBlameDisabled>false</isBlameDisabled>
+            <skipPublishingChecks>false</skipPublishingChecks>
+            <checksAnnotationScope>NEW</checksAnnotationScope>
+            <skipPostProcessing>false</skipPostProcessing>
+            <qualityGates/>
+            <trendChartType>AGGREGATION_TOOLS</trendChartType>
+            <scm></scm>
+          </io.jenkins.plugins.analysis.core.steps.IssuesRecorder>
+    - archive:
+        artifacts: 'PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'COMPILE_BUILD_TAG'
+    - archive:
+        artifacts: 'build.log'

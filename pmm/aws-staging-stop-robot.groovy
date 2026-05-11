@@ -21,35 +21,37 @@ pipeline {
                             local request=$1
                             sleep 5
 
+                            # Get instance ID (plain string)
                             instance_id=$(
                                 aws ec2 describe-spot-instance-requests \
                                     --region us-east-2 \
-                                    --output json \
+                                    --output text \
                                     --spot-instance-request-ids ${request} \
                                     --query 'SpotInstanceRequests[].InstanceId'
                             )
-                            tags=$(
-                                aws ec2 describe-spot-instance-requests \
-                                    --region us-east-2 \
-                                    --output json \
-                                    --spot-instance-request-ids ${request} \
-                                    --query 'SpotInstanceRequests[].Tags[]' \
-                                    | sed -e 's/aws:/aws_/'
+
+                            # Get safe tags (filter out eks, kubernetes.io/*, aws:*)
+                            tags=$(aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --spot-instance-request-ids ${request} \
+                                --query 'SpotInstanceRequests[].Tags[?!(starts_with(Key, `eks`) || starts_with(Key, `kubernetes.io/`) || starts_with(Key, `aws:`))]' \
+                                --output json
                             )
-                            if [ "$tags" == "[]" ]; then
-                                # instances (especially those created manually) may not have tags
-                                id=($instance_id)
-                                echo "The instance ${id[1]} has no tags!"
+
+                            # Flatten nested lists to a single list
+                            tags=$(echo "$tags" | jq 'flatten | map(select(.Key != null))')
+
+                            # Skip if no tags to apply
+                            if [ "$(echo "$tags" | jq 'length')" -eq 0 ]; then
+                                echo "The instance ${instance_id} has no user-defined tags to copy!"
                                 return
-                            fi                            
+                            fi
+
+                            # Apply tags
                             aws ec2 create-tags \
                                 --region us-east-2 \
-                                --output json \
-                                --cli-input-json "{
-                                    \\"DryRun\\": false,
-                                    \\"Resources\\": $instance_id,
-                                    \\"Tags\\": $tags
-                                }"
+                                --resources $instance_id \
+                                --tags "$tags"
                         }
 
                         is_shutdown_needed() {

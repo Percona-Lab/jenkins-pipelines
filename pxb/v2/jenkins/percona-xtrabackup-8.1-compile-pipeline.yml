@@ -49,8 +49,8 @@
         default:
         description: make options, like VERBOSE=1
     - choice:
-        name: LABEL
+        name: CLOUD
         choices:
-        - docker-32gb
-        - docker
-        description: Run build on specified instance type.
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"

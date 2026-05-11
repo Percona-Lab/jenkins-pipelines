@@ -28,7 +28,7 @@ pipeline {
             description: 'OVA Image version, for installing already released version, pass 3.x.y ex. 3.28.0',
             name: 'OVA_VERSION')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -67,7 +67,7 @@ pipeline {
                         # - image id: is set to `pmm-ovf-agent`
                         # - ssh-key name: is set to `Jenkins`
                         # - firewall name: is set to `pmm-firewall`
-                        
+
                         set -o xtrace
 
                         SSH_KEY_ID=$(doctl compute ssh-key list -o json | jq -r '.[] | select(.name=="Jenkins") | .id')
@@ -102,7 +102,13 @@ pipeline {
                 }
                 node(env.VM_NAME){
                     sh '''
-                        curl -kL -o pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                        if [[ "${OVA_VERSION}" == *https* ]]; then
+                            wget -nv -O pmm-server.ova ${OVA_VERSION}
+                        elif [[ "${OVA_VERSION}" == "3.0.0" ]]; then
+                            wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}-1.ova
+                        else
+                            wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
+                        fi
                     '''
                     sh '''
                         export BUILD_ID=dont-kill-virtualbox
@@ -184,8 +190,8 @@ pipeline {
             script {
                 wrap([$class: 'BuildUser']) {
                     env.OWNER_SLACK = slackUserIdFromEmail(
-                        botUser: true, 
-                        email: env.BUILD_USER_EMAIL, 
+                        botUser: true,
+                        email: env.BUILD_USER_EMAIL,
                         tokenCredentialId: 'JenkinsCI-SlackBot-v2'
                     )
                 }

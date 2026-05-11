@@ -36,7 +36,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
+            choices: 'centos:7\noraclelinux:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -60,7 +60,7 @@ pipeline {
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
         choice(name: 'ANALYZER_OPTS',
-           choices: ' \n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON\n-DWITH_ASAN=ON\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON\n-DWITH_ASAN=ON -DWITH_UBSAN=ON\n-DWITH_UBSAN=ON\n-DWITH_VALGRIND=ON',
+           choices: '\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON\n-DWITH_ASAN=ON\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON\n-DWITH_ASAN=ON -DWITH_UBSAN=ON\n-DWITH_UBSAN=ON\n-DWITH_VALGRIND=ON',
            description: 'Analyzer options passed to CMake (ASAN/UBSAN/Valgrind)')
 		string(
 		    defaultValue: '4',

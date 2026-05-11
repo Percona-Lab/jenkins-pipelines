@@ -1,0 +1,5 @@
+azure-functions>=1.18.0
+azure-identity>=1.17.1
+azure-mgmt-containerservice>=31.0.0
+azure-mgmt-resource>=23.1.1
+azure-core>=1.30.0

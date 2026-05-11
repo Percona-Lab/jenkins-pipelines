@@ -16,7 +16,6 @@ pipeline {
     parameters {
         choice(name: 'PSMDB',description: 'PSMDB repository',choices: ['psmdb-70','psmdb-80'])
         choice(name: 'REPO',description: 'Repo for testing',choices: ['testing','experimental','release'])
-        choice(name: 'GATED_BUILD',description: 'Test private repo?',choices: ['true','false'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3en.large','t2.micro','i3.xlarge','i3en.xlarge','i3en.3xlarge'])
         choice(name: 'GENERATOR',description: 'Use mgodatagen for regular documents or mongofiles for GridFS',choices: ['mongofiles','mgodatagen'])
         string(name: 'DB_COUNT',description: 'Amount of Databases for initsync',defaultValue: '10')
@@ -58,7 +57,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                     script{
-                        moleculeExecuteActionWithScenario(moleculeDir, "test", "aws")
+                        moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "test", "aws")
                     }
                 }
             }
@@ -72,7 +71,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
+                moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "destroy", "aws")
             }
         }
     }

@@ -6,7 +6,7 @@ import groovy.json.JsonSlurper
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
 
     environment {
@@ -30,22 +30,42 @@ pipeline {
                         error 'Cluster name is required'
                     }
 
+                    // FORCE_MODE recovers clusters that were leaked by a failed
+                    // create job (no S3 state). For aws-tags-only clusters the
+                    // value openshift-cluster-list shows as "Cluster Name" *is*
+                    // the infraID, so default INFRA_ID to CLUSTER_NAME when the
+                    // operator leaves it blank. The operator can still override
+                    // INFRA_ID explicitly when the two differ.
+                    env.RESOLVED_INFRA_ID = ''
+                    if (params.FORCE_MODE) {
+                        if (!params.INFRA_ID || params.INFRA_ID.trim().isEmpty()) {
+                            env.RESOLVED_INFRA_ID = params.CLUSTER_NAME
+                            echo "INFRA_ID not set; defaulting to CLUSTER_NAME='${params.CLUSTER_NAME}'"
+                        } else {
+                            env.RESOLVED_INFRA_ID = params.INFRA_ID
+                        }
+                    }
+
                     // Clean workspace
                     deleteDir()
 
                     // Create work directory
                     sh "mkdir -p ${WORK_DIR}"
 
-                    echo "Preparing to destroy cluster: ${params.CLUSTER_NAME}"
+                    echo "Preparing to destroy cluster: ${params.CLUSTER_NAME}${params.FORCE_MODE ? " (force mode, infraID=${env.RESOLVED_INFRA_ID})" : ''}"
 
                     // Set initial build description - optimized for Blue Ocean
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${params.CLUSTER_NAME}"
-                    currentBuild.description = "${params.CLUSTER_NAME} | ${params.AWS_REGION} | ${params.DESTROY_REASON} | DESTROYING"
+                    def forceTag = params.FORCE_MODE ? ' | FORCE' : ''
+                    currentBuild.description = "${params.CLUSTER_NAME} | ${params.AWS_REGION} | ${params.DESTROY_REASON}${forceTag} | DESTROYING"
                 }
             }
         }
 
         stage('Check Cluster State') {
+            when {
+                expression { !params.FORCE_MODE }
+            }
             steps {
                 withCredentials([
                     aws(
@@ -67,7 +87,16 @@ pipeline {
                         def stateExists = (metadata != null)
 
                         if (!stateExists) {
-                            error "Cluster state not found in S3 for cluster: ${params.CLUSTER_NAME}"
+                            // No S3 state — cluster was leaked from a failed
+                            // create. Auto-promote to force mode using
+                            // CLUSTER_NAME as the infraID. The operator does
+                            // not need to set FORCE_MODE/INFRA_ID for this
+                            // common-case recovery path.
+                            echo "No S3 state for ${params.CLUSTER_NAME}; auto-promoting to force-destroy with infraID='${params.CLUSTER_NAME}'."
+                            env.AUTO_FORCE_MODE = 'true'
+                            env.RESOLVED_INFRA_ID = params.INFRA_ID?.trim() ?: params.CLUSTER_NAME
+                            currentBuild.description = "${params.CLUSTER_NAME} | ${params.AWS_REGION} | ${params.DESTROY_REASON} | AUTO-FORCE | DESTROYING"
+                            return
                         }
 
                         // Get cluster metadata if available
@@ -119,11 +148,18 @@ pipeline {
                         def destroyConfig = [
                             clusterName: params.CLUSTER_NAME,
                             awsRegion: params.AWS_REGION,
-                            s3Bucket: env.S3_BUCKET,
                             workDir: env.WORK_DIR,
                             reason: params.DESTROY_REASON,
                             destroyedBy: env.BUILD_USER_ID ?: 'jenkins'
                         ]
+
+                        if (params.FORCE_MODE || env.AUTO_FORCE_MODE == 'true') {
+                            destroyConfig.force = true
+                            destroyConfig.infraID = env.RESOLVED_INFRA_ID
+                            destroyConfig.openshiftVersion = params.OPENSHIFT_VERSION
+                        } else {
+                            destroyConfig.s3Bucket = env.S3_BUCKET
+                        }
 
                         // Destroy the cluster
                         def result = openshiftCluster.destroy(destroyConfig)

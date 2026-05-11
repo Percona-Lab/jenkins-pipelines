@@ -112,14 +112,14 @@ pipeline {
         stage('Create virtual machines') {
           steps {
                 script {
-                    runMoleculeCommandParallel(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "create")
+                    runMoleculeCommandParallelPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "create")
                 }
             }
          }
         stage('Prepare virtual machines') {
           steps {
                 script {
-                    runMoleculeCommandParallel(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "prepare")
+                    runMoleculeCommandParallelPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "prepare")
                 }
             }
          }
@@ -127,7 +127,7 @@ pipeline {
           steps {
                 withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                 script {
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "converge", env.OLDVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "converge", env.OLDVERSIONS)
                 }
               }
             }
@@ -135,7 +135,7 @@ pipeline {
         stage('Test old version') {
           steps {
                 script {
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "verify", env.OLDVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "verify", env.OLDVERSIONS)
                 }
             }
          }
@@ -143,7 +143,7 @@ pipeline {
           steps {
 		withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                 script {
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "side-effect", env.NEWVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "side-effect", env.NEWVERSIONS)
                 }
               }
             }
@@ -151,14 +151,14 @@ pipeline {
         stage('Test new version') {
           steps {
                 script {
-                    runMoleculeCommandParallelWithVariableList(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "verify", env.NEWVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "verify", env.NEWVERSIONS)
                 }
             }
          }
         stage('Remove old packages') {
           steps {
                 script {
-                    runMoleculeCommandParallel(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "cleanup")
+                    runMoleculeCommandParallelPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "cleanup")
                 }
             }
          }

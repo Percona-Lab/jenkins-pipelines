@@ -37,7 +37,6 @@ List non_pro_pxc80 = [
                 'ubuntu-jammy',
                 'ubuntu-noble-arm',
                 'ubuntu-jammy-arm',
-                'ubuntu-focal',
                 'debian-12',
                 'debian-11',
                 'debian-12-arm',
@@ -47,7 +46,13 @@ List non_pro_pxc80 = [
                 'rhel-8',
                 'rhel-9',
                 'rhel-8-arm',
-                'rhel-9-arm'
+                'rhel-9-arm',
+                'rocky-linux-8',
+                'rocky-linux-8-arm',
+                'rocky-linux-9',
+                'rocky-linux-9-arm',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
 ]
 
 List non_pro_pxc84 = [
@@ -55,9 +60,10 @@ List non_pro_pxc84 = [
                 'ubuntu-jammy',
                 'ubuntu-noble-arm',
                 'ubuntu-jammy-arm',
-                'ubuntu-focal',
+                'debian-13',
                 'debian-12',
                 'debian-11',
+                'debian-13-arm',
                 'debian-12-arm',
                 'debian-11-arm',
                 'ol-8',
@@ -67,14 +73,33 @@ List non_pro_pxc84 = [
                 'rhel-10',
                 'rhel-8-arm',
                 'rhel-9-arm',
-                'rhel-10-arm'
+                'rhel-10-arm',
+                'rocky-linux-8',
+                'rocky-linux-8-arm',
+                'rocky-linux-9',
+                'rocky-linux-9-arm',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
 ]
 
-List pxc_innovation_lts = [
+List pxc_innovation = [
                 'ubuntu-noble',
                 'ubuntu-jammy',
                 'ubuntu-noble-arm',
                 'ubuntu-jammy-arm',
+                'debian-12',
+                'debian-12-arm',
+                'debian-13',
+                'debian-13-arm',
+                'ol-8',
+                'ol-9',
+                'rhel-8',
+                'rhel-8-arm',
+                'rhel-9',
+                'rhel-9-arm',
+                'rhel-10',
+                'rhel-10-arm'
+                
 ]
 
 List pxc57_nodes = [
@@ -86,7 +111,7 @@ List pxc57_nodes = [
                 'ol-9'
 ]
 
-List all_possible_nodes = (pro_pxc80 + pro_pxc84 + non_pro_pxc80 + non_pro_pxc84 + pxc_innovation_lts + pxc57_nodes).unique()
+List all_possible_nodes = (pro_pxc80 + pro_pxc84 + non_pro_pxc80 + non_pro_pxc84 + pxc_innovation + pxc57_nodes).unique()
 
 product_to_test = params.product_to_test
 
@@ -100,12 +125,12 @@ void runNodeBuild(String node_to_test) {
         echo "${test_type}"
     }
 
-    if (params.product_to_test == "pxc-innovation-lts" || params.product_to_test == "pxc57") {
+    if (params.product_to_test == "pxc_innovation" || params.product_to_test == "pxc57") {
         if (pro_repo == "yes") {
-            echo "PRO is not supported for PXC-5.7 or PXC-innovation-lts testing"
+            echo "PRO is not supported for PXC-5.7 or PXC-innovation testing"
         } else {
             echo "Normal testing"
-            job = "pxc-package-testing-test"
+            job = "pxc-package-testing"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
@@ -116,7 +141,9 @@ void runNodeBuild(String node_to_test) {
                     string(name: "node_to_test", value: node_to_test),
                     string(name: "test_repo", value: params.test_repo),
                     string(name: "test_type", value: "${test_type}"),
-                    string(name: "pxc57_repo", value: params.pxc57_repo)
+                    string(name: "pxc57_repo", value: params.pxc57_repo),
+                    string(name: "git_repo", value: params.git_repo),
+                    string(name: "BRANCH", value: params.BRANCH)
                 ],
                 propagate: true,
                 wait: true
@@ -189,7 +216,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc-innovation-lts"]'
+                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc_innovation"]'
                 ]
             ]
         ],
@@ -274,7 +301,7 @@ properties([
                                 result.add("min_upgrade_pxc_84")
                             }
                         } 
-                        else if (product_to_test == "pxc-innovation-lts") {
+                        else if (product_to_test == "pxc_innovation") {
                             result.add("min_upgrade_pxc_innovation")
                         }
                         
@@ -359,8 +386,8 @@ pipeline {
                         selectedNodes = (params.pro_repo == "yes") ? pro_pxc84 : non_pro_pxc84
                         jobType = (params.pro_repo == "yes") ? "PXC 8.4 PRO" : "PXC 8.4 Non Pro"
                         allPossibleNodes = all_possible_nodes
-                    } else if (params.product_to_test == "pxc_innovation_lts") {
-                        selectedNodes = pxc_innovation_lts
+                    } else if (params.product_to_test == "pxc_innovation") {
+                        selectedNodes = pxc_innovation
                         jobType = "PXC Innovation LTS"
                         allPossibleNodes = all_possible_nodes
                     } else {

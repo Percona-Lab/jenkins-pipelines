@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -16,9 +16,12 @@ logger.info("Cloud init started")
 // get Jenkins instance
 Jenkins jenkins = Jenkins.getInstance()
 
+// Subnet configuration for Jenkins PG workers
+// PKG-1246: Expanded from /24 (251 IPs) to /22 (1024 IPs) subnets for 1200-1500 spot instances
+// Old subnets: subnet-0fad4db6fdd8025b6 (B), subnet-0802c1d4746b8c35a (C)
 netMap = [:]
-netMap['eu-central-1b'] = 'subnet-0fad4db6fdd8025b6'
-netMap['eu-central-1c'] = 'subnet-0802c1d4746b8c35a'
+netMap['eu-central-1b'] = 'subnet-0775d65ad1e9703bc'  // JSubnetB2: 10.145.0.0/22 (1024 IPs)
+netMap['eu-central-1c'] = 'subnet-09947b46d69590c50'  // JSubnetC2: 10.145.4.0/22 (1024 IPs)
 
 imageMap = [:]
 imageMap['eu-central-1a.micro-amazon'] = 'ami-0444794b421ec32e4'
@@ -86,21 +89,17 @@ initMap['micro-amazon'] = '''
         echo try again
     done
 
-    sudo yum -y install java-17-amazon-corretto || :
-    sudo yum -y install java-17-openjdk || :
-    sudo yum -y install tzdata-java git unzip || :
-    sudo yum -y remove awscli java-1.7.0-openjdk || :
+    sudo yum -y remove java-1.8.0-openjdk || :
+    sudo yum -y remove java-1.8.0-openjdk-headless || :
 
-    # Install AWS CLI v2
-    if ! $(aws --version | grep -q 'aws-cli/2'); then
-        sudo rm -rf /tmp/aws* || true
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
-            sleep 1
-            echo try again
-        done
-        cd /tmp && unzip -q awscliv2.zip
-        sudo /tmp/aws/install
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.' | awk -F'.' '{print $1}')
+    if [ "${SYSREL}" = "2023" ]; then
+        JAVA_PKG="java-17-amazon-corretto"
+    else
+        JAVA_PKG="java-17-openjdk-headless"
     fi
+    sudo yum -y install ${JAVA_PKG} tzdata-java || :
+    sudo yum -y install git || :
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
@@ -176,7 +175,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('Name', 'jenkins-pg-' + OSType),
             new EC2Tag('iit-billing-tag', 'jenkins-pg-worker')
         ],                                          // List<EC2Tag> tags
-        '3',                                        // String idleTerminationMinutes
+        '15',                                       // String idleTerminationMinutes
         0,                                          // Init minimumNumberOfInstances
         0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
@@ -209,7 +208,7 @@ String sshKeysCredentialsId = 'aws-jenkins'
 String region = 'eu-central-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -231,7 +230,7 @@ String region = 'eu-central-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

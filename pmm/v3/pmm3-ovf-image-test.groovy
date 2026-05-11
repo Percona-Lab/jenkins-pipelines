@@ -3,13 +3,13 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, GIT_BRANCH, CLIENTS) {
+void runUITests(CLIENT_VERSION, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, CLIENTS) {
     stagingJob = build job: 'pmm-ui-tests', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'OVF_TEST', value: 'yes'),
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'ADMIN_PASSWORD', value: "admin")
     ]
@@ -78,9 +78,9 @@ pipeline {
             description: 'Use this OVA Setup as PMM-client',
             name: 'SETUP_CLIENT')
         string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
     }
     options {
         skipDefaultCheckout()
@@ -102,7 +102,7 @@ pipeline {
                     '''
                     script {
                         env.PUBLIC_IP = sh(
-                            returnStdout: true, 
+                            returnStdout: true,
                             script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
                         ).trim()
                     }
@@ -134,29 +134,29 @@ pipeline {
         }
         stage('Run PMM Server') {
             steps {
-                sh """
-                    sudo mkdir -p /srv/pmm-qa || :
+                sh '''
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
                     pushd /srv/pmm-qa
-                        sudo git clone https://github.com/percona/pmm-qa.git .
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                         sudo chmod 755 get_download_link.sh
                     popd
-                    sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                    pushd pmm-ui-tests
+                    pushd /srv/pmm-qa/codeceptjs-e2e
                     PWD=\$(pwd) docker-compose up -d mysql
                     PWD=\$(pwd) docker-compose up -d mongo
                     PWD=\$(pwd) docker-compose up -d postgres
                     PWD=\$(pwd) docker-compose up -d proxysql
                     popd
-                """
+                '''
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
-                sh """
-                    pushd pmm-ui-tests
+                sh '''
+                    pushd /srv/pmm-qa/codeceptjs-e2e
                     bash -x testdata/db_setup.sh
                     popd
-                """
+                '''
                 sh '''
                     curl -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION} > /dev/null
                 '''
@@ -202,7 +202,7 @@ pipeline {
                     sleep 120
                 '''
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         set +x
                         mkdir -p /tmp/${VM_NAME}
                         rm -rf /tmp/${VM_NAME}/sshkey
@@ -212,7 +212,7 @@ pipeline {
                         cat "/tmp/${VM_NAME}/sshkey.pub" > PUB_KEY
                         chmod 600 /tmp/${VM_NAME}/sshkey
                         set -x
-                    """
+                    '''
                 }
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP | cut -f1 -d' '").trim()
@@ -223,7 +223,7 @@ pipeline {
 
                 setupPMMClient(env.PUBLIC_IP, params.CLIENT_VERSION, 'pmm', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
 
-                sh """
+                sh '''
                     set -o errexit
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
@@ -237,12 +237,12 @@ pipeline {
                         --pmm-server-ip=${PUBLIC_IP}
                     sleep 10
                     pmm-admin list
-                """
+                '''
             }
         }
         stage('Start UI Tests') {
             steps {
-                runUITests(env.CLIENT_VERSION, 'yes', env.PUBLIC_IP, params.GIT_BRANCH, env.CLIENTS)
+                runUITests(env.CLIENT_VERSION, 'yes', env.PUBLIC_IP, params.PMM_QA_GIT_BRANCH, env.CLIENTS)
             }
         }
     }
@@ -250,7 +250,7 @@ pipeline {
     post {
         always {
             sh '''
-                pushd pmm-ui-tests
+                pushd /srv/pmm-qa/codeceptjs-e2e
                 docker-compose down
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true

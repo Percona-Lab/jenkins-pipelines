@@ -16,45 +16,6 @@ void build(String IMAGE_SUFFIX){
         fi
     """
 }
-void checkImageForDocker(String IMAGE_SUFFIX){
-    try {
-             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-                sh """
-                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
-                    IMAGE_NAME='percona-server-mongodb-operator'
-                    MONGODB_VER=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'mongod')
-                    PATH_TO_DOCKERFILE="source/percona-server-mongodb-\${MONGODB_VER}"
-                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
-                    if [ ${IMAGE_SUFFIX} = backup ]; then
-                        PATH_TO_DOCKERFILE="source/percona-backup-mongodb"
-                    elif [ ${IMAGE_SUFFIX} = operator ]; then
-                        PATH_TO_DOCKERFILE="operator-source/build"
-                        IMAGE_TAG=${GIT_BRANCH}
-                    fi
-
-                    sg docker -c "
-                        set -e
-                        docker login -u '${USER}' -p '${PASS}'
-
-                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                    "
-                """
-             }
-    } catch (Exception e) {
-        echo "Stage failed: ${e.getMessage()}"
-        sh """
-            exit 1
-        """
-    } finally {
-         echo "Executing post actions..."
-         sh """
-             IMAGE_SUFFIX=${IMAGE_SUFFIX}
-             snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
-         """
-        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-    }
-}
 
 void pushImageToDocker(String IMAGE_SUFFIX){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -62,11 +23,36 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             sg docker -c "
                 set -e
-                docker login -u '${USER}' -p '${PASS}'
+                echo "\$PASS" | docker login -u "\$USER" --password-stdin
                 docker push perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
                 docker logout
             "
             echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
+        """
+    }
+}
+void checkImagesForDocker(String imagesListPath){
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            IMAGES_LIST_PATH='${imagesListPath}'
+
+            while IFS= read -r IMAGE || [ -n "\$IMAGE" ]; do
+                [ -z "\$IMAGE" ] && continue
+                IMAGE_ID=\$(echo "\$IMAGE" | sed 's#[/:]#-#g')
+                TrivyLog="$WORKSPACE/trivy-hight-\${IMAGE_ID}.xml"
+
+                sg docker -c "
+                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
+                    docker logout
+                "
+            done < "\$IMAGES_LIST_PATH"
+
+            for REPORT in trivy-hight-*.xml; do
+                [ -f "\$REPORT" ] || continue
+                IMAGE_ID=\$(basename "\$REPORT" .xml | sed 's/^trivy-hight-//')
+                perl -pi -e 's/<testcase classname="/<testcase classname="'"\$IMAGE_ID"' :: /g; s/<testcase name="/<testcase name="'"\$IMAGE_ID"' :: /g' "\$REPORT"
+            done
         """
     }
 }
@@ -83,6 +69,29 @@ void generateImageSummary(filePath) {
 
     report += "</ul>\n"
     return report
+}
+
+String getTrivyCveSummary(String reportGlob) {
+    int highCount = 0
+    int criticalCount = 0
+    String perImageSummary = ''
+
+    findFiles(glob: reportGlob).each { file ->
+        def report = readFile(file.path)
+        int imageHighCount = report.split('\\[HIGH\\]', -1).size() - 1
+        int imageCriticalCount = report.split('\\[CRITICAL\\]', -1).size() - 1
+        String imageName = file.name.replaceFirst('^trivy-hight-', '').replaceFirst('\\.xml$', '')
+
+        highCount += imageHighCount
+        criticalCount += imageCriticalCount
+        perImageSummary += "*${imageName}*\n*CRITICAL* `${imageCriticalCount}` *HIGH* `${imageHighCount}`\n"
+    }
+
+    if (highCount == 0 && criticalCount == 0) {
+        return ''
+    }
+
+    return "\n*CVEs found:*\n${perImageSummary}\n"
 }
 pipeline {
     parameters {
@@ -108,8 +117,8 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+        TRIVY_VERSION = '0.69.3'
     }
     options {
         skipDefaultCheckout()
@@ -121,10 +130,15 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
-                    chmod +x snyk
-                    sudo mv ./snyk /usr/local/bin/
-                    sudo npm install snyk-to-html -g
+                    TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
+                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                    echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz" | sha256sum -c -
+                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                    rm -f trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+
+                    if [ ! -f /tmp/junit.tpl ]; then
+                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                    fi
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -152,7 +166,7 @@ pipeline {
                             sh '''
                                 docker buildx create --use
                                 sg docker -c "
-                                    docker login -u '${USER}' -p '${PASS}'
+                                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
                                     pushd source
                                     export IMAGE=perconalab/percona-server-mongodb-operator:${GIT_BRANCH}
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
@@ -205,47 +219,14 @@ pipeline {
                 pushImageToDocker('backup')
             }
         }
-       stage('Snyk CVEs Check') {
-            parallel {
-                stage('psmdb operator'){
-                    steps {
-                        checkImageForDocker('operator')
-                    }
-                }
-                stage('mongod6.0'){
-                    steps {
-                        checkImageForDocker('mongod6.0')
-                    }
-                }
-                stage('mongod7.0'){
-                    steps {
-                        checkImageForDocker('mongod7.0')
-                    }
-                }
-                stage('mongod8.0'){
-                    steps {
-                        checkImageForDocker('mongod8.0')
-                    }
-                }
-                stage('mongod6.0-debug'){
-                    steps {
-                        checkImageForDocker('mongod6.0-debug')
-                    }
-                }
-                stage('mongod7.0-debug'){
-                    steps {
-                        checkImageForDocker('mongod7.0-debug')
-                    }
-                }
-                stage('mongod8.0-debug'){
-                    steps {
-                        checkImageForDocker('mongod8.0-debug')
-                    }
-                }
-                stage('PBM'){
-                    steps {
-                        checkImageForDocker('backup')
-                    }
+        stage('Check PSMDB docker images') {
+            steps {
+                checkImagesForDocker('list-of-images.txt')
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-hight-*.xml"
+                    archiveArtifacts artifacts: "trivy-hight-*.xml", allowEmptyArchive: true
                 }
             }
         }
@@ -262,17 +243,25 @@ pipeline {
                 // Also save as a file if needed
                  writeFile(file: 'image-summary.html', text: summary)
             }
+        }
+        unstable {
+            script {
+                def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
+                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of *PSMDB* operator docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
+            }
+        }
+        failure {
+            script {
+                def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
+                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of *PSMDB* operator docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
+            }
+        }
+        cleanup {
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
             '''
             deleteDir()
-        }
-        unstable {
-            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PSMDB docker images unstable. Please check the log ${BUILD_URL}"
-        }
-        failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMDB docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }

@@ -3,14 +3,13 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM_SERVER_LATEST, String ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
-    upgradeJob = build job: 'pmm-ami-upgrade-tests', parameters: [
-        string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
+void runAMIUpgradeJob(String PMM_QA_GIT_BRANCH, String PMM_VERSION, String PMM_SERVER_LATEST, String ENABLE_TESTING_REPO) {
+    build job: 'pmm-ami-upgrade-tests', parameters: [
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
         string(name: 'SERVER_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_BRANCH)
     ]
 }
 
@@ -32,7 +31,7 @@ def parallelStagesMatrix = versions.collectEntries {String it ->
 def generateStage(String version, String latest, String enableRepo) {
     return {
         stage("${version}") {
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, latest, enableRepo, PMM_QA_BRANCH)
+            runAMIUpgradeJob(PMM_QA_GIT_BRANCH, version, latest, enableRepo)
         }
     }
 }
@@ -43,13 +42,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'PMM_UI_TESTS_BRANCH')
-        string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_BRANCH')
+            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['3-dev-latest', 'release candidate'],
             description: 'Upgrade to:',

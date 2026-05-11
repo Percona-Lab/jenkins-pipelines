@@ -2,6 +2,14 @@ tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
+String getPillarVersionKey() {
+    return "$PILLAR_VERSION".replace('-postgis', '')
+}
+
+Boolean usePostgisImage() {
+    return "$PILLAR_VERSION".endsWith('-postgis')
+}
+
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
@@ -17,16 +25,18 @@ String getParam(String paramName, String keyName = null) {
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
+        def pillarVersionKey = getPillarVersionKey()
+        def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
 
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
-        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
-        IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
+        env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
+        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${pillarVersionKey}")
+        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${pillarVersionKey}")
+        env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        env.IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
+        env.IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
+        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
         }
@@ -35,32 +45,28 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER="4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
-    }
-    echo "OC_VER=$OC_VER"
+    } 
 
     if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
+    env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg18", , returnStdout: true).trim()
+    echo "DB_TAG is $DB_TAG"
 }
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
+    checkout(scm)
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
 
-    initParams()
+}
 
+void createHash() {
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
@@ -72,7 +78,7 @@ void prepareAgent() {
         sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
@@ -83,11 +89,11 @@ void prepareAgent() {
 
         kubectl krew install assert
 
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
+        # v0.25.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
 }
@@ -101,7 +107,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
+                    echo '$PASS' | docker login -u '$USER' --password-stdin
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     make build-docker-image
                     docker logout
@@ -135,7 +141,7 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
@@ -188,10 +194,62 @@ void clusterRunner(String cluster) {
     }
 }
 
+void enableVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        for i in \$(seq 1 60); do
+            if kubectl get crd csisnapshotcontrollers.operator.openshift.io >/dev/null 2>&1; then
+                break
+            fi
+            sleep 10
+        done
+
+        cat <<EOF | kubectl apply -f -
+apiVersion: operator.openshift.io/v1
+kind: CSISnapshotController
+metadata:
+  name: cluster
+spec:
+  managementState: Managed
+EOF
+
+        kubectl get csisnapshotcontroller cluster -o yaml
+    """
+}
+
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        wait_for_deployment() {
+            local deployment_name="\$1"
+            local namespace="\$2"
+
+            for i in \$(seq 1 60); do
+                if kubectl get deployment "\$deployment_name" -n "\$namespace" >/dev/null 2>&1; then
+                    kubectl wait --for=condition=Available deployment/"\$deployment_name" -n "\$namespace" --timeout=10m
+                    return 0
+                fi
+                sleep 10
+            done
+
+            kubectl get deployment -n "\$namespace" || true
+            return 1
+        }
+
+        wait_for_deployment csi-snapshot-controller-operator openshift-cluster-storage-operator
+        wait_for_deployment csi-snapshot-controller openshift-cluster-storage-operator
+
+        kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+        kubectl api-resources --api-group=snapshot.storage.k8s.io
+    """
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
         sh """
             mkdir -p openshift/$CLUSTER_SUFFIX
             timestamp="\$(date +%s)"
@@ -255,6 +313,9 @@ EOF
             }
         }
     }
+
+    enableVolumeSnapshotResources(CLUSTER_SUFFIX)
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {
@@ -277,7 +338,7 @@ void runTest(Integer TEST_ID) {
                     export PG_VER=$PG_VER
                     if [[ "$IMAGE_POSTGRESQL" ]]; then
                         export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
-                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')
                     fi
                     export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
                     export IMAGE_BACKREST=$IMAGE_BACKREST
@@ -318,7 +379,7 @@ void runTest(Integer TEST_ID) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
@@ -360,7 +421,7 @@ PLATFORM_VER=$PLATFORM_VER"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
         sshagent(['aws-openshift-41-key']) {
             sh """
                 export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
@@ -380,32 +441,30 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 }
 
 pipeline {
-    environment {
-        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg17", , returnStdout: true).trim()
-    }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
-        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
-        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
-        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
+        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
         string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
-        choice(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
+        choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
     }
     agent {
-        label 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -418,7 +477,10 @@ pipeline {
             steps {
                 script { deleteDir() }
                 prepareSources()
+                //initParams on openshift should be before prepareAgent. Bc OC_VER and PLATFORM_VER are assigned in initParams and required for prepareAgent (oc install).
+                initParams()
                 prepareAgent()
+                createHash()
             }
         }
         stage('Docker Build and Push') {
@@ -433,12 +495,12 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             parallel {
                 stage('cluster1') {
                     agent {
-                        label 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -448,7 +510,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -458,7 +520,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -468,7 +530,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -483,12 +545,23 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                try {
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_POSTGRESQL,
+                        operatorImage: IMAGE_OPERATOR
+                    )
+
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
 
                 clusters.each { shutdownCluster(it) }

@@ -53,9 +53,11 @@ node_setups = [
     "min-buster-x64": setup_debian_package_tests,
     "min-bullseye-x64": setup_debian_package_tests,
     "min-bookworm-x64": setup_debian_package_tests,
-    "min-centos-7-x64": setup_rhel_package_tests,
+    "min-trixie-x64": setup_debian_package_tests,
     "min-ol-8-x64": setup_ol8_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
+    "min-rhel-10-x64": setup_rhel_package_tests,
+    "min-al2023-x64": setup_rhel_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
     "min-noble-x64": setup_ubuntu_package_tests
@@ -105,11 +107,14 @@ pipeline {
             choices: [
                 'min-ol-8-x64',
                 'min-ol-9-x64',
+                'min-rhel-10-x64',
+                'min-al2023-x64',
                 'min-focal-x64',
                 'min-jammy-x64',
                 'min-noble-x64',
                 'min-bullseye-x64',
-                'min-bookworm-x64'
+                'min-bookworm-x64',
+                'min-trixie-x64'
             ],
             description: 'Node to run tests on',
             name: 'node_to_test'

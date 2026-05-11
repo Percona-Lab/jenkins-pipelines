@@ -92,49 +92,49 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "create", env.PLATFORM)
             }
         }
     }
     stage ('Prepare VM for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "prepare", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "prepare", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test with old version') {
       steps {
           script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "converge", env.PLATFORM, "VERSION", env.FROM_VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPSMDB(moleculeDir, "converge", env.PLATFORM, "VERSION", env.FROM_VERSION)
             }
         }
     }
     stage ('Start testinfra tests for old version') {
       steps {
             script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.FROM_VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPSMDB(moleculeDir, "verify", env.PLATFORM, "VERSION", env.FROM_VERSION)
             }
         }
     }
     stage ('Run playbook for test with new version') {
       steps {
           script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "side-effect", env.PLATFORM, "VERSION", env.VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPSMDB(moleculeDir, "side-effect", env.PLATFORM, "VERSION", env.VERSION)
             }
         }
     }
     stage ('Start testinfra tests for new version') {
       steps {
             script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPSMDB(moleculeDir, "verify", env.PLATFORM, "VERSION", env.VERSION)
             }
         }
     }
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -142,7 +142,7 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "destroy", env.PLATFORM)
         }
     }
   }

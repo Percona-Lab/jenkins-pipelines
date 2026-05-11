@@ -15,7 +15,7 @@ String getParam(String paramName, String keyName = null) {
 
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    checkout(scm)
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -50,13 +50,26 @@ void prepareNode() {
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.19.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
+        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
     """
+
+    installAzureCLI()
+    azureAuth()
 
     if ("$IMAGE_PXC") {
         release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
@@ -144,7 +157,7 @@ void initTests() {
 void clusterRunner(String cluster) {
     sh """
         export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
     """
 
     for (int i=0; i<tests.size(); i++) {
@@ -250,88 +263,50 @@ PLATFORM_VER=$PLATFORM_VER"""
     )
 }
 
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        fi
+    """
+}
+
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
         DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
-        choice(
-            choices: ['run-minikube.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN')
-        choice(
-            choices: 'none\n84\n80\n57',
-            description: 'Implies release run.',
-            name: 'PILLAR_VERSION')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
-            description: 'percona-xtradb-cluster-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'Minikube kubernetes version. If set to rel, value will be automatically taken from release_versions file.',
-            name: 'PLATFORM_VER')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'IMAGE_OPERATOR')
-        string(
-            defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
-            name: 'IMAGE_PXC')
-        string(
-            defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql',
-            name: 'IMAGE_PROXY')
-        string(
-            defaultValue: '',
-            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy',
-            name: 'IMAGE_HAPROXY')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup',
-            name: 'IMAGE_BACKUP')
-        string(
-            defaultValue: '',
-            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
-            name: 'IMAGE_LOGCOLLECTOR')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
-        string(
-            defaultValue: '',
-            description: 'ex: perconalab/pmm-client:3-dev-latest',
-            name: 'IMAGE_PMM3_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'ex: perconalab/pmm-server:3-dev-latest',
-            name: 'IMAGE_PMM3_SERVER')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Run tests with debug',
-            name: 'DEBUG_TESTS')
+        choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80', '57'], description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository')
+        string(name: 'GIT_REPO', defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator', description: 'percona-xtradb-cluster-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Minikube kubernetes version. If set to rel, value will be automatically taken from release_versions file.')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main')
+        string(name: 'IMAGE_PXC', defaultValue: '', description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0')
+        string(name: 'IMAGE_PROXY', defaultValue: '', description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql')
+        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'PMM client image: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'PMM server image: perconalab/pmm-server:dev-latest')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
+        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
     }
     agent {
         label 'docker-32gb'
@@ -373,8 +348,18 @@ pipeline {
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                try {
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_PXC,
+                        operatorImage: IMAGE_OPERATOR
+                    )
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
             }
 

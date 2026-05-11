@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -118,7 +118,13 @@ initMap['docker'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    sudo yum -y install java-17-amazon-corretto git docker cronie unzip
+    sudo yum -y install java-17-amazon-corretto git cronie unzip dnf-plugins-core
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    sudo sed -i 's/$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
+    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+        sleep 1
+        echo try again
+    done
     sudo yum -y remove awscli
     sudo systemctl enable crond
     sudo systemctl start crond
@@ -181,7 +187,13 @@ initMap['docker-32gb'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    sudo yum -y install java-17-amazon-corretto git docker cronie unzip
+    sudo yum -y install java-17-amazon-corretto git cronie unzip dnf-plugins-core
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    sudo sed -i 's/$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
+    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+        sleep 1
+        echo try again
+    done
     sudo yum -y remove awscli
     sudo systemctl enable crond
     sudo systemctl start crond
@@ -315,7 +327,7 @@ initMap['debMap'] = '''
 
     if [[ ${DEB_VER} == "trixie" ]]; then
         JAVA_VER="openjdk-21-jre-headless"
-    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
+    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
@@ -491,7 +503,7 @@ labelMap['min-noble-x64']     = ''
 labelMap['psmdb']             = ''
 labelMap['psmdb-bionic']      = ''
 
-labelMap['docker-64gb-aarch64']  = ''
+labelMap['docker-64gb-aarch64']  = 'docker-32gb-aarch64'
 labelMap['min-al2023-aarch64']   = ''
 labelMap['min-jammy-aarch64']    = ''
 labelMap['min-noble-aarch64']    = ''
@@ -557,7 +569,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('Name', 'jenkins-psmdb-' + OSType),
             new EC2Tag('iit-billing-tag', 'jenkins-psmdb-slave')
         ],                                          // List<EC2Tag> tags
-        '3',                                        // String idleTerminationMinutes
+        '15',                                       // String idleTerminationMinutes
         0,                                          // Init minimumNumberOfInstances
         0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
@@ -590,7 +602,7 @@ String sshKeysCredentialsId = '87fbc2e7-40f8-45ba-b9a7-b92cdd2a90b3'
 String region = 'us-west-2'
 ('b'..'b').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -635,7 +647,7 @@ String region = 'us-west-2'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

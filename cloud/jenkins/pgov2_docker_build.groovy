@@ -1,35 +1,3 @@
-void checkImageForDocker(String IMAGE_SUFFIX){
-    try {
-             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-                sh """
-                    IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-                    IMAGE_NAME="percona-postgresql-operator"
-                    PATH_TO_DOCKERFILE="/source/build/postgres-operator"
-
-                    sg docker -c "
-                        set -e
-                        docker login -u '${USER}' -p '${PASS}'
-
-                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --severity-threshold=high --json-file-output=\${IMAGE_TAG}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                    "
-                """
-             }
-    } catch (Exception e) {
-        echo "Stage failed: ${e.getMessage()}"
-        sh """
-            exit 1
-        """
-    } finally {
-         echo "Executing post actions..."
-         sh """
-             IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-             snyk-to-html -i \${IMAGE_TAG}-report.json -o \${IMAGE_TAG}-report.html
-         """
-        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-    }
-}
-
 void generateImageSummary(filePath) {
     def images = readFile(filePath).trim().split("\n")
 
@@ -43,6 +11,54 @@ void generateImageSummary(filePath) {
 
     report += "</ul>\n"
     return report
+}
+void checkImagesForDocker(String imagesListPath){
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            IMAGES_LIST_PATH='${imagesListPath}'
+
+            while IFS= read -r IMAGE || [ -n "\$IMAGE" ]; do
+                [ -z "\$IMAGE" ] && continue
+                IMAGE_ID=\$(echo "\$IMAGE" | sed 's#[/:]#-#g')
+                TrivyLog="$WORKSPACE/trivy-hight-\${IMAGE_ID}.xml"
+
+                sg docker -c "
+                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
+                    docker logout
+                "
+            done < "\$IMAGES_LIST_PATH"
+
+            for REPORT in trivy-hight-*.xml; do
+                [ -f "\$REPORT" ] || continue
+                IMAGE_ID=\$(basename "\$REPORT" .xml | sed 's/^trivy-hight-//')
+                perl -pi -e 's/<testcase classname="/<testcase classname="'"\$IMAGE_ID"' :: /g; s/<testcase name="/<testcase name="'"\$IMAGE_ID"' :: /g' "\$REPORT"
+            done
+        """
+    }
+}
+
+String getTrivyCveSummary(String reportGlob) {
+    int highCount = 0
+    int criticalCount = 0
+    String perImageSummary = ''
+
+    findFiles(glob: reportGlob).each { file ->
+        def report = readFile(file.path)
+        int imageHighCount = report.split('\\[HIGH\\]', -1).size() - 1
+        int imageCriticalCount = report.split('\\[CRITICAL\\]', -1).size() - 1
+        String imageName = file.name.replaceFirst('^trivy-hight-', '').replaceFirst('\\.xml$', '')
+
+        highCount += imageHighCount
+        criticalCount += imageCriticalCount
+        perImageSummary += "*${imageName}*\n*CRITICAL* `${imageCriticalCount}` *HIGH* `${imageHighCount}`\n"
+    }
+
+    if (highCount == 0 && criticalCount == 0) {
+        return ''
+    }
+
+    return "\n*CVEs found:*\n${perImageSummary}\n"
 }
 
 pipeline {
@@ -61,8 +77,8 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+        TRIVY_VERSION = '0.69.3'
     }
     options {
         skipDefaultCheckout()
@@ -75,13 +91,17 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     sh """
-                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
-                    chmod +x snyk
-                    sudo mv ./snyk /usr/local/bin/
+                        TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
+                        wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                        echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz" | sha256sum -c -
+                        sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                        rm -f trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
 
-                    sudo npm install snyk-to-html -g
+                        if [ ! -f /tmp/junit.tpl ]; then
+                            wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                        fi
+
                         export GIT_REPO=\$(echo \${GIT_REPO} | sed "s#github.com#\${GITHUB_TOKEN}@github.com#g")
-
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
                         sudo git config --global --add safe.directory '*'
@@ -117,7 +137,7 @@ pipeline {
                                         cp "${docker_key}" ~/.docker/trust/private/
                                     fi
 
-                                    docker login -u '${USER}' -p '${PASS}'
+                                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
                                     docker buildx create --use
 
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build-docker-image
@@ -131,12 +151,14 @@ pipeline {
                 }
             }
         }
-        stage('Snyk CVEs Checks') {
-            parallel {
-                stage('postgres-operator'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH')
-                    }
+        stage('Check PGv2 docker images') {
+            steps {
+                checkImagesForDocker('./source/list-of-images.txt')
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-hight-*.xml"
+                    archiveArtifacts artifacts: "trivy-hight-*.xml", allowEmptyArchive: true
                 }
             }
         }
@@ -157,17 +179,25 @@ pipeline {
                     echo 'No ./source/list-of-images.txt file found - skipping summary generation'
                 }
             }
+        }
+        unstable {
+            script {
+                def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
+                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of *PGv2* operator docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
+            }
+        }
+        failure {
+            script {
+                def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
+                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of *PGv2* operator docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
+            }
+        }
+        cleanup {
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
             '''
             deleteDir()
-        }
-        unstable {
-            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PGv2 docker images unstable. Please check the log ${BUILD_URL}"
-        }
-        failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PGv2 docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }

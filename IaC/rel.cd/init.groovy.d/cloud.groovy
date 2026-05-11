@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -41,6 +41,7 @@ imageMap['eu-west-1a.min-buster-x64']    = 'ami-00aa3f69e07141166'
 imageMap['eu-west-1a.min-trixie-x64']    = 'ami-04034bfd5da1fa2ed'
 imageMap['eu-west-1a.min-jammy-x64']     = 'ami-0d2f9b5f04091bdb7'
 imageMap['eu-west-1a.min-noble-x64']     = 'ami-0776c814353b4814d'
+imageMap['eu-west-1a.min-resolute-x64']     = 'ami-0de864d6a3bd20ea8'
 imageMap['eu-west-1a.min-focal-x64']     = 'ami-051d5c7c7ec9cf96c'
 imageMap['eu-west-1a.min-bionic-x64']    = 'ami-027ceacf6a9f484c3'
 imageMap['eu-west-1a.min-hirsute-x64-zenfs'] = 'ami-02469e1cc9f95b137'
@@ -69,6 +70,7 @@ imageMap['eu-west-1b.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1b.min-trixie-x64']   = imageMap['eu-west-1a.min-trixie-x64']
 imageMap['eu-west-1b.min-jammy-x64']    = imageMap['eu-west-1a.min-jammy-x64']
 imageMap['eu-west-1b.min-noble-x64']    = imageMap['eu-west-1a.min-noble-x64']
+imageMap['eu-west-1b.min-resolute-x64']    = imageMap['eu-west-1a.min-resolute-x64']
 imageMap['eu-west-1b.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64']
 imageMap['eu-west-1b.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1b.min-hirsute-x64-zenfs'] = imageMap['eu-west-1a.min-hirsute-x64-zenfs']
@@ -96,6 +98,7 @@ imageMap['eu-west-1c.min-buster-x64']   = imageMap['eu-west-1a.min-buster-x64']
 imageMap['eu-west-1c.min-trixie-x64']   = imageMap['eu-west-1a.min-trixie-x64']
 imageMap['eu-west-1c.min-jammy-x64']    = imageMap['eu-west-1a.min-jammy-x64']
 imageMap['eu-west-1c.min-noble-x64']    = imageMap['eu-west-1a.min-noble-x64']
+imageMap['eu-west-1c.min-resolute-x64']    = imageMap['eu-west-1a.min-resolute-x64']
 imageMap['eu-west-1c.min-focal-x64']    = imageMap['eu-west-1a.min-focal-x64']
 imageMap['eu-west-1c.min-bionic-x64']   = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-hirsute-x64-zenfs'] = imageMap['eu-west-1a.min-hirsute-x64-zenfs']
@@ -107,6 +110,7 @@ imageMap['eu-west-1a.docker-64gb-aarch64']  = 'ami-0b3f5005d71118f36'
 imageMap['eu-west-1a.min-al2023-aarch64']   = 'ami-0b24063151d1c59e7'
 imageMap['eu-west-1a.min-jammy-aarch64']    = 'ami-0fd301a23be2fbe30'
 imageMap['eu-west-1a.min-noble-aarch64']    = 'ami-0a636034c582e2138'
+imageMap['eu-west-1a.min-resolute-aarch64']    = 'ami-0a0f534ab418ceb0f'
 imageMap['eu-west-1a.min-bullseye-aarch64'] = 'ami-0083086bc808b1d71'
 imageMap['eu-west-1a.min-bookworm-aarch64'] = 'ami-02dda204c4af0aecc'
 imageMap['eu-west-1a.min-trixie-aarch64']   = 'ami-08aa48334e0370a03'
@@ -115,6 +119,7 @@ imageMap['eu-west-1b.docker-64gb-aarch64']  = imageMap['eu-west-1a.docker-64gb-a
 imageMap['eu-west-1b.min-al2023-aarch64']   = imageMap['eu-west-1a.min-al2023-aarch64']
 imageMap['eu-west-1b.min-jammy-aarch64']    = imageMap['eu-west-1a.min-jammy-aarch64']
 imageMap['eu-west-1b.min-noble-aarch64']    = imageMap['eu-west-1a.min-noble-aarch64']
+imageMap['eu-west-1b.min-resolute-aarch64']    = imageMap['eu-west-1a.min-resolute-aarch64']
 imageMap['eu-west-1b.min-bullseye-aarch64'] = imageMap['eu-west-1a.min-bullseye-aarch64']
 imageMap['eu-west-1b.min-bookworm-aarch64'] = imageMap['eu-west-1a.min-bookworm-aarch64']
 imageMap['eu-west-1b.min-trixie-aarch64']   = imageMap['eu-west-1a.min-trixie-aarch64']
@@ -124,6 +129,7 @@ imageMap['eu-west-1c.docker-64gb-aarch64']  = imageMap['eu-west-1a.docker-64gb-a
 imageMap['eu-west-1c.min-al2023-aarch64']   = imageMap['eu-west-1a.min-al2023-aarch64']
 imageMap['eu-west-1c.min-jammy-aarch64']    = imageMap['eu-west-1a.min-jammy-aarch64']
 imageMap['eu-west-1c.min-noble-aarch64']    = imageMap['eu-west-1a.min-noble-aarch64']
+imageMap['eu-west-1c.min-resolute-aarch64']    = imageMap['eu-west-1a.min-resolute-aarch64']
 imageMap['eu-west-1c.min-bullseye-aarch64'] = imageMap['eu-west-1a.min-bullseye-aarch64']
 imageMap['eu-west-1c.min-bookworm-aarch64'] = imageMap['eu-west-1a.min-bookworm-aarch64']
 imageMap['eu-west-1c.min-trixie-aarch64']   = imageMap['eu-west-1a.min-trixie-aarch64']
@@ -147,6 +153,7 @@ userMap['micro-amazon']      = userMap['docker']
 userMap['min-amazon-2-x64']  = userMap['docker']
 userMap['min-jammy-x64']     = 'ubuntu'
 userMap['min-noble-x64']     = 'ubuntu'
+userMap['min-resolute-x64']     = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-centos-7-x64']  = 'centos'
@@ -169,6 +176,7 @@ userMap['docker-64gb-aarch64'] = userMap['docker']
 userMap['min-al2023-aarch64']  = 'ec2-user'
 userMap['min-jammy-aarch64']   = 'ubuntu'
 userMap['min-noble-aarch64']   = 'ubuntu'
+userMap['min-resolute-aarch64']   = 'ubuntu'
 userMap['min-bullseye-aarch64'] = 'admin'
 userMap['min-bookworm-aarch64'] = 'admin'
 userMap['min-trixie-aarch64']   = 'admin'
@@ -267,8 +275,14 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-17-amazon-corretto-headless tzdata-java || :
+    if [[ -f /etc/os-release ]] && . /etc/os-release && [[ "${ID}" == "amzn" ]]; then
+        if command -v amazon-linux-extras >/dev/null 2>&1; then
+            sudo amazon-linux-extras install epel -y
+        fi
+        sudo yum -y install java-17-amazon-corretto-headless tzdata-java || :
+    else
+        sudo yum -y install java-17-openjdk-headless tzdata-java || :
+    fi
     sudo yum -y install git || :
     sudo yum -y install aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -368,7 +382,7 @@ initMap['min-buster-x64'] = '''
     else
         JAVA_VER="openjdk-17-jre-headless"
     fi
-    if [[ ${DEB_VER} == "trixie" ]] || [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "trixie" ]] || [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
@@ -382,6 +396,7 @@ initMap['min-buster-x64'] = '''
 '''
 initMap['min-jammy-x64'] = initMap['min-bionic-x64']
 initMap['min-noble-x64'] = initMap['min-bionic-x64']
+initMap['min-resolute-x64'] = initMap['min-bionic-x64']
 initMap['min-focal-x64'] = initMap['min-bionic-x64']
 initMap['min-bookworm-x64'] = initMap['min-buster-x64']
 initMap['min-bullseye-x64'] = initMap['min-buster-x64']
@@ -395,6 +410,7 @@ initMap['docker-64gb-aarch64'] = initMap['docker']
 initMap['min-al2023-aarch64']  = initMap['micro-amazon']
 initMap['min-jammy-aarch64']   = initMap['min-buster-x64']
 initMap['min-noble-aarch64']   = initMap['min-buster-x64']
+initMap['min-resolute-aarch64']   = initMap['min-buster-x64']
 initMap['min-bullseye-aarch64'] = initMap['min-buster-x64']
 initMap['min-bookworm-aarch64'] = initMap['min-buster-x64']
 initMap['min-trixie-aarch64']   = initMap['min-buster-x64']
@@ -424,6 +440,7 @@ typeMap['min-amazon-2-x64']  = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-noble-x64']     = typeMap['min-centos-7-x64']
+typeMap['min-resolute-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64']  = typeMap['min-centos-7-x64']
@@ -439,6 +456,7 @@ typeMap['docker-64gb-aarch64'] = 'm7g.4xlarge'
 typeMap['min-al2023-aarch64']  = typeMap['docker-32gb-aarch64']
 typeMap['min-jammy-aarch64']   = typeMap['docker-32gb-aarch64']
 typeMap['min-noble-aarch64']   = typeMap['docker-32gb-aarch64']
+typeMap['min-resolute-aarch64']   = typeMap['docker-32gb-aarch64']
 typeMap['min-bullseye-aarch64'] = typeMap['docker-32gb-aarch64']
 typeMap['min-bookworm-aarch64'] = typeMap['docker-32gb-aarch64']
 typeMap['min-trixie-aarch64']   = typeMap['docker-32gb-aarch64']
@@ -454,6 +472,7 @@ execMap['min-bionic-x64']    = '1'
 execMap['min-focal-x64']     = '1'
 execMap['min-jammy-x64']     = '1'
 execMap['min-noble-x64']     = '1'
+execMap['min-resolute-x64']     = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-centos-8-x64']  = '1'
@@ -474,6 +493,7 @@ execMap['docker-64gb-aarch64'] = execMap['docker']
 execMap['min-al2023-aarch64']  = '1'
 execMap['min-jammy-aarch64']   = '1'
 execMap['min-noble-aarch64']   = '1'
+execMap['min-resolute-aarch64']   = '1'
 execMap['min-bullseye-aarch64'] = '1'
 execMap['min-bookworm-aarch64'] = '1'
 execMap['min-trixie-aarch64']   = '1'
@@ -489,6 +509,7 @@ devMap['min-bionic-x64']        = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2
 devMap['min-focal-x64']         = devMap['min-bionic-x64']
 devMap['min-jammy-x64']         = devMap['min-bionic-x64']
 devMap['min-noble-x64']         = devMap['min-bionic-x64']
+devMap['min-resolute-x64']         = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']      = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']      = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
@@ -509,6 +530,7 @@ devMap['docker-64gb-aarch64'] = devMap['docker']
 devMap['min-al2023-aarch64']  = '/dev/xvda=:30:true:gp3,/dev/xvdd=:220:true:gp3'
 devMap['min-jammy-aarch64']   = '/dev/sda1=:30:true:gp3,/dev/sdd=:220:true:gp3'
 devMap['min-noble-aarch64']   = '/dev/sda1=:30:true:gp3,/dev/sdd=:220:true:gp3'
+devMap['min-resolute-aarch64']   = '/dev/sda1=:30:true:gp3,/dev/sdd=:220:true:gp3'
 devMap['min-bullseye-aarch64'] = '/dev/xvda=:30:true:gp3,/dev/sdd=:220:true:gp3'
 devMap['min-bookworm-aarch64'] = '/dev/xvda=:30:true:gp3,/dev/sdd=:220:true:gp3'
 devMap['min-trixie-aarch64']   = '/dev/xvda=:30:true:gp3,/dev/sdd=:220:true:gp3'
@@ -524,6 +546,7 @@ labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-focal-x64']     = ''
 labelMap['min-jammy-x64']     = ''
 labelMap['min-noble-x64']     = ''
+labelMap['min-resolute-x64']     = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64']  = ''
@@ -544,6 +567,7 @@ labelMap['docker-64gb-aarch64'] = ''
 labelMap['min-al2023-aarch64']  = ''
 labelMap['min-jammy-aarch64']   = ''
 labelMap['min-noble-aarch64']   = ''
+labelMap['min-resolute-aarch64']   = ''
 labelMap['min-bullseye-aarch64'] = ''
 labelMap['min-bookworm-aarch64'] = ''
 labelMap['min-trixie-aarch64']   = ''
@@ -559,6 +583,7 @@ jvmoptsMap['min-bionic-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-focal-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-noble-x64']     = jvmoptsMap['docker']
+jvmoptsMap['min-resolute-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-x64']  = jvmoptsMap['docker']
 jvmoptsMap['fips-centos-7-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-centos-8-x64']  = jvmoptsMap['docker']
@@ -579,6 +604,7 @@ jvmoptsMap['docker-64gb-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-aarch64']  = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-aarch64']   = jvmoptsMap['docker']
 jvmoptsMap['min-noble-aarch64']   = jvmoptsMap['docker']
+jvmoptsMap['min-resolute-aarch64']   = jvmoptsMap['docker']
 jvmoptsMap['min-bullseye-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-bookworm-aarch64'] = jvmoptsMap['min-bookworm-x64']
 jvmoptsMap['min-trixie-aarch64']   = jvmoptsMap['min-bookworm-x64']
@@ -609,7 +635,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('Name', 'jenkins-rel-' + OSType),
             new EC2Tag('iit-billing-tag', 'jenkins-rel-worker')
         ],                                          // List<EC2Tag> tags
-        '3',                                        // String idleTerminationMinutes
+        '15',                                       // String idleTerminationMinutes
         0,                                          // Init minimumNumberOfInstances
         0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
@@ -642,7 +668,7 @@ String sshKeysCredentialsId = '453041d3-f7eb-4ff3-a214-7c3767e36102'
 String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -658,6 +684,7 @@ String region = 'eu-west-1'
             getTemplate('min-amazon-2-x64',      "${region}${it}"),
             getTemplate('min-jammy-x64',         "${region}${it}"),
             getTemplate('min-noble-x64',         "${region}${it}"),
+            getTemplate('min-resolute-x64',         "${region}${it}"),
             getTemplate('min-focal-x64',         "${region}${it}"),
             getTemplate('min-bionic-x64',        "${region}${it}"),
             getTemplate('min-buster-x64',        "${region}${it}"),
@@ -678,6 +705,7 @@ String region = 'eu-west-1'
             getTemplate('min-al2023-aarch64',    "${region}${it}"),
             getTemplate('min-jammy-aarch64',     "${region}${it}"),
             getTemplate('min-noble-aarch64',     "${region}${it}"),
+            getTemplate('min-resolute-aarch64',     "${region}${it}"),
             getTemplate('min-bullseye-aarch64',  "${region}${it}"),
             getTemplate('min-bookworm-aarch64',  "${region}${it}"),
             getTemplate('min-trixie-aarch64',    "${region}${it}"),
@@ -688,7 +716,7 @@ String region = 'eu-west-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }
