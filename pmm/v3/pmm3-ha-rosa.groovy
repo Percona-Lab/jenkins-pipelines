@@ -604,20 +604,7 @@ EOF
                         helm repo update
 
                         helm dependency update charts/pmm-ha-dependencies
-                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm \
-                            --set altinity-clickhouse-operator.resources.requests.cpu=100m \
-                            --set altinity-clickhouse-operator.resources.requests.memory=128Mi \
-                            --set altinity-clickhouse-operator.resources.limits.cpu=500m \
-                            --set altinity-clickhouse-operator.resources.limits.memory=256Mi \
-                            --set victoria-metrics-operator.resources.requests.cpu=100m \
-                            --set victoria-metrics-operator.resources.requests.memory=128Mi \
-                            --set victoria-metrics-operator.resources.limits.cpu=500m \
-                            --set victoria-metrics-operator.resources.limits.memory=256Mi \
-                            --set pg-operator.resources.requests.cpu=100m \
-                            --set pg-operator.resources.requests.memory=128Mi \
-                            --set pg-operator.resources.limits.cpu=500m \
-                            --set pg-operator.resources.limits.memory=256Mi \
-                            --wait --timeout 10m
+                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
 
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
@@ -658,26 +645,6 @@ EOF
                         helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
-                            --set pmmResources.requests.cpu=1 \
-                            --set pmmResources.requests.memory=2Gi \
-                            --set clickhouse.resources.requests.cpu=500m \
-                            --set clickhouse.resources.requests.memory=2Gi \
-                            --set pg-db.instances[0].name=instance1 \
-                            --set pg-db.instances[0].replicas=3 \
-                            --set pg-db.instances[0].dataVolumeClaimSpec.accessModes[0]=ReadWriteOnce \
-                            --set pg-db.instances[0].dataVolumeClaimSpec.resources.requests.storage=5Gi \
-                            --set pg-db.instances[0].resources.requests.cpu=500m \
-                            --set pg-db.instances[0].resources.requests.memory=512Mi \
-                            --set pg-db.instances[0].resources.limits.cpu=1 \
-                            --set pg-db.instances[0].resources.limits.memory=1Gi \
-                            --set pg-db.proxy.pgBouncer.resources.requests.cpu=100m \
-                            --set pg-db.proxy.pgBouncer.resources.requests.memory=128Mi \
-                            --set pg-db.proxy.pgBouncer.resources.limits.cpu=250m \
-                            --set pg-db.proxy.pgBouncer.resources.limits.memory=256Mi \
-                            --set haproxy.resources.requests.cpu=250m \
-                            --set haproxy.resources.requests.memory=256Mi \
-                            --set haproxy.resources.limits.cpu=500m \
-                            --set haproxy.resources.limits.memory=512Mi \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
                             ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
 
@@ -740,13 +707,6 @@ EOF
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
 
-                        echo ""
-                        echo "All PMM HA components are ready."
-                        NOT_READY=$(oc get pods -n pmm --no-headers | grep -v -E "Running|Completed" | grep -v "node-exporter" || true)
-                        if [ -n "${NOT_READY}" ]; then
-                            echo "WARNING: Some non-critical pods are not ready:"
-                            echo "${NOT_READY}"
-                        fi
                         echo ""
                         oc get pods -n pmm
                     '''
