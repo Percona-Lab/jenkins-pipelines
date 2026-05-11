@@ -160,17 +160,20 @@ def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
         new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx42"),
-        new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
+        // Disabled while Hetzner CAX (ARM) capacity is exhausted across fsn1/hel1/nbg1.
+        // Tracks Hetzner status notice "Limited availability of cloud instances" (2026-04-28).
+        // Re-enable when Hetzner signals capacity restored.
+        // new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
         new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx42"),
-        new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
+        // new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
         new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx42"),
-        new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
+        // new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
         new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx62"),
-        new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
+        // new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
         new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx62"),
-        new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
+        // new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
         new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx62"),
-        new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
+        // new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
         new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx32"),
         new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx32"),
         new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx32")
