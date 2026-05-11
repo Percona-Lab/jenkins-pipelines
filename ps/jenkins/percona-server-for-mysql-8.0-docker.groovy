@@ -286,11 +286,12 @@ parameters {
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                            else
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                            fi
+                            #if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                            #    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            #else
+                            #    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            #fi
+                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             sudo docker tag ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-server:${PS_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server:${PS_RELEASE}-amd64
