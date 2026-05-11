@@ -5,7 +5,7 @@ pipeline {
             description: 'Which operator to generate the bundle for',
             name: 'OPERATOR')
         choice(
-            choices: ['community', 'redhat', 'marketplace', 'all'],
+            choices: ['community', 'redhat', 'all'],
             description: 'Which bundle to generate',
             name: 'BUNDLE_TYPE')
         string(
@@ -14,12 +14,16 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '',
-            description: 'The range of supported OpenShift versions, e.g. "v4.16-v4.19"',
+            description: 'The range of supported OpenShift versions, e.g. "v4.17-v4.21"',
             name: 'OPENSHIFT_VERSIONS')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for the operator repository',
             name: 'GIT_BRANCH')
+        booleanParam(
+            defaultValue: false,
+            description: 'Build and push the generated community bundle image',
+            name: 'PUSH_BUNDLE')
     }
     agent {
         label 'docker-x64-min'
@@ -61,7 +65,7 @@ pipeline {
         }
         stage('Build') {
             when {
-                expression { return params.BUNDLE_TYPE == 'community' }
+                expression { return params.PUSH_BUNDLE && params.BUNDLE_TYPE == 'community' }
             }
             steps {
                 sh """
@@ -73,7 +77,7 @@ pipeline {
         }
         stage('Push') {
             when {
-                expression { return params.BUNDLE_TYPE == 'community' }
+                expression { return params.PUSH_BUNDLE && params.BUNDLE_TYPE == 'community' }
             }
             steps {
                  sh """
