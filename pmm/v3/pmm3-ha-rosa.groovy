@@ -2,6 +2,9 @@ def cleanupCluster() {
     withCredentials([aws(credentialsId: 'pmm-staging-slave'),
                      string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
         sh '''
+            export AWS_RETRY_MODE=adaptive
+            export AWS_MAX_ATTEMPTS=10
+
             rosa login --token="${ROSA_TOKEN}"
 
             # Capture cluster ID before deletion (cluster may already be partly gone if create failed midway)
@@ -31,25 +34,58 @@ def cleanupCluster() {
 
             # Sweep AWS resources tied to this cluster's ID (catches what ROSA may leave behind)
             if [ -n "$CLUSTER_ID" ]; then
-                VPC_ID=$(aws ec2 describe-vpcs --region "${REGION}" \
+                VPC_IDS=$(aws ec2 describe-vpcs --region "${REGION}" \
                     --filters "Name=tag:Name,Values=${VPC_NAME}" "Name=state,Values=available" \
-                    --query 'Vpcs[0].VpcId' --output text 2>/dev/null)
-                if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
-                    echo "Sweeping AWS resources for cluster ID $CLUSTER_ID"
-                    for sub in $(aws ec2 describe-subnets --region "${REGION}" --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[*].SubnetId' --output text | tr '\\t' '\\n'); do
-                        aws ec2 delete-tags --region "${REGION}" --resources "$sub" --tags Key="kubernetes.io/cluster/${CLUSTER_ID}" 2>/dev/null || true
-                    done
-                    for vpce in $(aws ec2 describe-vpc-endpoints --region "${REGION}" --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:kubernetes.io/cluster/${CLUSTER_ID},Values=owned" --query 'VpcEndpoints[].VpcEndpointId' --output text | tr '\\t' '\\n'); do
-                        [ -z "$vpce" ] && continue
-                        echo "  Deleting VPC endpoint $vpce"
-                        aws ec2 delete-vpc-endpoints --region "${REGION}" --vpc-endpoint-ids "$vpce" || true
-                    done
-                    for sg in $(aws ec2 describe-security-groups --region "${REGION}" --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=${CLUSTER_ID}-*" --query 'SecurityGroups[].GroupId' --output text | tr '\\t' '\\n'); do
-                        [ -z "$sg" ] && continue
-                        echo "  Deleting SG $sg"
-                        aws ec2 delete-security-group --region "${REGION}" --group-id "$sg" || true
-                    done
+                    --query 'Vpcs[].VpcId' --output text)
+                VPC_COUNT=$(echo $VPC_IDS | wc -w)
+                if [ "$VPC_COUNT" -ne 1 ]; then
+                    echo "Expected exactly 1 VPC matching ${VPC_NAME}, found $VPC_COUNT: $VPC_IDS"
+                    exit 1
                 fi
+                VPC_ID="$VPC_IDS"
+
+                echo "Sweeping AWS resources for cluster ID $CLUSTER_ID in VPC $VPC_ID"
+
+                # Strip cluster tags from subnets tagged for this cluster (batched into one call)
+                SUBNETS=$(aws ec2 describe-subnets --region "${REGION}" \
+                    --filters "Name=vpc-id,Values=$VPC_ID" \
+                              "Name=tag:kubernetes.io/cluster/${CLUSTER_ID},Values=owned,shared" \
+                    --query 'Subnets[].SubnetId' --output text)
+                if [ -n "$SUBNETS" ]; then
+                    aws ec2 delete-tags --region "${REGION}" \
+                        --resources $SUBNETS --tags Key="kubernetes.io/cluster/${CLUSTER_ID}"
+                fi
+
+                # Delete VPC endpoints (batched into one call)
+                VPCES=$(aws ec2 describe-vpc-endpoints --region "${REGION}" \
+                    --filters "Name=vpc-id,Values=$VPC_ID" \
+                              "Name=tag:kubernetes.io/cluster/${CLUSTER_ID},Values=owned" \
+                    --query 'VpcEndpoints[].VpcEndpointId' --output text)
+                if [ -n "$VPCES" ]; then
+                    echo "  Deleting VPC endpoints: $VPCES"
+                    aws ec2 delete-vpc-endpoints --region "${REGION}" --vpc-endpoint-ids $VPCES
+                fi
+
+                # Two-pass SG cleanup: revoke all rules first to break cross-references, then delete
+                SGS=$(aws ec2 describe-security-groups --region "${REGION}" \
+                    --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=${CLUSTER_ID}-*" \
+                    --query 'SecurityGroups[].GroupId' --output text)
+
+                for sg in $SGS; do
+                    INGRESS=$(aws ec2 describe-security-groups --region "${REGION}" --group-ids "$sg" \
+                        --query 'SecurityGroups[0].IpPermissions' --output json)
+                    EGRESS=$(aws ec2 describe-security-groups --region "${REGION}" --group-ids "$sg" \
+                        --query 'SecurityGroups[0].IpPermissionsEgress' --output json)
+                    [ "$INGRESS" != "[]" ] && aws ec2 revoke-security-group-ingress --region "${REGION}" \
+                        --group-id "$sg" --ip-permissions "$INGRESS"
+                    [ "$EGRESS" != "[]" ] && aws ec2 revoke-security-group-egress --region "${REGION}" \
+                        --group-id "$sg" --ip-permissions "$EGRESS"
+                done
+
+                for sg in $SGS; do
+                    echo "  Deleting SG $sg"
+                    aws ec2 delete-security-group --region "${REGION}" --group-id "$sg"
+                done
             fi
         '''
     }
