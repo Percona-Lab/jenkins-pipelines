@@ -100,6 +100,7 @@ void generateImageSummary(filePath) {
     report += "</ul>\n"
     return report
 }
+
 pipeline {
     parameters {
         string(
@@ -110,6 +111,11 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
             name: 'GIT_PD_REPO')
+        choice(
+            name: 'IMAGE_TO_BUILD',
+            choices: "all\npgbackrest\npgbouncer\npostgres\npostgres-gis\nupgrade",
+            description: 'Select which image to build and push'
+        )
     }
     agent {
          label 'docker-x64'
@@ -150,30 +156,36 @@ pipeline {
                    export GIT_BRANCH=$GIT_PD_BRANCH
                    ./cloud/local/checkout
                 """
-                retry(3) {
-                    build('pgbackrest')
-                }
-                retry(3) {
-                    build('pgbouncer')
-                }
-                retry(3) {
-                    build('postgres')
-                }
-                retry(3) {
-                    build('postgres-gis')
-                }
-                retry(3) {
-                    buildUpgrade('upgrade')
+                script {
+                    def selectedImages = params.IMAGE_TO_BUILD == 'all'
+                        ? ['pgbackrest', 'pgbouncer', 'postgres', 'postgres-gis', 'upgrade']
+                        : [params.IMAGE_TO_BUILD]
+
+                    for (img in selectedImages) {
+                        if (img == 'upgrade') {
+                            retry(3) { buildUpgrade('upgrade') }
+                        } else {
+                            retry(3) { build(img) }
+                        }
+                    }
                 }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
-                pushImageToDockerHub('pgbackrest')
-                pushImageToDockerHub('pgbouncer')
-                pushImageToDockerHub('postgres')
-                pushImageToDockerHub('postgres-gis')
-                pushUpgradeImageToDockerHub('upgrade')
+                script {
+                    def selectedImages = params.IMAGE_TO_BUILD == 'all'
+                        ? ['pgbackrest', 'pgbouncer', 'postgres', 'postgres-gis', 'upgrade']
+                        : [params.IMAGE_TO_BUILD]
+
+                    for (img in selectedImages) {
+                        if (img == 'upgrade') {
+                            pushUpgradeImageToDockerHub('upgrade')
+                        } else {
+                            pushImageToDockerHub(img)
+                        }
+                    }
+                }
             }
         }
     }
