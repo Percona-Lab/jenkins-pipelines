@@ -297,7 +297,7 @@ pipeline {
                         # the new run from any in-flight runs.
                         DISPATCH_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-                        curl -fsSL --fail-with-body -X POST \
+                        curl -fsSL -X POST \
                             -H "Authorization: token ${GH_TOKEN}" \
                             -H "Accept: application/vnd.github+json" \
                             -H "X-GitHub-Api-Version: 2022-11-28" \
