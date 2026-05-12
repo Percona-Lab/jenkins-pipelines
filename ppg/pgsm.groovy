@@ -29,12 +29,12 @@ pipeline {
             name: 'PGSM_REPO'
         )
         string(
-            defaultValue: 'release-2.3.2',
+            defaultValue: '2.3.2',
             description: 'PGSM repo version/branch/tag to use; e.g main, 2.0.5',
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
