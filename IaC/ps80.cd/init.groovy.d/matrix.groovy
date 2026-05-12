@@ -151,6 +151,7 @@ authz_strategy_config = [
         'percona*doc': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read'],
         'JNKPercona': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read'],
         'percona*external-contractors-ps': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read'],
+        'nogueiraanderson' : ['Overall Administer'],
     ]
 ]
 
