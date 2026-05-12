@@ -41,7 +41,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-18.4/percona-postgresql-18.4-ssl3-linux-x86_64.tar.gz',
+            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-18.4/percona-postgresql-18.4-ssl3.5-linux-x86_64.tar.gz',
             description: 'URL for tarball.',
             name: 'TARBALL_URL'
         )
