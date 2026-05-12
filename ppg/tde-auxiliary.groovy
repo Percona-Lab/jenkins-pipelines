@@ -16,7 +16,7 @@ pipeline {
         )
         string(
             name: 'VERSION',
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3'
         )
         choice(
@@ -59,7 +59,7 @@ pipeline {
         )
         string(
             name: 'TDE_BRANCH',
-            defaultValue: 'release-2.1.2',
+            defaultValue: 'release-2.2.0',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
         )
         string(
