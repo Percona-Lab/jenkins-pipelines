@@ -30,6 +30,26 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export IP=192.168.0.1
             fi
 
+            # Percona's CDN occasionally serves an RPM whose Content-Length
+            # disagrees with the repodata-advertised size, which makes dnf abort
+            # with "Inconsistent server data ... please report to repository maintainer".
+            # The mismatch usually clears within a minute, so retry a few times.
+            retry_dnf_install() {
+                local n=3
+                local i
+                for i in $(seq 1 $n); do
+                    if sudo dnf -y install "$@"; then
+                        return 0
+                    fi
+                    if [ "$i" -lt "$n" ]; then
+                        echo "dnf install failed (attempt $i/$n); retrying in 30s..."
+                        sleep 30
+                    fi
+                done
+                echo "dnf install failed after $n attempts"
+                return 1
+            }
+
             sudo dnf clean expire-cache
             if ! command -v percona-release > /dev/null; then
                 curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
@@ -43,13 +63,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                sudo dnf -y install pmm-client
+                retry_dnf_install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
-                sudo dnf -y install pmm-client
+                retry_dnf_install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                sudo dnf -y install pmm-client
+                retry_dnf_install pmm-client
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
                     sudo percona-release enable-only pmm3-client testing
@@ -60,7 +80,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
 
                 export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
-                sudo dnf -y install "pmm-client-${FULL_CLIENT_VERSION}"
+                retry_dnf_install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
