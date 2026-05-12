@@ -25,17 +25,24 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
 
                                 # noarch packages are architecture-independent and need to live in every per-arch repo.
                                 # Filter strictly by the el<rhel>/amzn<rhel> tag in the filename so each repo only gets
-                                # the noarch packages tagged for the rhel version being processed.
-                                NOARCH_RPMS=`find redhat -name "*.el\${rhel}.noarch.rpm" -o -name "*.amzn\${rhel}.noarch.rpm" 2>/dev/null | sort -u`
+                                # the noarch packages tagged for the rhel version being processed. Restrict find to the
+                                # current rhel subtree to avoid picking up duplicate copies of the same RPM that the
+                                # build may have placed under sibling rhel noarch/ directories.
+                                NOARCH_RPMS=`find redhat/\${rhel} -name "*.el\${rhel}.noarch.rpm" -o -name "*.amzn\${rhel}.noarch.rpm" 2>/dev/null | sort -u`
                                 echo "noarch packages selected for el\${rhel}:"
                                 echo "\${NOARCH_RPMS:-NONE}"
 
-                                # RPMS
+                                # RPMS - iterate the union of source arch dirs (what this build delivers) and existing
+                                # destination arch dirs (from previous builds). Without this, a build that ships only
+                                # noarch packages would never refresh the existing x86_64/aarch64 repos with the new
+                                # noarch RPMs, because the per-arch source directories simply do not exist.
                                 mkdir -p \${rpm_dest_path}/RPMS
-                                for arch in `ls -1 redhat/\${rhel}`; do
+                                ALL_ARCHES=`(ls -1 redhat/\${rhel} 2>/dev/null; ls -1 \${rpm_dest_path}/RPMS 2>/dev/null) | sort -u`
+                                echo "arch dirs to process for el\${rhel}: \${ALL_ARCHES}"
+                                for arch in \${ALL_ARCHES}; do
                                     repo_path=\${rpm_dest_path}/RPMS/\${arch}
                                     mkdir -p \${repo_path}
-                                    if [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
+                                    if [ -d redhat/\${rhel}/\${arch} ] && [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
                                     fi
                                     # also copy noarch packages for the current rhel into every non-noarch arch repo
