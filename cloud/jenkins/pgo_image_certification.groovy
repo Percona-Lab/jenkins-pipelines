@@ -22,7 +22,7 @@ def buildTargetImage(key, image, params) {
 
     switch (key) {
         case 'IMAGE_OPERATOR':
-            return target(image, operatorProjectId, "${params.RELEASE}-postgres-operator", operatorCredentials)
+            return target(image, operatorProjectId, ${params.RELEASE}, operatorCredentials)
 
         case 'IMAGE_PMM3_CLIENT':
             return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
@@ -35,7 +35,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_POSTGRESQL16':
         case 'IMAGE_POSTGRESQL17':
         case 'IMAGE_POSTGRESQL18':
-            return target(image, containersProjectId, "${params.RELEASE}-postgres-${imageTag(image)}", containersCredentials)
+            return target(image, containersProjectId, "${params.RELEASE}-pg-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_POSTGIS14':
         case 'IMAGE_POSTGIS15':
