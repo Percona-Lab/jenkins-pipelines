@@ -23,6 +23,11 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                             for rhel in `ls -1 redhat`; do
                                 export rpm_dest_path=/srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/\${rhel}
 
+                                # noarch packages are architecture-independent and need to live in every per-arch repo
+                                NOARCH_RPMS=`find redhat -name "*.el\${rhel}.noarch.rpm" -o -name "*.amzn\${rhel}.noarch.rpm" 2>/dev/null | sort -u`
+                                echo "noarch packages selected for el\${rhel}:"
+                                echo "\${NOARCH_RPMS:-<none>}"
+
                                 # RPMS
                                 mkdir -p \${rpm_dest_path}/RPMS
                                 for arch in `ls -1 redhat/\${rhel}`; do
@@ -31,9 +36,10 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                     if [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
                                     fi
-                                    # noarch packages are architecture-independent: also copy them into each arch-specific repo
-                                    if [ "\${arch}" != "noarch" ] && [ -d redhat/\${rhel}/noarch ] && [ `ls redhat/\${rhel}/noarch/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
-                                        rsync -aHv redhat/\${rhel}/noarch/*.rpm \${repo_path}/
+                                    # also copy this rhel's noarch packages into every non-noarch arch repo
+                                    if [ "\${arch}" != "noarch" ] && [ -n "\${NOARCH_RPMS}" ]; then
+                                        echo "Copying noarch packages into \${repo_path}"
+                                        echo "\${NOARCH_RPMS}" | xargs -I{} rsync -aHv {} \${repo_path}/
                                     fi
                                     createrepo --update \${createrepo_opts} \${repo_path}
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
