@@ -124,6 +124,7 @@ def call(Map args = [:]) {
     //           skipInFips (true = skip when FIPSMODE==YES)
     def stages = [
         // ---- RPM stages ----
+/*
         [
             name: 'Oracle Linux 8',
             image: 'oraclelinux:8', arch: 'x64', buildType: 'rpm',
@@ -160,12 +161,14 @@ def call(Map args = [:]) {
             flags: '--build_rpm=1',
             fipsFlags: '--build_rpm=1 --enable_fipsmode=1', skipInFips: false,
         ],
+*/
         [
             name: 'Amazon Linux 2023',
             image: 'amazonlinux:2023', arch: 'x64', buildType: 'rpm',
             flags: '--build_rpm=1',
             fipsFlags: null, skipInFips: false,
         ],
+/*
         [
             name: 'Amazon Linux 2023 ARM',
             image: 'amazonlinux:2023', arch: 'aarch64', buildType: 'rpm',
@@ -310,6 +313,7 @@ def call(Map args = [:]) {
             flags: '--debug=1 --build_tarball=1',
             fipsFlags: '--debug=1 --build_tarball=1 --enable_fipsmode=1', skipInFips: false,
         ],
+*/
     ]
 
     // Build the parallel branches map
