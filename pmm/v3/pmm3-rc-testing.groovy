@@ -551,6 +551,34 @@ pipeline {
                                 }
                             }
                         }
+                        stage('PMM screenshots') {
+                            steps {
+                                script {
+                                    build job: 'pmm3-deploy-services', wait: false, propagate: false, parameters: [
+                                        string(name: 'SERVER_TYPE',                    value: 'docker'),
+                                        string(name: 'DOCKER_VERSION',                 value: env.PMM_SERVER_IMAGE),
+                                        string(name: 'CLIENT_VERSION',                 value: 'pmm3-rc'),
+                                        string(name: 'ENABLE_PULL_MODE',               value: 'no'),
+                                        string(name: 'ADMIN_PASSWORD',                 value: 'pmm3admin!'),
+                                        booleanParam(name: 'DEPLOY_EXTERNAL',          value: true),
+                                        booleanParam(name: 'DEPLOY_MYSQL_GROUP',       value: true),
+                                        booleanParam(name: 'DEPLOY_POSTGRES_GROUP',    value: true),
+                                        booleanParam(name: 'DEPLOY_MONGO_GROUP',       value: true),
+                                        booleanParam(name: 'DEPLOY_VALKEY',            value: true),
+                                        string(name: 'PXC_VERSION',                    value: '8.0'),
+                                        string(name: 'PS_VERSION',                     value: '8.4'),
+                                        string(name: 'MS_VERSION',                     value: '8.4'),
+                                        string(name: 'PGSQL_VERSION',                  value: '17'),
+                                        string(name: 'PDPGSQL_VERSION',                value: '17'),
+                                        string(name: 'PSMDB_VERSION',                  value: '8.0'),
+                                        string(name: 'MODB_VERSION',                   value: '8.0'),
+                                        string(name: 'PMM_QA_GIT_BRANCH',              value: 'main'),
+                                        booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
+                                        string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_THREAD),
+                                    ])
+                                }
+                            }
+                        }
                     }
                 }
             }
