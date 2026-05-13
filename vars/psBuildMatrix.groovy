@@ -349,7 +349,11 @@ def call(Map args = [:]) {
 
                 node(agentLabel) {
                     cleanUpWS()
-                    installCli("deb")
+                    if (cloud == 'Hetzner') {
+                        installCli("deb")
+                    } else {
+                        installCli("rpm")
+                    }
                     unstash 'properties'
                     popArtifactFolder(cloud, sourceFolder, awsStashPath)
 
