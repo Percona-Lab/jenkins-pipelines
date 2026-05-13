@@ -559,9 +559,9 @@ pipeline {
                             sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
 
                             if [ -s "launchable-subset.json" ]; then
-                                npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
+                                npx codeceptjs run-workers 4 --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
                             else
-                                npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                                npx codeceptjs run-workers 4 --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                             fi
                         '''
                     }
