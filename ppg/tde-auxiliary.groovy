@@ -22,7 +22,7 @@ pipeline {
         choice(
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
-            choices: ['worker', 'sync', 'io_uring']
+            choices: ['sync', 'worker', 'io_uring']
         )
         string(
             name: 'TESTING_BRANCH',
@@ -101,7 +101,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-tde-auxiliary-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-auxiliary-${env.VERSION}-${env.PLATFORM}-${env.IO_METHOD}"
                 }
             }
         }

@@ -69,7 +69,11 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                    if (params.MAJOR_REPO) {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.VERSION}-Major_Repo"
+                    } else {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.VERSION}"
+                    }
                 }
             }
         }

@@ -49,7 +49,6 @@ pipeline {
             choices: [
                 'check-server',
                 'check-tde',
-                'check-all',
                 'installcheck-world'
             ]
         )
@@ -80,7 +79,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.IO_METHOD}-${env.TESTSUITE}"
                 }
             }
         }

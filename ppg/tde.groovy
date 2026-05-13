@@ -42,8 +42,8 @@ pipeline {
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
             choices: [
-                'worker',
                 'sync',
+                'worker',
                 'io_uring'
             ]
         )
