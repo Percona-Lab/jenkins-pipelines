@@ -81,8 +81,20 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                  if [ \${EC} -eq 0 ]; then
                                      REPOPUSH_ARGS=" --remove-package "
                                  fi
+                                 # Skip the dsc push when the upstream version is already in the
+                                 # destination component pool.
                                  for dsc in \$(find ../source/debian -name '*.dsc' 2>/dev/null); do
-                                    env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt || true
+                                    SRCNAME=\$(grep -m1 "^Source:" \${dsc}  | sed "s/^Source: *//")
+                                    FULLVER=\$(grep -m1 "^Version:" \${dsc} | sed "s/^Version: *//")
+                                    UPVER="\${FULLVER%-*}"
+                                    ORIG_NAME="\${SRCNAME}_\${UPVER}.orig.tar.gz"
+                                    EXISTING_ORIG=\$(find /srv/repo-copy/${REPO_NAME}/apt/pool/${DESTINATION} -type f -name "\${ORIG_NAME}" 2>/dev/null | head -1)
+                                    if [ -n "\${EXISTING_ORIG}" ]; then
+                                        echo "Skipping \${SRCNAME} \${UPVER} source push: orig tarball already in pool (\${EXISTING_ORIG})"
+                                        continue
+                                    fi
+                                    echo "Pushing \${SRCNAME} \${UPVER} (new upstream version) source"
+                                    env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
                                 done
                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
                                 done
