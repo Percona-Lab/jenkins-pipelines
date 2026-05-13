@@ -82,7 +82,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                      REPOPUSH_ARGS=" --remove-package "
                                  fi
                                  for dsc in \$(find ../source/debian -name '*.dsc' 2>/dev/null); do
-                                    env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
+                                    env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt || true
                                 done
                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
                                 done
