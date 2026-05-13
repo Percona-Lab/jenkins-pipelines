@@ -168,14 +168,13 @@ def call(Map args = [:]) {
             flags: '--build_rpm=1',
             fipsFlags: null, skipInFips: false,
         ],
-/*
         [
             name: 'Amazon Linux 2023 ARM',
             image: 'amazonlinux:2023', arch: 'aarch64', buildType: 'rpm',
             flags: '--build_rpm=1',
             fipsFlags: null, skipInFips: false,
         ],
-
+/*
         // ---- DEB stages (x64) ----
         [
             name: 'Ubuntu Focal(20.04)',
