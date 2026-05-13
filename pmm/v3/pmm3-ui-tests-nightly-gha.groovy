@@ -125,7 +125,7 @@ void destroyStaging(IP) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label 'agent-amd64-ol9'
     }
     environment {
         ZEPHYR_PMM_API_KEY = credentials('ZEPHYR_PMM_API_KEY')
@@ -262,11 +262,10 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
                     sh '''
                         set -eux
-                        # Install jq/curl only when missing — keeps re-runs fast and
-                        # doesn't fail the build when apt is briefly locked.
+                        # Install jq/curl only when missing. This pipeline runs on
+                        # an OL9 agent, so use the RHEL-family package manager.
                         if ! command -v jq >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
-                            sudo apt-get update
-                            sudo apt-get install -y jq curl
+                            sudo dnf install -y jq curl
                         fi
 
                         # Build dispatch body. The workflow_dispatch payload only takes
