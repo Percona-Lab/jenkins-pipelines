@@ -116,6 +116,12 @@ pipeline {
         label 'docker-x64'
     }
 
+    environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
+        DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+    }
+
     parameters {
         string(
             defaultValue: 'main',
@@ -213,6 +219,35 @@ pipeline {
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            script {
+                if (fileExists('list-of-images.txt')) {
+                    def summary = generateImageSummary('list-of-images.txt')
+
+                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                        text: "<pre>${summary}</pre>"
+                    )
+                    // Also save as a file if needed
+                     writeFile(file: 'image-summary.html', text: summary)
+                } else {
+                    echo 'No list-of-images.txt file found - skipping summary generation'
+                }
+            }
+            sh '''
+                sudo docker rmi -f \$(sudo docker images -q) || true
+                sudo rm -rf ./source/build
+            '''
+            deleteDir()
+        }
+        unstable {
+            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PG docker images unstable. Please check the log ${BUILD_URL}"
+        }
+        failure {
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PG docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }
