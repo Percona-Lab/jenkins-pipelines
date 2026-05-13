@@ -141,9 +141,19 @@ void initTests() {
     }
 
     def records = readCSV file: suiteFileName
+    def skipTests = "$SKIP_TESTS".readLines().collect { it.trim() }.findAll { it }
+
+    if (skipTests.size() != 0) {
+        echo "Skipping tests:\n" + skipTests.join("\n")
+    }
 
     for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+        def testName = records[i][0]
+        if (skipTests.contains(testName)) {
+            continue
+        }
+
+        tests.add(["name": testName, "cluster": "NA", "result": "skipped", "time": "0"])
     }
 
     echo "Marking passed tests in the tests map!"
@@ -371,6 +381,7 @@ pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-pr.csv', 'run-minikube.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        text(name: 'SKIP_TESTS', defaultValue: '', description: 'List of tests to remove from the execution list, separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
