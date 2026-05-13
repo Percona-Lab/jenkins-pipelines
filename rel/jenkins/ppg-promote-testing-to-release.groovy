@@ -200,12 +200,23 @@ fi
 MAJOR_CODENAMES=\$(ls -1 \${MAJOR_REPOPATH}/dists/)
 
 # -------------------------------------> source pushing to major repo
+# Skip the .dsc push when the upstream version is already in the major repo
 if [ -n "\${DSC}" ]; then
     for DSC_FILE in \${DSC}; do
         echo "<*> DSC file is "\${DSC_FILE}
+        SRCNAME=\$(grep -m1 "^Source:" \${DSC_FILE}  | sed "s/^Source: *//")
+        FULLVER=\$(grep -m1 "^Version:" \${DSC_FILE} | sed "s/^Version: *//")
+        UPVER="\${FULLVER%-*}"
+        ORIG_NAME="\${SRCNAME}_\${UPVER}.orig.tar.gz"
+        EXISTING_ORIG=\$(find \${MAJOR_REPOPATH}/pool/main -type f -name "\${ORIG_NAME}" 2>/dev/null | head -1)
+        if [ -n "\${EXISTING_ORIG}" ]; then
+            echo "<*> Skipping \${SRCNAME} \${UPVER} source push to major repo: orig tarball already in pool (\${EXISTING_ORIG})"
+            continue
+        fi
+        echo "<*> Pushing \${SRCNAME} \${UPVER} (new upstream version) source to major repo"
         for _codename in \${MAJOR_CODENAMES}; do
             echo "<*> CODENAME: "\${_codename}
-            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${MAJOR_REPOPATH} --component=main --codename=\${_codename} --verbose || true
+            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${MAJOR_REPOPATH} --component=main --codename=\${_codename} --verbose
             sleep 5
         done
     done
