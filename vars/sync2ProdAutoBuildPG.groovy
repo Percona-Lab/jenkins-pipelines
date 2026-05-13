@@ -81,19 +81,24 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                  if [ \${EC} -eq 0 ]; then
                                      REPOPUSH_ARGS=" --remove-package "
                                  fi
-                                 # Skip the dsc push when the upstream version is already in the
+                                 # Skip the dsc push when the source package is already in the
                                  # destination component pool.
                                  for dsc in \$(find ../source/debian -name '*.dsc' 2>/dev/null); do
                                     SRCNAME=\$(grep -m1 "^Source:" \${dsc}  | sed "s/^Source: *//")
                                     FULLVER=\$(grep -m1 "^Version:" \${dsc} | sed "s/^Version: *//")
                                     UPVER="\${FULLVER%-*}"
-                                    ORIG_NAME="\${SRCNAME}_\${UPVER}.orig.tar.gz"
-                                    EXISTING_ORIG=\$(find /srv/repo-copy/${REPO_NAME}/apt/pool/${DESTINATION} -type f -name "\${ORIG_NAME}" 2>/dev/null | head -1)
+                                    POOL_DIR=/srv/repo-copy/${REPO_NAME}/apt/pool/${DESTINATION}
+                                    EXISTING_DSC=\$(find \${POOL_DIR} -type f -name "\$(basename \${dsc})" 2>/dev/null | head -1)
+                                    if [ -n "\${EXISTING_DSC}" ]; then
+                                        echo "Skipping \${SRCNAME} \${FULLVER} source push: dsc already in pool (\${EXISTING_DSC})"
+                                        continue
+                                    fi
+                                    EXISTING_ORIG=\$(find \${POOL_DIR} -type f -name "\${SRCNAME}_\${UPVER}.orig.tar.gz" 2>/dev/null | head -1)
                                     if [ -n "\${EXISTING_ORIG}" ]; then
                                         echo "Skipping \${SRCNAME} \${UPVER} source push: orig tarball already in pool (\${EXISTING_ORIG})"
                                         continue
                                     fi
-                                    echo "Pushing \${SRCNAME} \${UPVER} (new upstream version) source"
+                                    echo "Pushing \${SRCNAME} \${FULLVER} source (not yet in pool)"
                                     env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
                                 done
                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
