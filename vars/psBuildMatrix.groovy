@@ -18,6 +18,7 @@ void installCli(String PLATFORM) {
         if [ -d aws ]; then
             rm -rf aws
         fi
+        cat /etc/os-release
         if [ ${PLATFORM} = "deb" ]; then
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
