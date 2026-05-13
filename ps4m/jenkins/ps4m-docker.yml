@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-ps4m-autobuild-RELEASE
+    name: hetzner-ps4m-docker-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'PSMDB-1945_psmdb.cd_add_mongot_build_pipelie'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: psmdb/jenkins/percona-search-for-mongodb.groovy
+      script-path: ps4m/jenkins/ps4m-docker.groovy

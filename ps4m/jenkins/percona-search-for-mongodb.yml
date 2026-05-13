@@ -1,0 +1,14 @@
+- job:
+    name: hetzner-ps4m-autobuild-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'PSMDB-1945_psmdb.cd_add_mongot_build_pipelie'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps4m/jenkins/percona-search-for-mongodb.groovy
