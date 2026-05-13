@@ -125,10 +125,7 @@ void destroyStaging(IP) {
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
-    }
-    environment {
-        ZEPHYR_PMM_API_KEY = credentials('ZEPHYR_PMM_API_KEY')
+        label 'cli'
     }
     parameters {
         string(
