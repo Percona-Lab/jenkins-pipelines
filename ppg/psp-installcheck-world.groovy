@@ -45,7 +45,6 @@ pipeline {
             choices: [
                 'check-server',
                 'check-tde',
-                'check-all',
                 'installcheck-world'
             ]
         )
@@ -53,8 +52,8 @@ pipeline {
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
             choices: [
-                'worker',
                 'sync',
+                'worker',
                 'io_uring'
             ]
         )
@@ -75,7 +74,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.PLATFORM}-${env.IO_METHOD}-${env.TESTSUITE}"
                 }
             }
         }

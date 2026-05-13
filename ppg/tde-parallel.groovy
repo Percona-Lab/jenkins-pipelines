@@ -46,8 +46,8 @@ pipeline {
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
             choices: [
-                'worker',
                 'sync',
+                'worker',
                 'io_uring'
             ]
         )
@@ -72,7 +72,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pg_tde-${env.VERSION}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-tde-${env.VERSION}-${env.IO_METHOD}"
                 }
             }
         }

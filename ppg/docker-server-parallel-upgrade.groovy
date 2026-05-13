@@ -53,7 +53,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}-${params.REPOSITORY}"
                 }
             }
         }

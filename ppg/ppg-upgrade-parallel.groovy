@@ -68,7 +68,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.FROM_VERSION}-to-${env.VERSION}"
                 }
             }
         }
