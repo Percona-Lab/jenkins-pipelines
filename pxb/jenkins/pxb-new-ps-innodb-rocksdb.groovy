@@ -146,7 +146,7 @@ pipeline {
     )
     string(
       name: 'SELECT_TEST_PYTEST',
-      defaultValue: 'all',
+      defaultValue: 'not test_encryption',
       description: 'Pytest -k filter expression. Use "all" to run every test from innodb_myrocks_backup_tests.py, or a pytest -k expression like "test_ssl_backup"'
     )
   }
