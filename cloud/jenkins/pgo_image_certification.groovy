@@ -22,7 +22,7 @@ def buildTargetImage(key, image, params) {
 
     switch (key) {
         case 'IMAGE_OPERATOR':
-            return target(image, operatorProjectId, ${params.RELEASE}, operatorCredentials)
+            return target(image, operatorProjectId, params.RELEASE, operatorCredentials)
 
         case 'IMAGE_PMM3_CLIENT':
             return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
