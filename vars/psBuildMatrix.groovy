@@ -88,7 +88,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
               fi
           else
-              docker run -u root --shm-size=16g --cap-add=SYS_NICE --memory=16g --memory-swap=24g -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+              docker run -u root --shm-size=16g --cap-add=SYS_NICE --memory=32g --memory-swap=-1 -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                   set -o xtrace
                   cd \${build_dir}
                   if [ \${FIPSMODE} = "YES" ]; then
