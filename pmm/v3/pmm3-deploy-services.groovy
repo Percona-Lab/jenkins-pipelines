@@ -324,14 +324,23 @@ pipeline {
                  currentPass = env.AMI_ADMIN_PASS
               }
 
-              try {
-                  sh '''
-                    curl -k -X PUT -H "Content-Type: application/json" \
-                    -d '{"password":"${params.ADMIN_PASSWORD}"}' \
-                    https://admin:${currentPass}@${env.PMM_SERVER_IP}/graph/api/admin/users/1/password
-                  '''
-              } catch(e) {
-                  echo "Warning: Password update failed. Proceeding."
+              // Pass values via withEnv so the password is not Groovy-interpolated
+              // into the shell command and does not appear in the build log.
+              withEnv([
+                  "GR_NEW_PASS=${params.ADMIN_PASSWORD}",
+                  "GR_CURR_PASS=${currentPass}",
+                  "GR_HOST=${env.PMM_SERVER_IP}"
+              ]) {
+                  try {
+                      sh '''
+                        set +x
+                        curl -fsk -X PUT -H "Content-Type: application/json" \
+                          -d "{\\"password\\":\\"${GR_NEW_PASS}\\"}" \
+                          "https://admin:${GR_CURR_PASS}@${GR_HOST}/graph/api/admin/users/1/password"
+                      '''
+                  } catch(e) {
+                      echo "Warning: Password update failed: ${e.message}. Proceeding."
+                  }
               }
 
               if (env.SLACK_DM) {
