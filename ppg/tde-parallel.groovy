@@ -103,6 +103,10 @@ pipeline {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 sendSlackNotification(env.TDE_REPO, env.TDE_BRANCH, env.VERSION, env.REPO, env.MAJOR_REPO)
             }
+            archiveArtifacts(
+                artifacts: 'pg_tde/tde/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }
