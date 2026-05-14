@@ -109,6 +109,10 @@ pipeline {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.TESTSUITE, env.PERCONA_SERVER_VERSION, env.IO_METHOD, env.TDE_BRANCH)
             }
+            archiveArtifacts(
+                artifacts: 'psp/server_tests/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+           )
         }
     }
 }
