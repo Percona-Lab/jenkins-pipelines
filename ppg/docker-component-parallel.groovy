@@ -19,12 +19,12 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '18.3',
+            defaultValue: '18.4',
             description: 'TAG of the server docker from perconalab/percona (hub.docker.com) to use. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_SERVER_TAG'
         )
         string(
-            defaultValue: '18.3',
+            defaultValue: '18.4',
             description: 'Docker Server PG version being used, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )

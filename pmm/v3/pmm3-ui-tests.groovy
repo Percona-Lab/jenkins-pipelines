@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');

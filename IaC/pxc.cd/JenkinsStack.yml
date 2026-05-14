@@ -315,6 +315,8 @@ Resources:
           Principal:
             Service: ec2.amazonaws.com
       Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
       - PolicyName: StartInstances
         PolicyDocument:
@@ -380,6 +382,13 @@ Resources:
             - sqs:ReceiveMessage
             - sqs:DeleteMessage
             - sqs:DeleteMessageBatch
+      - PolicyName: AlloyGatewayBearerRead
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Resource: !Sub 'arn:aws:secretsmanager:us-east-1:${AWS::AccountId}:secret:percona-ci-platform/alloy-gateway/bearer-*'
+            Action: secretsmanager:GetSecretValue
 
   JMasterProfile: # create Profile for jenkins master (needed for run workers)
     Type: AWS::IAM::InstanceProfile
@@ -628,27 +637,32 @@ Resources:
                     https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   sed -i 's/%LIST%/ec2 aws-sqs compress-buildlog google-login jobConfigHistory matrix-auth matrix-reloaded ssh-slaves template-project warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
 
+                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
+                    https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/pxc.cd/init.groovy.d/cloud.groovy
+                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/matrix.groovy \
+                    https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/pxc.cd/init.groovy.d/matrix.groovy
+
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
                   mkdir -p /etc/systemd/system/jenkins.service.d
                   cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
-                       [Service]
-                       TimeoutStartSec=600
-                       # Directory where Jenkins stores its configuration and workspaces
-                       Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
-                       WorkingDirectory=/mnt/$JENKINS_HOST
+              		[Service]
+              		TimeoutStartSec=600
+              		# Directory where Jenkins stores its configuration and workspaces
+              		Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
+              		WorkingDirectory=/mnt/$JENKINS_HOST
 
-                       # Location of the exploded WAR
-                       Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+              		# Location of the exploded WAR
+              		Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
 
-                       # Location of the Jenkins log.
-                       Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+              		# Location of the Jenkins log.
+              		Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
               	EOF
 
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
-                       # Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+              		# Arguments for the Jenkins JVM
+              		Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
               	EOF
 
                   systemctl daemon-reload
@@ -856,8 +870,6 @@ Resources:
               setup_ssh_keys() {
                 KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan anderson.nogueira"
 
-
-
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
                     while [ $RETRY != "0" ]; do
@@ -876,6 +888,7 @@ Resources:
                 done
               }
 
+
               main() {
                   setup_aws
                   setup_ssh_keys
@@ -888,6 +901,7 @@ Resources:
                   setup_dhparam
                   setup_letsencrypt
                   setup_nginx_allow_list
+                  curl -fsSL --retry 5 https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/08df5f4e101e52d0e03a7e0062696ace909a86bc/scripts/install-master-observability.sh | JENKINS_HOST="$JENKINS_HOST" bash
               }
 
               main
