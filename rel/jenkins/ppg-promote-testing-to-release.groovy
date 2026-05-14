@@ -163,7 +163,7 @@ fi
 
 # -------------------------------------> PPG versioned release: copy from testing to main
 export REPOCOMP=main
-CODENAMES=\$(ls -1 \${REPOPATH}/dists/)
+CODENAMES=\$(awk '/^Codename:/ {print \$2}' \${REPOPATH}/conf/distributions)
 echo "<*> Distributions are: "\${CODENAMES}
 
 # -------------------------------------> source pushing from testing pool
@@ -197,7 +197,7 @@ if [[ ${REMOVE_LOCKFILE} = true ]]; then
     rm -vf \${MAJOR_REPOPATH}/db/lockfile
 fi
 
-MAJOR_CODENAMES=\$(ls -1 \${MAJOR_REPOPATH}/dists/)
+MAJOR_CODENAMES=\$(awk '/^Codename:/ {print \$2}' \${MAJOR_REPOPATH}/conf/distributions)
 
 # -------------------------------------> source pushing to major repo
 # Skip the .dsc push when the source package is already in the major repo pool
