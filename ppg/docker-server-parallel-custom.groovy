@@ -38,7 +38,9 @@ pipeline {
     options {
         // Ensure this shared library function returns the correct wrapper
         withCredentials(moleculeDistributionJenkinsCreds())
-        timestamps() 
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        timestamps()
+        retry(conditions: [agent()], count: 2)
     }
 
     stages {

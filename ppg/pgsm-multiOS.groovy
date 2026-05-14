@@ -68,6 +68,11 @@ pipeline {
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -104,6 +109,10 @@ pipeline {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
             }
+            archiveArtifacts(
+                artifacts: 'pg_stat_monitor/pgsm/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }
