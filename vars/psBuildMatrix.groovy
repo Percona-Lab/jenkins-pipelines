@@ -90,6 +90,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
           else
               docker run -u root --shm-size=16g --cap-add=SYS_NICE --memory=32g --memory-swap=-1 -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                   set -o xtrace
+                  free -h
                   cd \${build_dir}
                   if [ \${FIPSMODE} = "YES" ]; then
                       git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
