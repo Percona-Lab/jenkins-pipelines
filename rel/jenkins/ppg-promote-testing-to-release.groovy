@@ -269,17 +269,21 @@ if [ -d \${TARBALL_SRC} ]; then
     rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress *tar.* jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/postgresql-distribution-\${PG_MAJOR}/\${PPG_VERSION}/binary/tarball/
 
     # -------------------------------------> release SBOMs to downloads server
-    SBOM_BASE="/srv/UPLOAD/testing/BUILDS/PG_SBOM/\${PPG_VERSION}"
-    if [ -d \${SBOM_BASE} ]; then
-        SBOM_LATEST_TS=\$(ls -t \${SBOM_BASE} | head -1)
-        SBOM_SRC="\${SBOM_BASE}/\${SBOM_LATEST_TS}/json"
-        if [ -d \${SBOM_SRC} ]; then
-            cd \${SBOM_SRC}
-            rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="yassl" --progress *json jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/postgresql-distribution-\${PG_MAJOR}/\${PPG_VERSION}/binary/tarball/
-        fi
-    else
-        echo "SBOM directory \${SBOM_BASE} not found, skipping SBOM release"
-    fi
+    # TEMPORARILY DISABLED: SBOMs are not being produced by the build pipeline
+    # right now, so there is nothing to sync. Re-enable this block once the
+    # upstream SBOM build is back in place.
+    # SBOM_BASE="/srv/UPLOAD/testing/BUILDS/PG_SBOM/\${PPG_VERSION}"
+    # if [ -d \${SBOM_BASE} ]; then
+    #     SBOM_LATEST_TS=\$(ls -t \${SBOM_BASE} | head -1)
+    #     SBOM_SRC="\${SBOM_BASE}/\${SBOM_LATEST_TS}/json"
+    #     if [ -d \${SBOM_SRC} ]; then
+    #         cd \${SBOM_SRC}
+    #         rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="yassl" --progress *json jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/postgresql-distribution-\${PG_MAJOR}/\${PPG_VERSION}/binary/tarball/
+    #     fi
+    # else
+    #     echo "SBOM directory \${SBOM_BASE} not found, skipping SBOM release"
+    # fi
+    echo "SBOM upload step is temporarily disabled (SBOMs not produced by build pipeline)"
 else
     echo "Tarball latest directory \${TARBALL_SRC} not found, skipping tarball release"
 fi
