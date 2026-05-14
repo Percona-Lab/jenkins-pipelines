@@ -365,19 +365,31 @@ pipeline {
               }
               def dockerTag = dockerVersion.substring(dockerVersion.lastIndexOf(':') + 1)
               def zipName = "screenshots-${dockerTag}.zip"
-              sh """
-                set -euo pipefail
-                git clone --depth 1 --branch "${params.PMM_QA_GIT_BRANCH}" https://github.com/percona/pmm-qa.git
-                cd pmm-qa/e2e_tests
-                curl -sL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-                sudo apt-get install -y nodejs gettext zip
-                npm ci
-                npx playwright install
-                sudo npx playwright install-deps
-                PMM_UI_URL="${env.PMM_UI_URL}" ADMIN_PASSWORD="${params.ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
-                cd "${env.WORKSPACE}"
-                zip -rq "${zipName}" pmm-qa/e2e_tests/screenshots
-              """
+
+              // Pass Groovy values via withEnv so the shell sees plain
+              // POSIX variables — no Groovy interpolation inside sh.
+              withEnv([
+                  "GR_QA_BRANCH=${params.PMM_QA_GIT_BRANCH}",
+                  "GR_PMM_UI_URL=${env.PMM_UI_URL}",
+                  "GR_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
+                  "GR_WORKSPACE=${env.WORKSPACE}",
+                  "GR_ZIP_NAME=${zipName}"
+              ]) {
+                sh '''
+                  set -eu
+                  git clone --depth 1 --branch "${GR_QA_BRANCH}" https://github.com/percona/pmm-qa.git
+                  cd pmm-qa/e2e_tests
+                  curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource-setup-22.sh
+                  sudo -E bash /tmp/nodesource-setup-22.sh
+                  sudo apt-get install -y nodejs gettext zip
+                  npm ci
+                  npx playwright install
+                  sudo npx playwright install-deps
+                  PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
+                  cd "${GR_WORKSPACE}"
+                  zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
+                '''
+              }
               slackUploadFile botUser: true, channel: params.SCREENSHOTS_SLACK_TARGET?.trim(), failOnError: true,
                 filePath: zipName,
                 initialComment: "PMM dashboard screenshots for (${dockerVersion})"
