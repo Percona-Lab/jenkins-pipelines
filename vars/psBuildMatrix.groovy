@@ -336,7 +336,7 @@ def call(Map args = [:]) {
         // Determine agent label based on arch and cloud
         def agentLabel
         if (arch == 'aarch64') {
-            agentLabel = cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+            agentLabel = cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
         } else {
             agentLabel = cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
         }
