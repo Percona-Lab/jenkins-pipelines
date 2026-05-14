@@ -4,19 +4,20 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 ]) _
 
 // -----------------------------------------------------------------------------
-// PSMDB-2057 helpers (mirror of PSMDB-2055 on v8.3) — three small primitives
-// keep stage bodies one-liners:
+// PSMDB-2057 helpers — three small primitives keep stage bodies one-liners:
 //
-//   runnerImage(distroArch)
-//       Returns the full GHCR reference for a PSMDB BuildBarn runner image.
-//       The same multi-{distro,arch} image set the on-demand Buildbarn workers
-//       pull (ghcr.io/<owner>/psmdb-buildbarn-runners/<distro>-<arch>:<tag>),
-//       so install_deps() ran at image-build time and Jenkins build agents skip
-//       the ~5–10 min apt/dnf phase. Tag scheme is documented in
-//       IaC/buildbarn/runners/README.md (Phase-1: <psmdb-version>;
-//       Phase-1-pinned: <psmdb-version>-<sha>). Override the registry root or
-//       the tag via PSMDB_RBE_RUNNER_REGISTRY / PSMDB_RBE_RUNNER_TAG params
-//       (e.g. flip to `ghcr.io/percona/...` or pin to `8.0-<sha>` for repro).
+//   runnerImage(distro)
+//       Returns the full Docker Hub reference for a PSMDB BuildBarn runner
+//       image. Tag schema is `<distro>-<psmdb-version>` (moving alias for
+//       this 8.0 release line). The same multi-arch manifest list the
+//       on-demand Buildbarn workers pull is used here, so install_deps()
+//       ran at image-build time and Jenkins build agents skip the ~5–10 min
+//       apt/dnf phase. Arch dimension lives in the manifest list (Docker
+//       picks x86_64 vs aarch64 automatically from the host platform);
+//       there is NO `-x86_64`/`-aarch64` suffix on the image tag. Registry
+//       + tag are hardcoded because this is a 8.0-line-specific pipeline.
+//       For immutable PR-pinned tags (`<distro>-8.0-<mongo-sha>`) see
+//       bazel/platforms/psmdb_rbe_containers.bzl in the PSMDB workspace.
 //
 //   withRBE { … }
 //       Wraps a block in withCredentials([string(...)]) + withEnv([…]) so
@@ -35,11 +36,11 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 //       `set -o xtrace` won't leak the Bearer token. install_deps is no
 //       longer invoked from this helper because runner images already have
 //       it baked in — to fall back to a stock distro image, restore the
-//       legacy `--install_deps=1` call AND point PSMDB_RBE_RUNNER_REGISTRY
-//       at a registry that hosts plain images.
+//       legacy `--install_deps=1` call and switch runnerImage() to a stock
+//       distro reference (e.g. "ubuntu:noble").
 // -----------------------------------------------------------------------------
-String runnerImage(String distroArch) {
-    return "${params.PSMDB_RBE_RUNNER_REGISTRY}/${distroArch}:${params.PSMDB_RBE_RUNNER_TAG}"
+String runnerImage(String distro) {
+    return "docker.io/perconalab/psmdb-rbe:${distro}-8.0"
 }
 
 def withRBE(Closure body) {
@@ -190,22 +191,19 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'micro-amazon'
+        label params.CLOUD == 'AWS' ? 'micro-amazon' : 'launcher-x64'
     }
     parameters {
         choice(
             choices: ['Hetzner','AWS'],
             description: 'Cloud infra for build',
             name: 'CLOUD')
-        // PSMDB-2057: default to vorsel fork carrying combined PSMDB-2034 +
-        // PSMDB-2054 work. Override to percona/percona-server-mongodb.git
-        // once both tickets are merged upstream on v8.0.
         string(
-            defaultValue: 'https://github.com/vorsel/percona-server-mongodb.git',
+            defaultValue: 'https://github.com/percona/percona-server-mongodb.git',
             description: 'URL for  percona-server-mongodb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'test_PSMDB-2034_2054_combined__v8.0',
+            defaultValue: 'v8.0',
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
@@ -217,7 +215,7 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.15.0',
+            defaultValue: '100.17.0',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
@@ -257,28 +255,6 @@ pipeline {
             defaultValue: '',
             description: 'Bazel flags injected by percona-packaging into the bazel build command line. Leave empty to disable RBE.',
             name: 'PSMDB_RBE_BAZEL_FLAGS')
-        // PSMDB-2057: build-side runner images. These are the same per-distro
-        // GHCR images that the on-demand BuildBarn workers pull. The full
-        // reference is composed at stage-eval time as
-        //   ${PSMDB_RBE_RUNNER_REGISTRY}/<distro>-<arch>:${PSMDB_RBE_RUNNER_TAG}
-        // by the runnerImage() helper. install_deps() ran at image-build
-        // time, so Jenkins build agents skip the ~5–10 min apt/dnf phase
-        // and stay bit-identical to what remote workers see for actions
-        // that don't go to RBE.
-        //
-        // The :8.0 moving tag follows the v8.0 release line; override to
-        // 8.0-<mongo-sha> for production-pinned immutable runs (see Phase 2
-        // in IaC/buildbarn/runners/README.md). The registry param exists
-        // so a single edit retargets the whole pipeline at the upstream
-        // Percona-Lab registry once images move there.
-        string(
-            defaultValue: 'ghcr.io/vorsel/psmdb-buildbarn-runners',
-            description: 'GHCR registry root for PSMDB RBE runner images. Final reference is "<registry>/<distro>-<arch>:<tag>".',
-            name: 'PSMDB_RBE_RUNNER_REGISTRY')
-        string(
-            defaultValue: '8.0',
-            description: 'Tag suffix for PSMDB RBE runner images (release line). Use "8.0-<mongo-sha>" to pin immutably.',
-            name: 'PSMDB_RBE_RUNNER_TAG')
     }
     options {
         skipDefaultCheckout()
@@ -296,7 +272,7 @@ pipeline {
                 cleanUpWS()
                 script {
                     // Source tarball does not invoke bazel; no RBE wiring needed.
-                    buildStage(runnerImage('oraclelinux-8-x86_64'), "--get_sources=1")
+                    buildStage(runnerImage('oraclelinux-8'), "--get_sources=1")
                 }
                 sh '''
                    # Use 80 properties file; if build script created a different one, copy to 80 for pipeline
@@ -339,7 +315,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             // src_rpm is a pure rpmbuild step (no bazel); no RBE wiring needed.
-                            buildStage(runnerImage('oraclelinux-8-x86_64'), "--build_src_rpm=1")
+                            buildStage(runnerImage('oraclelinux-8'), "--build_src_rpm=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -358,7 +334,7 @@ pipeline {
                             // src_deb runs dpkg-buildpackage -S only (no bazel); no RBE wiring.
                             // Needs a debian-based runner so dch/dpkg-dev are present —
                             // ubuntu-jammy is the historical default.
-                            buildStage(runnerImage('ubuntu-jammy-x86_64'), "--build_src_deb=1")
+                            buildStage(runnerImage('ubuntu-jammy'), "--build_src_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -383,7 +359,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('oraclelinux-8-x86_64'), "--build_rpm=1", true)
+                                buildStage(runnerImage('oraclelinux-8'), "--build_rpm=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -399,7 +375,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('oraclelinux-8-aarch64'), "--build_rpm=1", true)
+                                buildStage(runnerImage('oraclelinux-8'), "--build_rpm=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -415,7 +391,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('oraclelinux-9-x86_64'), "--build_rpm=1", true)
+                                buildStage(runnerImage('oraclelinux-9'), "--build_rpm=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -431,7 +407,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('oraclelinux-9-aarch64'), "--build_rpm=1", true)
+                                buildStage(runnerImage('oraclelinux-9'), "--build_rpm=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -447,7 +423,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('amazonlinux-2023-x86_64'), "--build_rpm=1", true)
+                                buildStage(runnerImage('amazonlinux-2023'), "--build_rpm=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -463,7 +439,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('amazonlinux-2023-aarch64'), "--build_rpm=1", true)
+                                buildStage(runnerImage('amazonlinux-2023'), "--build_rpm=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -479,7 +455,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('ubuntu-jammy-x86_64'), "--build_deb=1", true)
+                                buildStage(runnerImage('ubuntu-jammy'), "--build_deb=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -495,7 +471,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('ubuntu-jammy-aarch64'), "--build_deb=1", true)
+                                buildStage(runnerImage('ubuntu-jammy'), "--build_deb=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -511,7 +487,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('ubuntu-noble-x86_64'), "--build_deb=1", true)
+                                buildStage(runnerImage('ubuntu-noble'), "--build_deb=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -527,7 +503,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('ubuntu-noble-aarch64'), "--build_deb=1", true)
+                                buildStage(runnerImage('ubuntu-noble'), "--build_deb=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -545,7 +521,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('debian-bookworm-x86_64'), "--build_deb=1", true)
+                                buildStage(runnerImage('debian-bookworm'), "--build_deb=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -561,7 +537,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('oraclelinux-8-x86_64'), "--build_tarball=1", true)
+                                buildStage(runnerImage('oraclelinux-8'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -577,7 +553,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('oraclelinux-9-x86_64'), "--build_tarball=1", true)
+                                buildStage(runnerImage('oraclelinux-9'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -593,7 +569,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('amazonlinux-2023-x86_64'), "--build_tarball=1", true)
+                                buildStage(runnerImage('amazonlinux-2023'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -609,7 +585,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('ubuntu-jammy-x86_64'), "--build_tarball=1", true)
+                                buildStage(runnerImage('ubuntu-jammy'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -625,7 +601,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('ubuntu-noble-x86_64'), "--build_tarball=1", true)
+                                buildStage(runnerImage('ubuntu-noble'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -641,7 +617,7 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         withRBE {
                             script {
-                                buildStage(runnerImage('debian-bookworm-x86_64'), "--build_tarball=1", true)
+                                buildStage(runnerImage('debian-bookworm'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -710,6 +686,32 @@ pipeline {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+
+                // PSMDB-2057: write branch_commit_id_80.last_successful to S3 so
+                // get-psmdb-branches-8.0 (cron-triggered every 15 min) skips a
+                // rebuild for this branch/commit on the next tick. This is the
+                // authoritative "we already built X" record — independent of
+                // branch_commit_id_80.properties, which is just the last-detected
+                // state and can be corrupt/nulled without re-triggering builds.
+                String S3_STASH = (params.CLOUD == 'AWS') ? 'AWS_STASH' : 'HTZ_STASH'
+                String S3_ENDPOINT = (params.CLOUD == 'AWS') ? '--endpoint-url https://s3.amazonaws.com' : '--endpoint-url https://fsn1.your-objectstorage.com'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        set -euo pipefail
+                        BUILT_COMMIT=\$(git ls-remote --heads ${GIT_REPO} ${GIT_BRANCH} | awk '{print \$1}')
+                        if [ -z "\${BUILT_COMMIT}" ]; then
+                            echo "WARN: could not resolve commit for ${GIT_BRANCH}; not writing last_successful"
+                            exit 0
+                        fi
+                        cat > branch_commit_id_80.last_successful <<EOF
+BRANCH_NAME=${GIT_BRANCH}
+COMMIT_ID=\${BUILT_COMMIT}
+MONGO_TOOLS_TAG=${MONGO_TOOLS_TAG}
+EOF
+                        AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_80.last_successful s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                        echo "Recorded last_successful: ${GIT_BRANCH}@\${BUILT_COMMIT}"
+                    """
+                }
             }
             deleteDir()
         }
