@@ -96,8 +96,8 @@ priceMap['t3.xlarge']   = '0.065'
 priceMap['t3.large']    = '0.035'
 priceMap['m4.large']    = '0.060'
 priceMap['m7a.large']   = '0.044' // amd64 instance type - vCPU=2, memory=8GiB, saving=73%, interruption='<5%', price=0.03
-priceMap['m8i.large']   = '0.050' // amd64 fallback for min-noble-x64 (PMM-15066) - vCPU=2, memory=8GiB
-priceMap['m7i.large']   = '0.050' // amd64 fallback for min-noble-x64 (PMM-15066) - vCPU=2, memory=8GiB
+priceMap['m8i.large']   = '0.050' // amd64 fallback for min-*-x64 labels (PMM-15066) - vCPU=2, memory=8GiB
+priceMap['m7i.large']   = '0.050' // amd64 fallback for min-*-x64 labels (PMM-15066) - vCPU=2, memory=8GiB
 priceMap['m7gd.large']  = '0.042' // arm64 instance type - vCPU=2, memory=8GiB, saving=63%, interruption='<5%', price=0.03
 
 userMap = [:]
@@ -250,8 +250,8 @@ capMap['t3.xlarge']   = '20'
 capMap['t3.large']    = '20'
 capMap['m4.large']    = '10'
 capMap['m7a.large']   = '15' // amd64 instance type
-capMap['m8i.large']   = '15' // amd64 fallback for min-noble-x64 (PMM-15066)
-capMap['m7i.large']   = '15' // amd64 fallback for min-noble-x64 (PMM-15066)
+capMap['m8i.large']   = '15' // amd64 fallback for min-*-x64 labels (PMM-15066)
+capMap['m7i.large']   = '15' // amd64 fallback for min-*-x64 labels (PMM-15066)
 capMap['m7gd.large']  = '15' // arm64 instance type
 
 typeMap = [:]
@@ -440,18 +440,38 @@ String region = 'us-east-2'
         '240',                                   // String instanceCapStr
         [
             getTemplate('min-rhel-8-x64',      "${region}${it}"),
+            getTemplate('min-rhel-8-x64',      "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-rhel-8-x64',      "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-ol-8-x64',        "${region}${it}"),
+            getTemplate('min-ol-8-x64',        "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-ol-8-x64',        "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-rhel-9-x64',      "${region}${it}"),
+            getTemplate('min-rhel-9-x64',      "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-rhel-9-x64',      "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-ol-9-x64',        "${region}${it}"),
+            getTemplate('min-ol-9-x64',        "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-ol-9-x64',        "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-alma-10-x64',     "${region}${it}"),
+            getTemplate('min-alma-10-x64',     "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-alma-10-x64',     "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-jammy-x64',       "${region}${it}"),
+            getTemplate('min-jammy-x64',       "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-jammy-x64',       "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-noble-x64',       "${region}${it}"),
             getTemplate('min-noble-x64',       "${region}${it}", 'm8i.large'), // PMM-15066 fallback
             getTemplate('min-noble-x64',       "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-resolute-x64',    "${region}${it}"),
+            getTemplate('min-resolute-x64',    "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-resolute-x64',    "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-bullseye-x64',    "${region}${it}"),
+            getTemplate('min-bullseye-x64',    "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-bullseye-x64',    "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-bookworm-x64',    "${region}${it}"),
+            getTemplate('min-bookworm-x64',    "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-bookworm-x64',    "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-trixie-x64',      "${region}${it}"),
+            getTemplate('min-trixie-x64',      "${region}${it}", 'm8i.large'), // PMM-15066 fallback
+            getTemplate('min-trixie-x64',      "${region}${it}", 'm7i.large'), // PMM-15066 fallback
             getTemplate('min-ol-8-arm64',      "${region}${it}"),
             getTemplate('min-ol-9-arm64',      "${region}${it}"),
             getTemplate('min-alma-10-arm64',   "${region}${it}"),
