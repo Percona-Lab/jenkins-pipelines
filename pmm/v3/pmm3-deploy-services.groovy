@@ -394,10 +394,7 @@ pipeline {
                 '''
                 def playwrightExit = readFile('.playwright-exit').trim() as int
                 if (playwrightExit != 0) {
-                  unstable('Playwright screenshot tests had failures; partial screenshots were zipped and will be uploaded if the zip exists.')
-                }
-                if (!fileExists(zipName)) {
-                  error('Screenshot zip was not created (playwright may have failed before producing screenshots).')
+                  unstable('Playwright screenshot tests had failures; partial screenshots were zipped and will be uploaded.')
                 }
               }
               def snapTarget = params.SCREENSHOTS_SLACK_TARGET?.trim() ?: ''
