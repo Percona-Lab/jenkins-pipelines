@@ -146,6 +146,9 @@ pipeline {
 
     booleanParam(name: 'DEPLOY_VALKEY', defaultValue: false,
                  description: '<b>Valkey:</b><br>Deploys 1 VM containing a Valkey instance.')
+    booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', defaultValue: false,
+                 description: 'If enabled, generate dashboard screenshots at the end of provisioning and skip the 24h hold stage.')
+    string(name: 'SCREENSHOTS_SLACK_TARGET', defaultValue: '@catalina.adam', description: 'Slack target for screenshots (@user, #channel, or thread id).')
 
     // --- DB VERSIONS ---
     choice(name: 'PXC_VERSION', choices: ['8.0', '8.4', '5.7'], description: 'Version for PXC nodes')
@@ -324,14 +327,23 @@ pipeline {
                  currentPass = env.AMI_ADMIN_PASS
               }
 
-              try {
-                  sh '''
-                    curl -k -X PUT -H "Content-Type: application/json" \
-                    -d '{"password":"${params.ADMIN_PASSWORD}"}' \
-                    https://admin:${currentPass}@${env.PMM_SERVER_IP}/graph/api/admin/users/1/password
-                  '''
-              } catch(e) {
-                  echo "Warning: Password update failed. Proceeding."
+              // Pass values via withEnv so the password is not Groovy-interpolated
+              // into the shell command and does not appear in the build log.
+              withEnv([
+                  "GR_NEW_PASS=${params.ADMIN_PASSWORD}",
+                  "GR_CURR_PASS=${currentPass}",
+                  "GR_HOST=${env.PMM_SERVER_IP}"
+              ]) {
+                  try {
+                      sh '''
+                        set +x
+                        curl -fsk -X PUT -H "Content-Type: application/json" \
+                          -d "{\\"password\\":\\"${GR_NEW_PASS}\\"}" \
+                          "https://admin:${GR_CURR_PASS}@${GR_HOST}/graph/api/admin/users/1/password"
+                      '''
+                  } catch(e) {
+                      echo "Warning: Password update failed: ${e.message}. Proceeding."
+                  }
               }
 
               if (env.SLACK_DM) {
@@ -341,12 +353,58 @@ pipeline {
             }
           }
         }
+        stage('Generate Dashboard Screenshots') {
+          when {
+            expression { params.GENERATE_DASHBOARD_SCREENSHOTS.toBoolean() }
+          }
+          steps {
+            script {
+              def dockerVersion = params.DOCKER_VERSION?.trim() ?: ''
+              if (!dockerVersion.contains(':')) {
+                error "DOCKER_VERSION must be in image:tag format (example: perconalab/pmm-server:3-dev-latest)"
+              }
+              def dockerTag = dockerVersion.substring(dockerVersion.lastIndexOf(':') + 1)
+              def zipName = "screenshots-${dockerTag}.zip"
+
+              // Pass Groovy values via withEnv so the shell sees plain
+              // POSIX variables — no Groovy interpolation inside sh.
+              withEnv([
+                  "GR_QA_BRANCH=${params.PMM_QA_GIT_BRANCH}",
+                  "GR_PMM_UI_URL=${env.PMM_UI_URL}",
+                  "GR_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
+                  "GR_WORKSPACE=${env.WORKSPACE}",
+                  "GR_ZIP_NAME=${zipName}"
+              ]) {
+                sh '''
+                  set -eu
+                  git clone --depth 1 --branch "${GR_QA_BRANCH}" https://github.com/percona/pmm-qa.git
+                  cd pmm-qa/e2e_tests
+                  curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource-setup-22.sh
+                  sudo -E bash /tmp/nodesource-setup-22.sh
+                  sudo apt-get install -y nodejs gettext zip
+                  npm ci
+                  npx playwright install
+                  sudo npx playwright install-deps
+                  PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
+                  cd "${GR_WORKSPACE}"
+                  zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
+                '''
+              }
+              slackUploadFile botUser: true, channel: params.SCREENSHOTS_SLACK_TARGET?.trim(), failOnError: true,
+                filePath: zipName,
+                initialComment: "PMM dashboard screenshots for (${dockerVersion})"
+            }
+          }
+        }
       } // end inner stages
     } // end Build Environment
 
     // Hold runs on pipeline-level 'agent none' (flyweight): no EC2 executor
     // is pinned during the wait, so other builds can use min-noble-x64.
     stage('Hold for early abort (24h)') {
+      when {
+        expression { !params.GENERATE_DASHBOARD_SCREENSHOTS.toBoolean() }
+      }
       steps {
         script {
           timeout(time: 1440, unit: 'MINUTES') {
