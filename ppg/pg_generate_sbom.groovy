@@ -17,9 +17,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} -e SNYK_TOKEN=${SNYK_TOKEN} -e SNYK_ORG_TOKEN=${SNYK_ORG_TOKEN} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}"
+            bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}
             curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
-            bash sbom_verifier.sh pg_sbom/*.json
+            bash /usr/local/bin/sbom_verifier.sh pg_sbom/*.json"
 
     """
     }
