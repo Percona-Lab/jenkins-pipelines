@@ -67,13 +67,13 @@ pipeline {
                     GO_VERSION=$(grep '^go ' ./go.mod | awk '{print $2}')
                     cd build/docker/rpmbuild/
                     docker buildx build --pull --platform linux/amd64,linux/arm64 \
-                      --build-arg GO_VERSION=$(GO_VERSION) \
+                      --build-arg GO_VERSION=${GO_VERSION} \
                       --tag ${ECR_REGISTRY}/${IMAGE_NAME} \
                       --tag ${DOCKERHUB_REGISTRY}/perconalab/${IMAGE_NAME} \
                       -f Dockerfile.el9 --push .
 
                     docker buildx build --pull --platform linux/amd64,linux/arm64 \
-                      --build-arg GO_VERSION=$(GO_VERSION) \
+                      --build-arg GO_VERSION=${GO_VERSION} \
                       --tag ${ECR_REGISTRY}/${IMAGE_OL8_NAME} \
                       --tag ${DOCKERHUB_REGISTRY}/perconalab/${IMAGE_OL8_NAME} \
                       -f Dockerfile.el8 --push .
