@@ -18,8 +18,18 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}
-            curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
-            bash /usr/local/bin/sbom_verifier.sh pg_sbom/*.json"
+            if command -v apt-get >/dev/null 2>&1; then
+                apt-get update && apt-get install -y --no-install-recommends curl jq libxml2-utils file ca-certificates;
+            elif command -v dnf >/dev/null 2>&1; then
+                dnf install -y curl jq libxml2 file ca-certificates;
+            elif command -v yum >/dev/null 2>&1; then
+                yum install -y curl jq libxml2 file ca-certificates;
+            fi
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+            trivy image --download-db-only harbor-docker.int.percona.com/dockerhub-cache/aquasec/trivy-db:2 >/dev/null 2>&1 || true
+            curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/sbom_verifier.sh -o /usr/local/bin/sbom_verifier.sh
+            chmod +x /usr/local/bin/sbom_verifier.sh
+            bash /usr/local/bin/sbom_verifier.sh --trivy-only pg_sbom/*.json"
 
     """
     }
