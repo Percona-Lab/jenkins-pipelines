@@ -385,27 +385,18 @@ pipeline {
                   npm ci
                   npx playwright install
                   sudo npx playwright install-deps
+                  set +e
+                  PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
+                  echo $? > "${GR_WORKSPACE}/.playwright-exit"
+                  set -e
+                  cd "${GR_WORKSPACE}"
+                  zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
                 '''
-                def playwrightExit = sh(
-                  returnStatus: true,
-                  script: '''
-                    set -eu
-                    cd "${GR_WORKSPACE}/pmm-qa/e2e_tests"
-                    PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
-                  '''
-                )
-                def zipExit = sh(
-                  returnStatus: true,
-                  script: '''
-                    set -eu
-                    cd "${GR_WORKSPACE}"
-                    zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
-                  '''
-                )
+                def playwrightExit = readFile('.playwright-exit').trim() as int
                 if (playwrightExit != 0) {
                   unstable('Playwright screenshot tests had failures; partial screenshots were zipped and will be uploaded if the zip exists.')
                 }
-                if (zipExit != 0 || !fileExists(zipName)) {
+                if (!fileExists(zipName)) {
                   error('Screenshot zip was not created (playwright may have failed before producing screenshots).')
                 }
               }
