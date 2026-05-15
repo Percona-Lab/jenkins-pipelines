@@ -148,7 +148,7 @@ pipeline {
                  description: '<b>Valkey:</b><br>Deploys 1 VM containing a Valkey instance.')
     booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', defaultValue: false,
                  description: 'If enabled, generate dashboard screenshots at the end of provisioning and skip the 24h hold stage.')
-    string(name: 'SCREENSHOTS_SLACK_TARGET', defaultValue: '@catalina.adam', description: 'Slack target for screenshots (@user, #channel, or thread id).')
+    string(name: 'SCREENSHOTS_SLACK_TARGET', defaultValue: '@catalina.adam', description: '@user or #channel or #channel:thread_ts.')
 
     // --- DB VERSIONS ---
     choice(name: 'PXC_VERSION', choices: ['8.0', '8.4', '5.7'], description: 'Version for PXC nodes')
@@ -385,14 +385,38 @@ pipeline {
                   npm ci
                   npx playwright install
                   sudo npx playwright install-deps
-                  PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
-                  cd "${GR_WORKSPACE}"
-                  zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
                 '''
+                def playwrightExit = sh(
+                  returnStatus: true,
+                  script: '''
+                    set -eu
+                    cd "${GR_WORKSPACE}/pmm-qa/e2e_tests"
+                    PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
+                  '''
+                )
+                def zipExit = sh(
+                  returnStatus: true,
+                  script: '''
+                    set -eu
+                    cd "${GR_WORKSPACE}"
+                    zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
+                  '''
+                )
+                if (playwrightExit != 0) {
+                  unstable('Playwright screenshot tests had failures; partial screenshots were zipped and will be uploaded if the zip exists.')
+                }
+                if (zipExit != 0 || !fileExists(zipName)) {
+                  error('Screenshot zip was not created (playwright may have failed before producing screenshots).')
+                }
               }
-              slackUploadFile botUser: true, channel: params.SCREENSHOTS_SLACK_TARGET?.trim(), failOnError: true,
-                filePath: zipName,
-                initialComment: "PMM dashboard screenshots for (${dockerVersion})"
+              def snapTarget = params.SCREENSHOTS_SLACK_TARGET?.trim() ?: ''
+              if (snapTarget.startsWith('#') && snapTarget.contains(':')) {
+                slackUploadFile channel: snapTarget, failOnError: true, filePath: zipName
+              } else {
+                def slackResponse = slackSend(botUser: true, channel: snapTarget, message: "PMM dashboard screenshots for (${dockerVersion})", sendAsText: true)
+                def uploadCh = snapTarget.startsWith('#') ? "${slackResponse.channelId}:${slackResponse.ts}" : slackResponse.channelId
+                slackUploadFile channel: uploadCh, failOnError: true, filePath: zipName
+              }
             }
           }
         }

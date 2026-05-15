@@ -107,6 +107,7 @@ pipeline {
 |Each triggered job will appear below with a link.""".stripMargin()
                     def slackResponse = slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: intro
                     env.SLACK_RC_THREAD = slackResponse.threadId
+                    env.SLACK_RC_SCREENSHOTS_TARGET = "${RC_SLACK_CHANNEL}:${slackResponse.ts}"
                 }
             }
         }
@@ -574,7 +575,7 @@ pipeline {
                                         string(name: 'MODB_VERSION',                   value: '8.0'),
                                         string(name: 'PMM_QA_GIT_BRANCH',              value: 'main'),
                                         booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
-                                        string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_THREAD),
+                                        string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_SCREENSHOTS_TARGET),
                                     ])
                                 }
                             }
