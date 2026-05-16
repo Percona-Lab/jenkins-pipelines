@@ -42,7 +42,7 @@ pipeline {
         string(
             // Starts with 'PR-', e.g., PR-2345
             defaultValue: '',
-            description: 'Change Request Number for pmm-submodules repository PR',
+            description: 'Pull Request Number for pmm-submodules repository PR',
             name: 'BRANCH_NAME')
         booleanParam(
             defaultValue: false,
@@ -71,6 +71,10 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    if (!(env.PMM_VERSION =~ '^3.')) {
+                        currentBuild.result = 'NOT BUILD'
+                        error("Skipping: PMM version ${env.PMM_VERSION} does not match '^3.'")
+                    }
                     env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                     env.SHORTENED_COMMIT = env.FB_COMMIT.substring(0, 7)
                 }
@@ -400,14 +404,12 @@ pipeline {
                 }
             }
         }
-        always {
+        failure {
             script {
-                if (currentBuild.result != 'SUCCESS') {
-                    if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
-                        addComment("API tests have failed: ${API_TESTS_URL}")
-                    }
-                    slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
+                    addComment("API tests have failed: ${API_TESTS_URL}")
                 }
+                slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }
