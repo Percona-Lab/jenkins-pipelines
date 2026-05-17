@@ -78,6 +78,11 @@ networkMap['pxb.cd.percona.com'] = '11374631' // pxb.cd.percona.com
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    # Force IPv4 early (Hetzner -> Cloudflare CDN IPv6 routing is intermittently broken, see PKG-1325)
+    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.eth0.disable_ipv6=1 || true
+    echo "precedence ::ffff:0:0/96 100" | sudo tee -a /etc/gai.conf
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
