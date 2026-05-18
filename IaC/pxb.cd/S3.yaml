@@ -76,10 +76,10 @@ Resources:
 
 Outputs:
 
-  BackupCiBucketArn:
+  BucketName:
+    Description: Name of the PXB backup CI bucket
+    Value: !Ref PxbBackupCiBucket
+
+  BucketArn:
     Description: ARN of the PXB backup CI bucket
     Value: !GetAtt PxbBackupCiBucket.Arn
-
-  BuildCacheBucketArn:
-    Description: ARN of the PXB build-cache bucket
-    Value: !GetAtt PxbBuildCacheBucket.Arn
