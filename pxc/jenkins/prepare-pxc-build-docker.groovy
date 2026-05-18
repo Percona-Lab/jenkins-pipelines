@@ -47,6 +47,7 @@ pipeline {
                         "debian:bullseye":  { build('debian:bullseye') },
                         "debian:bookworm":  { build('debian:bookworm') },
                         "debian:trixie":    { build('debian:trixie') },
+                        "amazonlinux:2023": { build('amazonlinux:2023') },
                     ]
                     if (params.ARCH != 'aarch64') {
                         builders["centos:7"] = { build('centos:7') }
