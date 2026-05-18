@@ -55,9 +55,3 @@ Resources:
       Tags:
       - Key: iit-billing-tag
         Value: jenkins
-
-Outputs:
-
-  PerconaJenkinsArtifactoryBucketArn:
-    Description: ARN of the percona-jenkins-artifactory bucket
-    Value: !GetAtt PerconaJenkinsArtifactoryBucket.Arn

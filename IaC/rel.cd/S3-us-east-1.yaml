@@ -26,9 +26,3 @@ Resources:
       Tags:
       - Key: iit-billing-tag
         Value: jenkins-release
-
-Outputs:
-
-  JenkinsPerconaJobsBackupBucketArn:
-    Description: ARN of the jenkins-percona-jobs-backup bucket
-    Value: !GetAtt JenkinsPerconaJobsBackupBucket.Arn

@@ -44,9 +44,3 @@ Resources:
               AWS: '*'
             Action: s3:GetObject
             Resource: arn:aws:s3:::pmm-build-cache/*
-
-Outputs:
-
-  PmmBuildCacheBucketArn:
-    Description: ARN of the pmm-build-cache bucket
-    Value: !GetAtt PmmBuildCacheBucket.Arn

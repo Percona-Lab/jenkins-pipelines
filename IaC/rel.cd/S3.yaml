@@ -18,9 +18,3 @@ Resources:
       Tags:
       - Key: iit-billing-tag
         Value: jenkins-cloud
-
-Outputs:
-
-  RelRepoCacheBucketArn:
-    Description: ARN of the rel-repo-cache bucket
-    Value: !GetAtt RelRepoCacheBucket.Arn

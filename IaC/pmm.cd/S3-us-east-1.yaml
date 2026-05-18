@@ -70,9 +70,3 @@ Resources:
             Condition:
               StringEquals:
                 s3:x-amz-acl: bucket-owner-full-control
-
-Outputs:
-
-  PerconaVmBucketArn:
-    Description: ARN of the percona-vm bucket
-    Value: !GetAtt PerconaVmBucket.Arn

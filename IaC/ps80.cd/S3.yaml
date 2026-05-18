@@ -84,9 +84,3 @@ Resources:
       Tags:
       - Key: iit-billing-tag
         Value: jenkins-ps
-
-Outputs:
-
-  PsBuildCacheBucketArn:
-    Description: ARN of the shared PS build cache bucket
-    Value: !GetAtt PsBuildCacheBucket.Arn

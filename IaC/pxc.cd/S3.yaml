@@ -40,9 +40,3 @@ Resources:
               NoncurrentDays: 30
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 30
-
-Outputs:
-
-  PxcBuildCacheBucketArn:
-    Description: ARN of the pxc-build-cache bucket
-    Value: !GetAtt PxcBuildCacheBucket.Arn
