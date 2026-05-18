@@ -415,15 +415,11 @@ Resources:
     Properties:
       Domain: vpc
 
-  JDNSRecord: # create DNS record for jenkins master
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref ZoneId
-      Name: !Ref JHostName
-      Type: A
-      TTL: 300
-      ResourceRecords:
-      - !Ref MasterIP
+  # JDNSRecord removed in PS-10945: ps3.cd.percona.com is now published by
+  # external-dns in the percona-ci-platform EKS cluster, pointing at the
+  # shared jenkins-cd ALB (alb.ingress.kubernetes.io/group.name=jenkins-cd).
+  # The master remains reachable directly via its EIP (52.210.70.55) and via
+  # the origin-ps3.cd.percona.com record used by the in-cluster nginx upstream.
 
   JDataVolume: # create volume for jenkins data directory
     Type: AWS::EC2::Volume
