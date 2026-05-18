@@ -32,11 +32,19 @@ pipeline {
         stage ('Build image') {
             steps {
                 sh """
+                    sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-arm64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo systemctl restart docker
+                    export DOCKER_BUILDKIT=1
+
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-pgbackrest
                     sed -E "s/ARG PG_VERSION=(.+)/ARG PG_VERSION=${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ARG PPG_REPO=(.+)/ARG PPG_REPO=${params.PPG_REPO}/" -i Dockerfile
-                    docker build . -t percona-pgbackrest
+                    docker build --platform=linux/arm64 --no-cache --provenance=false -t percona-pgbackrest .
                     """
             }
         }

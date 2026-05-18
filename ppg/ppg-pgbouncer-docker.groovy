@@ -32,11 +32,18 @@ pipeline {
         stage ('Build image') {
             steps {
                 sh """
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo systemctl restart docker
+                    export DOCKER_BUILDKIT=1
+
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-pgbouncer
                     sed -E "s/ARG PG_VERSION=(.+)/ARG PG_VERSION=${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ARG PPG_REPO=(.+)/ARG PPG_REPO=${params.PPG_REPO}/" -i Dockerfile
-                    docker build . -t percona-pgbouncer
+                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-pgbouncer .
                     """
             }
         }
