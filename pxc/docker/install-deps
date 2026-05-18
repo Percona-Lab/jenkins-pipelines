@@ -145,6 +145,16 @@ if [ -f /usr/bin/yum ]; then
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
 
+  # AL2023 does not ship a few of the above packages. Strip them out so the
+  # final yum install does not fail. systemd-devel (added in the PXC-specific
+  # block below) substitutes libudev-devel. perl-Sys-MemInfo and ccache are
+  # not strictly required to build pxb on AL2023; skip them.
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      for pkg in perl-Sys-MemInfo ccache libudev-devel; do
+          PKGLIST="${PKGLIST// ${pkg} / }"
+      done
+  fi
+
   # mysql-devel / mariadb-connector-c-devel
   if [[ ${RHVER} -eq 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
       PKGLIST+=" mariadb-connector-c-devel"
