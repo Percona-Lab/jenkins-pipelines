@@ -1,17 +1,17 @@
 # aws cloudformation --region us-west-2 create-stack \
-#   --template-body file://IaC/pxb.cd/PxbBackupTestBucket.yml \
-#   --stack-name pxb-backup-test-bucket \
+#   --template-body file://IaC/pxb.cd/PxbBackupCiBucket.yml \
+#   --stack-name pxb-backup-ci-bucket \
 #   --tags Key=iit-billing-tag,Value=pxb Key=team,Value=pxb Key=owner,Value=tomislav.plavcic Key=ticket,Value=PKG-1330 \
-#   --parameters ParameterKey=BucketName,ParameterValue=pxb-backup-test \
+#   --parameters ParameterKey=BucketName,ParameterValue=pxb-backup-ci \
 #   --profile percona-dev-admin
 ---
 AWSTemplateFormatVersion: 2010-09-09
-Description: S3 bucket for PXB backup-test framework (PKG-1330).
+Description: S3 bucket for the PXB backup-test framework CI runs (PKG-1330).
 
 Parameters:
 
   BucketName:
-    Default: pxb-backup-test
+    Default: pxb-backup-ci
     Type: String
     MinLength: 1
     MaxLength: 63
@@ -20,7 +20,7 @@ Parameters:
 
 Resources:
 
-  PxbBackupTestBucket: # S3 bucket used by PXB backup-test pipelines and developers
+  PxbBackupCiBucket: # S3 bucket used by the PXB backup-test framework in CI
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
@@ -44,9 +44,9 @@ Resources:
 Outputs:
 
   BucketName:
-    Description: Name of the PXB backup-test bucket
-    Value: !Ref PxbBackupTestBucket
+    Description: Name of the PXB backup CI bucket
+    Value: !Ref PxbBackupCiBucket
 
   BucketArn:
-    Description: ARN of the PXB backup-test bucket
-    Value: !GetAtt PxbBackupTestBucket.Arn
+    Description: ARN of the PXB backup CI bucket
+    Value: !GetAtt PxbBackupCiBucket.Arn
