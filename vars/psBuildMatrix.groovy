@@ -176,12 +176,12 @@ def call(Map args = [:]) {
             fipsFlags: null, skipInFips: false,
         ],
         // ---- DEB stages (x64) ----
-        [
-            name: 'Ubuntu Focal(20.04)',
-            image: 'ubuntu:focal', arch: 'x64', buildType: 'deb',
-            flags: '--build_deb=1 --with_zenfs=1',
-            fipsFlags: null, skipInFips: true,
-        ],
+        //[
+        //    name: 'Ubuntu Focal(20.04)',
+        //    image: 'ubuntu:focal', arch: 'x64', buildType: 'deb',
+        //    flags: '--build_deb=1 --with_zenfs=1',
+        //    fipsFlags: null, skipInFips: true,
+        //],
         [
             name: 'Ubuntu Jammy(22.04)',
             image: 'ubuntu:jammy', arch: 'x64', buildType: 'deb',
@@ -220,12 +220,12 @@ def call(Map args = [:]) {
         ],
 
         // ---- DEB stages (ARM) ----
-        [
-            name: 'Ubuntu Focal(20.04) ARM',
-            image: 'ubuntu:focal', arch: 'aarch64', buildType: 'deb',
-            flags: '--build_deb=1 --with_zenfs=1',
-            fipsFlags: null, skipInFips: true,
-        ],
+        //[
+        //    name: 'Ubuntu Focal(20.04) ARM',
+        //    image: 'ubuntu:focal', arch: 'aarch64', buildType: 'deb',
+        //    flags: '--build_deb=1 --with_zenfs=1',
+        //    fipsFlags: null, skipInFips: true,
+        //],
         [
             name: 'Ubuntu Jammy(22.04) ARM',
             image: 'ubuntu:jammy', arch: 'aarch64', buildType: 'deb',
