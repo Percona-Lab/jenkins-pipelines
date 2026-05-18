@@ -113,25 +113,38 @@ def withRBE(Closure body) {
         ]) {
             // Seed the file with the initial token so the first helper
             // invocation is unblocked even before the sidecar produces
-            // a write.
-            writeFile(file: "${tokenFile}.tmp", text: env.PSMDB_RBE_JENKINS_TOKEN, encoding: 'UTF-8')
-            sh "chmod 600 ${tokenFile}.tmp && mv ${tokenFile}.tmp ${tokenFile}"
+            // a write. A single sh (umask 077 + printf + atomic mv)
+            // collapses writeFile+chmod+mv into one Pipeline UI step.
+            sh '''
+                set -e
+                umask 077
+                printf '%s' "$PSMDB_RBE_JENKINS_TOKEN" > "${PSMDB_RBE_JENKINS_TOKEN_FILE}.tmp"
+                mv "${PSMDB_RBE_JENKINS_TOKEN_FILE}.tmp" "${PSMDB_RBE_JENKINS_TOKEN_FILE}"
+            '''
 
             parallel(
                 'token-refresh': {
                     timeout(time: 24, unit: 'HOURS') {
-                        waitUntil(initialRecurrencePeriod: 50 * 60 * 1000, quiet: true) {
-                            if (fileExists(doneFlag)) { return true }
+                        boolean done = false
+                        while (!done) {
                             withCredentials([
                                 string(
                                     credentialsId: params.PSMDB_RBE_OIDC_CREDENTIALS_ID,
                                     variable: 'TOK'
                                 )
                             ]) {
-                                writeFile(file: "${tokenFile}.tmp", text: env.TOK, encoding: 'UTF-8')
-                                sh "chmod 600 ${tokenFile}.tmp && mv ${tokenFile}.tmp ${tokenFile}"
+                                int rc = sh(returnStatus: true, script: """
+                                    set -e
+                                    if [ -f '${doneFlag}' ]; then exit 42; fi
+                                    umask 077
+                                    printf '%s' "\$TOK" > '${tokenFile}.tmp'
+                                    mv '${tokenFile}.tmp' '${tokenFile}'
+                                """)
+                                done = (rc == 42) // )))
                             }
-                            return false
+                            if (!done) {
+                                sleep(time: 50, unit: 'MINUTES')
+                            }
                         }
                     }
                 },
@@ -177,6 +190,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
             set -o xtrace
             cd \${build_dir}
             ls -laR ./
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
     """
 }
