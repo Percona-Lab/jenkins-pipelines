@@ -15,6 +15,9 @@ Resources:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
             BucketKeyEnabled: false
+      LoggingConfiguration:
+        DestinationBucketName: s3-access-logs-119175775298
+        LogFilePrefix: logs/jenkins-percona-jobs-backup/
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
