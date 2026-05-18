@@ -19,7 +19,7 @@ void runUITestsJob(String GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, TAG, 
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(

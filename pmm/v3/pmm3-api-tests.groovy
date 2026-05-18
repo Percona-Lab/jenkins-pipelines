@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -71,7 +71,7 @@ pipeline {
                     ${DOCKER_VERSION}
 
                     docker compose -f api-tests/docker-compose.yml up test_db
-                    docker build -f api-tests/Dockerfile -t local/pmm-api-tests .
+                    DOCKER_IMAGE=local/pmm-api-tests make -C api-tests docker-build-image
                 '''
                 script {
                     env.PMM_URL = "https://admin:admin@127.0.0.1"
@@ -91,13 +91,12 @@ pipeline {
         stage('Run API Test') {
             steps {
                 sh '''
-                    docker run -e PMM_SERVER_URL=${PMM_URL} \
-                               -e PMM_SERVER_INSECURE_TLS=1 \
-                               -e PMM_RUN_UPDATE_TEST=0 \
-                               -e PMM_RUN_ADVISOR_TESTS=0 \
-                               --name api-tests \
-                               --network host \
-                               local/pmm-api-tests
+                    DOCKER_IMAGE=local/pmm-api-tests \
+                    PMM_SERVER_URL=${PMM_URL} \
+                    PMM_SERVER_INSECURE_TLS=1 \
+                    PMM_RUN_UPDATE_TEST=0 \
+                    PMM_RUN_ADVISOR_TESTS=0 \
+                    make -C api-tests docker-run-tests
                 '''
             }
         }

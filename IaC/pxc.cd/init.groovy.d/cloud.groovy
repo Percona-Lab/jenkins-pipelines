@@ -48,6 +48,9 @@ imageMap['min-rhel-10-x64']  = 'ami-0a5229853eaaa29c1'
 
 imageMap['min-al2023-aarch64'] = 'ami-00772aa7c934ce477'
 
+imageMap['metal-x64']     = 'ami-09f5bc32761a0773b' // Ubuntu Noble 24.04 amd64 (us-west-1)
+imageMap['metal-aarch64'] = 'ami-0c370c5b8152acabb' // Ubuntu Noble 24.04 arm64 (us-west-1)
+
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
 imageMap['ramdisk-centos-8-x64'] = imageMap['min-centos-8-x64']
@@ -73,6 +76,8 @@ priceMap['c5.2xlarge'] = '0.28' // type=c5.2xlarge, vCPU=8, memory=16GiB, saving
 priceMap['r3.2xlarge'] = '0.21' // centos6
 priceMap['c5.4xlarge'] = '0.40' // type=c5.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
 priceMap['m6gd.4xlarge'] = '0.40' // aarch64 type=m6gd.4xlarge, vCPU=16, memory=64GiB, saving=62%, interruption='<5%', price=0.290000
+priceMap['c5.metal']    = '5.10' // amd64 bare-metal, vCPU=96, memory=192GiB, on-demand=5.088 (us-west-1)
+priceMap['c7g.metal']   = '2.89' // arm64 bare-metal, vCPU=64, memory=128GiB, on-demand=2.8832 (us-west-1)
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -99,6 +104,9 @@ userMap['min-trixie-x64']    = 'admin'
 userMap['min-rhel-10-x64']   = 'ec2-user'
 userMap['min-al2023-x64']    = 'ec2-user'
 userMap['min-al2023-aarch64'] = 'ec2-user'
+
+userMap['metal-x64']     = 'ubuntu'
+userMap['metal-aarch64'] = 'ubuntu'
 
 userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
 userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
@@ -402,6 +410,33 @@ initMap['debMapRamdisk'] = '''
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 
+initMap['metalDebMap'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext4 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
+        sleep 1
+        echo try again
+    done
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+        openjdk-17-jre-headless git \\
+        qemu-kvm libvirt-daemon-system qemu-utils \\
+        bridge-utils virtinst cpu-checker
+    sudo usermod -aG libvirt,kvm $(id -u -n)
+    sudo systemctl enable --now libvirtd
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+
 initMap['micro-amazon']      = initMap['rpmMap']
 initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
@@ -419,6 +454,8 @@ initMap['min-trixie-x64']   = initMap['debMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
 initMap['min-noble-x64']    = initMap['debMap']
+initMap['metal-x64']        = initMap['metalDebMap']
+initMap['metal-aarch64']    = initMap['metalDebMap']
 initMap['min-resolute-x64']    = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-xenial-x64']   = initMap['debMap']
@@ -560,6 +597,8 @@ capMap['c5.2xlarge'] = '40'
 capMap['c5.4xlarge'] = '80'
 capMap['r3.2xlarge'] = '40'
 capMap['m6gd.4xlarge'] = '40'
+capMap['c5.metal']     = '2'
+capMap['c7g.metal']    = '2'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'm4.xlarge'
@@ -589,6 +628,8 @@ typeMap['min-trixie-x64']    = typeMap['docker-32gb']
 typeMap['min-rhel-10-x64']   = typeMap['docker-32gb']
 typeMap['min-al2023-x64']    = 'c5.2xlarge'
 typeMap['min-al2023-aarch64'] = 'm6gd.4xlarge'
+typeMap['metal-x64']     = 'c5.metal'
+typeMap['metal-aarch64'] = 'c7g.metal'
 
 typeMap['ramdisk-centos-6-x64'] = 'r3.2xlarge'
 typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
@@ -631,6 +672,8 @@ execMap['min-trixie-x64'] = '1'
 execMap['min-rhel-10-x64'] = '1'
 execMap['min-al2023-x64']    = '1'
 execMap['min-al2023-aarch64'] = '1'
+execMap['metal-x64']     = '1'
+execMap['metal-aarch64'] = '1'
 
 execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
@@ -675,6 +718,8 @@ devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:12:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-al2023-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-al2023-aarch64'] = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['metal-x64']     = '/dev/sda1=:500:true:gp3'
+devMap['metal-aarch64'] = '/dev/sda1=:500:true:gp3'
 
 devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:12:true:gp2'
 devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
@@ -719,6 +764,8 @@ labelMap['min-trixie-x64']    = 'min-trixie-x64'
 labelMap['min-rhel-10-x64']   = 'min-rhel-10-x64'
 labelMap['min-al2023-x64']    = 'min-al2023-x64'
 labelMap['min-al2023-aarch64'] = 'min-al2023-aarch64 docker-32gb-aarch64'
+labelMap['metal-x64']     = 'metal-x64 native-kvm-x64'
+labelMap['metal-aarch64'] = 'metal-aarch64 native-kvm-aarch64'
 
 labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
 labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'
@@ -766,6 +813,8 @@ maxUseMap['min-trixie-x64']    = maxUseMap['singleUse']
 maxUseMap['min-rhel-10-x64']   = maxUseMap['singleUse']
 maxUseMap['min-al2023-x64']    = maxUseMap['singleUse']
 maxUseMap['min-al2023-aarch64'] = maxUseMap['singleUse']
+maxUseMap['metal-x64']     = maxUseMap['multipleUse']
+maxUseMap['metal-aarch64'] = maxUseMap['multipleUse']
 
 maxUseMap['ramdisk-centos-6-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-7-x64'] = maxUseMap['singleUse']
@@ -810,6 +859,8 @@ jvmoptsMap['min-trixie-x64']    = '-Xmx512m -Xms512m --add-opens=java.base/java.
 jvmoptsMap['min-rhel-10-x64']   = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-x64']    = '-Xmx512m -Xms512m'
 jvmoptsMap['min-al2023-aarch64'] = '-Xmx512m -Xms512m'
+jvmoptsMap['metal-x64']     = '-Xmx512m -Xms512m'
+jvmoptsMap['metal-aarch64'] = '-Xmx512m -Xms512m'
 
 jvmoptsMap['ramdisk-centos-6-x64'] = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-centos-7-x64'] = jvmoptsMap['docker']
@@ -920,6 +971,8 @@ String region = 'us-west-1'
             getTemplate('min-resolute-x64',    "${region}${it}"),
             getTemplate('min-al2023-x64',       "${region}${it}"),
             getTemplate('min-al2023-aarch64',   "${region}${it}"),
+            getTemplate('metal-x64',            "${region}${it}"),
+            getTemplate('metal-aarch64',        "${region}${it}"),
             // getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-8-x64', "${region}${it}"),
