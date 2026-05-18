@@ -195,6 +195,12 @@ def call(Map args = [:]) {
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
         ],
         [
+            name: 'Ubuntu Resolute(26.04)',
+            image: 'ubuntu:resolute', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
             name: 'Debian Bullseye(11)',
             image: 'debian:bullseye', arch: 'x64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
@@ -229,6 +235,12 @@ def call(Map args = [:]) {
         [
             name: 'Ubuntu Noble(24.04) ARM',
             image: 'ubuntu:noble', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Resolute(26.04) ARM',
+            image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
         ],

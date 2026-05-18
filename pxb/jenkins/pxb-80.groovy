@@ -536,6 +536,44 @@ pipeline {
                         }
                     }
                 }
+                stage('Ubuntu Resolute(26.04)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:resolute", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:resolute", "--build_deb=1")
+                            }
+
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+                stage('Ubuntu Resolute(26.04) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:resolute", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:resolute", "--build_deb=1")
+                            }
+
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
