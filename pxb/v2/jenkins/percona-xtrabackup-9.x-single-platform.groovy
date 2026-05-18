@@ -20,7 +20,7 @@ pipeline {
             name: 'BRANCH',
             trim: true)
         choice(
-            choices: 'oraclelinux:9\nubuntu:jammy\nubuntu:noble\ndebian:bookworm\ndebian:trixie',
+            choices: 'oraclelinux:9\nubuntu:jammy\nubuntu:noble\ndebian:bookworm\ndebian:trixie\namazonlinux:2023',
             description: 'OS version for compilation and testing',
             name: 'DOCKER_OS')
         choice(
