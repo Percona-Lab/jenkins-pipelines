@@ -7,20 +7,24 @@ DOCKER_DIR=$(dirname $0)
 
 build_docker() {
     local SOURCE_IMAGE=$1
+    local ARCH_SUFFIX=""
+    if [[ $(uname -m) == "aarch64" ]]; then
+      ARCH_SUFFIX="-aarch64"
+    fi
 
     sed -e "s^FROM .*^FROM ${SOURCE_IMAGE}^" \
         ${DOCKER_DIR}/Dockerfile.inc \
-        > ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
+        > ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX}
 
     export DOCKER_BUILDKIT=0
     docker build \
         --squash \
         --no-cache \
-        -t public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
-        --file ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-} \
+        -t public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX} \
+        --file ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX} \
         $DOCKER_DIR
 
-    rm ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
+    rm ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX}
 }
 
 build_docker ${1:-centos:7}
