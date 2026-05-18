@@ -187,6 +187,7 @@ initMap['launcher-x64-fsn1']  = initMap['deb-docker']
 // disable IPv6 (PKG-1325), and restart docker so the data-root override picks up.
 initMap['ol9-agent'] = '''#!/bin/bash -x
     set -o xtrace
+    set -euo pipefail
     sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
     sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
     sudo sysctl -w net.ipv6.conf.eth0.disable_ipv6=1 || true
@@ -195,19 +196,23 @@ initMap['ol9-agent'] = '''#!/bin/bash -x
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo install -o root -g root -d /mnt/docker
-    sudo fallocate -l 32G /swapfile || true
-    sudo chmod 600 /swapfile
-    sudo mkswap /swapfile || true
-    sudo swapon /swapfile || true
+    if [ ! -f /swapfile ]; then
+        sudo fallocate -l 32G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+    fi
+    if ! sudo swapon --show | grep -q '^/swapfile '; then
+        sudo swapon /swapfile
+    fi
     sudo sysctl net.ipv4.tcp_fin_timeout=15
     sudo sysctl net.ipv4.tcp_tw_reuse=1
     sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service || true
-    sudo systemctl daemon-reload || true
-    sudo systemctl restart docker || true
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo systemctl restart docker
 '''
 initMap['agent-amd64-ol9-nbg1'] = initMap['ol9-agent']
 initMap['agent-amd64-ol9-hel1'] = initMap['ol9-agent']
