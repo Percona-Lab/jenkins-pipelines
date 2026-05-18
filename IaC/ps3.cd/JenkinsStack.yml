@@ -52,7 +52,10 @@ Resources:
   JVPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.177.0.0/22
+      # PS-10945: renumbered from 10.177.0.0/22 (collided with pxc/ps57/cloud)
+      # to 10.181.0.0/22 so this VPC can peer with the percona-ci-platform
+      # EKS VPC (10.220.0.0/16) without route-table conflict.
+      CidrBlock: 10.181.0.0/22
       EnableDnsSupport: true
       EnableDnsHostnames: true
       InstanceTenancy: default
@@ -81,7 +84,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
-      CidrBlock: 10.177.1.0/24
+      CidrBlock: 10.181.1.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
@@ -95,7 +98,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
-      CidrBlock: 10.177.2.0/24
+      CidrBlock: 10.181.2.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 2, !GetAZs '' ]
@@ -254,14 +257,14 @@ Resources:
         ToPort: 443
         CidrIp: 0.0.0.0/0
       # PS-10945: jenkins-ingress nginx proxy in percona-ci-platform EKS
-      # (us-east-1, NAT GW nat-07fa1058bd856dd8a) proxy_passes to Jenkins on
-      # :8080. Removed in cleanup PR once openresty is stripped and Route53
-      # cut over; at that point :443 + :80 close to the public and only the
-      # NAT EIP keeps ingress to :8080.
+      # (us-east-1 VPC 10.220.0.0/16) reaches Jenkins :8080 via cross-region
+      # VPC peering (percona-ci-platform/terraform/peering-ps3.tf), not via
+      # the cluster's NAT EIP. Source is the EKS VPC CIDR. :443 + :80 close
+      # in a follow-up once Route53 has cut over to the ALB.
       - IpProtocol: tcp
         FromPort: 8080
         ToPort: 8080
-        CidrIp: 54.156.234.228/32
+        CidrIp: 10.220.0.0/16
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
