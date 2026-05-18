@@ -1,12 +1,28 @@
+# Stack name: pxb-backup-ci-bucket (legacy single-bucket name; now holds all pxb.cd S3).
+#
+# Initial deploy (PxbBackupCiBucket, PKG-1330):
 # aws cloudformation --region us-west-2 create-stack \
 #   --template-body file://IaC/pxb.cd/S3.yaml \
 #   --stack-name pxb-backup-ci-bucket \
 #   --tags Key=iit-billing-tag,Value=pxb Key=team,Value=pxb Key=owner,Value=tomislav.plavcic Key=ticket,Value=PKG-1330 \
 #   --parameters ParameterKey=BucketName,ParameterValue=pxb-backup-ci \
 #   --profile percona-dev-admin
+#
+# Import existing pxb-build-cache bucket into the stack:
+# aws cloudformation --region us-west-2 create-change-set \
+#   --stack-name pxb-backup-ci-bucket \
+#   --change-set-name import-pxb-build-cache \
+#   --change-set-type IMPORT \
+#   --resources-to-import ResourceType=AWS::S3::Bucket,LogicalResourceId=PxbBuildCacheBucket,ResourceIdentifier='{"BucketName":"pxb-build-cache"}' \
+#   --template-body file://IaC/pxb.cd/S3.yaml \
+#   --profile percona-dev-admin
+# aws cloudformation --region us-west-2 execute-change-set \
+#   --stack-name pxb-backup-ci-bucket \
+#   --change-set-name import-pxb-build-cache \
+#   --profile percona-dev-admin
 ---
 AWSTemplateFormatVersion: 2010-09-09
-Description: S3 bucket for the PXB backup-test framework CI runs (PKG-1330).
+Description: pxb.cd S3 buckets (pxb-backup-ci from PKG-1330, pxb-build-cache imported as follow-up).
 
 Parameters:
 
@@ -20,7 +36,7 @@ Parameters:
 
 Resources:
 
-  PxbBackupCiBucket: # S3 bucket used by the PXB backup-test framework in CI
+  PxbBackupCiBucket: # S3 bucket used by the PXB backup-test framework in CI (PKG-1330)
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
@@ -41,12 +57,29 @@ Resources:
       - Key: ticket
         Value: PKG-1330
 
+  PxbBuildCacheBucket: # Build artefact cache used by every PXB build/test pipeline. Imported via CF IMPORT change set; properties match the existing bucket's state so import does not trigger drift. Hardening (enable PublicAccessBlock, tag for billing) is out of scope for the import PR and tracked separately.
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: pxb-build-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
 Outputs:
 
-  BucketName:
-    Description: Name of the PXB backup CI bucket
-    Value: !Ref PxbBackupCiBucket
-
-  BucketArn:
+  BackupCiBucketArn:
     Description: ARN of the PXB backup CI bucket
     Value: !GetAtt PxbBackupCiBucket.Arn
+
+  BuildCacheBucketArn:
+    Description: ARN of the PXB build-cache bucket
+    Value: !GetAtt PxbBuildCacheBucket.Arn
