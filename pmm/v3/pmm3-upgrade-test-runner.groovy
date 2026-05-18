@@ -379,27 +379,36 @@ pipeline {
                     when {
                         expression { return params.UPGRADE_TYPE == "DOCKER" }
                     }
-                    steps {
-                        withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                            sh '''
-                                docker stop pmm-server
-                                docker pull ${DOCKER_TAG_UPGRADE}
-                                docker rename pmm-server pmm-server-old
-                                docker run --detach --restart always \
-                                    --network="pmm-qa" \
-                                    -e PMM_DEBUG=1 \
-                                    -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
-                                    -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
-                                    -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
-                                    -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
-                                    -e PMM_ENABLE_UPDATES=1 \
-                                    -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
-                                    --publish 80:8080 --publish 443:8443 \
-                                    --volumes-from pmm-server-old \
-                                    --name pmm-server \
-                                    ${DOCKER_TAG_UPGRADE}
-                                docker ps -a
-                            '''
+                    stages {
+                        stage('Docker upgrade') {
+                            steps {
+                                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                                    sh '''
+                                        docker stop pmm-server
+                                        docker pull ${DOCKER_TAG_UPGRADE}
+                                        docker rename pmm-server pmm-server-old
+                                        docker run --detach --restart always \
+                                            --network="pmm-qa" \
+                                            -e PMM_DEBUG=1 \
+                                            -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                            -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                            -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
+                                            -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
+                                            -e PMM_ENABLE_UPDATES=1 \
+                                            -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
+                                            --publish 80:8080 --publish 443:8443 \
+                                            --volumes-from pmm-server-old \
+                                            --name pmm-server \
+                                            ${DOCKER_TAG_UPGRADE}
+                                        docker ps -a
+                                    '''
+                                }
+                            }
+                        }
+                        stage('Sanity check after upgrade') {
+                            steps {
+                                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                            }
                         }
                     }
                 }
