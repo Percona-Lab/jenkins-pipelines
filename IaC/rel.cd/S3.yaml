@@ -1,30 +1,10 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
-Description: rel.cd S3 buckets.
+Description: rel.cd S3 buckets (eu-west-1 stack; jenkins-percona-jobs-backup in us-east-1 is in IaC/rel.cd/S3-us-east-1.yaml).
 
 Resources:
 
-  JenkinsPerconaJobsBackupBucket: # Jenkins job XML backup target (us-east-1; PublicAccessBlock fully on)
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      BucketName: jenkins-percona-jobs-backup
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-            BucketKeyEnabled: false
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-      - Key: iit-billing-tag
-        Value: jenkins-release
-
-  RelRepoCacheBucket: # cached upstream repo tag lists for rel.cd check-remote-repo (eu-west-1)
+  RelRepoCacheBucket: # cached upstream repo tag lists for rel.cd check-remote-repo
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
@@ -40,10 +20,6 @@ Resources:
         Value: jenkins-cloud
 
 Outputs:
-
-  JenkinsPerconaJobsBackupBucketArn:
-    Description: ARN of the jenkins-percona-jobs-backup bucket
-    Value: !GetAtt JenkinsPerconaJobsBackupBucket.Arn
 
   RelRepoCacheBucketArn:
     Description: ARN of the rel-repo-cache bucket

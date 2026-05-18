@@ -1,0 +1,26 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: pmm.cd S3 buckets in us-east-1 (PMM Server OVA / docker image tarball storage).
+
+Resources:
+
+  PerconaVmBucket: # PMM Server OVA images and docker image tarballs
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: percona-vm
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      Tags:
+      - Key: PerconaApproved
+        Value: HD-26384
+
+Outputs:
+
+  PerconaVmBucketArn:
+    Description: ARN of the percona-vm bucket
+    Value: !GetAtt PerconaVmBucket.Arn
