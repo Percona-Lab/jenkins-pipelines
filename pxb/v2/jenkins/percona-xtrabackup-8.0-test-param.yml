@@ -75,6 +75,7 @@
         - ubuntu:noble
         - debian:bullseye
         - debian:bookworm
+        - amazonlinux:2023
         - asan
     - axis:
         name: XTRABACKUP_TARGET
