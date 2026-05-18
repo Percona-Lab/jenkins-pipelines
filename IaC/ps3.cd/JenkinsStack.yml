@@ -235,10 +235,13 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  HTTPSecurityGroup: # allow http and https access to jenkins master
+  HTTPSecurityGroup: # allow http/https public access + :8080 from EKS NAT
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
+      # GroupDescription is immutable on AWS::EC2::SecurityGroup; do not
+      # edit or CF will Replacement-recreate the SG. PS-10945 :8080 rule
+      # below is added via SecurityGroupIngress (no replacement).
       GroupDescription: HTTP and HTTPS traffic in
       VpcId: !Ref JVPC
       SecurityGroupIngress:
@@ -250,6 +253,15 @@ Resources:
         FromPort: 443
         ToPort: 443
         CidrIp: 0.0.0.0/0
+      # PS-10945: jenkins-ingress nginx proxy in percona-ci-platform EKS
+      # (us-east-1, NAT GW nat-07fa1058bd856dd8a) proxy_passes to Jenkins on
+      # :8080. Removed in cleanup PR once openresty is stripped and Route53
+      # cut over; at that point :443 + :80 close to the public and only the
+      # NAT EIP keeps ingress to :8080.
+      - IpProtocol: tcp
+        FromPort: 8080
+        ToPort: 8080
+        CidrIp: 54.156.234.228/32
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
