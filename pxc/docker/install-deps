@@ -317,7 +317,9 @@ if [ -f /usr/bin/yum ]; then
         rm /anaconda-post.log
     fi
 #   Install mysql-connector for QA framework run
-    if [[ ${RHVER} -ge 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
+    # AL2023 pip3 (21.x) lacks --break-system-packages; PEP 668 is not enforced
+    # there anyway, so the plain "pip3 install" form is sufficient.
+    if [[ ${RHVER} -ge 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         pip3 install --break-system-packages mysql-connector mysqlclient
     else
         pip3 install mysql-connector mysqlclient
