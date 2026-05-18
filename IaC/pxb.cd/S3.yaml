@@ -1,5 +1,5 @@
 # aws cloudformation --region us-west-2 create-stack \
-#   --template-body file://IaC/pxb.cd/PxbBackupCiBucket.yml \
+#   --template-body file://IaC/pxb.cd/S3.yaml \
 #   --stack-name pxb-backup-ci-bucket \
 #   --tags Key=iit-billing-tag,Value=pxb Key=team,Value=pxb Key=owner,Value=tomislav.plavcic Key=ticket,Value=PKG-1330 \
 #   --parameters ParameterKey=BucketName,ParameterValue=pxb-backup-ci \
