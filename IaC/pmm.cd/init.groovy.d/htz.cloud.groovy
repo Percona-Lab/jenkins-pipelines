@@ -6,10 +6,12 @@ import java.util.logging.Logger
 
 def cloudName = "pmm-htz"
 
-imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION          ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
-imageMap['deb12-x64']     = '114690387' // 114690387   system   debian-12            Debian 12            x86            -            5 GB        Tue Jun 13 09:00:02 EEST 2023   -
-imageMap['deb12-aarch64'] = '114690389' // 114690389   system   debian-12            Debian 12            arm            -            5 GB        Tue Jun 13 09:00:03 EEST 2023   -
-imageMap['launcher-x64']  = imageMap['deb12-x64']
+imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION                ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
+imageMap['deb12-x64']      = '114690387' // 114690387   system   debian-12            Debian 12                  x86            -            5 GB        Tue Jun 13 09:00:02 EEST 2023   -
+imageMap['deb12-aarch64']  = '114690389' // 114690389   system   debian-12            Debian 12                  arm            -            5 GB        Tue Jun 13 09:00:03 EEST 2023   -
+imageMap['launcher-x64']   = imageMap['deb12-x64']
+imageMap['agent-amd64-ol9'] = '244338102' // 244338102 snapshot pmm-htz Docker Agent v3 Hetzner    x86            -            -           Fri Jun 13 2025                 -
+imageMap['agent-arm64-ol9'] = '244338408' // 244338408 snapshot pmm-htz Docker Agent ARM v3 Hetzner arm           -            -           Fri Jun 13 2025                 -
 
 execMap = [:]
 execMap['deb']                = 1
@@ -28,6 +30,12 @@ execMap['deb12-aarch64-fsn1-min'] = execMap['deb']
 execMap['launcher-x64-nbg1']  = 30
 execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
+execMap['agent-amd64-ol9-nbg1'] = 1
+execMap['agent-amd64-ol9-hel1'] = 1
+execMap['agent-amd64-ol9-fsn1'] = 1
+execMap['agent-arm64-ol9-nbg1'] = 1
+execMap['agent-arm64-ol9-hel1'] = 1
+execMap['agent-arm64-ol9-fsn1'] = 1
 
 bootDeadlineMap =[:]
 bootDeadlineMap['default']            = 8
@@ -46,6 +54,12 @@ bootDeadlineMap['deb12-aarch64-fsn1-min'] = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-nbg1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
+bootDeadlineMap['agent-amd64-ol9-nbg1'] = bootDeadlineMap['default']
+bootDeadlineMap['agent-amd64-ol9-hel1'] = bootDeadlineMap['default']
+bootDeadlineMap['agent-amd64-ol9-fsn1'] = bootDeadlineMap['default']
+bootDeadlineMap['agent-arm64-ol9-nbg1'] = bootDeadlineMap['default']
+bootDeadlineMap['agent-arm64-ol9-hel1'] = bootDeadlineMap['default']
+bootDeadlineMap['agent-arm64-ol9-fsn1'] = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
 jvmOptsMap['deb12']         = '-Xms4g -Xmx16g -Xss4m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
@@ -64,6 +78,12 @@ jvmOptsMap['deb12-aarch64-fsn1-min'] = jvmOptsMap['deb12']
 jvmOptsMap['launcher-x64-nbg1']  = jvmOptsMap['deb12']
 jvmOptsMap['launcher-x64-hel1']  = jvmOptsMap['deb12']
 jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap['deb12']
+jvmOptsMap['agent-amd64-ol9-nbg1'] = jvmOptsMap['deb12']
+jvmOptsMap['agent-amd64-ol9-hel1'] = jvmOptsMap['deb12']
+jvmOptsMap['agent-amd64-ol9-fsn1'] = jvmOptsMap['deb12']
+jvmOptsMap['agent-arm64-ol9-nbg1'] = jvmOptsMap['deb12']
+jvmOptsMap['agent-arm64-ol9-hel1'] = jvmOptsMap['deb12']
+jvmOptsMap['agent-arm64-ol9-fsn1'] = jvmOptsMap['deb12']
 
 labelMap = [:]
 labelMap['deb12-x64-min']     = 'docker-x64-min docker-deb12-x64-min deb12-x64-min'
@@ -71,6 +91,8 @@ labelMap['deb12-aarch64-min'] = 'docker-aarch64-min docker-deb12-aarch64-min deb
 labelMap['deb12-x64']         = 'docker-x64 docker-deb12-x64 deb12-x64'
 labelMap['deb12-aarch64']     = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch64'
 labelMap['launcher-x64']      = 'launcher-x64'
+labelMap['agent-amd64-ol9']   = 'agent-amd64-ol9'
+labelMap['agent-arm64-ol9']   = 'agent-arm64-ol9'
 
 networkMap = [:]
 networkMap['pmm.cd.percona.com'] = '11374634' // pmm.cd.percona.com
@@ -159,6 +181,41 @@ initMap['launcher-x64-nbg1']  = initMap['deb-docker']
 initMap['launcher-x64-hel1']  = initMap['deb-docker']
 initMap['launcher-x64-fsn1']  = initMap['deb-docker']
 
+// pmm-infra-built snapshots (244338102 / 244338408, "Docker Agent v3 Hetzner") come
+// with Docker, AWS CLI, OpenJDK and the build user pre-installed. Init is intentionally
+// minimal: just mount /mnt/jenkins, pin DNS + repo.ci.percona.com /etc/hosts entry,
+// disable IPv6 (PKG-1325), and restart docker so the data-root override picks up.
+initMap['ol9-agent'] = '''#!/bin/bash -x
+    set -o xtrace
+    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.eth0.disable_ipv6=1 || true
+    echo "precedence ::ffff:0:0/96 100" | sudo tee -a /etc/gai.conf
+    echo -e "nameserver 9.9.9.9\\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+    sudo install -o root -g root -d /mnt/docker
+    sudo fallocate -l 32G /swapfile || true
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile || true
+    sudo swapon /swapfile || true
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service || true
+    sudo systemctl daemon-reload || true
+    sudo systemctl restart docker || true
+'''
+initMap['agent-amd64-ol9-nbg1'] = initMap['ol9-agent']
+initMap['agent-amd64-ol9-hel1'] = initMap['ol9-agent']
+initMap['agent-amd64-ol9-fsn1'] = initMap['ol9-agent']
+initMap['agent-arm64-ol9-nbg1'] = initMap['ol9-agent']
+initMap['agent-arm64-ol9-hel1'] = initMap['ol9-agent']
+initMap['agent-arm64-ol9-fsn1'] = initMap['ol9-agent']
+
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
@@ -176,7 +233,13 @@ def templates = [
         new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
         new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx22"),
         new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx22"),
-        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx22")
+        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx22"),
+        new HetznerServerTemplate("agent-amd64-ol9-nbg1",   labelMap['agent-amd64-ol9'],   imageMap['agent-amd64-ol9'], "nbg1", "cpx42"),
+        new HetznerServerTemplate("agent-amd64-ol9-hel1",   labelMap['agent-amd64-ol9'],   imageMap['agent-amd64-ol9'], "hel1", "cpx42"),
+        new HetznerServerTemplate("agent-amd64-ol9-fsn1",   labelMap['agent-amd64-ol9'],   imageMap['agent-amd64-ol9'], "fsn1", "cpx42"),
+        new HetznerServerTemplate("agent-arm64-ol9-nbg1",   labelMap['agent-arm64-ol9'],   imageMap['agent-arm64-ol9'], "nbg1", "cax31"),
+        new HetznerServerTemplate("agent-arm64-ol9-hel1",   labelMap['agent-arm64-ol9'],   imageMap['agent-arm64-ol9'], "hel1", "cax31"),
+        new HetznerServerTemplate("agent-arm64-ol9-fsn1",   labelMap['agent-arm64-ol9'],   imageMap['agent-arm64-ol9'], "fsn1", "cax31")
 ]
 
 templates.each { it ->
