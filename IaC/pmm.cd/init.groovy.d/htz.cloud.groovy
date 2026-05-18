@@ -194,14 +194,16 @@ initMap['ol9-agent'] = '''#!/bin/bash -x
     echo "precedence ::ffff:0:0/96 100" | sudo tee -a /etc/gai.conf
     echo -e "nameserver 9.9.9.9\\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+    user=$(id -un)
+    group=$(id -gn)
+    sudo install -o "$user" -g "$group" -d /mnt/jenkins
     sudo install -o root -g root -d /mnt/docker
     if [ ! -f /swapfile ]; then
         sudo fallocate -l 32G /swapfile
         sudo chmod 600 /swapfile
         sudo mkswap /swapfile
     fi
-    if ! sudo swapon --show | grep -q '^/swapfile '; then
+    if ! grep -q '^/swapfile ' /proc/swaps; then
         sudo swapon /swapfile
     fi
     sudo sysctl net.ipv4.tcp_fin_timeout=15
@@ -211,6 +213,7 @@ initMap['ol9-agent'] = '''#!/bin/bash -x
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
     sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
+    sudo grep -q -- '--data-root=/mnt/docker' /lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo systemctl restart docker
 '''
