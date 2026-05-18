@@ -1,0 +1,26 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cross-fleet percona-jenkins-artifactory S3 bucket (shared by every Jenkins master).
+
+Resources:
+
+  PerconaJenkinsArtifactoryBucket: # Shared artefact / property-file store referenced by every master's pipelines and IAM grants
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: percona-jenkins-artifactory
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins
+
+Outputs:
+
+  PerconaJenkinsArtifactoryBucketArn:
+    Description: ARN of the percona-jenkins-artifactory bucket
+    Value: !GetAtt PerconaJenkinsArtifactoryBucket.Arn

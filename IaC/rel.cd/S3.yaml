@@ -1,0 +1,50 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: rel.cd S3 buckets.
+
+Resources:
+
+  JenkinsPerconaJobsBackupBucket: # Jenkins job XML backup target (us-east-1; PublicAccessBlock fully on)
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: jenkins-percona-jobs-backup
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-release
+
+  RelRepoCacheBucket: # cached upstream repo tag lists for rel.cd check-remote-repo (eu-west-1)
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: rel-repo-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-cloud
+
+Outputs:
+
+  JenkinsPerconaJobsBackupBucketArn:
+    Description: ARN of the jenkins-percona-jobs-backup bucket
+    Value: !GetAtt JenkinsPerconaJobsBackupBucket.Arn
+
+  RelRepoCacheBucketArn:
+    Description: ARN of the rel-repo-cache bucket
+    Value: !GetAtt RelRepoCacheBucket.Arn

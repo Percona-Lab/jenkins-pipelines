@@ -1,0 +1,23 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: pxc.cd S3 buckets.
+
+Resources:
+
+  PxcBuildCacheBucket: # PXC build / test artefact cache; objects are uploaded with --acl public-read
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: pxc-build-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+
+Outputs:
+
+  PxcBuildCacheBucketArn:
+    Description: ARN of the pxc-build-cache bucket
+    Value: !GetAtt PxcBuildCacheBucket.Arn

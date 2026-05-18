@@ -1,0 +1,47 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: pmm.cd S3 buckets.
+
+Resources:
+
+  PerconaVmBucket: # PMM Server OVA images and docker image tarballs (us-east-1)
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: percona-vm
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      Tags:
+      - Key: PerconaApproved
+        Value: HD-26384
+
+  PmmBuildCacheBucket: # PR-build pmm-client tarballs uploaded with --acl public-read
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: pmm-build-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      Tags:
+      - Key: PerconaApproved
+        Value: HD-26384
+      - Key: iit-billing-tag
+        Value: pmm-feature-builds
+
+Outputs:
+
+  PerconaVmBucketArn:
+    Description: ARN of the percona-vm bucket
+    Value: !GetAtt PerconaVmBucket.Arn
+
+  PmmBuildCacheBucketArn:
+    Description: ARN of the pmm-build-cache bucket
+    Value: !GetAtt PmmBuildCacheBucket.Arn
