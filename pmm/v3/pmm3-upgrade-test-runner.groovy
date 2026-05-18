@@ -131,6 +131,10 @@ pipeline {
             choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
+        choice(
+            choices: ["UI", "DOCKER"],
+            description: 'Way to upgrade PMM Server (UI or Docker)',
+            name: 'UPGRADE_TYPE')
     }
     options {
         skipDefaultCheckout()
