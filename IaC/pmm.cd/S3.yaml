@@ -21,7 +21,6 @@ Resources:
         Rules:
           - Id: delete_files_older_than_30_days
             Status: Enabled
-            Prefix: ''
             ExpirationInDays: 30
       Tags:
       - Key: PerconaApproved

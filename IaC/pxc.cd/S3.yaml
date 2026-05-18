@@ -34,7 +34,6 @@ Resources:
               NoncurrentDays: 1
           - Id: pxc-build-cache 30 day cleanup
             Status: Enabled
-            Prefix: ''
             ExpirationInDays: 30
             NoncurrentVersionExpiration:
               NoncurrentDays: 30
