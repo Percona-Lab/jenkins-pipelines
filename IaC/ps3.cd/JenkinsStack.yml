@@ -65,7 +65,7 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
-  JInternetGateway: # Internet Gateway for jenkins VPC
+  JInternetGatewayV2: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -78,7 +78,7 @@ Resources:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref JVPC
-      InternetGatewayId: !Ref JInternetGateway
+      InternetGatewayId: !Ref JInternetGatewayV2
 
   JSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
@@ -120,9 +120,16 @@ Resources:
 
   JInternetRoute: # add default route
     Type: AWS::EC2::Route
+    # Explicit DependsOn: CF infers GatewayId/RouteTableId dependencies on
+    # the IGW and RT existing, but not on the GatewayAttachment. Without
+    # this, an UPDATE that replaces the VPC races RT/Route creation against
+    # the IGW->VPC attachment and AWS rejects with "route table and network
+    # gateway belong to different networks". Stack CREATE happens to work
+    # by accident; UPDATE-replace surfaces the gap.
+    DependsOn: JVPCGatewayAttachment
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref JInternetGateway
+      GatewayId: !Ref JInternetGatewayV2
       RouteTableId: !Ref JRouteTable
 
   SubnetBRouteTable: # add subnet route
@@ -430,15 +437,12 @@ Resources:
     Properties:
       Domain: vpc
 
-  JDNSRecord: # create DNS record for jenkins master
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref ZoneId
-      Name: !Ref JHostName
-      Type: A
-      TTL: 300
-      ResourceRecords:
-      - !Ref MasterIP
+  # JDNSRecord removed for PS-10945 cutover: ps3.cd.percona.com is now
+  # owned by external-dns in the percona-ci-platform EKS cluster, publishing
+  # an A-alias to the dedicated jenkins-masters ALB. CF must NOT own the
+  # public record so external-dns can adopt it via its TXT registry.
+  # JHostName parameter stays in the template (still drives JENKINS_HOST
+  # in user-data so the master knows its own public name).
 
   JDataVolume: # create volume for jenkins data directory
     Type: AWS::EC2::Volume
