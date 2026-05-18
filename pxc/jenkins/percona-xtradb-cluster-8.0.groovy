@@ -112,7 +112,7 @@ pipeline {
     stages {
         stage('Create PXC source tarball') {
             agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+               label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
