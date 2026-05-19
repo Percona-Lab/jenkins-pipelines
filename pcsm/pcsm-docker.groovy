@@ -14,6 +14,7 @@ pipeline {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         choice(name: 'PCSM_REPO_CH', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PCSM_VERSION', defaultValue: '1.0.1-1', description: 'PCSM version')
+        string(name: 'TAG_SUFFIX', defaultValue: '', description: 'Optional suffix appended to the image tag')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
     }
     options {
@@ -35,7 +36,7 @@ pipeline {
                     cd percona-docker/percona-clustersync-mongodb
                     sed -E "s/ENV PCSM_VERSION (.+)/ENV PCSM_VERSION ${params.PCSM_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PCSM_REPO_CH (.+)/ENV PCSM_REPO_CH ${params.PCSM_REPO_CH}/" -i Dockerfile
-                    docker build . -t percona-clustersync-mongodb 
+                    docker buildx build --provenance=false --sbom=false --load -t percona-clustersync-mongodb .
                 """
             }
         }
@@ -68,8 +69,14 @@ pipeline {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
                          MIN_VER=\$(echo "${params.PCSM_VERSION}" | awk -F "-" '{print \$1}')
-                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64
-                         docker push perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64
+                         SUFFIX="${params.TAG_SUFFIX}"
+                         if [ -n "\$SUFFIX" ]; then
+                             TAG="\$MIN_VER-\$SUFFIX"
+                         else
+                             TAG="\$MIN_VER"
+                         fi
+                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$TAG-amd64
+                         docker push perconalab/percona-clustersync-mongodb:\$TAG-amd64
                      """
                 }
             }
@@ -83,8 +90,14 @@ pipeline {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
                          MIN_VER=\$(echo "${params.PCSM_VERSION}" | awk -F "-" '{print \$1}')
-                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MIN_VER-amd64
-                         docker push percona/percona-clustersync-mongodb:\$MIN_VER-amd64
+                         SUFFIX="${params.TAG_SUFFIX}"
+                         if [ -n "\$SUFFIX" ]; then
+                             TAG="\$MIN_VER-\$SUFFIX"
+                         else
+                             TAG="\$MIN_VER"
+                         fi
+                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$TAG-amd64
+                         docker push percona/percona-clustersync-mongodb:\$TAG-amd64
                      """
                 }
             }
