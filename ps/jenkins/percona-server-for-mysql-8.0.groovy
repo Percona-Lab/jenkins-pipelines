@@ -421,7 +421,7 @@ parameters {
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
+                installCli("rpm")
                 script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
