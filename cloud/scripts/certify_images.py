@@ -282,7 +282,7 @@ def write_junit_result(image, dest, platform, _component, status):
     log(f"junit result saved: {path}")
 
 
-def run_preflight(dest, platform, docker_config, token, component):
+def run_preflight(dest, platform, docker_config, token, component, no_submit=False):
     preflight = install_preflight()
 
     log("running preflight")
@@ -302,7 +302,7 @@ def run_preflight(dest, platform, docker_config, token, component):
         f"--certification-component-id={component}",
         "--loglevel",
         "debug",
-        "--submit",
+        "" if no_submit else "--submit",
     ]
     cmd = [arg for arg in cmd if arg]
 
@@ -358,6 +358,12 @@ def main():
         default=os.path.expanduser("~/.docker/config.json"),
     )
 
+    parser.add_argument(
+        "--no-submit",
+        action="store_true",
+        help="Skip the preflight --submit upload (smoke-test / dry-run safe)",
+    )
+
     args = parser.parse_args()
 
     token = get_secret(args.token, "PYXIS_TOKEN")
@@ -382,6 +388,7 @@ def main():
             args.docker_config,
             token,
             args.component,
+            no_submit=args.no_submit,
         )
     except SystemExit as e:
         status = e.code if isinstance(e.code, int) else 1
