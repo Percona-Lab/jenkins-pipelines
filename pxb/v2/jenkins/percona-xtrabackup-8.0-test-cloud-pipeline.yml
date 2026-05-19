@@ -23,7 +23,7 @@
           - ubuntu:jammy
           - ubuntu:noble
           - debian:bullseye
-          - debain:bookworm
+          - debian:bookworm
           - amazonlinux:2023
           - asan
         description: OS version for compilation
