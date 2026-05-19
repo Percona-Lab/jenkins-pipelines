@@ -41,15 +41,15 @@ pipeline {
                         "oraclelinux:8":    { build('oraclelinux:8') },
                         "oraclelinux:9":    { build('oraclelinux:9') },
                         "oraclelinux:10":   { build('oraclelinux:10') },
+                        "ubuntu:focal":     { build('ubuntu:focal') },
                         "ubuntu:jammy":     { build('ubuntu:jammy') },
                         "ubuntu:noble":     { build('ubuntu:noble') },
+                        "debian:bullseye":  { build('debian:bullseye') },
                         "debian:bookworm":  { build('debian:bookworm') },
                         "debian:trixie":    { build('debian:trixie') },
                     ]
                     if (params.ARCH != 'aarch64') {
-                        builders["centos:7"]        = { build('centos:7') }
-                        builders["ubuntu:focal"]    = { build('ubuntu:focal') }
-                        builders["debian:bullseye"] = { build('debian:bullseye') }
+                        builders["centos:7"] = { build('centos:7') }
                     }
                     parallel builders
                 }
