@@ -1,0 +1,41 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: pxc.cd S3 buckets.
+
+Resources:
+
+  PxcBuildCacheBucket: # PXC build / test artefact cache; objects are uploaded with --acl public-read
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: pxc-build-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      LifecycleConfiguration:
+        TransitionDefaultMinimumObjectSize: all_storage_classes_128K
+        Rules:
+          - Id: 30 Days Cleanup
+            Status: Enabled
+            Prefix: jenkins-pxc
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: 90 Days Cleanup
+            Status: Enabled
+            Prefix: jenkins-percona-xtrabackup
+            ExpirationInDays: 90
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: pxc-build-cache 30 day cleanup
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 30

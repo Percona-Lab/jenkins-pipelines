@@ -1,0 +1,20 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: rel.cd S3 buckets (eu-west-1 stack; jenkins-percona-jobs-backup in us-east-1 is in IaC/rel.cd/S3-us-east-1.yaml).
+
+Resources:
+
+  RelRepoCacheBucket: # cached upstream repo tag lists for rel.cd check-remote-repo
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: rel-repo-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-cloud

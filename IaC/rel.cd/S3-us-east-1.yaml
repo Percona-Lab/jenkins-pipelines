@@ -1,0 +1,28 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: rel.cd S3 buckets in us-east-1 (Jenkins job XML backup target).
+
+Resources:
+
+  JenkinsPerconaJobsBackupBucket: # Jenkins job XML backup target with PublicAccessBlock fully on
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: jenkins-percona-jobs-backup
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      LoggingConfiguration:
+        DestinationBucketName: s3-access-logs-119175775298
+        LogFilePrefix: logs/jenkins-percona-jobs-backup/
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-release

@@ -1,0 +1,86 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: ps80.cd S3 buckets (canonical home for the shared ps-build-cache used by ps57.cd, ps80.cd, and ps3.cd PS-family masters).
+
+Resources:
+
+  PsBuildCacheBucket: # ccache / build-artefact cache shared across the PS family
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: ps-build-cache
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      VersioningConfiguration:
+        Status: Suspended
+      LifecycleConfiguration:
+        TransitionDefaultMinimumObjectSize: all_storage_classes_128K
+        Rules:
+          - Id: 30 Days Cleanup
+            Status: Enabled
+            Prefix: ''
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: Delete7DayRetentionObjects
+            Status: Enabled
+            TagFilters:
+              - Key: RetentionDays
+                Value: '7'
+            ExpirationInDays: 7
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: Delete14DayRetentionObjects
+            Status: Enabled
+            TagFilters:
+              - Key: RetentionDays
+                Value: '14'
+            ExpirationInDays: 14
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: Delete21DayRetentionObjects
+            Status: Enabled
+            TagFilters:
+              - Key: RetentionDays
+                Value: '21'
+            ExpirationInDays: 21
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: Delete30DayRetentionObjects
+            Status: Enabled
+            TagFilters:
+              - Key: RetentionDays
+                Value: '30'
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: Delete60DayRetentionObjects
+            Status: Enabled
+            TagFilters:
+              - Key: RetentionDays
+                Value: '60'
+            ExpirationInDays: 60
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: Delete120DayRetentionObjects
+            Status: Enabled
+            TagFilters:
+              - Key: RetentionDays
+                Value: '120'
+            ExpirationInDays: 120
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins-ps
