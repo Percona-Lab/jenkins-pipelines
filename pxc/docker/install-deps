@@ -331,22 +331,23 @@ if [ -f /usr/bin/yum ]; then
         pip3 install --break-system-packages scons==4.6.0 || pip3 install scons==4.6.0
         # pxb v2 build-binary sources /opt/rh/gcc-toolset-12/enable. Provide a
         # shim that mirrors what a real SCL enable script does so build-binary
-        # transparently picks up gcc14/g++14 on AL2023.
+        # transparently picks up gcc14 on AL2023. Note: the AL2023 gcc14 package
+        # installs the binaries as gcc14-gcc / gcc14-g++ (not gcc14 / g++14).
         mkdir -p /opt/rh/gcc-toolset-12/root/usr/bin
         cat > /opt/rh/gcc-toolset-12/enable <<'EOS'
-export CC=gcc14
-export CXX=g++14
+export CC=gcc14-gcc
+export CXX=gcc14-g++
 export PATH=/opt/rh/gcc-toolset-12/root/usr/bin:/usr/bin:$PATH
 export LD_LIBRARY_PATH=/opt/rh/gcc-toolset-12/root/usr/lib64:${LD_LIBRARY_PATH:-}
 export MANPATH=/opt/rh/gcc-toolset-12/root/usr/share/man:${MANPATH:-}
 EOS
-        # Symlink gcc14/g++14 as gcc/g++/cc/c++ in the shim PATH so callers
-        # that invoke compilers directly (rather than via $CC/$CXX) still
-        # land on the modern toolchain.
-        ln -sf /usr/bin/gcc14 /opt/rh/gcc-toolset-12/root/usr/bin/gcc
-        ln -sf /usr/bin/g++14 /opt/rh/gcc-toolset-12/root/usr/bin/g++
-        ln -sf /usr/bin/gcc14 /opt/rh/gcc-toolset-12/root/usr/bin/cc
-        ln -sf /usr/bin/g++14 /opt/rh/gcc-toolset-12/root/usr/bin/c++
+        # Symlink the gcc14 binaries as gcc/g++/cc/c++ in the shim PATH so
+        # callers that invoke compilers directly (rather than via $CC/$CXX)
+        # still land on the modern toolchain.
+        ln -sf /usr/bin/gcc14-gcc /opt/rh/gcc-toolset-12/root/usr/bin/gcc
+        ln -sf /usr/bin/gcc14-g++ /opt/rh/gcc-toolset-12/root/usr/bin/g++
+        ln -sf /usr/bin/gcc14-gcc /opt/rh/gcc-toolset-12/root/usr/bin/cc
+        ln -sf /usr/bin/gcc14-g++ /opt/rh/gcc-toolset-12/root/usr/bin/c++
     fi
 fi
 
