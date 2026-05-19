@@ -17,6 +17,11 @@ wget_loop() {
 #
 if [ -f /usr/bin/yum ]; then
   RHVER="$(rpm --eval %rhel)"
+  DIST="$(rpm --eval %dist)"
+  # AL2023 does not define %rhel; force a sentinel so RHVER arithmetic
+  # comparisons in the rest of this block don't trip on the literal %rhel.
+  if [[ "${DIST}" == ".amzn2023" ]]; then RHVER=2023; fi
+  mkdir -p /etc/yum/vars
   rpm --eval %_arch > /etc/yum/vars/basearch
   
   yum list installed
@@ -26,7 +31,7 @@ if [ -f /usr/bin/yum ]; then
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
-  if [[ ${RHVER} -lt 10 ]]; then
+  if [[ ${RHVER} -lt 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
       yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
       percona-release enable-only tools testing
   fi
@@ -49,6 +54,8 @@ if [ -f /usr/bin/yum ]; then
           echo "waiting"
           sleep 1
       done
+  elif [[ "${DIST}" == ".amzn2023" ]]; then
+      : # AL2023 has no EPEL; required packages come from base + Percona repo
   else
       until yum -y install epel-release; do
           echo "waiting"
@@ -98,6 +105,16 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" libedit-devel procps-ng-devel"
   fi
 
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      PKGLIST+=" dnf-plugins-core"
+      until yum -y install ${PKGLIST} ; do
+        echo "waiting"
+        sleep 1
+      done
+      # AL2023 has no ol*_codeready_builder; libedit-devel is in base
+      PKGLIST+=" libedit-devel procps-ng-devel"
+  fi
+
   if [[ ${RHVER} -lt 8 ]]; then
       PKGLIST+=" python-docutils procps-ng-devel"
       until yum -y install centos-release-scl; do
@@ -128,20 +145,37 @@ if [ -f /usr/bin/yum ]; then
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
 
+  # AL2023 does not ship a few of the above packages. Strip them out so the
+  # final yum install does not fail. systemd-devel (added in the PXC-specific
+  # block below) substitutes libudev-devel. perl-Sys-MemInfo and ccache are
+  # not strictly required to build pxb on AL2023; skip them.
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      for pkg in perl-Sys-MemInfo ccache libudev-devel; do
+          PKGLIST="${PKGLIST// ${pkg} / }"
+      done
+  fi
+
   # mysql-devel / mariadb-connector-c-devel
-  if [[ ${RHVER} -eq 10 ]]; then
+  if [[ ${RHVER} -eq 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
       PKGLIST+=" mariadb-connector-c-devel"
   else
       PKGLIST+=" mysql-devel"
   fi
 
   # PXC specific
-  PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
-    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
-    "
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      # AL2023: scons is installed via pip3 later; netcat is named nmap-ncat
+      PKGLIST+=" libmicrohttpd-devel re2-devel check-devel libgcrypt-devel libev-devel vim-common \
+        perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools nmap-ncat \
+        "
+  else
+      PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
+        perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
+        "
+  fi
 
-  # qpress comes from Percona repo (disabled on OL10)
-  if [[ ${RHVER} -lt 10 ]]; then
+  # qpress comes from Percona repo (disabled on OL10; available on AL2023)
+  if [[ ${RHVER} -lt 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
       PKGLIST+=" qpress"
   fi
 
@@ -184,8 +218,19 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-libasan-devel gcc-toolset-15-libubsan-devel"
     fi
 
+    if [[ "${DIST}" == ".amzn2023" ]]; then
+        # AL2023 lacks gcc-toolset SCLs; gcc14 + gcc14-c++ provide modern toolchain.
+        # systemd-devel replaces libudev-devel. asio is bundled (see below).
+        PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
+        PKGLIST+=" gflags-devel util-linux"
+        PKGLIST+=" libxcrypt-compat ncurses-compat-libs libxcrypt-devel cyrus-sasl-gssapi"
+        PKGLIST+=" systemd-devel"
+        PKGLIST+=" gcc14 gcc14-c++ gcc14-plugin-devel"
+    fi
+
     # KH: why?
-    if [[ ${RHVER} -ne 8 ]]; then
+    if [[ ${RHVER} -ne 8 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
+        # asio-devel is not packaged on AL2023; xtrabackup bundles asio so this is OK
         PKGLIST+=" asio-devel"
     fi
 
@@ -193,7 +238,7 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel"
     fi
 
-    # compat packages available on OL9 but not on OL10
+    # compat packages available on OL9 / AL2023 but not on OL10
     if [[ ${RHVER} -eq 9 ]]; then
         PKGLIST+=" libxcrypt-compat ncurses-compat-libs"
     fi
@@ -254,6 +299,8 @@ if [ -f /usr/bin/yum ]; then
             echo "waiting"
             sleep 1
         done
+    elif [[ "${DIST}" == ".amzn2023" ]]; then
+        : # AL2023 has no gcc-toolset; gcc14 was installed via PKGLIST above
     fi
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -261,7 +308,7 @@ if [ -f /usr/bin/yum ]; then
         update-alternatives --set python /usr/bin/python2
     fi
 
-    if [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 10 ]]; then
+    if [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
         ln -fs /usr/bin/python3 /usr/bin/python
     fi
 
@@ -270,10 +317,37 @@ if [ -f /usr/bin/yum ]; then
         rm /anaconda-post.log
     fi
 #   Install mysql-connector for QA framework run
-    if [[ ${RHVER} -ge 10 ]]; then
+    # AL2023 pip3 (21.x) lacks --break-system-packages; PEP 668 is not enforced
+    # there anyway, so the plain "pip3 install" form is sufficient.
+    if [[ ${RHVER} -ge 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         pip3 install --break-system-packages mysql-connector mysqlclient
     else
         pip3 install mysql-connector mysqlclient
+    fi
+
+    # AL2023 post-install fixups
+    if [[ "${DIST}" == ".amzn2023" ]]; then
+        # scons is not packaged on AL2023; install via pip3 with PEP 668 override
+        pip3 install --break-system-packages scons==4.6.0 || pip3 install scons==4.6.0
+        # pxb v2 build-binary sources /opt/rh/gcc-toolset-12/enable. Provide a
+        # shim that mirrors what a real SCL enable script does so build-binary
+        # transparently picks up gcc14 on AL2023. Note: the AL2023 gcc14 package
+        # installs the binaries as gcc14-gcc / gcc14-g++ (not gcc14 / g++14).
+        mkdir -p /opt/rh/gcc-toolset-12/root/usr/bin
+        cat > /opt/rh/gcc-toolset-12/enable <<'EOS'
+export CC=gcc14-gcc
+export CXX=gcc14-g++
+export PATH=/opt/rh/gcc-toolset-12/root/usr/bin:/usr/bin:$PATH
+export LD_LIBRARY_PATH=/opt/rh/gcc-toolset-12/root/usr/lib64:${LD_LIBRARY_PATH:-}
+export MANPATH=/opt/rh/gcc-toolset-12/root/usr/share/man:${MANPATH:-}
+EOS
+        # Symlink the gcc14 binaries as gcc/g++/cc/c++ in the shim PATH so
+        # callers that invoke compilers directly (rather than via $CC/$CXX)
+        # still land on the modern toolchain.
+        ln -sf /usr/bin/gcc14-gcc /opt/rh/gcc-toolset-12/root/usr/bin/gcc
+        ln -sf /usr/bin/gcc14-g++ /opt/rh/gcc-toolset-12/root/usr/bin/g++
+        ln -sf /usr/bin/gcc14-gcc /opt/rh/gcc-toolset-12/root/usr/bin/cc
+        ln -sf /usr/bin/gcc14-g++ /opt/rh/gcc-toolset-12/root/usr/bin/c++
     fi
 fi
 
@@ -489,9 +563,13 @@ fi
 
 if [ -f /usr/bin/yum ]; then
     RHVER="$(rpm --eval %rhel)"
-    if [[ ${RHVER} -ge 10 ]]; then
+    DIST="$(rpm --eval %dist)"
+    # AL2023 does not define %rhel; normalize so the version branches below
+    # treat it like a sphinx-5.3.0 target without --break-system-packages.
+    if [[ "${DIST}" == ".amzn2023" ]]; then RHVER=2023; fi
+    if [[ ${RHVER} -ge 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         pip3 install --break-system-packages --upgrade sphinx==5.3.0
-    elif [[ ${RHVER} -eq 9 ]]; then
+    elif [[ ${RHVER} -eq 9 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
         pip3 install --upgrade sphinx==5.3.0
     else
         pip3 install --upgrade sphinx==1.6.7
