@@ -1,3 +1,7 @@
+# Used by the AlloyGatewayBearerRead statement below to scope the
+# secretsmanager:GetSecretValue ARN to the current AWS account.
+data "aws_caller_identity" "current" {}
+
 # create assume policy for master instance role
 data "aws_iam_policy_document" "jenkins-master-assume" {
   statement {
@@ -92,6 +96,20 @@ data "aws_iam_policy_document" "jenkins-master" {
       "${aws_sqs_queue.jenkins.arn}",
     ]
   }
+
+  # PS-10997: master-side Grafana Alloy systemd unit fetches the
+  # alloy-gateway bearer at boot via this scoped permission. ARN suffix
+  # is the AWS-Secrets-Manager 6-char random suffix; the trailing wildcard
+  # tolerates rotation that creates a new secret version with a new suffix.
+  statement {
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+
+    resources = [
+      "arn:aws:secretsmanager:us-east-1:${data.aws_caller_identity.current.account_id}:secret:percona-ci-platform/alloy-gateway/bearer-*",
+    ]
+  }
 }
 
 # create policy for master instance role
@@ -104,6 +122,15 @@ resource "aws_iam_policy" "jenkins-master" {
 resource "aws_iam_role_policy_attachment" "jenkins-master" {
   role       = aws_iam_role.jenkins-master.name
   policy_arn = aws_iam_policy.jenkins-master.arn
+}
+
+# PS-10997: SSM Session Manager + SSM Run Command for the master fleet.
+# Replaces the EC2 Instance Connect path on hosts that lack the IC agent
+# (e.g., custom AMIs) and gives a parallel-fleet command path for cloud-init
+# extensions like the Alloy systemd install. AWS-managed policy.
+resource "aws_iam_role_policy_attachment" "jenkins-master-ssm" {
+  role       = aws_iam_role.jenkins-master.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 # create instance profile for master instance

@@ -3,6 +3,18 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
   remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+// Track client VM IPs across stages without relying on workspace files.
+// pmm.cd's min-noble-x64 template has maxTotalUses=1, so the build agent
+// terminates after the work stages finish - workspace files are gone by
+// the time the post block runs cleanup.
+//
+// Map keyed by client label avoids any mutation contention from the
+// parallel 'Start Clients' stage (each branch writes only its own key)
+// and is CPS-serializable, so the in-memory state survives Jenkins
+// master restarts mid-build.
+@groovy.transform.Field
+Map<String, String> clientVMs = [:]
+
 // ===================================================================================
 // INFRASTRUCTURE PROVISIONING
 // ===================================================================================
@@ -98,7 +110,12 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
 // ===================================================================================
 
 pipeline {
-  agent { label 'min-noble-x64' }
+  // 'agent none' at pipeline level releases the executor across the 24h Hold
+  // stage. A top-level 'agent { label X }' would hold the executor for the
+  // whole run; stage-level 'agent none' on the Hold cannot release it
+  // (see JENKINS-59663). All work stages now live under a parent stage
+  // 'Build Environment' that allocates one shared EC2 worker.
+  agent none
 
   parameters {
     // --- SERVER CONFIGURATION ---
@@ -129,6 +146,9 @@ pipeline {
 
     booleanParam(name: 'DEPLOY_VALKEY', defaultValue: false,
                  description: '<b>Valkey:</b><br>Deploys 1 VM containing a Valkey instance.')
+    booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', defaultValue: false,
+                 description: 'If enabled, generate dashboard screenshots at the end of provisioning and skip the 24h hold stage.')
+    string(name: 'SCREENSHOTS_SLACK_TARGET', defaultValue: '@catalina.adam', description: '@user or #channel or #channel:thread_ts.')
 
     // --- DB VERSIONS ---
     choice(name: 'PXC_VERSION', choices: ['8.0', '8.4', '5.7'], description: 'Version for PXC nodes')
@@ -155,175 +175,248 @@ pipeline {
   }
 
   stages {
-    stage('Prepare') {
-      steps {
-        script {
-          getPMMBuildParams('pmm-')
-          def ownerHandle = env.OWNER?.trim() ?: env.OWNER_SLACK?.trim()
+    stage('Build Environment') {
+      agent { label 'min-noble-x64' }
 
-          if (!ownerHandle) {
-             try {
-               def cause = currentBuild?.rawBuild?.getCause(hudson.model.Cause$UserIdCause)
-               if (cause?.userId) { ownerHandle = cause.userId }
-             } catch (ignored) { }
-          }
-          ownerHandle = ownerHandle?.replaceFirst('^@','')
-          env.OWNER    = ownerHandle ?: 'unknown'
-          env.SLACK_DM = ownerHandle ? "@${ownerHandle}" : ""
+      stages {
+        stage('Prepare') {
+          steps {
+            script {
+              getPMMBuildParams('pmm-')
+              def ownerHandle = env.OWNER?.trim() ?: env.OWNER_SLACK?.trim()
 
-          currentBuild.description = "[${params.SERVER_TYPE}] Manual Environment. Expires in 1 day."
+              if (!ownerHandle) {
+                 try {
+                   def cause = currentBuild?.rawBuild?.getCause(hudson.model.Cause$UserIdCause)
+                   if (cause?.userId) { ownerHandle = cause.userId }
+                 } catch (ignored) { }
+              }
+              ownerHandle = ownerHandle?.replaceFirst('^@','')
+              env.OWNER    = ownerHandle ?: 'unknown'
+              env.SLACK_DM = ownerHandle ? "@${ownerHandle}" : ""
 
-          if (env.SLACK_DM) {
-            slackSend botUser: true, channel: env.SLACK_DM, color: '#0000FF', message: "[${env.JOB_NAME}]: build started (${params.SERVER_TYPE}), owner: @${env.OWNER}, URL: ${env.BUILD_URL}"
+              currentBuild.description = "[${params.SERVER_TYPE}] Manual Environment. Expires in 1 day."
+
+              if (env.SLACK_DM) {
+                slackSend botUser: true, channel: env.SLACK_DM, color: '#0000FF', message: "[${env.JOB_NAME}]: build started (${params.SERVER_TYPE}), owner: @${env.OWNER}, URL: ${env.BUILD_URL}"
+              }
+            }
           }
         }
-      }
-    }
 
-    stage('Start Server') {
-      parallel {
-          stage('Setup Docker Server') {
-              when { expression { params.SERVER_TYPE == "docker" } }
-              steps {
-                  runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin', SSH_KEY)
+        stage('Start Server') {
+          parallel {
+              stage('Setup Docker Server') {
+                  when { expression { params.SERVER_TYPE == "docker" } }
+                  steps {
+                      runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin', SSH_KEY)
+                  }
+              }
+              stage('Setup OVF Server') {
+                  when { expression { params.SERVER_TYPE == "ovf" } }
+                  steps {
+                      runOVFStagingStart(OVA_VERSION, PMM_QA_GIT_BRANCH)
+                  }
+              }
+              stage('Setup AMI Server') {
+                  when { expression { params.SERVER_TYPE == "ami" } }
+                  steps {
+                      runAMIStagingStart(AMI_ID)
+                  }
+              }
+              stage('Setup Helm Server') {
+                  when { expression { params.SERVER_TYPE == "helm" } }
+                  steps {
+                      runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, 'admin')
+                  }
+              }
+              stage('Setup HA Server') {
+                  when { expression { params.SERVER_TYPE == "ha" } }
+                  steps {
+                      runHAClusterCreate(K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, 'admin')
+                  }
               }
           }
-          stage('Setup OVF Server') {
-              when { expression { params.SERVER_TYPE == "ovf" } }
-              steps {
-                  runOVFStagingStart(OVA_VERSION, PMM_QA_GIT_BRANCH)
-              }
-          }
-          stage('Setup AMI Server') {
-              when { expression { params.SERVER_TYPE == "ami" } }
-              steps {
-                  runAMIStagingStart(AMI_ID)
-              }
-          }
-          stage('Setup Helm Server') {
-              when { expression { params.SERVER_TYPE == "helm" } }
-              steps {
-                  runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, 'admin')
-              }
-          }
-          stage('Setup HA Server') {
-              when { expression { params.SERVER_TYPE == "ha" } }
-              steps {
-                  runHAClusterCreate(K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, 'admin')
-              }
-          }
-      }
-    }
+        }
 
-    stage('Normalize Server Info') {
-        steps {
-            script {
-                if (env.VM_IP) {
-                    env.PMM_SERVER_IP = env.VM_IP
-                } else {
-                    error "Could not determine Server IP from the helper functions. Pipeline cannot proceed."
-                }
+        stage('Normalize Server Info') {
+            steps {
+                script {
+                    if (env.VM_IP) {
+                        env.PMM_SERVER_IP = env.VM_IP
+                    } else {
+                        error "Could not determine Server IP from the helper functions. Pipeline cannot proceed."
+                    }
 
-                writeFile file: "vm_server_${env.BUILD_NUMBER}.txt", text: "${env.PMM_SERVER_IP}"
-                echo "PMM Server Ready. IP: ${env.PMM_SERVER_IP}"
+                    echo "PMM Server Ready. IP: ${env.PMM_SERVER_IP}"
 
-                if (env.SLACK_DM) {
-                  slackSend botUser: true, channel: env.SLACK_DM, color: '#439FE0', message: "[${env.JOB_NAME}]: Server (${params.SERVER_TYPE}) ready: https://${env.PMM_SERVER_IP}\nStarting clients... URL: ${env.BUILD_URL}"
+                    if (env.SLACK_DM) {
+                      slackSend botUser: true, channel: env.SLACK_DM, color: '#439FE0', message: "[${env.JOB_NAME}]: Server (${params.SERVER_TYPE}) ready: https://${env.PMM_SERVER_IP}\nStarting clients... URL: ${env.BUILD_URL}"
+                    }
                 }
             }
         }
-    }
 
-    stage('Start Clients in parallel') {
-      parallel {
-        stage('external-haproxy') {
-          when { expression { return params.DEPLOY_EXTERNAL.toBoolean() } }
+        stage('Start Clients in parallel') {
+          parallel {
+            stage('external-haproxy') {
+              when { expression { return params.DEPLOY_EXTERNAL.toBoolean() } }
+              steps {
+                runClientWithRetry('--database external --database haproxy', 'external-haproxy')
+              }
+            }
+
+            stage('ps-gr-mysql') {
+              when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database ps,SETUP_TYPE=gr --database mysql', 'ps-gr-mysql')
+              }
+            }
+
+            stage('ps-repl-pxc') {
+              when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database ps,SETUP_TYPE=replication --database pxc', 'ps-repl-pxc')
+              }
+            }
+
+            stage('ps-single+psmdb-pss') {
+              when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() || params.DEPLOY_MONGO_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'ps-single-psmdb')
+              }
+            }
+
+            stage('pgsql-stack') {
+              when { expression { return params.DEPLOY_POSTGRES_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database pdpgsql --database pgsql --database pdpgsql,SETUP_TYPE=patroni', 'pgsql-stack')
+              }
+            }
+
+            stage('psmdb-sharding') {
+              when { expression { return params.DEPLOY_MONGO_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database psmdb,SETUP_TYPE=sharding', 'psmdb-sharding')
+              }
+            }
+
+            stage('pxc-extra') {
+              when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database pxc', 'pxc-extra')
+              }
+            }
+
+            stage('valkey-psmdb-inmemory') {
+              when { expression { return params.DEPLOY_VALKEY.toBoolean() || params.DEPLOY_MONGO_GROUP.toBoolean() } }
+              steps {
+                runClientWithRetry('--database valkey --database psmdb,SETUP_TYPE=pss,STORAGE_ENGINE=inMemory', 'valkey-psmdb-inmemory')
+              }
+            }
+          }
+        }
+
+        stage('Set Final Password & Notify') {
           steps {
-            runClientWithRetry('--database external --database haproxy', 'external-haproxy')
+            script {
+              echo "Environment is stable. Updating password..."
+
+              def currentPass = 'admin'
+              if (env.AMI_ADMIN_PASS) {
+                 currentPass = env.AMI_ADMIN_PASS
+              }
+
+              // Pass values via withEnv so the password is not Groovy-interpolated
+              // into the shell command and does not appear in the build log.
+              withEnv([
+                  "GR_NEW_PASS=${params.ADMIN_PASSWORD}",
+                  "GR_CURR_PASS=${currentPass}",
+                  "GR_HOST=${env.PMM_SERVER_IP}"
+              ]) {
+                  try {
+                      sh '''
+                        set +x
+                        curl -fsk -X PUT -H "Content-Type: application/json" \
+                          -d "{\\"password\\":\\"${GR_NEW_PASS}\\"}" \
+                          "https://admin:${GR_CURR_PASS}@${GR_HOST}/graph/api/admin/users/1/password"
+                      '''
+                  } catch(e) {
+                      echo "Warning: Password update failed: ${e.message}. Proceeding."
+                  }
+              }
+
+              if (env.SLACK_DM) {
+                slackSend botUser: true, channel: env.SLACK_DM, color: '#00FF00',
+                message: "[${env.JOB_NAME}]: All systems GO! 🚀\nOwner: @${env.OWNER}\nPMM URL: https://${env.PMM_SERVER_IP}\nPassword: ${params.ADMIN_PASSWORD}\nType: ${params.SERVER_TYPE}\nEnvironment is ready. Pipeline is holding for 24h.\nURL: ${env.BUILD_URL}"
+              }
+            }
           }
         }
-
-        stage('ps-gr-mysql') {
-          when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() } }
+        stage('Generate Dashboard Screenshots') {
+          when {
+            expression { params.GENERATE_DASHBOARD_SCREENSHOTS.toBoolean() }
+          }
           steps {
-            runClientWithRetry('--database ps,SETUP_TYPE=gr --database mysql', 'ps-gr-mysql')
+            script {
+              def dockerVersion = params.DOCKER_VERSION?.trim() ?: ''
+              if (!dockerVersion.contains(':')) {
+                error "DOCKER_VERSION must be in image:tag format (example: perconalab/pmm-server:3-dev-latest)"
+              }
+              def dockerTag = dockerVersion.substring(dockerVersion.lastIndexOf(':') + 1)
+              def zipName = "screenshots-${dockerTag}.zip"
+
+              // Pass Groovy values via withEnv so the shell sees plain
+              // POSIX variables — no Groovy interpolation inside sh.
+              withEnv([
+                  "GR_QA_BRANCH=${params.PMM_QA_GIT_BRANCH}",
+                  "GR_PMM_UI_URL=${env.PMM_UI_URL}",
+                  "GR_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
+                  "GR_WORKSPACE=${env.WORKSPACE}",
+                  "GR_ZIP_NAME=${zipName}"
+              ]) {
+                sh '''
+                  set -eu
+                  git clone --depth 1 --branch "${GR_QA_BRANCH}" https://github.com/percona/pmm-qa.git
+                  cd pmm-qa/e2e_tests
+                  curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource-setup-22.sh
+                  sudo -E bash /tmp/nodesource-setup-22.sh
+                  sudo apt-get install -y nodejs gettext zip
+                  npm ci
+                  npx playwright install
+                  sudo npx playwright install-deps
+                  set +e
+                  PMM_UI_URL="${GR_PMM_UI_URL}" ADMIN_PASSWORD="${GR_ADMIN_PASSWORD}" npx playwright test --config=screenshots.config.ts
+                  echo $? > "${GR_WORKSPACE}/.playwright-exit"
+                  set -e
+                  cd "${GR_WORKSPACE}"
+                  zip -rq "${GR_ZIP_NAME}" pmm-qa/e2e_tests/screenshots
+                '''
+                def playwrightExit = readFile('.playwright-exit').trim() as int
+                if (playwrightExit != 0) {
+                  unstable('Playwright screenshot tests had failures; partial screenshots were zipped and will be uploaded.')
+                }
+              }
+              def snapTarget = params.SCREENSHOTS_SLACK_TARGET?.trim() ?: ''
+              if (snapTarget.startsWith('#') && snapTarget.contains(':')) {
+                slackUploadFile channel: snapTarget, failOnError: true, filePath: zipName
+              } else {
+                def slackResponse = slackSend(botUser: true, channel: snapTarget, message: "PMM dashboard screenshots for (${dockerVersion})", sendAsText: true)
+                def uploadCh = snapTarget.startsWith('#') ? "${slackResponse.channelId}:${slackResponse.ts}" : slackResponse.channelId
+                slackUploadFile channel: uploadCh, failOnError: true, filePath: zipName
+              }
+            }
           }
         }
+      } // end inner stages
+    } // end Build Environment
 
-        stage('ps-repl-pxc') {
-          when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() } }
-          steps {
-            runClientWithRetry('--database ps,SETUP_TYPE=replication --database pxc', 'ps-repl-pxc')
-          }
-        }
-
-        stage('ps-single+psmdb-pss') {
-          when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() || params.DEPLOY_MONGO_GROUP.toBoolean() } }
-          steps {
-            runClientWithRetry('--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'ps-single-psmdb')
-          }
-        }
-
-        stage('pgsql-stack') {
-          when { expression { return params.DEPLOY_POSTGRES_GROUP.toBoolean() } }
-          steps {
-            runClientWithRetry('--database pdpgsql --database pgsql --database pdpgsql,SETUP_TYPE=patroni', 'pgsql-stack')
-          }
-        }
-
-        stage('psmdb-sharding') {
-          when { expression { return params.DEPLOY_MONGO_GROUP.toBoolean() } }
-          steps {
-            runClientWithRetry('--database psmdb,SETUP_TYPE=sharding', 'psmdb-sharding')
-          }
-        }
-
-        stage('pxc-extra') {
-          when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() } }
-          steps {
-            runClientWithRetry('--database pxc', 'pxc-extra')
-          }
-        }
-
-        stage('valkey') {
-          when { expression { return params.DEPLOY_VALKEY.toBoolean() } }
-          steps {
-            runClientWithRetry('--database valkey', 'valkey')
-          }
-        }
-      }
-    }
-
-    stage('Set Final Password & Notify') {
-      steps {
-        script {
-          echo "Environment is stable. Updating password..."
-
-          def currentPass = 'admin'
-          if (env.AMI_ADMIN_PASS) {
-             currentPass = env.AMI_ADMIN_PASS
-          }
-
-          try {
-              sh '''
-                curl -k -X PUT -H "Content-Type: application/json" \
-                -d '{"password":"${params.ADMIN_PASSWORD}"}' \
-                https://admin:${currentPass}@${env.PMM_SERVER_IP}/graph/api/admin/users/1/password
-              '''
-          } catch(e) {
-              echo "Warning: Password update failed. Proceeding."
-          }
-
-          if (env.SLACK_DM) {
-            slackSend botUser: true, channel: env.SLACK_DM, color: '#00FF00',
-            message: "[${env.JOB_NAME}]: All systems GO! 🚀\nOwner: @${env.OWNER}\nPMM URL: https://${env.PMM_SERVER_IP}\nPassword: ${params.ADMIN_PASSWORD}\nType: ${params.SERVER_TYPE}\nEnvironment is ready. Pipeline is holding for 24h.\nURL: ${env.BUILD_URL}"
-          }
-        }
-      }
-    }
-
+    // Hold runs on pipeline-level 'agent none' (flyweight): no EC2 executor
+    // is pinned during the wait, so other builds can use min-noble-x64.
     stage('Hold for early abort (24h)') {
-      agent none
+      when {
+        expression { !params.GENERATE_DASHBOARD_SCREENSHOTS.toBoolean() }
+      }
       steps {
         script {
           timeout(time: 1440, unit: 'MINUTES') {
@@ -334,11 +427,16 @@ pipeline {
     }
   }
 
+  // Post runs on flyweight. cleanupResources() and the success handler only
+  // do build job:, echo, slackSend - no sh - so no node{} wrapping needed.
   post {
     success {
       script {
         echo "Job finished normally."
-        sh "rm -f vm_*_${env.BUILD_NUMBER}.txt"
+        if (params.GENERATE_DASHBOARD_SCREENSHOTS.toBoolean()) {
+          echo "Screenshot run completed: cleaning up resources..."
+          cleanupResources('completed/cleaned up')
+        }
       }
     }
     failure {
@@ -363,7 +461,7 @@ pipeline {
 // CUSTOM HELPERS (Cleanup & Retry Logic)
 // ===================================================================================
 
-void cleanupResources() {
+void cleanupResources(String slackStatus = 'aborted/failed/cleaned up') {
     // 1. Clean Server based on Type
     if (env.SERVER_TYPE == "ovf" && env.OVF_INSTANCE_NAME) {
          build job: 'pmm-ovf-staging-stop', parameters: [ string(name: 'VM', value: env.OVF_INSTANCE_NAME) ]
@@ -387,19 +485,16 @@ void cleanupResources() {
          build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: env.VM_NAME) ]
     }
 
-    // 2. Clean Clients based on tracking file
-    def files = sh(script: "ls vm_*_${env.BUILD_NUMBER}.txt 2>/dev/null || true", returnStdout: true).trim().split(/\s+/)
-    for (f in files) {
-      if (f && !f.contains("server")) {
-        def ip = readFile(f).trim()
-        echo "Stopping Client VM with IP ${ip}"
+    // 2. Clean Clients from the in-memory map populated by runClientWithRetry.
+    // Used to be a workspace-file scan, but maxTotalUses=1 means the build
+    // agent is gone before this post block runs.
+    clientVMs.each { label, ip ->
+        echo "Stopping Client VM (${label}) with IP ${ip}"
         build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: ip) ]
-      }
     }
 
-    sh "rm -f vm_*_${env.BUILD_NUMBER}.txt"
     if (env.SLACK_DM) {
-      slackSend botUser: true, channel: env.SLACK_DM, color: '#808080', message: "[${env.JOB_NAME}]: aborted/failed/cleaned up, owner: @${env.OWNER}\nURL: ${env.BUILD_URL}"
+      slackSend botUser: true, channel: env.SLACK_DM, color: '#808080', message: "[${env.JOB_NAME}]: ${slackStatus}, owner: @${env.OWNER}\nURL: ${env.BUILD_URL}"
     }
 }
 
@@ -434,7 +529,7 @@ void runClientWithRetry(String clientsString, String filenameLabel) {
 
             if (b.result == 'SUCCESS') {
                 success = true
-                writeFile file: "vm_${filenameLabel}_${env.BUILD_NUMBER}.txt", text: "${b.buildVariables.IP}"
+                clientVMs[filenameLabel] = b.buildVariables.IP
                 echo "Client ${filenameLabel} started successfully."
             } else {
                 echo "Client ${filenameLabel} failed on attempt ${count}. Retrying..."

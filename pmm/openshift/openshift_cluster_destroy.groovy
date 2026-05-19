@@ -6,7 +6,7 @@ import groovy.json.JsonSlurper
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
 
     environment {
