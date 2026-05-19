@@ -27,7 +27,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
           pwd -P
           ls -laR
           export build_dir=\$(pwd -P)
-          docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+          docker run --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
               set -o xtrace
               cd \${build_dir}
               bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --install_deps=1

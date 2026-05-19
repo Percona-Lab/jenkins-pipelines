@@ -201,10 +201,12 @@ parameters {
 
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                #MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             else
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                #MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             fi
 
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -264,15 +266,13 @@ parameters {
                             esac
 
                             if [ ${ORGANIZATION} != "percona" ]; then
-                                sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 --platform="linux/amd64" .
-                                sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 --platform="linux/arm64" .
-                                sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
+                                sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 --platform="linux/amd64" .
+                                sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 --platform="linux/arm64" .
                             else
-                                sudo docker pull perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
-                                sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
-                                sudo docker pull perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
-                                sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
-                                sudo docker tag percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
+                                sudo docker pull perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64
+                                sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64
+                                sudo docker pull perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
+                                sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
                             fi
 
                             sudo docker images
@@ -286,22 +286,24 @@ parameters {
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                            else
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                            fi
+                            #if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                            #    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            #else
+                            #    MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            #fi
+                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             sudo docker tag ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-server:${PS_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server:${PS_RELEASE}-amd64
                             sudo docker tag ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-server:${PS_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-server:${PS_RELEASE}-arm64
-                            sudo docker tag ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_MAJOR_RELEASE}
+                            sudo docker tag ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
+                            sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
+                            sudo docker tag ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
+                            sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
-                            sudo docker push ${ORGANIZATION}/percona-mysql-router:${PS_MAJOR_RELEASE}
                        '''
                        }
                        sh '''
@@ -312,6 +314,13 @@ parameters {
                            sudo docker manifest annotate ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                            sudo docker manifest annotate ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           sudo docker manifest create --amend ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} \
+                               ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 \
+                               ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -327,9 +336,14 @@ parameters {
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server:${PS_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker manifest push ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                            if [ ${PS_MAJOR_RELEASE} = "80" ]; then
                                sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server:latest ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                               sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:latest ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
                            fi
                        '''
                        }
@@ -353,7 +367,9 @@ parameters {
                     def PS_RELEASE = "${BRANCH}".replace('release-', '')
                     def imageList = [
                         "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64",
+                        "${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs

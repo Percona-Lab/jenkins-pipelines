@@ -18,6 +18,7 @@ void installCli(String PLATFORM) {
         if [ -d aws ]; then
             rm -rf aws
         fi
+        cat /etc/os-release
         if [ ${PLATFORM} = "deb" ]; then
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
@@ -48,6 +49,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
       sh """
           set -o xtrace
+          free -h
           mkdir -p test
           if [ \${FIPSMODE} = "YES" ]; then
               MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
@@ -86,8 +88,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
               fi
           else
-              docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+              docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                   set -o xtrace
+                  free -h
                   cd \${build_dir}
                   if [ \${FIPSMODE} = "YES" ]; then
                       git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
@@ -172,14 +175,13 @@ def call(Map args = [:]) {
             flags: '--build_rpm=1',
             fipsFlags: null, skipInFips: false,
         ],
-
         // ---- DEB stages (x64) ----
-        [
-            name: 'Ubuntu Focal(20.04)',
-            image: 'ubuntu:focal', arch: 'x64', buildType: 'deb',
-            flags: '--build_deb=1 --with_zenfs=1',
-            fipsFlags: null, skipInFips: true,
-        ],
+        //[
+        //    name: 'Ubuntu Focal(20.04)',
+        //    image: 'ubuntu:focal', arch: 'x64', buildType: 'deb',
+        //    flags: '--build_deb=1 --with_zenfs=1',
+        //    fipsFlags: null, skipInFips: true,
+        //],
         [
             name: 'Ubuntu Jammy(22.04)',
             image: 'ubuntu:jammy', arch: 'x64', buildType: 'deb',
@@ -189,6 +191,12 @@ def call(Map args = [:]) {
         [
             name: 'Ubuntu Noble(24.04)',
             image: 'ubuntu:noble', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Resolute(26.04)',
+            image: 'ubuntu:resolute', arch: 'x64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
         ],
@@ -212,12 +220,12 @@ def call(Map args = [:]) {
         ],
 
         // ---- DEB stages (ARM) ----
-        [
-            name: 'Ubuntu Focal(20.04) ARM',
-            image: 'ubuntu:focal', arch: 'aarch64', buildType: 'deb',
-            flags: '--build_deb=1 --with_zenfs=1',
-            fipsFlags: null, skipInFips: true,
-        ],
+        //[
+        //    name: 'Ubuntu Focal(20.04) ARM',
+        //    image: 'ubuntu:focal', arch: 'aarch64', buildType: 'deb',
+        //    flags: '--build_deb=1 --with_zenfs=1',
+        //    fipsFlags: null, skipInFips: true,
+        //],
         [
             name: 'Ubuntu Jammy(22.04) ARM',
             image: 'ubuntu:jammy', arch: 'aarch64', buildType: 'deb',
@@ -227,6 +235,12 @@ def call(Map args = [:]) {
         [
             name: 'Ubuntu Noble(24.04) ARM',
             image: 'ubuntu:noble', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Resolute(26.04) ARM',
+            image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
         ],
@@ -330,7 +344,7 @@ def call(Map args = [:]) {
         // Determine agent label based on arch and cloud
         def agentLabel
         if (arch == 'aarch64') {
-            agentLabel = cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+            agentLabel = cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
         } else {
             agentLabel = cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
         }
@@ -345,7 +359,11 @@ def call(Map args = [:]) {
 
                 node(agentLabel) {
                     cleanUpWS()
-                    installCli("rpm")
+                    if (cloud == 'Hetzner') {
+                        installCli("deb")
+                    } else {
+                        installCli("rpm")
+                    }
                     unstash 'properties'
                     popArtifactFolder(cloud, sourceFolder, awsStashPath)
 

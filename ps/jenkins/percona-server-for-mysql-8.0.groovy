@@ -368,7 +368,7 @@ void notifyBuildSuccess() {
 
 pipeline {
     agent {
-        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
     }
     environment {
         INSTALL_MYSQL_SHELL = "${params.install_mysql_shell ?: 'no'}"
