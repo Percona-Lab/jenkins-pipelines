@@ -145,7 +145,7 @@ pipeline {
             steps {
                 script {
                     env.ADMIN_PASSWORD = 'admin'
-                    currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
+                    currentBuild.description = "${env.UPGRADE_FLAG} - ${env.UPGRADE_TYPE} Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
                     branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
