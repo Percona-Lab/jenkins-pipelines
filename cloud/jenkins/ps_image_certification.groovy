@@ -2,21 +2,28 @@
 // PS Pillar Image Certification (SMOKE TEST - PS-10640)
 // =============================================================================
 // This pipeline is a stripped-down variant of pso_image_certification.groovy
-// for certifying the standalone Percona Server 8.0 pillar image (no operator,
+// for certifying the standalone Percona Server pillar image (no operator,
 // no release_versions plumbing, no operator git checkout).
 //
 // STATUS: SMOKE TEST ONLY. NOT FOR PRODUCTION USE.
 //
-// Before any non-DRY_RUN execution against a real Red Hat ISV project:
-//   - Replace PYXIS_PROJECT_ID default with the actual PS pillar PID
-//   - Replace REGISTRY_CREDS_ID default with the matching Jenkins credential
-//     (the per-PID quay.io robot account from Red Hat Connect)
+// DRY_RUN=true (default): runs preflight against the SOURCE image only.
+//   No registry login, no image push to quay.io, no Pyxis API contact,
+//   no credentials required. Safe to run without any RHPC setup.
+//
+// DRY_RUN=false: full cert path. Requires:
+//   - PYXIS_PROJECT_ID set to a real Pyxis certification project id
+//   - REGISTRY_CREDS_ID set to a Jenkins credential containing the per-PID
+//     quay.io robot account from Red Hat Connect
+//   - PYXIS_TOKEN credential present on the Jenkins instance
 //
 // Tracking: https://perconadev.atlassian.net/browse/PS-10640
 // =============================================================================
 
 def certificationTests = []
 def certification
+def PLACEHOLDER_PID = 'REPLACE_WITH_NEW_PS_PILLAR_PID'
+def PLACEHOLDER_CREDS = 'REPLACE_WITH_REAL_REGISTRY_CREDS_ID'
 
 pipeline {
     agent {
@@ -32,7 +39,7 @@ pipeline {
         string(
             name: 'IMAGE_TAG',
             defaultValue: '8.0.45-36',
-            description: 'Tag to publish under in the Red Hat ISV registry'
+            description: 'Tag to publish under in the Red Hat ISV registry (used only when DRY_RUN=false)'
         )
 
         choice(
@@ -44,18 +51,18 @@ pipeline {
         string(
             name: 'PYXIS_PROJECT_ID',
             defaultValue: 'REPLACE_WITH_NEW_PS_PILLAR_PID',
-            description: 'Pyxis project ID for the PS pillar image (placeholder until provisioned)'
+            description: 'Pyxis project ID for the PS pillar image. Required when DRY_RUN=false.'
         )
         string(
             name: 'REGISTRY_CREDS_ID',
-            defaultValue: 'PS_CONTAINERS_REGISTRY',
-            description: 'Jenkins credential ID for the per-PID quay.io robot account (placeholder)'
+            defaultValue: 'REPLACE_WITH_REAL_REGISTRY_CREDS_ID',
+            description: 'Jenkins credential ID for the per-PID quay.io robot account. Required when DRY_RUN=false.'
         )
 
         booleanParam(
             name: 'DRY_RUN',
             defaultValue: true,
-            description: 'Skip --submit so this run does not dirty the Pyxis project (smoke-test safe)'
+            description: 'When true: run preflight against the source image only, no registry push, no Pyxis submit, no credentials required. When false: full cert path.'
         )
     }
 
@@ -65,50 +72,65 @@ pipeline {
                 script {
                     certification = load "cloud/common/imageCertification.groovy"
 
-                    currentBuild.displayName = "${params.IMAGE_TAG} (${params.PLATFORM})"
+                    currentBuild.displayName = "${params.IMAGE_TAG} (${params.PLATFORM})${params.DRY_RUN ? ' DRY' : ''}"
+
+                    def pid = (params.PYXIS_PROJECT_ID ?: '').trim()
+                    def credsId = (params.REGISTRY_CREDS_ID ?: '').trim()
 
                     echo "Image: ${params.IMAGE}"
-                    echo "Tag: ${params.IMAGE_TAG}"
                     echo "Platform: ${params.PLATFORM}"
-                    echo "Pyxis project ID: ${params.PYXIS_PROJECT_ID}"
                     echo "DRY_RUN: ${params.DRY_RUN}"
 
-                    if (params.PYXIS_PROJECT_ID == 'REPLACE_WITH_NEW_PS_PILLAR_PID' && !params.DRY_RUN) {
-                        error("PYXIS_PROJECT_ID is still the placeholder. Set a real PID or run with DRY_RUN=true.")
+                    if (!params.DRY_RUN) {
+                        if (!pid || pid == 'REPLACE_WITH_NEW_PS_PILLAR_PID') {
+                            error("PYXIS_PROJECT_ID must be set to a real PID when DRY_RUN=false (currently: '${pid}').")
+                        }
+                        if (!credsId || credsId == 'REPLACE_WITH_REAL_REGISTRY_CREDS_ID') {
+                            error("REGISTRY_CREDS_ID must be set to a real Jenkins credential id when DRY_RUN=false (currently: '${credsId}').")
+                        }
+                        echo "Pyxis project ID: ${pid}"
+                        echo "Registry creds id: ${credsId}"
                     }
-
-                    def target = [
-                        src: params.IMAGE,
-                        dest: "quay.io/redhat-isv-containers/${params.PYXIS_PROJECT_ID}:${params.IMAGE_TAG}",
-                        credentials: params.REGISTRY_CREDS_ID
-                    ]
 
                     def startedAt = System.currentTimeMillis()
                     def status
 
-                    withCredentials([
-                        string(credentialsId: 'PYXIS_TOKEN', variable: 'PYXIS_TOKEN'),
-                        usernamePassword(
-                            credentialsId: target.credentials,
-                            usernameVariable: 'REGISTRY_USER',
-                            passwordVariable: 'REGISTRY_KEY'
-                        )
-                    ]) {
-                        def component = env.REGISTRY_USER.replaceAll(/^.*\+/, '').replaceAll(/-robot$/, '')
-                        def noSubmitFlag = params.DRY_RUN ? '--no-submit' : ''
-
+                    if (params.DRY_RUN) {
                         status = sh(
                             returnStatus: true,
                             script: """
                             set -e
-                            python3 cloud/scripts/certify_images.py \
-                              --image ${target.src} \
-                              --dest_image ${target.dest} \
-                              --component ${component} \
-                              --platform ${params.PLATFORM} \
-                              ${noSubmitFlag}
+                            python3 cloud/scripts/certify_images.py \\
+                              --image ${params.IMAGE} \\
+                              --platform ${params.PLATFORM} \\
+                              --no-submit
                         """
                         )
+                    } else {
+                        def destImage = "quay.io/redhat-isv-containers/${pid}:${params.IMAGE_TAG}"
+
+                        withCredentials([
+                            string(credentialsId: 'PYXIS_TOKEN', variable: 'PYXIS_TOKEN'),
+                            usernamePassword(
+                                credentialsId: credsId,
+                                usernameVariable: 'REGISTRY_USER',
+                                passwordVariable: 'REGISTRY_KEY'
+                            )
+                        ]) {
+                            def component = env.REGISTRY_USER.replaceAll(/^.*\+/, '').replaceAll(/-robot$/, '')
+
+                            status = sh(
+                                returnStatus: true,
+                                script: """
+                                set -e
+                                python3 cloud/scripts/certify_images.py \\
+                                  --image ${params.IMAGE} \\
+                                  --dest_image ${destImage} \\
+                                  --component ${component} \\
+                                  --platform ${params.PLATFORM}
+                            """
+                            )
+                        }
                     }
 
                     certificationTests.add([
