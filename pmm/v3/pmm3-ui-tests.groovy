@@ -235,7 +235,7 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh '''
-                            docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                            timeout 180 bash -c 'until [ "$(curl -s -o /dev/null -w "%{http_code}" --user "admin:${ADMIN_PASSWORD}" http://127.0.0.1/ping)" = "200" ]; do sleep 5; done'
                         '''
                         dir('codeceptjs-e2e') {
                             sh '''
