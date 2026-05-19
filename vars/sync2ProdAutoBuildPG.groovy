@@ -23,17 +23,32 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                             for rhel in `ls -1 redhat`; do
                                 export rpm_dest_path=/srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/\${rhel}
 
-                                # RPMS
+                                # noarch packages are architecture-independent and need to live in every per-arch repo.
+                                # Filter strictly by the el<rhel>/amzn<rhel> tag in the filename so each repo only gets
+                                # the noarch packages tagged for the rhel version being processed. Restrict find to the
+                                # current rhel subtree to avoid picking up duplicate copies of the same RPM that the
+                                # build may have placed under sibling rhel noarch/ directories.
+                                NOARCH_RPMS=`find redhat/\${rhel} -name "*.el\${rhel}.noarch.rpm" -o -name "*.amzn\${rhel}.noarch.rpm" 2>/dev/null | sort -u`
+                                echo "noarch packages selected for el\${rhel}:"
+                                echo "\${NOARCH_RPMS:-NONE}"
+
+                                # RPMS - iterate the union of source arch dirs (what this build delivers) and existing
+                                # destination arch dirs (from previous builds). Without this, a build that ships only
+                                # noarch packages would never refresh the existing x86_64/aarch64 repos with the new
+                                # noarch RPMs, because the per-arch source directories simply do not exist.
                                 mkdir -p \${rpm_dest_path}/RPMS
-                                for arch in `ls -1 redhat/\${rhel}`; do
+                                ALL_ARCHES=`(ls -1 redhat/\${rhel} 2>/dev/null; ls -1 \${rpm_dest_path}/RPMS 2>/dev/null) | sort -u`
+                                echo "arch dirs to process for el\${rhel}: \${ALL_ARCHES}"
+                                for arch in \${ALL_ARCHES}; do
                                     repo_path=\${rpm_dest_path}/RPMS/\${arch}
                                     mkdir -p \${repo_path}
-                                    if [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
+                                    if [ -d redhat/\${rhel}/\${arch} ] && [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
                                     fi
-                                    # noarch packages are architecture-independent: also copy them into each arch-specific repo
-                                    if [ "\${arch}" != "noarch" ] && [ -d redhat/\${rhel}/noarch ] && [ `ls redhat/\${rhel}/noarch/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
-                                        rsync -aHv redhat/\${rhel}/noarch/*.rpm \${repo_path}/
+                                    # also copy noarch packages for the current rhel into every non-noarch arch repo
+                                    if [ "\${arch}" != "noarch" ] && [ -n "\${NOARCH_RPMS}" ]; then
+                                        echo "Copying noarch packages into \${repo_path}"
+                                        echo "\${NOARCH_RPMS}" | xargs -I{} rsync -aHv {} \${repo_path}/
                                     fi
                                     createrepo --update \${createrepo_opts} \${repo_path}
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
@@ -66,11 +81,27 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                  if [ \${EC} -eq 0 ]; then
                                      REPOPUSH_ARGS=" --remove-package "
                                  fi
-                                 env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
-                                done
-
-                                for dsc in \$(find ../source/debian -name '*.dsc' 2>/dev/null); do
+                                 # Skip the dsc push when the source package is already in the
+                                 # destination component pool.
+                                 for dsc in \$(find ../source/debian -name '*.dsc' 2>/dev/null); do
+                                    SRCNAME=\$(grep -m1 "^Source:" \${dsc}  | sed "s/^Source: *//")
+                                    FULLVER=\$(grep -m1 "^Version:" \${dsc} | sed "s/^Version: *//")
+                                    UPVER="\${FULLVER%-*}"
+                                    POOL_DIR=/srv/repo-copy/${REPO_NAME}/apt/pool/${DESTINATION}
+                                    EXISTING_DSC=\$(find \${POOL_DIR} -type f -name "\$(basename \${dsc})" 2>/dev/null | head -1)
+                                    if [ -n "\${EXISTING_DSC}" ]; then
+                                        echo "Skipping \${SRCNAME} \${FULLVER} source push: dsc already in pool (\${EXISTING_DSC})"
+                                        continue
+                                    fi
+                                    EXISTING_ORIG=\$(find \${POOL_DIR} -type f -name "\${SRCNAME}_\${UPVER}.orig.tar.gz" 2>/dev/null | head -1)
+                                    if [ -n "\${EXISTING_ORIG}" ]; then
+                                        echo "Skipping \${SRCNAME} \${UPVER} source push: orig tarball already in pool (\${EXISTING_ORIG})"
+                                        continue
+                                    fi
+                                    echo "Pushing \${SRCNAME} \${FULLVER} source (not yet in pool)"
                                     env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
+                                done
+                                env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
                                 done
                             done
                         popd

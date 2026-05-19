@@ -227,13 +227,13 @@ parameters {
 
         stage('Create PS source tarball') {
             agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
-                buildStage("none", "--get_sources=1")
+                installCli("rpm")
+                buildStage("ubuntu:jammy", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-9.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -280,7 +280,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -471,7 +471,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
@@ -489,7 +489,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -510,7 +510,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -553,7 +553,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
@@ -571,7 +571,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -592,7 +592,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -873,7 +873,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_tarball=1")
@@ -894,7 +894,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--debug=1 --build_tarball=1")
@@ -912,7 +912,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -933,7 +933,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -954,7 +954,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -977,7 +977,7 @@ parameters {
             }
             steps {
                 cleanUpWS()
-                installCli("deb")
+                installCli("rpm")
                 unstash 'properties'
 
                 uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)

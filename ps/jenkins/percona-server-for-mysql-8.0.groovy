@@ -416,17 +416,17 @@ parameters {
     stages {
         stage('Create PS source tarball') {
             agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
+                installCli("rpm")
                 script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--get_sources=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--get_sources=1")
+                                buildStage("ubuntu:focal", "--get_sources=1")
                             }
                        }
                 sh '''

@@ -30,7 +30,7 @@ execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
-bootDeadlineMap['default']            = 3
+bootDeadlineMap['default']            = 8
 bootDeadlineMap['deb12-x64-nbg1']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-x64-hel1']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-x64-fsn1']     = bootDeadlineMap['default']
@@ -73,11 +73,16 @@ labelMap['deb12-aarch64']     = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch
 labelMap['launcher-x64']      = 'launcher-x64'
 
 networkMap = [:]
-networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
+networkMap['ps57.cd.percona.com'] = '11374635' // ps57.cd.percona.com
 
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    # Force IPv4 early (Hetzner -> Cloudflare CDN IPv6 routing is intermittently broken, see PKG-1325)
+    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.eth0.disable_ipv6=1 || true
+    echo "precedence ::ffff:0:0/96 100" | sudo tee -a /etc/gai.conf
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -85,6 +90,14 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
     sudo swapon /swapfile
+
+    # Pin apt to deb.debian.org (avoid Hetzner mirror lottery, see PKG-1323/PKG-1324)
+    sudo tee /etc/apt/sources.list > /dev/null <<'APT_EOF'
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+APT_EOF
 
     export DEBIAN_FRONTEND=noninteractive
     until sudo apt-get update; do
@@ -175,7 +188,7 @@ templates.each { it ->
                        it.bootDeadline = bootDeadlineMap[tmplName]
                        it.remoteFs = "/mnt/jenkins/"
                        it.jvmOpts = jvmOptsMap[tmplName]
-                       it.network = networkMap['percona-vpc-eu']
+                       it.network = networkMap['ps57.cd.percona.com']
                        it.userData = initMap[tmplName]
                }
 

@@ -39,10 +39,15 @@ pipeline {
                     cd percona-docker/percona-server-mongodb-\$MAJ_VER
                     sed -E "s/ENV PSMDB_VERSION (.+)/ENV PSMDB_VERSION ${params.PSMDB_VERSION}/" -i Dockerfile.aarch64
                     sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO ${params.PSMDB_REPO}/" -i Dockerfile.aarch64
-                    docker build . -t percona-server-mongodb -f Dockerfile.aarch64
+                    if docker buildx version >/dev/null 2>&1; then
+                        BUILD="docker buildx build --provenance=false --sbom=false --load"
+                    else
+                        BUILD="docker build"
+                    fi
+                    \$BUILD -t percona-server-mongodb -f Dockerfile.aarch64 .
                     if [ ${params.DEBUG} = "yes" ]; then
                        sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
-                       docker build . -f Dockerfile.debug -t percona-server-mongodb-debug
+                       \$BUILD -f Dockerfile.debug -t percona-server-mongodb-debug .
                     fi
                     """
             }

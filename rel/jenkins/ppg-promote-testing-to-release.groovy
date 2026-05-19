@@ -163,7 +163,7 @@ fi
 
 # -------------------------------------> PPG versioned release: copy from testing to main
 export REPOCOMP=main
-CODENAMES=\$(ls -1 \${REPOPATH}/dists/)
+CODENAMES=\$(awk '/^Codename:/ {print \$2}' \${REPOPATH}/conf/distributions)
 echo "<*> Distributions are: "\${CODENAMES}
 
 # -------------------------------------> source pushing from testing pool
@@ -197,15 +197,30 @@ if [[ ${REMOVE_LOCKFILE} = true ]]; then
     rm -vf \${MAJOR_REPOPATH}/db/lockfile
 fi
 
-MAJOR_CODENAMES=\$(ls -1 \${MAJOR_REPOPATH}/dists/)
+MAJOR_CODENAMES=\$(awk '/^Codename:/ {print \$2}' \${MAJOR_REPOPATH}/conf/distributions)
 
 # -------------------------------------> source pushing to major repo
+# Skip the .dsc push when the source package is already in the major repo pool
 if [ -n "\${DSC}" ]; then
     for DSC_FILE in \${DSC}; do
         echo "<*> DSC file is "\${DSC_FILE}
+        SRCNAME=\$(grep -m1 "^Source:" \${DSC_FILE}  | sed "s/^Source: *//")
+        FULLVER=\$(grep -m1 "^Version:" \${DSC_FILE} | sed "s/^Version: *//")
+        UPVER="\${FULLVER%-*}"
+        EXISTING_DSC=\$(find \${MAJOR_REPOPATH}/pool/main -type f -name "\$(basename \${DSC_FILE})" 2>/dev/null | head -1)
+        if [ -n "\${EXISTING_DSC}" ]; then
+            echo "<*> Skipping \${SRCNAME} \${FULLVER} source push to major repo: dsc already in pool (\${EXISTING_DSC})"
+            continue
+        fi
+        EXISTING_ORIG=\$(find \${MAJOR_REPOPATH}/pool/main -type f -name "\${SRCNAME}_\${UPVER}.orig.tar.gz" 2>/dev/null | head -1)
+        if [ -n "\${EXISTING_ORIG}" ]; then
+            echo "<*> Skipping \${SRCNAME} \${UPVER} source push to major repo: orig tarball already in pool (\${EXISTING_ORIG})"
+            continue
+        fi
+        echo "<*> Pushing \${SRCNAME} \${FULLVER} source to major repo (not yet in pool)"
         for _codename in \${MAJOR_CODENAMES}; do
             echo "<*> CODENAME: "\${_codename}
-            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${MAJOR_REPOPATH} --component=main --codename=\${_codename} --verbose || true
+            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${MAJOR_REPOPATH} --component=main --codename=\${_codename} --verbose
             sleep 5
         done
     done
