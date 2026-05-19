@@ -179,7 +179,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
                 sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa || true
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
@@ -559,9 +559,9 @@ pipeline {
                             sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
 
                             if [ -s "launchable-subset.json" ]; then
-                                npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
+                                npx codeceptjs run-workers 4 --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
                             else
-                                npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                                npx codeceptjs run-workers 4 --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                             fi
                         '''
                     }
