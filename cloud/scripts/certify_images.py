@@ -319,6 +319,10 @@ def run_preflight(dest, platform, docker_config, token, component):
 
     rename_result_json_files(results_dir, dest)
 
+    if "Preflight result: FAILED" in output:
+        log("preflight failed (output contains FAILED)")
+        sys.exit(1)
+
     if result.returncode != 0:
         log(f"preflight failed ({result.returncode})")
         sys.exit(result.returncode)

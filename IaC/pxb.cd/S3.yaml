@@ -1,0 +1,52 @@
+# aws cloudformation --region us-west-2 create-stack \
+#   --template-body file://IaC/pxb.cd/S3.yaml \
+#   --stack-name pxb-backup-ci-bucket \
+#   --tags Key=iit-billing-tag,Value=pxb Key=team,Value=pxb Key=owner,Value=tomislav.plavcic Key=ticket,Value=PKG-1330 \
+#   --parameters ParameterKey=BucketName,ParameterValue=pxb-backup-ci \
+#   --profile percona-dev-admin
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: S3 bucket for the PXB backup-test framework CI runs (PKG-1330).
+
+Parameters:
+
+  BucketName:
+    Default: pxb-backup-ci
+    Type: String
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: '^[a-z][a-z0-9\-]*$'
+    ConstraintDescription: must begin with a lowercase letter and contain only lowercase letters, numbers, and dashes (-).
+
+Resources:
+
+  PxbBackupCiBucket: # S3 bucket used by the PXB backup-test framework in CI
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+      - Key: iit-billing-tag
+        Value: pxb
+      - Key: team
+        Value: pxb
+      - Key: owner
+        Value: tomislav.plavcic
+      - Key: ticket
+        Value: PKG-1330
+
+Outputs:
+
+  BucketName:
+    Description: Name of the PXB backup CI bucket
+    Value: !Ref PxbBackupCiBucket
+
+  BucketArn:
+    Description: ARN of the PXB backup CI bucket
+    Value: !GetAtt PxbBackupCiBucket.Arn

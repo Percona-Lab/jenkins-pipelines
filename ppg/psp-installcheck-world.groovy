@@ -15,12 +15,12 @@ pipeline {
             choices: ppgOperatingSystemsALL()
         )
         string(
-            defaultValue: '18.3',
+            defaultValue: '18.4',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: '18.3.1',
+            defaultValue: '18.4.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
@@ -45,7 +45,6 @@ pipeline {
             choices: [
                 'check-server',
                 'check-tde',
-                'check-all',
                 'installcheck-world'
             ]
         )
@@ -53,8 +52,8 @@ pipeline {
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
             choices: [
-                'worker',
                 'sync',
+                'worker',
                 'io_uring'
             ]
         )
@@ -75,7 +74,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.PLATFORM}-${env.IO_METHOD}-${env.TESTSUITE}"
                 }
             }
         }

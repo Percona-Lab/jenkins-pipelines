@@ -637,6 +637,11 @@ Resources:
                     https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy
                   sed -i 's/%LIST%/ec2 aws-sqs compress-buildlog google-login jobConfigHistory matrix-auth matrix-reloaded ssh-slaves template-project warnings ws-cleanup/' /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy
 
+                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/cloud.groovy \
+                    https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/pxc.cd/init.groovy.d/cloud.groovy
+                  wget -O /mnt/$JENKINS_HOST/init.groovy.d/matrix.groovy \
+                    https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/pxc.cd/init.groovy.d/matrix.groovy
+
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
                   mkdir -p /etc/systemd/system/jenkins.service.d

@@ -458,7 +458,7 @@ pipeline {
             steps {
                 dir('codeceptjs-e2e') {
                     sh '''
-                        curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                        curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
                         sudo apt-get install -y gettext
