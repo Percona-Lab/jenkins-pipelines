@@ -145,6 +145,13 @@ authz_strategy_config = [
     user_permissions: [
         'percona*build-engineers': ['Overall Administer'],
         'percona*iit': ['Overall Administer'],
+        // PS-11173 Phase 3: service account for the userdata graceful
+        // spot-interrupt drain script. Token-only "ghost" identity (no
+        // OAuth login) carried by AWS Secrets Manager secret
+        // ps3.cd/jenkins/admin-api-token. Granted Overall Administer
+        // because /quietDown, /safeExit, and /computer/api/json require
+        // hudson.model.Hudson.Administer on Jenkins 2.541.3.
+        'api-admin': ['Overall Administer'],
         'percona*dev-ps': ['Overall Read','Agent Configure','Agent Delete','Agent Create','Agent Disconnect','Agent Connect','Agent Build','Agent Provision','Run Delete','Run Update','Run Replay','Job Create','Job Delete','Job Configure','Job Read','Job Discover','Job Build','Job Workspace','Job Cancel','Job Move','View Create','View Delete','View Configure','View Read'],
         'percona*QA-ps': ['Overall Read','Agent Configure','Agent Delete','Agent Create','Agent Disconnect','Agent Connect','Agent Build','Agent Provision','Run Delete','Run Update','Run Replay','Job Create','Job Delete','Job Configure','Job Read','Job Discover','Job Build','Job Workspace','Job Cancel','Job Move','View Create','View Delete','View Configure','View Read'],
         'percona*doc': ['Overall Read','Agent Build','Agent Connect','Agent Provision','Job Discover','Job Read','Job Build','Job Cancel','Job Workspace','View Read'],
