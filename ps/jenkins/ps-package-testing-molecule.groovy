@@ -7,8 +7,6 @@ library changelog: false, identifier: "lib@ps-exp", retriever: modernSCM([
 
 def ps90PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'debian-13',
