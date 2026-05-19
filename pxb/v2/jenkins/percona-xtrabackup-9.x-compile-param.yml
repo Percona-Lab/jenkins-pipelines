@@ -57,6 +57,7 @@
          - ubuntu:noble
          - debian:bookworm
          - debian:trixie
+         - amazonlinux:2023
          - asan
     builders:
     - trigger-builds:
