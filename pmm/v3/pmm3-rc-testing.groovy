@@ -576,7 +576,7 @@ pipeline {
                                         string(name: 'PMM_QA_GIT_BRANCH',              value: 'main'),
                                         booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
                                         string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_SCREENSHOTS_TARGET),
-                                    ])
+                                    ]
                                 }
                             }
                         }
