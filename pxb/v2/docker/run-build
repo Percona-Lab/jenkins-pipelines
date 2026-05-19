@@ -6,6 +6,13 @@ set -o xtrace
 ROOT_DIR=$(cd $(dirname $0)/../sources; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-oraclelinux:9}
+ARCH=${2:-${ARCH:-x86_64}}
+
+case "${ARCH}" in
+    x86_64)  ARCH_SUFFIX="" ;;
+    aarch64) ARCH_SUFFIX="-aarch64" ;;
+    *) echo "Unsupported ARCH=${ARCH}" >&2; exit 1 ;;
+esac
 
 if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
     SOURCE_IMAGE='oraclelinux:9'
@@ -16,7 +23,7 @@ docker run --rm \
     --cap-add SYS_PTRACE \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
-    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX} \
     sh -c "
     set -o errexit
     set -o xtrace
