@@ -232,7 +232,7 @@ parameters {
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
+                installCli("rpm")
                 buildStage("ubuntu:jammy", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-9.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
