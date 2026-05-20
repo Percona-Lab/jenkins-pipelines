@@ -5,6 +5,10 @@ pipeline {
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
+            choices: 'x86_64\naarch64',
+            description: 'CPU architecture; selects the pxc-build image variant. LABEL must match (e.g. docker-32gb-aarch64 for aarch64).',
+            name: 'ARCH')
+        choice(
             choices: 'RelWithDebInfo\nDebug',
             description: 'Type of build to produce',
             name: 'CMAKE_BUILD_TYPE')
@@ -45,8 +49,8 @@ pipeline {
             defaultValue: false,
             description: 'Run kmip tests')
         choice(
-            choices: 'docker-32gb\ndocker',
-            description: 'Run build on specified instance type',
+            choices: 'docker-32gb\ndocker\ndocker-32gb-aarch64\ndocker-aarch64',
+            description: 'Run build on specified instance type. Must match the selected ARCH (e.g. aarch64 image needs docker-32gb-aarch64 or docker-aarch64).',
             name: 'LABEL')
     }
     agent {
@@ -124,7 +128,7 @@ pipeline {
                                     docker rm --force azurite || :
                                 fi
                                 ulimit -a
-                                ./docker/run-test ${DOCKER_OS}
+                                ./docker/run-test ${DOCKER_OS} ${ARCH}
                             "
                             echo Archive test: \$(date -u "+%s")
                             gzip sources/results/* || true
