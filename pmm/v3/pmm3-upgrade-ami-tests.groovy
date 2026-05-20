@@ -8,7 +8,7 @@ def amiVersions = versionsList.values().toList()[-5..-1]
 def pmmVersions = versionsList.keySet().toList()[-5..-1]
 def latestVersion = pmmVersions[pmmVersions.size() - 1]
 
-void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH) {
     upgradeJob = build job: 'pmm3-upgrade-ami-test-runner', parameters: [
         string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: PMM_UI_PRE_UPGRADE_GIT_BRANCH),
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
@@ -18,11 +18,10 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
         string(name: 'CLIENT_REPOSITORY', value: CLIENT_REPOSITORY),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
     ]
 }
 
-def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING) {
+def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING) {
     def results = new HashMap<>();
 
     versionsList.each { pmmVersion, amiTag ->
@@ -39,8 +38,7 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
                     pmmClientVersion,
                     'experimental',
                     latestVersion,
-                    PMM_QA_GIT_BRANCH,
-                    QA_INTEGRATION_GIT_BRANCH
+                    PMM_QA_GIT_BRANCH
                 )
             )
         } else {
@@ -54,8 +52,7 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
                     pmmVersion,
                     'testing',
                     latestVersion,
-                    PMM_QA_GIT_BRANCH,
-                    QA_INTEGRATION_GIT_BRANCH
+                    PMM_QA_GIT_BRANCH
                 )
             )
         }
@@ -64,11 +61,11 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
     return results;
 }
 
-def generateStage(String PMM_PRE_UPGRADE_UI_GIT_BRANCH, PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+def generateStage(String PMM_PRE_UPGRADE_UI_GIT_BRANCH, PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH) {
     return {
         stage("Upgrade AMI PMM from ${CLIENT_VERSION} (AMI tag: ${amiVersion}) to: '${DOCKER_TAG_UPGRADE}'") {
             retry(2) {
-                runUpgradeJob(PMM_PRE_UPGRADE_UI_GIT_BRANCH, PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
+                runUpgradeJob(PMM_PRE_UPGRADE_UI_GIT_BRANCH, PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH);
             }
         }
     }
@@ -88,10 +85,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
         booleanParam(
             defaultValue: true,
             description: 'Teting for RC version if true, if false - testing for latest dev version',
@@ -104,7 +97,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING)
                 }
             }
         }
