@@ -165,6 +165,7 @@ pipeline {
                     sudo mkdir -p /srv/pmm-qa || :
                     cd  /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                    sudo chown -R ec2-user:ec2-user /srv/pmm-qa
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
