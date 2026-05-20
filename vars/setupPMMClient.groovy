@@ -39,11 +39,11 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo percona-release enable-only pmm2-client testing
                 sudo dnf -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-latest ]]; then
+                sudo percona-release enable-only pmm2-client release
                 sudo dnf -y install pmm2-client
                 sudo dnf -y update
                 sudo percona-release enable-only pmm2-client experimental
             elif [[ "$CLIENT_VERSION" = 2* ]]; then
-                sudo dnf -y install "pmm2-client-$CLIENT_VERSION-6.el9.x86_64"
                 if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
                     sudo percona-release enable-only pmm2-client testing
                 elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = yes ]]; then
@@ -51,6 +51,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 else
                     sudo percona-release enable-only pmm2-client release
                 fi
+                sudo dnf -y install "pmm2-client-$CLIENT_VERSION-6.el9.x86_64"
                 sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then
