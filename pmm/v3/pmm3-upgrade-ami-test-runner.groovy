@@ -141,10 +141,6 @@ pipeline {
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
-        string(
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
             name: 'SSH_KEY')
@@ -169,11 +165,6 @@ pipeline {
                     sudo mkdir -p /srv/pmm-qa || :
                     cd  /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                    sudo mkdir -p /srv/qa-integration || true
-                    cd  /srv/qa-integration
-                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    sudo chmod -R 755 /srv/qa-integration
-                    sudo chown $(id -u):$(id -u) -R /srv/qa-integration
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
@@ -205,7 +196,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
