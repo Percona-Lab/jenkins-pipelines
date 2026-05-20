@@ -63,17 +63,27 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
       done
 
-      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
-      rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      if [[ $(uname -m) == "x86_64" ]]; then
+          wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
+          rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      fi
 
       dnf config-manager --enable ol8_codeready_builder
       PKGLIST+=" libedit-devel python3-docutils"
+      if [[ $(uname -m) != "x86_64" ]]; then
+          # On aarch64: no Percona-pinned aarch64 RPMs on downloads.percona.com.
+          # procps-ng is already in base OL8 aarch64; procps-ng-devel lives in
+          # ol8_codeready_builder (enabled above). MySQL-python (Python 2 EOL)
+          # and python2-scons are skipped on aarch64; scons is installed via
+          # pip3 below, matching the AL2023 pattern.
+          PKGLIST+=" procps-ng-devel"
+      fi
   fi
 
   if [[ ${RHVER} -eq 9 ]]; then
@@ -140,6 +150,11 @@ if [ -f /usr/bin/yum ]; then
     perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
     "
 
+  # OL8 aarch64: scons binary RPM is not packaged; install via pip3 below.
+  if [[ ${RHVER} -eq 8 ]] && [[ $(uname -m) != "x86_64" ]]; then
+      PKGLIST="${PKGLIST// scons / }"
+  fi
+
   # qpress comes from Percona repo (disabled on OL10)
   if [[ ${RHVER} -lt 10 ]]; then
       PKGLIST+=" qpress"
@@ -200,6 +215,10 @@ if [ -f /usr/bin/yum ]; then
 
     if [[ ${RHVER} -lt 9 ]]; then
         PKGLIST+=" sysbench MySQL-python redhat-lsb-core"
+        if [[ ${RHVER} -eq 8 ]] && [[ $(uname -m) != "x86_64" ]]; then
+            # MySQL-python (Python 2 EOL) is not packaged for OL8 aarch64.
+            PKGLIST="${PKGLIST// MySQL-python / }"
+        fi
     fi
 
 # Percona-Server
@@ -274,6 +293,14 @@ if [ -f /usr/bin/yum ]; then
         pip3 install --break-system-packages mysql-connector mysqlclient
     else
         pip3 install mysql-connector mysqlclient
+    fi
+
+    # OL8 aarch64 post-install fixups
+    if [[ ${RHVER} -eq 8 ]] && [[ $(uname -m) != "x86_64" ]]; then
+        # scons is not packaged for OL8 aarch64; install via pip3 to match the
+        # AL2023 pattern. OL8 pip3 (9.x) lacks --break-system-packages, and PEP
+        # 668 is not enforced there anyway, so the plain form works.
+        pip3 install scons==4.6.0
     fi
 fi
 
