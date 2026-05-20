@@ -28,6 +28,12 @@
           - asan
         description: OS version for compilation
     - choice:
+        name: ARCH
+        choices:
+          - x86_64
+          - aarch64
+        description: CPU architecture; selects the pxc-build image variant. LABEL must match for aarch64.
+    - choice:
         name: CMAKE_BUILD_TYPE
         choices:
           - RelWithDebInfo
@@ -71,4 +77,5 @@
         name: LABEL
         choices:
         - docker
-        description: Run build on specified instance type.
+        - docker-aarch64
+        description: Run build on specified instance type. Must match the selected ARCH (docker for x86_64, docker-aarch64 for aarch64).
