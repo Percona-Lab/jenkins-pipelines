@@ -33,6 +33,12 @@
         - debian:trixie
         description: OS version for compilation and testing
     - choice:
+        name: ARCH
+        choices:
+        - x86_64
+        - aarch64
+        description: CPU architecture; selects the pxc-build image variant and the worker label.
+    - choice:
         name: XTRABACKUP_TARGET
         choices:
         - "both"

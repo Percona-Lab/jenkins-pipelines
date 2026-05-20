@@ -1,11 +1,14 @@
-// Default to Hetzner
-String LABEL = 'docker-x64'
-String MICRO_LABEL = 'launcher-x64'
-
+// Worker labels: x86_64 on Hetzner = docker-x64; aarch64 on Hetzner = docker-aarch64.
+// AWS uses docker-32gb / docker-32gb-aarch64. MICRO_LABEL (small orchestrator
+// worker) is always x86_64; it just drives the build, the actual docker build
+// + test happen on LABEL.
+String LABEL
 if (params.CLOUD == 'AWS') {
-    LABEL = 'docker-32gb'
-    MICRO_LABEL = 'micro-amazon'
+    LABEL = (params.ARCH == 'aarch64') ? 'docker-32gb-aarch64' : 'docker-32gb'
+} else {
+    LABEL = (params.ARCH == 'aarch64') ? 'docker-aarch64' : 'docker-x64'
 }
+String MICRO_LABEL = (params.CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
 
 pipeline {
     parameters {
@@ -23,6 +26,10 @@ pipeline {
             choices: 'oraclelinux:9\nubuntu:jammy\nubuntu:noble\ndebian:bookworm\ndebian:trixie',
             description: 'OS version for compilation and testing',
             name: 'DOCKER_OS')
+        choice(
+            choices: 'x86_64\naarch64',
+            description: 'CPU architecture; selects the pxc-build image variant and the worker label.',
+            name: 'ARCH')
         choice(
             choices: 'both\ninnodb9x\nxtradb9x',
             description: 'MySQL server flavour for QA run (both runs innodb9x then xtradb9x)',
@@ -123,7 +130,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./docker/run-build ${DOCKER_OS}
+                                ./docker/run-build ${DOCKER_OS} ${ARCH}
                             " 2>&1 | tee build.log
 
                             if [[ -f \$(ls sources/results/*.tar.gz | head -1) ]]; then
@@ -168,7 +175,7 @@ pipeline {
                                         docker rm --force azurite || :
                                     fi
                                     ulimit -a
-                                    ./docker/run-test ${DOCKER_OS}
+                                    ./docker/run-test ${DOCKER_OS} ${ARCH}
                                 "
                             }
 
