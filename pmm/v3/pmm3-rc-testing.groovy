@@ -507,7 +507,6 @@ pipeline {
                                     triggerJenkinsRc('pmm3-upgrade-ami-test', 'pmm3-upgrade-ami-test', [
                                         string(name: 'PMM_UI_GIT_BRANCH',         value: 'main'),
                                         string(name: 'PMM_QA_GIT_BRANCH',         value: 'main'),
-                                        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
                                         booleanParam(name: 'IS_RC_TESTING',       value: true),
                                     ])
                                 }
@@ -576,7 +575,7 @@ pipeline {
                                         string(name: 'PMM_QA_GIT_BRANCH',              value: 'main'),
                                         booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
                                         string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_SCREENSHOTS_TARGET),
-                                    ])
+                                    ]
                                 }
                             }
                         }
