@@ -7,20 +7,45 @@ DOCKER_DIR=$(dirname $0)
 
 build_docker() {
     local SOURCE_IMAGE=$1
+    local ARCH=$2
+
+    if [[ -z ${SOURCE_IMAGE} || -z ${ARCH} ]]; then
+        echo "ERROR: SOURCE_IMAGE and ARCH are required" >&2
+        echo "Usage: $0 <SOURCE_IMAGE> <ARCH>" >&2
+        echo "  ARCH must be one of: x86_64, aarch64" >&2
+        exit 1
+    fi
+
+    if [[ ${ARCH} != "x86_64" && ${ARCH} != "aarch64" ]]; then
+        echo "ERROR: invalid ARCH '${ARCH}'; expected x86_64 or aarch64" >&2
+        exit 1
+    fi
+
+    local TAG="${SOURCE_IMAGE//[:\/]/-}-${ARCH}"
 
     sed -e "s^FROM .*^FROM ${SOURCE_IMAGE}^" \
         ${DOCKER_DIR}/Dockerfile.inc \
-        > ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
+        > ${DOCKER_DIR}/Dockerfile-${TAG}
 
     export DOCKER_BUILDKIT=0
     docker build \
         --squash \
         --no-cache \
-        -t public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
-        --file ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-} \
+        -t public.ecr.aws/e7j3v3n0/pxc-build:${TAG} \
+        --file ${DOCKER_DIR}/Dockerfile-${TAG} \
         $DOCKER_DIR
 
-    rm ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
+    rm ${DOCKER_DIR}/Dockerfile-${TAG}
 }
 
-build_docker ${1:-centos:7}
+# Usage:
+#   prepare-docker <SOURCE_IMAGE> <ARCH>
+#
+# Arguments:
+#   $1 SOURCE_IMAGE  Base distro image to build from (e.g. oraclelinux:9,
+#                    ubuntu:jammy, debian:bookworm). Colons and slashes are
+#                    sanitised to '-' when forming the resulting tag.
+#   $2 ARCH          CPU architecture for the build host. Must be one of
+#                    x86_64 or aarch64. Embedded into the Dockerfile name
+#                    and the ECR tag (e.g. pxc-build:ubuntu-jammy-aarch64).
+build_docker "$1" "$2"
