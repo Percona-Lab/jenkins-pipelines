@@ -60,12 +60,19 @@
          - debian:bullseye
          - debian:bookworm
          - asan
+      - axis:
+         type: user-defined
+         name: ARCH
+         values:
+         - x86_64
+         - aarch64
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.0-compile-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
           CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
           CLOUD=${{CLOUD}}
         block: true
