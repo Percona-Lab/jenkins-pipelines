@@ -72,17 +72,29 @@ if [ -f /usr/bin/yum ]; then
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
       retry yum -y install ${PKGLIST}
-      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
-      rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      if [[ $(uname -m) == "x86_64" ]]; then
+          # Legacy Percona-pinned x86_64 RPMs. procps-ng/procps-ng-devel now
+          # ship in base+CRB on OL8 and MySQL-python is python2 EOL, so this
+          # block is technical debt. Out of scope for ARM enablement; leaving
+          # the x86_64 path byte-identical to master.
+          wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
+          rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      fi
 
       dnf config-manager --enable ol8_codeready_builder
       PKGLIST+=" libedit-devel python3-docutils"
+      if [[ $(uname -m) != "x86_64" ]]; then
+          # OL8 aarch64: procps-ng is in base; procps-ng-devel lives in CRB.
+          # MySQL-python (python2 EOL) is skipped on aarch64; scons is filtered
+          # below via the aarch64 PKGLIST filter (modern PXB/PXC use cmake).
+          PKGLIST+=" procps-ng-devel"
+      fi
   fi
 
   if [[ ${RHVER} -eq 9 ]]; then
@@ -156,6 +168,14 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
         perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
         "
+  fi
+
+  # aarch64 images use the new pxc-build:*-aarch64 variants (PXB-3745). scons
+  # is not packaged for aarch64 on OL8 and modern PXB/PXC build with cmake, so
+  # strip it here. The x86_64 path keeps scons unchanged from master; the
+  # wider scons cleanup tracks in a follow-up ticket.
+  if [[ $(uname -m) != "x86_64" ]]; then
+      PKGLIST="${PKGLIST// scons / }"
   fi
 
   # qpress comes from Percona repo (disabled on OL10 and AL2023; not needed
@@ -235,6 +255,11 @@ if [ -f /usr/bin/yum ]; then
 
     if [[ ${RHVER} -lt 9 ]]; then
         PKGLIST+=" sysbench MySQL-python redhat-lsb-core"
+        if [[ ${RHVER} -eq 8 ]] && [[ $(uname -m) != "x86_64" ]]; then
+            # MySQL-python (python2 EOL) is not packaged for OL8 aarch64.
+            # mysql-connector + mysqlclient are installed via pip3 below.
+            PKGLIST="${PKGLIST// MySQL-python / }"
+        fi
     fi
 
 # Percona-Server
@@ -298,7 +323,6 @@ if [ -f /usr/bin/yum ]; then
     else
         pip3 install mysql-connector mysqlclient
     fi
-
 fi
 
 if [ -f /usr/bin/apt-get ]; then
@@ -421,6 +445,12 @@ if [ -f /usr/bin/apt-get ]; then
     # For Debian buster install libre2-dev
     if [[ ${DISTRIBUTOR_ID} == Debian ]] && [[ $(echo "${RELEASE} >= 10" | bc -l) == 1 ]]; then
         PKGLIST+=" libre2-dev"
+    fi
+
+    # aarch64 images skip scons (new pxc-build:*-aarch64 variants per PXB-3745;
+    # modern PXB/PXC build with cmake). x86_64 path keeps master's PKGLIST as-is.
+    if [[ $(uname -m) != "x86_64" ]]; then
+        PKGLIST="${PKGLIST// scons / }"
     fi
 
     retry apt-get -y install ${PKGLIST}
