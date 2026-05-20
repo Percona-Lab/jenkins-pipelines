@@ -55,12 +55,19 @@
          - debian:stretch
          - debian:buster
          - asan
+      - axis:
+         type: user-defined
+         name: ARCH
+         values:
+         - x86_64
+         - aarch64
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-2.4-compile-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
+          ARCH=${ARCH}
           CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
         block: true
         block-thresholds:

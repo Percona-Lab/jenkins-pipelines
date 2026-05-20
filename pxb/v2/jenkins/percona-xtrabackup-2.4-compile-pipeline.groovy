@@ -17,6 +17,10 @@ pipeline {
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
+            choices: 'x86_64\naarch64',
+            description: 'CPU architecture; selects the pxc-build image variant. LABEL must match for aarch64.',
+            name: 'ARCH')
+        choice(
             choices: 'RelWithDebInfo\nDebug',
             description: 'Type of build to produce',
             name: 'CMAKE_BUILD_TYPE')
@@ -86,7 +90,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./docker/run-build ${DOCKER_OS}
+                                ./docker/run-build ${DOCKER_OS} ${ARCH}
                             " 2>&1 | tee build.log
 
                             echo Archive build: \$(date -u "+%s")
