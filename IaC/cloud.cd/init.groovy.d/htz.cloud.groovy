@@ -80,7 +80,6 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
-    ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
@@ -125,7 +124,6 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    sudo systemctl start sshd
 '''
 initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
 initMap['fedora42-x64-hel1']     = initMap['fedora-docker']
