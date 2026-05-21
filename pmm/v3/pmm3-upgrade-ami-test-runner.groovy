@@ -160,7 +160,7 @@ pipeline {
                 sh '''
                     sudo rm -rf /srv/pmm-qa
                     sudo mkdir -p /srv/pmm-qa
-                    sudo rsync -a ${env.WORKSPACE}/ /srv/pmm-qa/
+                    sudo rsync -a "$WORKSPACE"/ /srv/pmm-qa/
                     sudo chown -R ec2-user:ec2-user /srv/pmm-qa
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 '''
