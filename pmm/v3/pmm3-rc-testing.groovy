@@ -107,7 +107,7 @@ pipeline {
 |Each triggered job will appear below with a link.""".stripMargin()
                     def slackResponse = slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: intro
                     env.SLACK_RC_THREAD = slackResponse.threadId
-                    env.SLACK_RC_SCREENSHOTS_TARGET = "${RC_SLACK_CHANNEL}:${slackResponse.ts}"
+                    env.SLACK_RC_SCREENSHOTS_TARGET = "${slackResponse.channelId}:${slackResponse.ts}"
                 }
             }
         }
