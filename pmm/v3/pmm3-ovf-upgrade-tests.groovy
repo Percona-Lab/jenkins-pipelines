@@ -139,7 +139,7 @@ def versionsList = pmmVersion('ovf')
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -174,10 +174,6 @@ pipeline {
         GCP_USER_PASSWORD=credentials('GCP_USER_PASSWORD')
     }
     parameters {
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests Repo repository',
-            name: 'GIT_BRANCH')
         choice(
             choices: versionsList,
             description: 'OVA Image version, for installing already released version, pass 3.x.y ex. 3.28.0',
@@ -213,20 +209,17 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // fetch pmm-ui-tests repository
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 installDocker()
                 sh '''
-                    sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                        sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                        sudo chmod 755 get_download_link.sh
-                    popd
-                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
+                    sudo rsync -a ${env.WORKSPACE}/ /srv/pmm-qa/
+                    sudo curl -o /srv/pmm-qa/get_download_link.sh https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+                    sudo chmod 755 /srv/pmm-qa/get_download_link.sh
+                    sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -272,17 +265,19 @@ pipeline {
         }
         stage('Run UI Upgrade Tests') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        envsubst < env.list > env.generated.list
-                        npm ci
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@ovf-upgrade'
-                    """
+                dir('codeceptjs-e2e') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            envsubst < env.list > env.generated.list
+                            npm ci
+                            sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=\$(pwd);
+                            export CHROMIUM_PATH=/usr/bin/chromium
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@ovf-upgrade'
+                        '''
                     }
                 }
+            }
         }
         stage('Check Packages after Upgrade') {
             steps {
@@ -292,12 +287,14 @@ pipeline {
         stage('Check Client Upgrade') {
             steps {
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
-                sh """
-                    export PWD=\$(pwd);
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                    sleep 30
-                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
-                """
+                dir('codeceptjs-e2e') {
+                    sh '''
+                        export PWD=\$(pwd);
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        sleep 30
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ovf-upgrade)'
+                    '''
+                }
             }
         }
     }
@@ -310,7 +307,7 @@ pipeline {
             script {
                 // JUnit is known to fail if there are no files in `tests/output`
                 try {
-                    junit 'tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml'
                 } catch (err) {
                     echo err.getMessage()
                 }
@@ -336,7 +333,7 @@ pipeline {
         }
         failure {
             script {
-                archiveArtifacts artifacts: 'tests/output/*.png'
+                archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png'
                 slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }

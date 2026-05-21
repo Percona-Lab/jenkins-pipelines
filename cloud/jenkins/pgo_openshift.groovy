@@ -2,6 +2,14 @@ tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
+String getPillarVersionKey() {
+    return "$PILLAR_VERSION".replace('-postgis', '')
+}
+
+Boolean usePostgisImage() {
+    return "$PILLAR_VERSION".endsWith('-postgis')
+}
+
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
@@ -17,11 +25,13 @@ String getParam(String paramName, String keyName = null) {
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
+        def pillarVersionKey = getPillarVersionKey()
+        def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
 
         env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
-        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
-        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
+        env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
+        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${pillarVersionKey}")
+        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${pillarVersionKey}")
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         env.IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
@@ -184,6 +194,58 @@ void clusterRunner(String cluster) {
     }
 }
 
+void enableVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        for i in \$(seq 1 60); do
+            if kubectl get crd csisnapshotcontrollers.operator.openshift.io >/dev/null 2>&1; then
+                break
+            fi
+            sleep 10
+        done
+
+        cat <<EOF | kubectl apply -f -
+apiVersion: operator.openshift.io/v1
+kind: CSISnapshotController
+metadata:
+  name: cluster
+spec:
+  managementState: Managed
+EOF
+
+        kubectl get csisnapshotcontroller cluster -o yaml
+    """
+}
+
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        wait_for_deployment() {
+            local deployment_name="\$1"
+            local namespace="\$2"
+
+            for i in \$(seq 1 60); do
+                if kubectl get deployment "\$deployment_name" -n "\$namespace" >/dev/null 2>&1; then
+                    kubectl wait --for=condition=Available deployment/"\$deployment_name" -n "\$namespace" --timeout=10m
+                    return 0
+                fi
+                sleep 10
+            done
+
+            kubectl get deployment -n "\$namespace" || true
+            return 1
+        }
+
+        wait_for_deployment csi-snapshot-controller-operator openshift-cluster-storage-operator
+        wait_for_deployment csi-snapshot-controller openshift-cluster-storage-operator
+
+        kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+        kubectl api-resources --api-group=snapshot.storage.k8s.io
+    """
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
@@ -251,6 +313,9 @@ EOF
             }
         }
     }
+
+    enableVolumeSnapshotResources(CLUSTER_SUFFIX)
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {
@@ -380,7 +445,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '13', '14', '15', '16', '17', '18'], description: 'For release runs. PG version to test. Job takes images from release_versions when set.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
@@ -430,7 +495,7 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             parallel {
                 stage('cluster1') {

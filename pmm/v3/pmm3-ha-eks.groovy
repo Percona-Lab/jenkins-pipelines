@@ -17,7 +17,7 @@ def cleanupCluster() {
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
 
     options {
@@ -28,7 +28,7 @@ pipeline {
     parameters {
         choice(
             name: 'K8S_VERSION',
-            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
+            choices: ['1.35', '1.34', '1.33'],
             description: 'Select Kubernetes cluster version'
         )
         string(

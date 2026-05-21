@@ -214,7 +214,7 @@ pipeline {
         } else if (PXB_RELEASE == "84") {
             product_to_test = "pxb_84"
         } else {
-            product_to_test = "pxb_innovation_lts"
+            product_to_test = "pxb_innovation"
         }
 
         build job: 'pxb-package-testing-molecule-all', propagate: false, wait: false, parameters: [

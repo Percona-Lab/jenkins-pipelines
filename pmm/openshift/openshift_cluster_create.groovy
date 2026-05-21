@@ -37,30 +37,53 @@ def attemptClusterCleanup(String reason) {
                             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                         )
                     ]) {
-                        // For aborted jobs, only attempt cleanup if state files exist
-                        // This prevents unnecessary destroy attempts for very early aborts
-                        if (reason == 'aborted') {
-                            def clusterDir = "${env.WORK_DIR}/${env.FINAL_CLUSTER_NAME}"
-                            def hasMetadata = fileExists("${clusterDir}/metadata.json")
-                            def hasTerraformState = fileExists("${clusterDir}/terraform.tfstate")
+                        def clusterDir = "${env.WORK_DIR}/${env.FINAL_CLUSTER_NAME}"
+                        def hasMetadata = fileExists("${clusterDir}/metadata.json")
+                        def hasTerraformState = fileExists("${clusterDir}/terraform.tfstate")
 
-                            if (!hasMetadata && !hasTerraformState) {
-                                echo 'No cluster state found - skipping cleanup'
-                                return
-                            }
-                            echo 'Found cluster state files - attempting destroy'
+                        // For aborted jobs, only attempt cleanup if state files exist.
+                        // This prevents unnecessary destroy attempts for very early aborts.
+                        if (reason == 'aborted' && !hasMetadata && !hasTerraformState) {
+                            echo 'No cluster state found - skipping cleanup'
+                            return
                         }
 
-                        openshiftCluster.destroy([
+                        // openshift-install writes its metadata.json (with the AWS
+                        // infraID) before AWS resources are torn down on failure,
+                        // but openshiftCluster.create() only uploads it to S3 *after*
+                        // the installer succeeds. If the installer aborted partway
+                        // there's an on-disk infraID we can use to force-destroy
+                        // the leaked AWS resources without ever touching S3.
+                        def infraID = null
+                        if (hasMetadata) {
+                            try {
+                                def m = readJSON file: "${clusterDir}/metadata.json"
+                                infraID = m?.infraID
+                            } catch (Exception parseErr) {
+                                echo "Could not parse metadata.json for infraID: ${parseErr.message}"
+                            }
+                        }
+
+                        def destroyConfig = [
                             clusterName: env.FINAL_CLUSTER_NAME,
                             awsRegion: params.AWS_REGION,
-                            s3Bucket: env.S3_BUCKET,
                             workDir: env.WORK_DIR,
                             accessKey: AWS_ACCESS_KEY_ID,
                             secretKey: AWS_SECRET_ACCESS_KEY,
                             reason: "${reason}-cleanup",
                             destroyedBy: env.BUILD_USER_ID ?: "jenkins-${reason}"
-                        ])
+                        ]
+
+                        if (infraID) {
+                            echo "Found infraID ${infraID} on disk - using force mode (no S3 state required)"
+                            destroyConfig.force = true
+                            destroyConfig.infraID = infraID
+                            destroyConfig.openshiftVersion = params.OPENSHIFT_VERSION
+                        } else {
+                            destroyConfig.s3Bucket = env.S3_BUCKET
+                        }
+
+                        openshiftCluster.destroy(destroyConfig)
                         echo 'Cleanup completed successfully'
                     }
                 } catch (Exception e) {
@@ -122,7 +145,7 @@ def archiveClusterLogs() {
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
 
     environment {
@@ -246,6 +269,31 @@ Starting cluster creation process...
                     def pmmStatus = params.DEPLOY_PMM ? "PMM:${params.PMM_IMAGE_TAG}" : "No-PMM"
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | OCP:${params.OPENSHIFT_VERSION} | ${params.AWS_REGION} | ${pmmStatus}"
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
+                }
+            }
+        }
+
+        stage('Pre-flight Quota Check') {
+            steps {
+                withCredentials([
+                    aws(
+                        credentialsId: 'jenkins-openshift-aws',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    script {
+                        // Catch quota saturation before the installer wastes
+                        // 15 minutes hitting the CAPI infrastructure-readiness
+                        // timeout. Failure here gives an immediate, actionable
+                        // error pointing to the specific exhausted quota.
+                        openshiftPreflight.check([
+                            awsRegion  : params.AWS_REGION,
+                            masterType : params.MASTER_INSTANCE_TYPE,
+                            workerType : params.WORKER_INSTANCE_TYPE,
+                            workerCount: params.WORKER_COUNT.toInteger()
+                        ])
+                    }
                 }
             }
         }

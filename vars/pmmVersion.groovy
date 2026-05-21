@@ -78,6 +78,7 @@ def call(String type='dev-latest') {
     '3.6.0': 'ami-08d17ac27fab9f3f1',
     '3.7.0': 'ami-08414cea86cc5611e',
     '3.7.1': 'ami-07fe22a2d9e2e5672',
+    '3.8.0': '',
   ]
   List<String> v3 = v3Versions.keySet() as List<String>;
 

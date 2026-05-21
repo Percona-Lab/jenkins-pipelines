@@ -24,7 +24,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'PG version for test',
             name: 'VERSION'
         )
@@ -38,7 +38,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-18.3/percona-postgresql-18.3-ssl1.1-linux-x86_64.tar.gz',
+            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-18.4/percona-postgresql-18.4-ssl1.1-linux-x86_64.tar.gz',
             description: 'URL for tarball.',
             name: 'TARBALL_URL'
         )
