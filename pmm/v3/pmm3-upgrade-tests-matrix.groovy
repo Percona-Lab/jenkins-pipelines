@@ -76,6 +76,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
+                    currentBuild.description = "${env.UPGRADE_TYPE} Upgrade matrix job"
                     parallel generateVariants(PMM_QA_GIT_BRANCH, pmmVersions, oldVersions, latestVersion, UPGRADE_TYPE)
                 }
             }
