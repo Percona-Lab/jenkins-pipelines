@@ -281,9 +281,6 @@ pipeline {
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
                     popd
-                    docker ps -a
-                    ls /
-                    pwd
                 '''
             }
         }
@@ -425,10 +422,6 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
-                            ls /srv/pmm-qa/codeceptjs-e2e/tests/output/
-                            ls /srv/pmm-qa/codeceptjs-e2e/tests/
-                            ls /srv/pmm-qa/codeceptjs-e2e/
-                            ls /srv/pmm-qa/
                         popd
                     '''
                 }
@@ -649,7 +642,7 @@ pipeline {
                         junit PATH_TO_REPORT_RESULTS
                     }
                 } catch (err) {
-//                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
             }
         }
