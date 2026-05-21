@@ -3,10 +3,9 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_FLAG, UPGRADE_TYPE) {
+void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_FLAG, UPGRADE_TYPE) {
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
         string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: PMM_UI_PRE_UPGRADE_GIT_BRANCH),
-        string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
         string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -19,21 +18,21 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCK
     ]
 }
 
-def generateVariants(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_TYPE) {
+def generateVariants(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_TYPE) {
     def results = new HashMap<>();
     def UPGRADE_VARIANTS = ["SSL", "EXTERNAL SERVICES", "OTHERS"]
     for (UPGRADE_VARIANT in UPGRADE_VARIANTS) {
-        results.put("Run \"$UPGRADE_VARIANT\" upgrade tests", generateStage(PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_VARIANT, UPGRADE_TYPE))
+        results.put("Run \"$UPGRADE_VARIANT\" upgrade tests", generateStage(PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_VARIANT, UPGRADE_TYPE))
     }
 
     return results;
 }
 
-def generateStage(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, LABEL, UPGRADE_TYPE) {
+def generateStage(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, LABEL, UPGRADE_TYPE) {
     return {
         stage("Run \"$LABEL\" upgrade tests") {
             retry(2) {
-                runUpgradeJob(PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, LABEL, UPGRADE_TYPE);
+                runUpgradeJob(PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, LABEL, UPGRADE_TYPE);
             }
         }
     }
@@ -52,10 +51,6 @@ pipeline {
             defaultValue: "pmm-$oldestVersion",
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository for post upgrade',
-            name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
@@ -102,7 +97,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_TYPE)
+                    parallel generateVariants(PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_TYPE)
                 }
             }
         }
