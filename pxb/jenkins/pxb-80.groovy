@@ -337,7 +337,7 @@ pipeline {
                 } 
                 stage('Oracle Linux 9 ARM') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
                     steps {
                         script {
@@ -481,7 +481,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
                     steps {
                         script {
