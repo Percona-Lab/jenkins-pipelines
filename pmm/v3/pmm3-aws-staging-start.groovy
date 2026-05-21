@@ -249,7 +249,7 @@ pipeline {
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" --user "admin:${ADMIN_PASSWORD}" https://127.0.0.1/ping)" = "200" ]; do sleep 5; done'
+                                    timeout 180 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" --user "admin:${ADMIN_PASSWORD}" https://127.0.0.1/ping)" = "200" ]; do sleep 5; done'
                                     docker logs pmm-server
                                 '''
                             }
