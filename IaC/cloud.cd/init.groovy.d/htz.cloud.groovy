@@ -89,7 +89,7 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
         sleep 1
         echo "try again"
     done
-    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc npm make; do
+    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc npm make qemu-user-static; do
         sleep 1
         echo "try again"
     done

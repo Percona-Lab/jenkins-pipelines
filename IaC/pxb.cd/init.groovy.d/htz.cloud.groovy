@@ -104,7 +104,7 @@ APT_EOF
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip git; do
+    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip git qemu-user-static binfmt-support; do
         sleep 1
         echo try again
     done
