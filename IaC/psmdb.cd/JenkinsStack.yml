@@ -598,7 +598,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
               		# Arguments for the Jenkins JVM
-              		Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms6g -Xmx8g -Xss2m -server -XX:+UseG1GC -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:MaxGCPauseMillis=200 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+              		Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms6g -Xmx8g -Xss2m -server -XX:+UseG1GC -XX:+AlwaysPreTouch -XX:+UseStringDeduplication -XX:MaxGCPauseMillis=200 -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600 -Dhetzner.rehydrate.enabled=true -Dhetzner.rehydrate.grace-period-minutes=5"
               	EOF
 
                   systemctl daemon-reload
