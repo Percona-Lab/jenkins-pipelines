@@ -188,6 +188,20 @@ initMap['docker-aarch64'] = '''
     echo '{"experimental": true}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
+    # PXB-3798: extract qemu-x86_64 from tonistiigi/binfmt:qemu-v10.2.1-65 (mirrored to Percona ECR Public, pinned by index digest for supply-chain hygiene). AL2023 has no qemu-user-static in main repos.
+    if [ "$(uname -m)" = "aarch64" ] && [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
+        until sudo docker pull --platform linux/arm64 public.ecr.aws/e7j3v3n0/qemu-binfmt@sha256:d3b963f787999e6c0219a48dba02978769286ff61a5f4d26245cb6a6e5567ea3; do sleep 5; done
+        cid=$(sudo docker create --platform linux/arm64 public.ecr.aws/e7j3v3n0/qemu-binfmt@sha256:d3b963f787999e6c0219a48dba02978769286ff61a5f4d26245cb6a6e5567ea3)
+        sudo docker cp "${cid}":/usr/bin/qemu-x86_64 /usr/local/bin/qemu-x86_64
+        sudo docker rm -f "${cid}"
+        sudo chmod 0755 /usr/local/bin/qemu-x86_64
+        if file /usr/local/bin/qemu-x86_64 | grep -Fq 'BuildID[sha1]=3ce82273ab59ab77b04b0bee9060c5b194769f4c'; then
+            echo ':qemu-x86_64:M::\\x7fELF\\x02\\x01\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x02\\x00\\x3e\\x00:\\xff\\xff\\xff\\xff\\xff\\xfe\\xfe\\x00\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\xfe\\xff\\xff\\xff:/usr/local/bin/qemu-x86_64:POCF' | sudo tee /proc/sys/fs/binfmt_misc/register >/dev/null
+        else
+            echo "qemu-x86_64 BuildID mismatch from /usr/local/bin/qemu-x86_64; skipping binfmt registration" >&2
+            sudo rm -f /usr/local/bin/qemu-x86_64
+        fi
+    fi
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb-aarch64'] = initMap['docker-aarch64']
