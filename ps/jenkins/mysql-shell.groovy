@@ -366,7 +366,7 @@ pipeline {
                 }
                 stage('Ubuntu Resolute (26.04)') {
                     when {
-                        expression { false }
+                        expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -382,7 +382,7 @@ pipeline {
                 }
                 stage('Ubuntu Resolute (26.04) ARM') {
                     when {
-                        expression { false }
+                        expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
