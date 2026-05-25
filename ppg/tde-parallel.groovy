@@ -33,12 +33,12 @@ pipeline {
             name: 'TDE_REPO'
         )
         string(
-            defaultValue: 'release-2.1.2',
+            defaultValue: 'release-2.2.0',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
             name: 'TDE_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
@@ -46,8 +46,8 @@ pipeline {
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
             choices: [
-                'worker',
                 'sync',
+                'worker',
                 'io_uring'
             ]
         )
@@ -72,7 +72,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pg_tde-${env.VERSION}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-tde-${env.VERSION}-${env.IO_METHOD}"
                 }
             }
         }
