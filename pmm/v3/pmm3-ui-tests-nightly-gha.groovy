@@ -208,7 +208,9 @@ pipeline {
                     }
                     steps {
                         runOVFStagingStart(OVA_VERSION, PMM_QA_GIT_BRANCH)
-                        env.ADMIN_PASSWORD = "admin"
+                        script {
+                            env.ADMIN_PASSWORD = "admin"
+                        }
                     }
                 }
                 stage('Setup AMI PMM Server Instance') {
