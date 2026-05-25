@@ -40,9 +40,9 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
+void runOVFStagingStart(String OVA_VERSION, PMM_QA_GIT_BRANCH) {
     ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),
+        string(name: 'OVA_VERSION', value: OVA_VERSION),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
@@ -141,6 +141,10 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
+            defaultValue: 'https://percona-vm.s3.amazonaws.com/PMM3-Server-3.8.0.ova',
+            description: 'ova url',
+            name: 'OVA_VERSION')
+        string(
             defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
@@ -203,7 +207,8 @@ pipeline {
                         expression { env.SERVER_TYPE == "ovf" }
                     }
                     steps {
-                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
+                        runOVFStagingStart(OVA_VERSION, PMM_QA_GIT_BRANCH)
+                        env.ADMIN_PASSWORD = "admin"
                     }
                 }
                 stage('Setup AMI PMM Server Instance') {
