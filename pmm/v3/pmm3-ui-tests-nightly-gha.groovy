@@ -340,6 +340,7 @@ pipeline {
                     build job: 'openshift-cluster-destroy', parameters: [
                         string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
+                        booleanParam(name: 'FORCE_MODE', value: true),
                     ]
                 }
                 if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
