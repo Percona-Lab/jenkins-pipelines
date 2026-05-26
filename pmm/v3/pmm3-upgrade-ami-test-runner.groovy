@@ -31,11 +31,10 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
-void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH, SSH_KEY) {
+void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'SSH_KEY', value: SSH_KEY),
   ]
   env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
   env.SERVER_IP = amiStagingJob.buildVariables.PUBLIC_IP
@@ -137,10 +136,6 @@ pipeline {
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
-        string(
-            defaultValue: '',
-            description: 'public ssh key for "admin" user, please set if you need ssh access',
-            name: 'SSH_KEY')
     }
     options {
         skipDefaultCheckout()
@@ -172,7 +167,7 @@ pipeline {
         }
         stage('Start AMI server Instance') {
             steps {
-                runAMIStagingStart(AMI_TAG, PMM_QA_PRE_UPGRADE_GIT_BRANCH, SSH_KEY)
+                runAMIStagingStart(AMI_TAG, PMM_QA_PRE_UPGRADE_GIT_BRANCH)
             }
         }
         stage('PMM Server sanity check') {
