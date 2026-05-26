@@ -12,6 +12,6 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ps/jenkins/get-ps-branches-8.4.groovy
+      script-path: ps/jenkins/get-ps-branches-84.groovy
     triggers:
       - timed: "H/24 * * * *"
