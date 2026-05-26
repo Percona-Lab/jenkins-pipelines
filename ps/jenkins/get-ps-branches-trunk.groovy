@@ -61,9 +61,9 @@ pipeline {
                 }
                 script {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source ./startBuild; echo \${START_NEW_BUILD}").trim()
-                    BRANCH_NAME = sh(returnStdout: true, script: "source ./branch_commit_id_9x.properties; echo \${BRANCH_NAME}").trim()
-                    COMMIT_ID = sh(returnStdout: true, script: "source ./branch_commit_id_9x.properties; echo \${COMMIT_ID}").trim()
-                    COMPONENT = sh(returnStdout: true, script: "source ./branch_commit_id_9x.properties; echo experimental").trim()
+                    BRANCH_NAME = sh(returnStdout: true, script: "source ./branch_commit_id_trunk.properties; echo \${BRANCH_NAME}").trim()
+                    COMMIT_ID = sh(returnStdout: true, script: "source ./branch_commit_id_trunk.properties; echo \${COMMIT_ID}").trim()
+                    COMPONENT = sh(returnStdout: true, script: "source ./branch_commit_id_trunk.properties; echo experimental").trim()
                 }
 
             }
