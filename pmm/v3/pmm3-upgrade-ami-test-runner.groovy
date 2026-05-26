@@ -153,7 +153,7 @@ pipeline {
                     branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
                 git poll: false,
-                    branch: PMM_QA_PRE_UPGRADE_GIT_BRANCH,
+                    branch: PMM_QA_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-qa.git'
 
                 sh '''
@@ -167,7 +167,7 @@ pipeline {
         }
         stage('Start AMI server Instance') {
             steps {
-                runAMIStagingStart(AMI_TAG, PMM_QA_PRE_UPGRADE_GIT_BRANCH)
+                runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH)
             }
         }
         stage('PMM Server sanity check') {
