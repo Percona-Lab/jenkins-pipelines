@@ -215,18 +215,17 @@ pipeline {
                 sleep 60
             }
         }
-        stage('Setup Dependencies and PMM Client') {
+        stage('Install dependencies') {
             steps {
-                dir('codeceptjs-e2e') {
-                    sh '''
-                        npm ci
-                        npx playwright install
-                        envsubst < env.list > env.generated.list
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ansible-galaxy collection install ansible.utils
-                    '''
-                }
+                sh '''
+                    npm ci
+                    npx playwright install chromium
+                    envsubst < env.list > env.generated.list
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=$(pwd)
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    ansible-galaxy collection install ansible.utils
+                '''
             }
         }
         stage('Check PMM Server Packages before Upgrade') {
