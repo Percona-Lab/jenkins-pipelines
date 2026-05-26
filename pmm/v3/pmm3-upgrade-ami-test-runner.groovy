@@ -152,9 +152,6 @@ pipeline {
                 git poll: false,
                     branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
-                git poll: false,
-                    branch: PMM_QA_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-qa.git'
 
                 sh '''
                     sudo rm -rf /srv/pmm-qa
@@ -162,6 +159,9 @@ pipeline {
                     sudo rsync -a "$WORKSPACE"/ /srv/pmm-qa/
                     sudo chown -R ec2-user:ec2-user /srv/pmm-qa
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                    popd
                 '''
             }
         }
