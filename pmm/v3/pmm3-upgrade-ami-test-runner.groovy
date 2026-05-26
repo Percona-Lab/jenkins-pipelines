@@ -160,6 +160,7 @@ pipeline {
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
+                    sudo chown ec2-user -R /srv/pmm-qa
                 '''
             }
         }
