@@ -47,8 +47,8 @@ pipeline {
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         choice(
-            choices: 'testing\nlaboratory\nexperimental',
-            description: 'Repo component to push packages to',
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to get packages',
             name: 'COMPONENT')
     }
     options {

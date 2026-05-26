@@ -156,13 +156,17 @@ parameters {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(
+            defaultValue: '1',
+            description: 'RPM release value',
+            name: 'RPM_RELEASE')
         choice(
             choices: 'percona\nmysql',
             description: 'Which mysql-shell version have to be used in images.',
             name: 'MYSQLSHELL')
         choice(
             choices: 'testing\nexperimental\nrelease',
-            description: 'Repo component to get packages from',
+            description: 'Repository component used to get packages',
             name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
