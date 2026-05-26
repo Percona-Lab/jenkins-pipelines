@@ -109,9 +109,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: "pmm-${versions[0]}",
-            description: 'Tag/Branch for pmm-qa repository (Codecept in codeceptjs-e2e/) for pre upgrade',
-            name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH')
+            defaultValue: "pmm-$oldestVersion",
+            description: 'Tag/Branch for UI Tests repository for pre upgrade',
+            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository for post upgrade UI tests',
@@ -153,6 +153,9 @@ pipeline {
                     println versionsListParameter
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
+                git poll: false,
+                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-ui-tests.git'
                 git poll: false,
                     branch: PMM_QA_PRE_UPGRADE_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-qa.git'

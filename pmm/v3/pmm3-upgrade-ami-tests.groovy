@@ -10,7 +10,7 @@ def latestVersion = pmmVersions[pmmVersions.size() - 1]
 
 void runUpgradeJob(String PMM_QA_PRE_UPGRADE_GIT_BRANCH, PMM_QA_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST) {
     upgradeJob = build job: 'pmm3-upgrade-ami-test-runner', parameters: [
-        string(name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH', value: PMM_QA_PRE_UPGRADE_GIT_BRANCH),
+        string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: PMM_QA_PRE_UPGRADE_GIT_BRANCH),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'AMI_TAG', value: AMI_TAG),
         string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
