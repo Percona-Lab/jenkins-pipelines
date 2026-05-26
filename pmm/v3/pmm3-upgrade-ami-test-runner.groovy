@@ -276,14 +276,16 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
-                            docker network connect pmm-qa pmm-server
-                            docker network connect pmm-qa watchtower
-                            docker ps -a
-                            docker inspect pmm-server
-                        "'
-                    """
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npm ci
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        popd
+                    '''
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
