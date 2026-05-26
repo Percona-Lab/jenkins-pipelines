@@ -156,19 +156,13 @@ parameters {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
-        string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
-        string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Enable fipsmode',
-            name: 'FIPSMODE')
         choice(
             choices: 'percona\nmysql',
             description: 'Which mysql-shell version have to be used in images.',
             name: 'MYSQLSHELL')
         choice(
             choices: 'testing\nexperimental\nrelease',
-            description: 'Repo component to push packages to',
+            description: 'Repo component to get packages from',
             name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
@@ -232,7 +226,7 @@ parameters {
                             case ${PS_MAJOR_RELEASE} in
                                 80) cd percona-server-8.0 ;;
                                 84) cd percona-server-8.4 ;;
-                                9*) cd percona-server-9.x ;;
+                                *) cd percona-server-9.x ;;
                             esac
 
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
@@ -261,8 +255,9 @@ parameters {
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
 
                             case ${PS_MAJOR_RELEASE} in
-                                84) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts testing/g" Dockerfile ;;
-                                9*) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-9x-innovation testing/g" Dockerfile ;;
+                                80) echo "no sed command is required" ;;
+                                84) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts ${COMPONENT}/g" Dockerfile ;;
+                                *) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-9x-innovation ${COMPONENT}/g" Dockerfile ;;
                             esac
 
                             if [ ${ORGANIZATION} != "percona" ]; then
