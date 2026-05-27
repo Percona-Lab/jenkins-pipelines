@@ -9,10 +9,12 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        IMAGE_VER = "${params.PGBOUNCER_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PGBOUNCER_VERSION', defaultValue: '1.22.1-1', description: 'pgBouncer version')
+        string(name: 'BUILD_NUMBER', defaultValue: '1', description: 'Image Build Number')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '17.0', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
@@ -25,7 +27,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION}"
+                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION} pgbouncer-${env.IMAGE_VER}"
                 }
             }
         }
@@ -60,8 +62,8 @@ pipeline {
                          unzip -o awscliv2.zip
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         docker tag percona-pgbouncer public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker push public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                         docker tag percona-pgbouncer public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${env.IMAGE_VER}
+                         docker push public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${env.IMAGE_VER}
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-pgbouncer public.ecr.aws/e7j3v3n0/percona-pgbouncer:latest
                             docker push public.ecr.aws/e7j3v3n0/percona-pgbouncer:latest
@@ -79,20 +81,20 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
-                         docker push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
+                         docker tag percona-pgbouncer perconalab/percona-pgbouncer:${env.IMAGE_VER}-arm64
+                         docker push perconalab/percona-pgbouncer:${env.IMAGE_VER}-arm64
                          docker tag percona-pgbouncer perconalab/percona-pgbouncer:\$MAJ_VER-arm64
                          docker push perconalab/percona-pgbouncer:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
-                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 \
-                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
-                         docker manifest annotate perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
-                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
-                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker manifest push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                         docker manifest create --amend perconalab/percona-pgbouncer:${env.IMAGE_VER} \
+                            perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64 \
+                            perconalab/percona-pgbouncer:${env.IMAGE_VER}-arm64
+                         docker manifest annotate perconalab/percona-pgbouncer:${env.IMAGE_VER} \
+                            perconalab/percona-pgbouncer:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-pgbouncer:${env.IMAGE_VER} \
+                            perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-pgbouncer:${env.IMAGE_VER}
+                         docker manifest push perconalab/percona-pgbouncer:${env.IMAGE_VER}
 
                          docker manifest create --amend perconalab/percona-pgbouncer:\$MAJ_VER \
                             perconalab/percona-pgbouncer:\$MAJ_VER-amd64 \
@@ -128,20 +130,20 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
-                         docker push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
+                         docker tag percona-pgbouncer percona/percona-pgbouncer:${env.IMAGE_VER}-arm64
+                         docker push percona/percona-pgbouncer:${env.IMAGE_VER}-arm64
                          docker tag percona-pgbouncer percona/percona-pgbouncer:\$MAJ_VER-arm64
                          docker push percona/percona-pgbouncer:\$MAJ_VER-arm64
 
-                         docker manifest create --amend percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
-                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 \
-                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
-                         docker manifest annotate percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
-                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
-                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker manifest push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                         docker manifest create --amend percona/percona-pgbouncer:${env.IMAGE_VER} \
+                            percona/percona-pgbouncer:${env.IMAGE_VER}-amd64 \
+                            percona/percona-pgbouncer:${env.IMAGE_VER}-arm64
+                         docker manifest annotate percona/percona-pgbouncer:${env.IMAGE_VER} \
+                            percona/percona-pgbouncer:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-pgbouncer:${env.IMAGE_VER} \
+                            percona/percona-pgbouncer:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-pgbouncer:${env.IMAGE_VER}
+                         docker manifest push percona/percona-pgbouncer:${env.IMAGE_VER}
 
                          docker manifest create --amend percona/percona-pgbouncer:\$MAJ_VER \
                             percona/percona-pgbouncer:\$MAJ_VER-amd64 \
@@ -178,13 +180,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of Percona pgBouncer ${PGBOUNCER_VERSION} repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of Percona pgBouncer ${env.IMAGE_VER} repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of Percona pgBouncer ${PGBOUNCER_VERSION} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of Percona pgBouncer ${env.IMAGE_VER} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of Percona pgBouncer ${PGBOUNCER_VERSION} repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of Percona pgBouncer ${env.IMAGE_VER} repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }
