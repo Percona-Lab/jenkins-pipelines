@@ -162,7 +162,7 @@ parameters {
             name: 'RPM_RELEASE')
         choice(
             choices: 'percona\nmysql',
-            description: 'Which mysql-shell version have to be used in images.',
+            description: 'Which mysql-shell version should be used in images',
             name: 'MYSQLSHELL')
         choice(
             choices: 'testing\nexperimental\nrelease',
