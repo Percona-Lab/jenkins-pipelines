@@ -5,6 +5,11 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
+  MasterLtVersion:
+    Default: "$Latest"
+    Description: SpotFleet launch template version. Latest tracks the newest version (non-disruptive); a specific number pins it (forces one replacement).
+    Type: String
+
   JHostName:
     Default: pmm.cd.percona.com
     Description: Fully Qualified Domain Name
@@ -527,7 +532,7 @@ Resources:
         LaunchTemplateConfigs:
           - LaunchTemplateSpecification:
               LaunchTemplateId: !Ref JMasterTemplate
-              Version: !GetAtt JMasterTemplate.LatestVersionNumber
+              Version: !Ref MasterLtVersion
             Overrides:
               - InstanceType: g4ad.xlarge
                 AvailabilityZone:
