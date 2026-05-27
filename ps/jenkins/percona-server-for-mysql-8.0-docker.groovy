@@ -154,8 +154,8 @@ parameters {
             description: 'Organization on hub.docker.com',
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
-        string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
-        string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'main', description: 'release Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
+        string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-servers repository or a ps version in format 8.0.43-34', name: 'BRANCH')
         string(
             defaultValue: '1',
             description: 'RPM release value',

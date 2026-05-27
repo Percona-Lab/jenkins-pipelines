@@ -31,8 +31,8 @@ pipeline {
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
-            description: 'Tag/Branch for percona-xtradb-cluster repository',
+            defaultValue: 'release-8.4.8',
+            description: 'release Tag/Branch for percona-xtradb-cluster repository or pxc version in the format 8.4.8',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
