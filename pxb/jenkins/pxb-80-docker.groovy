@@ -39,8 +39,8 @@ pipeline {
             description: 'URL for PXB git repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
-            description: 'Tag/Branch for PXB repository',
+            defaultValue: 'release-8.4.0-6',
+            description: 'release Tag/Branch for PXB repository or PXB version in the format 8.4.0-6',
             name: 'BRANCH')
         string(
             defaultValue: '1',
