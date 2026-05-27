@@ -1,0 +1,14 @@
+- job:
+    name: hetzner-pcsm-docker-multiarch
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'PCSM-282_pcsm_docker_add_sbom'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pcsm/pcsm-docker-multiarch.groovy
