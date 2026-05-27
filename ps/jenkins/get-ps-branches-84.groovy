@@ -45,13 +45,13 @@ pipeline {
                 LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} 8.4 | tail -1)
                 LATEST_BRANCH_NAME="8.4"
                 LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
-                VERSION=$(curl -s "https://raw.githubusercontent.com/percona/percona-server/${BRANCH}/MYSQL_VERSION" | \
+                VERSION=\$(curl -s "https://raw.githubusercontent.com/percona/percona-server/\${LATEST_BRANCH_NAME}/MYSQL_VERSION" | \
                     awk -F= '
-                       /^MYSQL_VERSION_MAJOR/  { major=$2 }
-                       /^MYSQL_VERSION_MINOR/  { minor=$2 }
-                       /^MYSQL_VERSION_PATCH/  { patch=$2 }
-                       /^MYSQL_VERSION_EXTRA/{ extra=$2 }
-                       END { printf "%s.%s.%s%s\n", major, minor, patch, extra }
+                       /^MYSQL_VERSION_MAJOR/  { major=\$2 }
+                       /^MYSQL_VERSION_MINOR/  { minor=\$2 }
+                       /^MYSQL_VERSION_PATCH/  { patch=\$2 }
+                       /^MYSQL_VERSION_EXTRA/{ extra=\$2 }
+                       END { printf "%s.%s.%s%s\\n", major, minor, patch, extra }
                     ')
 
                 if [ "x\${COMMIT_ID}" != "x\${LATEST_COMMIT_ID}" ] || [ "x\${BRANCH_NAME}" != "x\${LATEST_BRANCH_NAME}" ]; then
