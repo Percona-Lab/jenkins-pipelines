@@ -48,7 +48,7 @@ pipeline {
             name: 'RPM_RELEASE')
         choice(
             choices: 'testing\nexperimental\nrelease',
-            description: 'Repository component used to get packages',
+            description: 'Repository component used to retrieve packages',
             name: 'COMPONENT')
     }
     options {
