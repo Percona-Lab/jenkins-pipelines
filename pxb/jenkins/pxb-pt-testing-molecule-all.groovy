@@ -16,8 +16,8 @@ pipeline {
     }
     parameters {
         choice(
-            choices: ['pxb_80', 'pxb_innovation_lts', 'pxb_84'],
-            description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation_lts',
+            choices: ['pxb_80', 'pxb_innovation', 'pxb_84'],
+            description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation',
             name: 'product_to_test'
         )
         choice(
@@ -89,8 +89,8 @@ pipeline {
 void runpxbptjob(String scenario_to_test) {
 
     if (upstream == "yes") {
-        if (product_to_test == "pxb_innovation_lts") {
-            server = "ms_innovation_lts"
+        if (product_to_test == "pxb_innovation") {
+            server = "ms_innovation"
         } else if (product_to_test == "pxb_80") {
             server = "ms-80"
         } else if (product_to_test == "pxb_84") {
@@ -99,8 +99,8 @@ void runpxbptjob(String scenario_to_test) {
             echo "Not added support for this product version"
         }
     } else if (upstream == "no") {
-        if (product_to_test == "pxb_innovation_lts") {
-            server = "ps_innovation_lts"
+        if (product_to_test == "pxb_innovation") {
+            server = "ps_innovation"
         } else if (product_to_test == "pxb_80") {
             server = "ps-80"
         } else if (product_to_test == "pxb_84") {

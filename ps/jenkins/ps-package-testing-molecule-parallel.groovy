@@ -9,14 +9,14 @@ properties([
         [
             $class: 'ChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
-            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovation',
+            description: 'Choose the product version to test: PS8.0 OR ps_innovation',
             name: 'product_to_test',
             script: [
                 $class: 'GroovyScript',
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_lts_innovation", "client_test"]'
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "client_test"]'
                 ]
             ]
         ],

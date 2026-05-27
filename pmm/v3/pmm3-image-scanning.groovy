@@ -4,7 +4,7 @@ This job helps run an image scan with Trivy
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -15,21 +15,28 @@ pipeline {
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server image with tag to scan',
             name: 'PMM_SERVER_IMAGE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
+        )
     }
     stages {
         stage('Install Trivy') {
             steps {
                 script {
                     sh '''
+                        # https://trivy.dev/docs/latest/getting-started/installation/#rhelcentos-official
                         sudo tee /etc/yum.repos.d/trivy.repo <<'EOF'
 [trivy]
 name=Trivy repository
-baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$releasever/$basearch/
+baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$basearch/
 gpgcheck=1
 enabled=1
+gpgkey=https://aquasecurity.github.io/trivy-repo/rpm/public.key
 EOF
-                        sudo rpm --import https://aquasecurity.github.io/trivy-repo/rpm/public.key
-                        sudo dnf install -y trivy-0.69.3
+
+                        sudo dnf install -y trivy-0.70.0
 
                         # Download HTML template for Trivy
                         mkdir -p contrib

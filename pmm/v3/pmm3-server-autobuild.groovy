@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -17,6 +17,11 @@ pipeline {
             choices: ['experimental', 'testing'],
             description: 'Repository to push packages to',
             name: 'DESTINATION')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -122,11 +127,6 @@ pipeline {
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export DOCKERFILE=Dockerfile.el9
-                    if [ -z "${DOCKER_RC_TAG}" ]; then
-                        DOCKERFILE_PATH=$(realpath "${PATH_TO_SCRIPTS}/../docker/server/${DOCKERFILE}")
-                        awk 'NR==9 { print "ENV PMM_ENABLE_TELEMETRY=0" } { print }' "${DOCKERFILE_PATH}" > "${DOCKERFILE_PATH}.tmp"
-                        mv "${DOCKERFILE_PATH}.tmp" "${DOCKERFILE_PATH}"
-                    fi
 
                     ${PATH_TO_SCRIPTS}/build-server-docker
 

@@ -79,16 +79,16 @@ void setup_ubuntu_package_tests()
 void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, String TARBALL)
 {
     deleteDir()
-    git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
+    git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa'
     sh """
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
-        git clone https://github.com/Percona-QA/ppg-testing
+        ls package_tests/
         ansible-playbook \
         -vvvvv \
         --connection=local \
         --inventory 127.0.0.1, \
-        --limit 127.0.0.1 playbooks/${TESTS}.yml
+        --limit 127.0.0.1 package_tests/${TESTS}.yml
     """
 }
 
@@ -96,12 +96,12 @@ def latestVersion = pmmVersion('v3').last()
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
-            defaultValue: 'master',
-            description: 'Tag/Branch for package-testing repository',
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'GIT_BRANCH',
             trim: true)
         string(
