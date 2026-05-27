@@ -141,144 +141,131 @@ pipeline {
             }
         }
 
-        stage('Delete Cluster') {
-            when { expression { env.ACTION == 'DELETE_CLUSTER' } }
+        stage('Delete Clusters') {
+            when { expression { env.ACTION in ['DELETE_CLUSTER', 'DELETE_ALL', 'DELETE_OLD'] } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        for name in ${CLUSTER_NAME//,/ }; do
-                            echo "Processing cluster: $name"
+                        export AWS_RETRY_MODE=adaptive
+                        export AWS_MAX_ATTEMPTS=10
 
-                            # Get OIDC config ID before deletion
-                            OIDC_ID=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null | jq -r '.aws.sts.oidc_config.id // empty' || true)
+                        VPC_IDS=$(aws ec2 describe-vpcs --region "${REGION}" \
+                            --filters "Name=tag:Name,Values=pmm-ha-rosa-shared-vpc" "Name=state,Values=available" \
+                            --query 'Vpcs[].VpcId' --output text)
+                        VPC_COUNT=$(echo $VPC_IDS | wc -w)
+                        if [ "$VPC_COUNT" -ne 1 ]; then
+                            echo "Expected exactly 1 VPC matching pmm-ha-rosa-shared-vpc, found $VPC_COUNT: $VPC_IDS"
+                            exit 1
+                        fi
+                        VPC_ID="$VPC_IDS"
 
-                            echo "Deleting cluster: $name"
+                        # Delete a single cluster and sweep AWS resources tied to its ID
+                        delete_cluster() {
+                            local name="$1"
+                            local info cluster_id oidc_id
+                            info=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null || echo "")
+                            cluster_id=$(echo "$info" | jq -r '.id // empty' 2>/dev/null || true)
+                            oidc_id=$(echo "$info" | jq -r '.aws.sts.oidc_config.id // empty' 2>/dev/null || true)
+
+                            echo "Deleting cluster: $name (ID: ${cluster_id:-unknown})"
                             rosa delete cluster --cluster="$name" --region="${REGION}" --yes --watch || true
-
-                            # Clean up IAM resources
-                            echo "Cleaning up operator roles for: $name"
                             rosa delete operator-roles --prefix "$name" --region "${REGION}" --mode auto --yes || true
 
-                            if [ -n "$OIDC_ID" ]; then
-                                echo "Cleaning up OIDC provider: $OIDC_ID"
-                                rosa delete oidc-provider --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
-                                echo "Cleaning up OIDC config: $OIDC_ID"
-                                rosa delete oidc-config --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
+                            if [ -n "$oidc_id" ]; then
+                                rosa delete oidc-provider --oidc-config-id "$oidc_id" --region "${REGION}" --mode auto --yes || true
+                                rosa delete oidc-config --oidc-config-id "$oidc_id" --region "${REGION}" --mode auto --yes || true
                             fi
 
-                            echo "Cleanup completed for: $name"
-                        done
-                    '''
-                }
-            }
-        }
+                            if [ -n "$cluster_id" ]; then
+                                echo "  Sweeping AWS resources for cluster ID $cluster_id in VPC $VPC_ID"
 
-        stage('Delete All Clusters') {
-            when { expression { env.ACTION == 'DELETE_ALL' } }
-            steps {
-                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
-
-                        if [ -z "$CLUSTERS" ]; then
-                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
-                            exit 0
-                        fi
-
-                        for name in $CLUSTERS; do
-                            echo "Processing cluster: $name"
-
-                            # Get OIDC config ID before deletion
-                            OIDC_ID=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null | jq -r '.aws.sts.oidc_config.id // empty' || true)
-
-                            echo "Deleting cluster: $name"
-                            rosa delete cluster --cluster="$name" --region="${REGION}" --yes --watch || true
-
-                            # Clean up IAM resources
-                            echo "Cleaning up operator roles for: $name"
-                            rosa delete operator-roles --prefix "$name" --region "${REGION}" --mode auto --yes || true
-
-                            if [ -n "$OIDC_ID" ]; then
-                                echo "Cleaning up OIDC provider: $OIDC_ID"
-                                rosa delete oidc-provider --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
-                                echo "Cleaning up OIDC config: $OIDC_ID"
-                                rosa delete oidc-config --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
-                            fi
-
-                            echo "Cleanup completed for: $name"
-                        done
-                    '''
-                }
-            }
-        }
-
-        stage('Delete Old Clusters (cron)') {
-            when { expression { env.ACTION == 'DELETE_OLD' } }
-            steps {
-                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
-
-                        if [ -z "$CLUSTERS" ]; then
-                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
-                            exit 0
-                        fi
-
-                        NOW_EPOCH=$(date +%s)
-
-                        for name in $CLUSTERS; do
-                            echo "Checking cluster: $name"
-
-                            CLUSTER_INFO=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null)
-                            if [ -z "$CLUSTER_INFO" ]; then
-                                echo "  Could not get cluster info - skipping"
-                                continue
-                            fi
-
-                            CREATED=$(echo "$CLUSTER_INFO" | jq -r '.creation_timestamp')
-                            OIDC_ID=$(echo "$CLUSTER_INFO" | jq -r '.aws.sts.oidc_config.id // empty')
-
-                            # Get retention-days from ROSA cluster tags
-                            RETENTION=$(echo "$CLUSTER_INFO" | jq -r '.aws.tags["retention-days"] // empty')
-
-                            if [ -z "$RETENTION" ] || [ "$RETENTION" = "null" ]; then
-                                # Fallback: default to 1 day if tag not found
-                                RETENTION=1
-                                echo "  Warning: retention-days tag not found, defaulting to 1 day"
-                            fi
-
-                            if [ -n "$CREATED" ] && [ "$CREATED" != "null" ]; then
-                                CREATED_EPOCH=$(date -d "$CREATED" +%s 2>/dev/null || echo "0")
-                                MAX_AGE_SECONDS=$(( RETENTION * 86400 ))
-                                AGE_SECONDS=$(( NOW_EPOCH - CREATED_EPOCH ))
-                                AGE_HOURS=$(( AGE_SECONDS / 3600 ))
-
-                                if [ "$AGE_SECONDS" -gt "$MAX_AGE_SECONDS" ]; then
-                                    echo "  Cluster $name is past retention (${RETENTION} days, age: ${AGE_HOURS}h) - deleting..."
-                                    rosa delete cluster --cluster="$name" --region="${REGION}" --yes --watch || true
-
-                                    # Clean up IAM resources
-                                    echo "  Cleaning up operator roles for: $name"
-                                    rosa delete operator-roles --prefix "$name" --region "${REGION}" --mode auto --yes || true
-
-                                    if [ -n "$OIDC_ID" ]; then
-                                        echo "  Cleaning up OIDC provider: $OIDC_ID"
-                                        rosa delete oidc-provider --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
-                                        echo "  Cleaning up OIDC config: $OIDC_ID"
-                                        rosa delete oidc-config --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
-                                    fi
-
-                                    echo "  Cleanup completed for: $name"
-                                else
-                                    echo "  Keeping cluster $name (age: ${AGE_HOURS}h < ${RETENTION} days retention)"
+                                # Strip cluster tags from subnets tagged for this cluster (batched into one call)
+                                SUBNETS=$(aws ec2 describe-subnets --region "${REGION}" \
+                                    --filters "Name=vpc-id,Values=$VPC_ID" \
+                                              "Name=tag:kubernetes.io/cluster/${cluster_id},Values=owned,shared" \
+                                    --query 'Subnets[].SubnetId' --output text)
+                                if [ -n "$SUBNETS" ]; then
+                                    aws ec2 delete-tags --region "${REGION}" \
+                                        --resources $SUBNETS --tags Key="kubernetes.io/cluster/${cluster_id}"
                                 fi
-                            else
-                                echo "  Could not determine age - skipping"
+
+                                # Delete VPC endpoints (batched) before SG cleanup
+                                VPCES=$(aws ec2 describe-vpc-endpoints --region "${REGION}" \
+                                    --filters "Name=vpc-id,Values=$VPC_ID" \
+                                              "Name=tag:kubernetes.io/cluster/${cluster_id},Values=owned" \
+                                    --query 'VpcEndpoints[].VpcEndpointId' --output text)
+                                if [ -n "$VPCES" ]; then
+                                    echo "    Deleting VPC endpoints: $VPCES"
+                                    aws ec2 delete-vpc-endpoints --region "${REGION}" --vpc-endpoint-ids $VPCES
+                                fi
+
+                                # Two-pass SG cleanup: revoke all rules first to break cross-references, then delete
+                                SGS=$(aws ec2 describe-security-groups --region "${REGION}" \
+                                    --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=${cluster_id}-*" \
+                                    --query 'SecurityGroups[].GroupId' --output text)
+
+                                for sg in $SGS; do
+                                    INGRESS=$(aws ec2 describe-security-groups --region "${REGION}" --group-ids "$sg" \
+                                        --query 'SecurityGroups[0].IpPermissions' --output json)
+                                    EGRESS=$(aws ec2 describe-security-groups --region "${REGION}" --group-ids "$sg" \
+                                        --query 'SecurityGroups[0].IpPermissionsEgress' --output json)
+                                    [ "$INGRESS" != "[]" ] && aws ec2 revoke-security-group-ingress --region "${REGION}" \
+                                        --group-id "$sg" --ip-permissions "$INGRESS"
+                                    [ "$EGRESS" != "[]" ] && aws ec2 revoke-security-group-egress --region "${REGION}" \
+                                        --group-id "$sg" --ip-permissions "$EGRESS"
+                                done
+
+                                for sg in $SGS; do
+                                    echo "    Deleting SG $sg"
+                                    aws ec2 delete-security-group --region "${REGION}" --group-id "$sg"
+                                done
                             fi
+
+                            echo "Cleanup completed for: $name"
+                        }
+
+                        # Decide which clusters to process based on action
+                        TARGETS=""
+                        case "${ACTION}" in
+                            DELETE_CLUSTER)
+                                TARGETS="${CLUSTER_NAME//,/ }"
+                                ;;
+                            DELETE_ALL)
+                                TARGETS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
+                                ;;
+                            DELETE_OLD)
+                                NOW_EPOCH=$(date +%s)
+                                for name in $(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name'); do
+                                    info=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null)
+                                    [ -z "$info" ] && { echo "$name: cannot describe - skipping"; continue; }
+                                    created=$(echo "$info" | jq -r '.creation_timestamp')
+                                    retention=$(echo "$info" | jq -r '.aws.tags["retention-days"] // "1"')
+                                    [ "$retention" = "null" ] && retention=1
+                                    [ -z "$created" ] || [ "$created" = "null" ] && { echo "$name: no creation_timestamp - skipping"; continue; }
+                                    created_epoch=$(date -d "$created" +%s 2>/dev/null || echo "0")
+                                    age_h=$(( (NOW_EPOCH - created_epoch) / 3600 ))
+                                    if [ $(( NOW_EPOCH - created_epoch )) -gt $(( retention * 86400 )) ]; then
+                                        echo "$name: age ${age_h}h > retention ${retention}d - will delete"
+                                        TARGETS="$TARGETS $name"
+                                    else
+                                        echo "$name: age ${age_h}h < retention ${retention}d - keeping"
+                                    fi
+                                done
+                                ;;
+                        esac
+
+                        if [ -z "${TARGETS// /}" ]; then
+                            echo "No clusters to delete."
+                            exit 0
+                        fi
+
+                        for name in $TARGETS; do
+                            delete_cluster "$name"
                         done
                     '''
                 }
             }
         }
+
     }
 }

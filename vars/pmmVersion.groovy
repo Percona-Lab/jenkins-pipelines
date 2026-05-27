@@ -78,7 +78,7 @@ def call(String type='dev-latest') {
     '3.6.0': 'ami-08d17ac27fab9f3f1',
     '3.7.0': 'ami-08414cea86cc5611e',
     '3.7.1': 'ami-07fe22a2d9e2e5672',
-    '3.8.0': '',
+    '3.8.0': 'ami-0948285405115bcbf',
   ]
   List<String> v3 = v3Versions.keySet() as List<String>;
 
@@ -102,10 +102,10 @@ def call(String type='dev-latest') {
       return versionsList
     case 'ovf':
       return ovfVersions
-    case 'dbaas':
-      return dbaasVersions
     case 'v3':
       return v3
+    case 'v3-old':
+      return v3[0..-7]
     case 'v3-ami':
       return v3Versions
   }

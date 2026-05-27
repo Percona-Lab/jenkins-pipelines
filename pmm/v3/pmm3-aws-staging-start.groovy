@@ -174,7 +174,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.large')
+                runSpotInstance('t3.xlarge')
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -245,15 +245,12 @@ pipeline {
                                         --volume pmm-data:/srv \
                                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                                         -e PMM_WATCHTOWER_TOKEN=testToken \
+                                        -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    sleep 30
+                                    timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" --user "admin:${ADMIN_PASSWORD}" https://127.0.0.1/ping)" = "200" ]; do sleep 5; done'
                                     docker logs pmm-server
-
-                                    if [ ${ADMIN_PASSWORD} != admin ]; then
-                                        docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
-                                    fi
                                 '''
                             }
                         }

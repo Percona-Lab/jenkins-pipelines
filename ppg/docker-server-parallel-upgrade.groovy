@@ -27,11 +27,11 @@ pipeline {
     agent { label 'min-ol-9-x64' }
 
     parameters {
-        string(name: 'OLD_SERVER_VERSION', defaultValue: '16.13', description: 'Old server version that needs to be upgraded: 16.13, 17.9, 18.3, etc.')
-        string(name: 'NEW_SERVER_VERSION', defaultValue: '17.9', description: 'New server version to upgrade to: 17.9, 18.3. etc.')
-        string(name: 'OLD_VERSION_DOCKER_TAG', defaultValue: '16.13-v2', description: 'Old version docker tag to test: 16.13-v2, 17.9-v2, 18.3-v2. etc.')
-        string(name: 'NEW_VERSION_DOCKER_TAG', defaultValue: '17.9-v2', description: 'New version docker tag to test: 16.13-v2, 17.9-v2, 18.3-v2. etc.')
-        string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18.3-17.9-16.13-1', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
+        string(name: 'OLD_SERVER_VERSION', defaultValue: '16.14', description: 'Old server version that needs to be upgraded: 16.13, 17.9, 18.3, etc.')
+        string(name: 'NEW_SERVER_VERSION', defaultValue: '17.10', description: 'New server version to upgrade to: 17.9, 18.3. etc.')
+        string(name: 'OLD_VERSION_DOCKER_TAG', defaultValue: '16.14', description: 'Old version docker tag to test: 16.13-v2, 17.9-v2, 18.3-v2. etc.')
+        string(name: 'NEW_VERSION_DOCKER_TAG', defaultValue: '17.10', description: 'New version docker tag to test: 16.13-v2, 17.9-v2, 18.3-v2. etc.')
+        string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18-17-16-15-14', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
         booleanParam(name: 'WITH_POSTGIS', defaultValue: true, description: "Enable PostGIS testing.")
@@ -46,14 +46,16 @@ pipeline {
     options {
         // Ensure this shared library function returns the correct wrapper
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
         timestamps()
+        retry(conditions: [agent()], count: 2)
     }
 
     stages {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}-${params.REPOSITORY}"
                 }
             }
         }

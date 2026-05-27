@@ -25,7 +25,7 @@ pipeline {
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'PGDG Server PG version for test, including major and minor version, e.g pg-16.2, pg-15.5',
             name: 'VERSION'
         )
@@ -41,6 +41,7 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -102,6 +103,10 @@ pipeline {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
+            archiveArtifacts(
+                artifacts: 'pg_stat_monitor/pgsm_pgdg/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }
