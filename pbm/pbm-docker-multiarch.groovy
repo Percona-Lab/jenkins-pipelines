@@ -128,7 +128,7 @@ def buildArchAndSbom(String arch, String dockerfile) {
         cd percona-docker/percona-backup-mongodb
         sed -E "s/ENV PBM_VERSION (.+)/ENV PBM_VERSION ${params.PBM_VERSION}/" -i ${dockerfile}
         sed -E "s/ENV PBM_REPO_CH (.+)/ENV PBM_REPO_CH ${params.PBM_REPO_CH}/" -i ${dockerfile}
-        docker build . -f ${dockerfile} -t percona-backup-mongodb:local-${arch}
+        docker build --provenance=false --sbom=false . -f ${dockerfile} -t percona-backup-mongodb:local-${arch}
     """
 
     installTrivy(method: 'binary', junitTpl: true)
