@@ -1,4 +1,5 @@
 def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE, String ADMIN_PASSWORD = 'admin', String ENABLE_EXPERIMENTAL_REPO = 'yes') {
+   def clientPackageRelease = pmmClientPackageRelease(CLIENT_VERSION) ?: ''
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         withEnv([
             "SERVER_IP=${SERVER_IP}",
@@ -10,6 +11,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             "SETUP_TYPE=${SETUP_TYPE}",
             "ADMIN_PASSWORD=${ADMIN_PASSWORD}",
             "ENABLE_EXPERIMENTAL_REPO=${ENABLE_EXPERIMENTAL_REPO}",
+            "PMM_CLIENT_PACKAGE_RELEASE=${clientPackageRelease}",
         ]) {
         sh '''
             set -o errexit
@@ -79,8 +81,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only pmm3-client release
                 fi
 
-                export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
-                retry_dnf_install "pmm-client-${FULL_CLIENT_VERSION}"
+                if [[ -n "${PMM_CLIENT_PACKAGE_RELEASE}" ]]; then
+                    retry_dnf_install "pmm-client-${CLIENT_VERSION}-${PMM_CLIENT_PACKAGE_RELEASE}.el9.x86_64"
+                else
+                    export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
+                    retry_dnf_install "pmm-client-${FULL_CLIENT_VERSION}"
+                fi
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
