@@ -158,25 +158,28 @@ def buildArchAndSbom(String arch, String dockerfile) {
         echo "${arch} SBOM: ${sbomFile} (\$COMPONENT_COUNT components)"
     """
 
-    // Push only after SBOM is generated and validated. Both per-arch tags
-    // (MIN_VER + MAJ_VER) are pushed here; multi-arch manifest assembly
-    // happens in the dedicated stage.
+    // Push only after SBOM is generated and validated. MIN_VER per-arch tag
+    // is always pushed; MAJ_VER per-arch tag is pushed only when
+    // params.MAJOR_TAGS=yes. Multi-arch manifest assembly happens in the
+    // dedicated stage.
     withCredentials([usernamePassword(credentialsId: reg.credId,
                                       passwordVariable: 'PASS',
                                       usernameVariable: 'USER')]) {
         sh 'echo "${PASS}" | docker login -u "${USER}" --password-stdin'
         sh """
             set -e
-            MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
             MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
             REGISTRY="${reg.name}"
             PREFIX="${reg.tagPrefix}"
 
-            docker tag percona-clustersync-mongodb:local-${arch} \${REGISTRY}:\${PREFIX}\${MAJ_VER}-${arch}
-            docker push \${REGISTRY}:\${PREFIX}\${MAJ_VER}-${arch}
-
             docker tag percona-clustersync-mongodb:local-${arch} \${REGISTRY}:\${PREFIX}\${MIN_VER}-${arch}
             docker push \${REGISTRY}:\${PREFIX}\${MIN_VER}-${arch}
+
+            if [ "${params.MAJOR_TAGS}" = "yes" ]; then
+                MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
+                docker tag percona-clustersync-mongodb:local-${arch} \${REGISTRY}:\${PREFIX}\${MAJ_VER}-${arch}
+                docker push \${REGISTRY}:\${PREFIX}\${MAJ_VER}-${arch}
+            fi
         """
     }
 
@@ -199,7 +202,8 @@ pipeline {
         choice(name: 'PCSM_REPO_CH', choices: ['testing', 'release', 'experimental'], description: 'Percona-release repo')
         string(name: 'PCSM_VERSION', defaultValue: '0.8.1-1', description: 'PCSM version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab', 'DockerHub'], description: 'Target registry for image + SBOM')
-        choice(name: 'LATEST', choices: ['no', 'yes'], description: 'Also tag/push the multi-arch image as :latest')
+        choice(name: 'LATEST', choices: ['yes', 'no'], description: 'Also tag/push the multi-arch image as :latest. On by default — PCSM has no 1.x/2.x major series yet.')
+        choice(name: 'MAJOR_TAGS', choices: ['no', 'yes'], description: 'Also push major-only tags (:X-amd64, :X-arm64, :X). Off by default')
     }
     options {
         disableConcurrentBuilds()
@@ -253,22 +257,27 @@ pipeline {
                         sh 'echo "${PASS}" | docker login -u "${USER}" --password-stdin'
                         sh """
                             set -e
-                            MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                             MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
                             REGISTRY="${reg.name}"
                             PREFIX="${reg.tagPrefix}"
 
-                            for TAG in \${PREFIX}\${MIN_VER} \${PREFIX}\${MAJ_VER}; do
-                                docker buildx imagetools create -t \${REGISTRY}:\${TAG} \\
-                                    \${REGISTRY}:\${TAG}-amd64 \\
-                                    \${REGISTRY}:\${TAG}-arm64
-                                docker buildx imagetools inspect \${REGISTRY}:\${TAG}
-                            done
+                            docker buildx imagetools create -t \${REGISTRY}:\${PREFIX}\${MIN_VER} \\
+                                \${REGISTRY}:\${PREFIX}\${MIN_VER}-amd64 \\
+                                \${REGISTRY}:\${PREFIX}\${MIN_VER}-arm64
+                            docker buildx imagetools inspect \${REGISTRY}:\${PREFIX}\${MIN_VER}
+
+                            if [ "${params.MAJOR_TAGS}" = "yes" ]; then
+                                MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
+                                docker buildx imagetools create -t \${REGISTRY}:\${PREFIX}\${MAJ_VER} \\
+                                    \${REGISTRY}:\${PREFIX}\${MAJ_VER}-amd64 \\
+                                    \${REGISTRY}:\${PREFIX}\${MAJ_VER}-arm64
+                                docker buildx imagetools inspect \${REGISTRY}:\${PREFIX}\${MAJ_VER}
+                            fi
 
                             if [ "${params.LATEST}" = "yes" ]; then
                                 docker buildx imagetools create -t \${REGISTRY}:\${PREFIX}latest \\
-                                    \${REGISTRY}:\${PREFIX}\${MAJ_VER}-amd64 \\
-                                    \${REGISTRY}:\${PREFIX}\${MAJ_VER}-arm64
+                                    \${REGISTRY}:\${PREFIX}\${MIN_VER}-amd64 \\
+                                    \${REGISTRY}:\${PREFIX}\${MIN_VER}-arm64
                                 docker buildx imagetools inspect \${REGISTRY}:\${PREFIX}latest
                             fi
                         """
