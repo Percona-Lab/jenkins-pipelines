@@ -1,6 +1,4 @@
-// PCSM Docker multi-arch + SBOM pipeline.
-//
-// Builds linux/amd64 and linux/arm64 PCSM container images in parallel,
+// Build PCSM container images in parallel,
 // generates per-arch CycloneDX 1.6 SBOMs from the locally-built images,
 // pushes per-arch tags, assembles a multi-arch manifest, then attaches the
 // SBOMs as OCI 1.1 referrer artifacts (`oras attach`).
@@ -84,8 +82,7 @@ def registryFor(String targetRepo) {
     }
 }
 
-// Per-arch build + SBOM + push. Runs inside an agent block selected by the
-// caller (docker-x64 or docker-aarch64). Pushes a single per-arch tag named
+// Per-arch build + SBOM + push. Pushes a single per-arch tag named
 // <registry>:<tagPrefix><MIN_VER>-<arch>.
 //   ARCH       — 'amd64' or 'arm64'
 //   DOCKERFILE — Dockerfile name (Dockerfile or Dockerfile.aarch64)
@@ -101,7 +98,7 @@ def buildArchAndSbom(String arch, String dockerfile) {
         cd percona-docker/percona-clustersync-mongodb
         sed -E "s/ENV PCSM_VERSION (.+)/ENV PCSM_VERSION ${params.PCSM_VERSION}/" -i ${dockerfile}
         sed -E "s/ENV PCSM_REPO_CH (.+)/ENV PCSM_REPO_CH ${params.PCSM_REPO_CH}/" -i ${dockerfile}
-        docker build . -f ${dockerfile} -t percona-clustersync-mongodb:local-${arch}
+        docker build --provenance=false --sbom=false . -f ${dockerfile} -t percona-clustersync-mongodb:local-${arch}
     """
 
     installTrivy(method: 'binary', junitTpl: true)
