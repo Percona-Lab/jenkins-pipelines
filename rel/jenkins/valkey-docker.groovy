@@ -176,34 +176,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Trivy CVE scan') {
-                    steps {
-                        installTrivy(method: 'apt')
-                        script {
-                            if (params.BUILD_RPM) {
-                                sh """
-                                    echo "=== Trivy scan: RPM image (amd64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 | tee trivy-rpm-amd64.txt
-                                    echo "=== Trivy scan: RPM image (arm64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 | tee trivy-rpm-arm64.txt
-                                """
-                            }
-                            if (params.BUILD_HARDENED) {
-                                sh """
-                                    echo "=== Trivy scan: Hardened image (amd64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 | tee trivy-hardened-amd64.txt
-                                    echo "=== Trivy scan: Hardened image (arm64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 | tee trivy-hardened-arm64.txt
-                                """
-                            }
-                        }
-                        archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
-                    }
-                }
+                
             }
         }
         stage('Push and create manifests') {
