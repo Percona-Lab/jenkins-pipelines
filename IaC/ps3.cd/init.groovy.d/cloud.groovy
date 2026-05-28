@@ -93,7 +93,6 @@ imageMap['eu-west-1a.docker-32gb-noble']    = properties.AwsAmi['Ubuntu2404_x86_
 imageMap['eu-west-1a.docker-32gb-resolute'] = properties.AwsAmi['Ubuntu2604_x86_64']['euWest1']
 imageMap['eu-west-1a.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
 
-imageMap['eu-west-1a.docker-32gb-aarch64']  = properties.AwsAmi['AmazonLinux2_aarch64']['euWest1']
 imageMap['eu-west-1a.min-centos-7-aarch64'] = properties.AwsAmi['Centos7_aarch64']['euWest1']
 imageMap['eu-west-1a.min-bookworm-aarch64'] = properties.AwsAmi['Debian12_aarch64']['euWest1']
 imageMap['eu-west-1a.min-bullseye-aarch64'] = properties.AwsAmi['Debian11_aarch64']['euWest1']
@@ -128,7 +127,6 @@ imageMap['eu-west-1b.docker-32gb-noble']    = imageMap['eu-west-1a.docker-32gb-n
 imageMap['eu-west-1b.docker-32gb-resolute'] = imageMap['eu-west-1a.docker-32gb-resolute']
 imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
-imageMap['eu-west-1b.docker-32gb-aarch64']    = imageMap['eu-west-1a.docker-32gb-aarch64']
 imageMap['eu-west-1b.min-centos-7-aarch64']   = imageMap['eu-west-1a.min-centos-7-aarch64']
 imageMap['eu-west-1b.min-bookworm-aarch64']   = imageMap['eu-west-1a.min-bookworm-aarch64']
 imageMap['eu-west-1b.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullseye-aarch64']
@@ -163,7 +161,6 @@ imageMap['eu-west-1c.docker-32gb-noble']    = imageMap['eu-west-1a.docker-32gb-n
 imageMap['eu-west-1c.docker-32gb-resolute'] = imageMap['eu-west-1a.docker-32gb-resolute']
 imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
-imageMap['eu-west-1c.docker-32gb-aarch64']    = imageMap['eu-west-1a.docker-32gb-aarch64']
 imageMap['eu-west-1c.min-centos-7-aarch64']   = imageMap['eu-west-1a.min-centos-7-aarch64']
 imageMap['eu-west-1c.min-bookworm-aarch64']   = imageMap['eu-west-1a.min-bookworm-aarch64']
 imageMap['eu-west-1c.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullseye-aarch64']
@@ -206,7 +203,6 @@ userMap['docker-32gb-noble']    = properties.AwsAmi['Ubuntu2404_x86_64']['user']
 userMap['docker-32gb-resolute'] = properties.AwsAmi['Ubuntu2604_x86_64']['user']
 userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11_x86_64']['user']
 
-userMap['docker-32gb-aarch64']    = properties.AwsAmi['AmazonLinux2_aarch64']['user']
 userMap['min-centos-7-aarch64']   = properties.AwsAmi['Centos7_aarch64']['user']
 userMap['min-bookworm-aarch64']   = properties.AwsAmi['Debian12_aarch64']['user']
 userMap['min-bullseye-aarch64']   = properties.AwsAmi['Debian11_aarch64']['user']
@@ -606,7 +602,6 @@ initMap['min-stretch-x64'] = initMap['debMap']
 initMap['min-xenial-x64']  = initMap['debMap']
 initMap['min-trixie-x64']  = initMap['debMap']
 
-initMap['docker-32gb-aarch64']  = initMap['docker']
 initMap['min-centos-7-aarch64'] = initMap['rpmMap']
 initMap['min-bookworm-aarch64'] = initMap['debMap']
 initMap['min-bullseye-aarch64'] = initMap['debMap']
@@ -648,15 +643,14 @@ typeMap['docker-32gb-noble'] = 'i4i.2xlarge'
 typeMap['docker-32gb-resolute'] = 'i4i.2xlarge'
 typeMap['docker-32gb-bullseye'] = 'i4i.2xlarge'
 
-typeMap['docker-32gb-aarch64']  = 'r6g.2xlarge'
-typeMap['min-centos-7-aarch64'] = typeMap['docker-32gb-aarch64']
-typeMap['min-bookworm-aarch64'] = typeMap['docker-32gb-aarch64']
-typeMap['min-bullseye-aarch64'] = typeMap['docker-32gb-aarch64']
-typeMap['min-jammy-aarch64']    = typeMap['docker-32gb-aarch64']
-typeMap['min-noble-aarch64']    = typeMap['docker-32gb-aarch64']
-typeMap['min-resolute-aarch64'] = typeMap['docker-32gb-aarch64']
-typeMap['min-trixie-aarch64']   = typeMap['docker-32gb-aarch64']
-typeMap['min-al2023-aarch64']   = typeMap['docker-32gb-aarch64']
+typeMap['min-centos-7-aarch64'] = 'r6g.2xlarge'
+typeMap['min-bookworm-aarch64'] = 'r6g.2xlarge'
+typeMap['min-bullseye-aarch64'] = 'r6g.2xlarge'
+typeMap['min-jammy-aarch64']    = 'r6g.2xlarge'
+typeMap['min-noble-aarch64']    = 'r6g.2xlarge'
+typeMap['min-resolute-aarch64'] = 'r6g.2xlarge'
+typeMap['min-trixie-aarch64']   = 'r6g.2xlarge'
+typeMap['min-al2023-aarch64']   = 'r6g.2xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -683,7 +677,6 @@ execMap['min-bullseye-x64']  = '1'
 execMap['docker-32gb-bullseye']  = '1'
 execMap['min-trixie-x64']        = '1'
 
-execMap['docker-32gb-aarch64']  = '1'
 execMap['min-centos-7-aarch64'] = '1'
 execMap['min-bookworm-aarch64'] = '1'
 execMap['min-bullseye-aarch64'] = '1'
@@ -719,7 +712,6 @@ devMap['min-trixie-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb-resolute'] = devMap['docker']
 devMap['docker-32gb-bullseye']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
-devMap['docker-32gb-aarch64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-centos-7-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bookworm-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -754,7 +746,6 @@ labelMap['min-bullseye-x64']  = ''
 labelMap['min-trixie-x64']    = ''
 labelMap['docker-32gb-bullseye']  = ''
 
-labelMap['docker-32gb-aarch64']  = ''
 labelMap['min-centos-7-aarch64'] = ''
 labelMap['min-bookworm-aarch64'] = ''
 labelMap['min-bullseye-aarch64'] = ''
@@ -789,7 +780,6 @@ jvmoptsMap['min-bullseye-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-trixie-x64']    = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 jvmoptsMap['docker-32gb-bullseye']  = jvmoptsMap['docker']
 
-jvmoptsMap['docker-32gb-aarch64']  = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-bookworm-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-bullseye-aarch64'] = jvmoptsMap['docker']
@@ -889,7 +879,6 @@ String region = 'eu-west-1'
             getTemplate('docker-32gb-noble',    "${region}${it}"),
             getTemplate('docker-32gb-resolute', "${region}${it}"),
             getTemplate('docker-32gb-bullseye', "${region}${it}"),
-            getTemplate('docker-32gb-aarch64',  "${region}${it}"),
             getTemplate('min-centos-7-aarch64', "${region}${it}"),
             getTemplate('min-bookworm-aarch64', "${region}${it}"),
             getTemplate('min-bullseye-aarch64', "${region}${it}"),
