@@ -39,7 +39,7 @@ pipeline {
                 script {
                     sh """
                         cd site_checks
-                        docker run --env PCSM_VERSION=${params.PCSM_VERSION} --rm -v `pwd`:/tmp -w /tmp python bash -c 'pip3 install requests pytest && pytest -s --junitxml=junit.xml test_pcsm_tarball.py || [ \\\$? = 1 ] '
+                        docker run --env PCSM_VERSION=0.9.0 --rm -v `pwd`:/tmp -w /tmp python bash -c 'apt-get update && apt-get install -y wget && wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && pip3 install requests pytest && pytest -s --junitxml=junit.xml tarball_checks/test_pcsm_tarball.py' || [ \\\$? = 1 ] '
                     """
                 }
             }
