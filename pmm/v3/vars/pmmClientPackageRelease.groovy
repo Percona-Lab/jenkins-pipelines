@@ -9,19 +9,9 @@ String call(String clientVersion) {
     if (clientVersion in ['3.7.1', '3.8.0']) {
         return '8'
     }
-    if (compareSemver(clientVersion, '3.8.0') > 0) {
+    def minor = clientVersion.tokenize('.')[1] as int
+    if (clientVersion == '3.8.1' || minor > 8) {
         return '1'
     }
     return '7'
-}
-
-private static int compareSemver(String left, String right) {
-    def leftParts = left.tokenize('.').collect { it as int }
-    def rightParts = right.tokenize('.').collect { it as int }
-    for (int i = 0; i < 3; i++) {
-        if (leftParts[i] != rightParts[i]) {
-            return leftParts[i] <=> rightParts[i]
-        }
-    }
-    return 0
 }
