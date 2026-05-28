@@ -1,3 +1,3 @@
 def call() {
-        return ['debian-11''rhel9']
+        return ['debian-11', 'rhel9']
 }
