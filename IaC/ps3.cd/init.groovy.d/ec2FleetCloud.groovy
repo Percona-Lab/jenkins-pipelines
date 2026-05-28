@@ -54,7 +54,7 @@ def fleet = new EC2FleetCloud(
     LABEL,
     '/mnt/jenkins',              // fsRoot
     sshConn,                     // computerConnector
-    false,                       // privateIpUsed
+    true,                        // privateIpUsed -- master + worker share the master VPC; public-IP SSH egress is not guaranteed across regions (ps57 smoke confirmed this)
     false,                       // alwaysReconnect
     (Integer) 10,                // idleMinutes (NON-zero: 0 = never scale down)
     0,                           // minSize
