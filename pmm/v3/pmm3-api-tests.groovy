@@ -81,9 +81,9 @@ pipeline {
         stage('Connectivity Check') {
             steps {
                 sh '''
-                    if ! timeout 100 bash -c "until curl -skf ${PMM_URL}/v1/server/readyz; do sleep 1; done"; then
+                    if ! timeout 100 bash -c "until curl -skf ${PMM_URL}/ping; do sleep 1; done"; then
                         echo "PMM Server did not pass the connectivity check" >&2
-                        curl -skf ${PMM_URL}/v1/server/readyz
+                        curl -skf ${PMM_URL}/ping
                     fi
                 '''
             }
