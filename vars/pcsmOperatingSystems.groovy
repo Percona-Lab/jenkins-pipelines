@@ -1,3 +1,3 @@
 def call() {
-        return ['rhel8', 'rhel9', 'rhel8-arm', 'rhel9-arm', 'al2023', 'al2023-arm']
+        return ['debian-11', 'debian-11-arm', 'debian-12', 'debian-12-arm', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-jammy-arm', 'ubuntu-noble-arm']
 }
