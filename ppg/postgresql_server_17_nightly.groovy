@@ -44,11 +44,11 @@ pipeline {
             description: 'URL for packaging repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '17.9',
+            defaultValue: '17.10',
             description: 'Tag/Branch for ppg-server packaging repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'ppg-17.9',
+            defaultValue: 'ppg-17.10',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
