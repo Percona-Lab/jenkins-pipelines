@@ -250,7 +250,12 @@ pipeline {
                                         ${DOCKER_VERSION}
 
                                     timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'
-                                    if [ "${ADMIN_PASSWORD}" != admin ]; then
+                                    PMM_TAG="${DOCKER_VERSION##*:}"
+                                    PMM_MINOR=""
+                                    if [[ "${PMM_TAG}" =~ ^3\\.([0-9]+) ]]; then
+                                        PMM_MINOR="${BASH_REMATCH[1]}"
+                                    fi
+                                    if [[ -n "${PMM_MINOR}" && "${PMM_MINOR}" -lt 8 ]]; then
                                         docker exec pmm-server change-admin-password "${ADMIN_PASSWORD}"
                                     fi
                                     docker logs pmm-server
