@@ -52,7 +52,6 @@ imageMap['us-west-2a.min-bookworm-x64']  = 'ami-07b2d881c67e4c30e'
 imageMap['us-west-2a.min-trixie-x64']    = 'ami-088afd31387a0ee3a'
 imageMap['us-west-2a.min-rhel-10-x64']   = 'ami-0598edb0ace40eb9a'
 
-imageMap['us-west-2a.docker-32gb-aarch64']  = 'ami-0af666b6014514a13'
 imageMap['us-west-2a.docker-64gb-aarch64']  = 'ami-0af666b6014514a13'
 imageMap['us-west-2a.min-al2023-aarch64']   = 'ami-0c5777a14602ab4b9'
 imageMap['us-west-2a.min-jammy-aarch64']    = 'ami-039aad0ef6d1c0b87'
@@ -93,7 +92,6 @@ imageMap['us-west-2b.min-bookworm-x64']  = imageMap['us-west-2a.min-bookworm-x64
 imageMap['us-west-2b.min-trixie-x64']    = imageMap['us-west-2a.min-trixie-x64']
 imageMap['us-west-2b.min-rhel-10-x64']   = imageMap['us-west-2a.min-rhel-10-x64']
 
-imageMap['us-west-2b.docker-32gb-aarch64']  = imageMap['us-west-2a.docker-32gb-aarch64']
 imageMap['us-west-2b.docker-64gb-aarch64']  = imageMap['us-west-2a.docker-64gb-aarch64']
 imageMap['us-west-2b.min-al2023-aarch64']   = imageMap['us-west-2a.min-al2023-aarch64']
 imageMap['us-west-2b.min-jammy-aarch64']    = imageMap['us-west-2a.min-jammy-aarch64']
@@ -134,7 +132,6 @@ imageMap['us-west-2c.min-bookworm-x64']  = imageMap['us-west-2a.min-bookworm-x64
 imageMap['us-west-2c.min-trixie-x64']    = imageMap['us-west-2a.min-trixie-x64']
 imageMap['us-west-2c.min-rhel-10-x64']   = imageMap['us-west-2a.min-rhel-10-x64']
 
-imageMap['us-west-2c.docker-32gb-aarch64']  = imageMap['us-west-2a.docker-32gb-aarch64']
 imageMap['us-west-2c.docker-64gb-aarch64']  = imageMap['us-west-2a.docker-64gb-aarch64']
 imageMap['us-west-2c.min-al2023-aarch64']   = imageMap['us-west-2a.min-al2023-aarch64']
 imageMap['us-west-2c.min-jammy-aarch64']    = imageMap['us-west-2a.min-jammy-aarch64']
@@ -175,7 +172,6 @@ imageMap['us-west-2d.min-bookworm-x64']  = imageMap['us-west-2a.min-bookworm-x64
 imageMap['us-west-2d.min-trixie-x64']    = imageMap['us-west-2a.min-trixie-x64']
 imageMap['us-west-2d.min-rhel-10-x64']   = imageMap['us-west-2a.min-rhel-10-x64']
 
-imageMap['us-west-2d.docker-32gb-aarch64']  = imageMap['us-west-2a.docker-32gb-aarch64']
 imageMap['us-west-2d.docker-64gb-aarch64']  = imageMap['us-west-2a.docker-64gb-aarch64']
 imageMap['us-west-2d.min-al2023-aarch64']   = imageMap['us-west-2a.min-al2023-aarch64']
 imageMap['us-west-2d.min-jammy-aarch64']    = imageMap['us-west-2a.min-jammy-aarch64']
@@ -225,7 +221,6 @@ userMap['min-bookworm-x64']  = 'admin'
 userMap['min-trixie-x64']    = 'admin'
 userMap['min-rhel-10-x64']   = 'ec2-user'
 
-userMap['docker-32gb-aarch64']  = 'ec2-user'
 userMap['docker-64gb-aarch64']  = 'ec2-user'
 userMap['min-al2023-aarch64']   = 'ec2-user'
 userMap['min-jammy-aarch64']    = 'ubuntu'
@@ -269,7 +264,6 @@ modeMap['min-bookworm-x64']  = modeMap['min-focal-x64']
 modeMap['min-trixie-x64']    = modeMap['min-focal-x64']
 modeMap['min-rhel-10-x64']   = modeMap['min-focal-x64']
 
-modeMap['docker-32gb-aarch64']  = Node.Mode.EXCLUSIVE
 modeMap['docker-64gb-aarch64']  = Node.Mode.EXCLUSIVE
 modeMap['min-al2023-aarch64']   = Node.Mode.EXCLUSIVE
 modeMap['min-jammy-aarch64']    = Node.Mode.EXCLUSIVE
@@ -742,7 +736,6 @@ initMap['min-rhel-10-x64'] = '''
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 '''
 
-initMap['docker-32gb-aarch64']  = initMap['docker']
 initMap['docker-64gb-aarch64']  = initMap['docker']
 initMap['min-jammy-aarch64']    = initMap['min-bionic-x64']
 initMap['min-noble-aarch64']    = initMap['min-bionic-x64']
@@ -789,7 +782,6 @@ typeMap['min-bookworm-x64']  = typeMap['docker']
 typeMap['min-trixie-x64']    = typeMap['docker']
 typeMap['min-rhel-10-x64']   = typeMap['micro-amazon']
 
-typeMap['docker-32gb-aarch64']  = 'm8g.2xlarge'
 typeMap['docker-64gb-aarch64']  = 'm8g.2xlarge'
 typeMap['min-al2023-aarch64']   = 'm8g.2xlarge'
 typeMap['min-jammy-aarch64']    = 'm8g.2xlarge'
@@ -831,7 +823,6 @@ execMap['min-bookworm-x64']  = '1'
 execMap['min-trixie-x64']    = '1'
 execMap['min-rhel-10-x64']   = '1'
 
-execMap['docker-32gb-aarch64']  = '1'
 execMap['docker-64gb-aarch64']  = '1'
 execMap['min-al2023-aarch64']   = '1'
 execMap['min-jammy-aarch64']    = '1'
@@ -873,7 +864,6 @@ devMap['min-bookworm-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-trixie-x64']    = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-rhel-10-x64']   = '/dev/sda1=:30:true:gp3,/dev/sdd=:80:true:gp3'
 
-devMap['docker-32gb-aarch64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['docker-64gb-aarch64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-al2023-aarch64']   = '/dev/xvda=:30:true:gp2,/dev/xvdd=:120:true:gp2'
 devMap['min-jammy-aarch64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -915,7 +905,6 @@ labelMap['min-bookworm-x64']  = ''
 labelMap['min-trixie-x64']    = ''
 labelMap['min-rhel-10-x64']   = ''
 
-labelMap['docker-32gb-aarch64']  = ''
 labelMap['docker-64gb-aarch64']  = ''
 labelMap['min-al2023-aarch64']   = ''
 labelMap['min-jammy-aarch64']    = ''
@@ -957,7 +946,6 @@ jvmoptsMap['min-bookworm-x64']  = '-Xmx512m -Xms512m --add-opens=java.base/java.
 jvmoptsMap['min-trixie-x64']    = jvmoptsMap['min-bookworm-x64']
 jvmoptsMap['min-rhel-10-x64']   = jvmoptsMap['docker']
 
-jvmoptsMap['docker-32gb-aarch64']  = jvmoptsMap['docker']
 jvmoptsMap['docker-64gb-aarch64']  = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-aarch64']   = '-Xmx512m -Xms512m'
 jvmoptsMap['min-jammy-aarch64']    = jvmoptsMap['docker']
@@ -1064,7 +1052,6 @@ String region = 'us-west-2'
             getTemplate('min-bookworm-x64',     "${region}${it}"),
             getTemplate('min-trixie-x64',       "${region}${it}"),
             getTemplate('min-rhel-10-x64',      "${region}${it}"),
-            getTemplate('docker-32gb-aarch64',  "${region}${it}"),
             getTemplate('docker-64gb-aarch64',  "${region}${it}"),
             getTemplate('min-al2023-aarch64',   "${region}${it}"),
             getTemplate('min-jammy-aarch64',    "${region}${it}"),
