@@ -38,8 +38,9 @@ pipeline {
             steps {
                 script {
                     sh """
-                        cd site_checks
-                        docker run --env PCSM_VERSION=0.9.0 --rm -v `pwd`:/tmp -w /tmp python bash -c 'apt-get update && apt-get install -y wget && wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && pip3 install requests pytest && pytest -s --junitxml=junit.xml tarball_checks/test_pcsm_tarball.py' || [ \\\$? = 1 ] '
+                        cd tarball_checks
+                        docker run --env PCSM_VERSION=${PCSM_VERSION} --rm -v `pwd`:/tmp -w /tmp python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install requests pytest && pytest -s --junitxml=junit.xml tarball_checks/test_pcsm_tarball.py'
+
                     """
                 }
             }
