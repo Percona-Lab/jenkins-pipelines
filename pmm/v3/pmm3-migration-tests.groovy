@@ -218,7 +218,7 @@ pipeline {
             steps {
                 sh '''
                     echo \${PMM_URL}
-                    timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
+                    timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false
                 '''
             }
         }
