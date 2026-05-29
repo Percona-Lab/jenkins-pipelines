@@ -249,7 +249,13 @@ pipeline {
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" --user "admin:${ADMIN_PASSWORD}" https://127.0.0.1/ping)" = "200" ]; do sleep 5; done'
+                                    timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'
+                                    pmm_tag="${DOCKER_VERSION##*:}"
+                                    minor_version=${pmm_tag#3.}
+                                    minor_version=${minor_version%%.*}
+                                    if [ "${pmm_tag}" != "${pmm_tag#3.}" ] && [ "${minor_version}" -lt 8 ]; then
+                                        docker exec pmm-server change-admin-password "${ADMIN_PASSWORD}"
+                                    fi
                                     docker logs pmm-server
                                 '''
                             }
