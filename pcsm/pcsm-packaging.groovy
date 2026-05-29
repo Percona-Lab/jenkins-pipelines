@@ -65,10 +65,10 @@ pipeline {
 //        failure {
 //            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PCSM with ${MONGODB_COMMUNITY.toBoolean() ? 'MongoDB Community Edition' : 'PSMDB'} Version(${MONGODB_VERSION}) failed - [${BUILD_URL}]")
 //        }
-        always {
-            script {
-                moleculeParallelPostDestroy(pcsmOperatingSystems(), moleculeDir)
-            }
-        }
+//        always {
+//            script {
+//                moleculeParallelPostDestroy(pcsmOperatingSystems(), moleculeDir)
+//            }
+//        }
     }
 }
