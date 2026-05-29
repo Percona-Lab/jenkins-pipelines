@@ -58,7 +58,7 @@ pipeline {
             }
          }
     }
-    post {
+//    post {
 //        success {
 //            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PCSM with ${MONGODB_COMMUNITY.toBoolean() ? 'MongoDB Community Edition' : 'PSMDB'} Version(${MONGODB_VERSION}) finished succesfully - [${BUILD_URL}]")
 //        }
@@ -70,5 +70,5 @@ pipeline {
 //                moleculeParallelPostDestroy(pcsmOperatingSystems(), moleculeDir)
 //            }
 //        }
-    }
+//    }
 }
