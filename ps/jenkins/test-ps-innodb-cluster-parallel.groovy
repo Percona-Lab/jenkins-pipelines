@@ -57,7 +57,7 @@ pipeline {
     }
     parameters {
         choice(
-            choices: ['PS80','PS84','PS_LTS_INN'],
+            choices: ['PS97','PS80','PS84','PS_LTS_INN'],
             description: 'Product for which the packages will be tested',
             name: 'PRODUCT_TO_TEST'
         )
@@ -65,6 +65,7 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'all',
+                'ubuntu-resolute',
                 'ubuntu-noble',
                 'ubuntu-jammy',
                 'debian-11',
@@ -84,7 +85,8 @@ pipeline {
                 'debian-12-arm',
                 'debian-13-arm',
                 'ubuntu-jammy-arm',
-                'ubuntu-noble-arm'
+                'ubuntu-noble-arm',
+                'ubuntu-resolute-arm',
             ],
             description: 'Distribution to run test'
         )
@@ -176,6 +178,18 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
+
+                stage("Ubuntu Resolute") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("ubuntu-resolute")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-resolute")
+                    }
+                }
            
                 stage("Ubuntu Noble") {
                     when {
@@ -198,6 +212,18 @@ pipeline {
 
                     steps {
                         runNodeBuild("ubuntu-jammy")
+                    }
+                }
+
+                stage("Ubuntu Resolute ARM") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("ubuntu-resolute-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-resolute-arm")
                     }
                 }
 

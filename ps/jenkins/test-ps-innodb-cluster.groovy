@@ -167,7 +167,7 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['PS80','PS84','PS_LTS_INN'],
+            choices: ['PS97','PS80','PS84','PS_LTS_INN'],
             description: 'Product for which the packages will be tested',
             name: 'PRODUCT_TO_TEST'
         )
