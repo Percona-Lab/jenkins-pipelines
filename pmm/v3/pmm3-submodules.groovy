@@ -30,7 +30,7 @@ pipeline {
         label 'agent-amd64'
     }
     parameters {
-        // Ref: https://jenkins.thetaphi.de/env-vars.html/
+        // Ref: https://pmm.cd.percona.com/env-vars.html/
         // Jenkins automatically sets the following environment variables for multibranch pipelines:
         // BRANCH_NAME is the PR number e.g., PR-12345
         // CHANGE_BRANCH is the branch from which the PR was made e.g., feature-branch
