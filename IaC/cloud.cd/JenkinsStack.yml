@@ -3,6 +3,11 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
+  MasterLtVersion:
+    Default: "$Latest"
+    Description: SpotFleet launch template version. Latest tracks the newest version (non-disruptive); a specific number pins it (forces one replacement).
+    Type: String
+
   JHostName:
     Default: cloud.cd.percona.com
     Description: Fully Qualified Domain Name
@@ -477,7 +482,7 @@ Resources:
         LaunchTemplateConfigs:
         - LaunchTemplateSpecification:
             LaunchTemplateId: !Ref JMasterTemplate
-            Version: !GetAtt JMasterTemplate.LatestVersionNumber
+            Version: !Ref MasterLtVersion
           Overrides:
           - InstanceType: c5a.xlarge
             AvailabilityZone:
@@ -669,7 +674,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
                        # Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600 -Dhetzner.rehydrate.enabled=true -Dhetzner.rehydrate.grace-period-minutes=5"
               	EOF
 
                   systemctl daemon-reload

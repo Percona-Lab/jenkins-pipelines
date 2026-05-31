@@ -191,7 +191,7 @@ priceMap['c5d.4xlarge'] = '0.40'  // type=c5d.4xlarge, vCPU=16, memory=32GiB, sa
 priceMap['r5a.4xlarge'] = '0.65' // type=r5a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.583900
 priceMap['m5n.2xlarge'] = '0.37' // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.201900
 
-priceMap['i4g.2xlarge'] = '0.34' // aarch
+priceMap['m8g.2xlarge'] = '0.30' // aarch (Graviton4, 8 vCPU, 32 GB; on-demand cap, spot-price-auto-updater refines)
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -755,7 +755,7 @@ capMap = [:]
 capMap['c5d.4xlarge'] = '80'
 capMap['r5a.4xlarge'] = '60'
 capMap['m5n.2xlarge'] = '60'
-capMap['i4g.2xlarge'] = '40'
+capMap['m8g.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
@@ -789,15 +789,15 @@ typeMap['min-bookworm-x64']  = typeMap['docker']
 typeMap['min-trixie-x64']    = typeMap['docker']
 typeMap['min-rhel-10-x64']   = typeMap['micro-amazon']
 
-typeMap['docker-32gb-aarch64']  = 'i4g.2xlarge'
-typeMap['docker-64gb-aarch64']  = 'i4g.2xlarge'
-typeMap['min-al2023-aarch64']   = 'i4g.2xlarge'
-typeMap['min-jammy-aarch64']    = 'i4g.2xlarge'
-typeMap['min-noble-aarch64']    = 'i4g.2xlarge'
-typeMap['min-resolute-aarch64']    = 'i4g.2xlarge'
-typeMap['min-bullseye-aarch64'] = 'i4g.2xlarge'
-typeMap['min-bookworm-aarch64'] = 'i4g.2xlarge'
-typeMap['min-trixie-aarch64']   = 'i4g.2xlarge'
+typeMap['docker-32gb-aarch64']  = 'm8g.2xlarge'
+typeMap['docker-64gb-aarch64']  = 'm8g.2xlarge'
+typeMap['min-al2023-aarch64']   = 'm8g.2xlarge'
+typeMap['min-jammy-aarch64']    = 'm8g.2xlarge'
+typeMap['min-noble-aarch64']    = 'm8g.2xlarge'
+typeMap['min-resolute-aarch64']    = 'm8g.2xlarge'
+typeMap['min-bullseye-aarch64'] = 'm8g.2xlarge'
+typeMap['min-bookworm-aarch64'] = 'm8g.2xlarge'
+typeMap['min-trixie-aarch64']   = 'm8g.2xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
