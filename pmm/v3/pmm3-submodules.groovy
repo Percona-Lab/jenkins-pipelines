@@ -353,7 +353,7 @@ pipeline {
                     def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                     def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
 
-                    apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
+                    apiTestJob = build job: 'pmm3-api-tests', propagate: false, changelog: false, parameters: [
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
                         string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
