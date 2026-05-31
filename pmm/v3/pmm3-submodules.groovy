@@ -14,8 +14,11 @@ void addComment(String COMMENT) {
 
         sh '''
             REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
+            # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
             curl -X POST \
+                -H "Accept: application/vnd.github+json" \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
                 -d @body.json \
                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
         '''
@@ -314,21 +317,7 @@ pipeline {
                         }
                         message += "\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
 
-                        def payload = [
-                          body: message
-                        ]
-                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        sh '''
-                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
-                            # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
-                            # Comment on PR with docker server, client and the staging link
-                            curl -X POST \
-                                -H "Accept: application/vnd.github+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -H "X-GitHub-Api-Version: 2022-11-28" \
-                                -d @body.json \
-                                "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
-                        '''
+                        addComment(message)
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
                         payload = [
