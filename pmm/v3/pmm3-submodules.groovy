@@ -27,23 +27,12 @@ pipeline {
         label 'agent-amd64'
     }
     parameters {
-        string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-submodules repository',
-            name: 'PMM_BRANCH')
-        string(
-            defaultValue: '',
-            description: 'URL for pmm-submodules repository PR',
-            name: 'CHANGE_URL')
-        string(
-            defaultValue: '',
-            description: 'ID for pmm-submodules repository PR',
-            name: 'CHANGE_ID')
-        string(
-            // Starts with 'PR-', e.g., PR-2345
-            defaultValue: '',
-            description: 'Pull Request Number for pmm-submodules repository PR',
-            name: 'BRANCH_NAME')
+        // Ref: https://jenkins.thetaphi.de/env-vars.html/
+        // Jenkins automatically sets the following environment variables for multibranch pipelines:
+        // BRANCH_NAME is the PR number e.g., PR-12345
+        // CHANGE_BRANCH is the branch from which the PR was made e.g., feature-branch
+        // CHANGE_ID is the PR number e.g., 12345
+        // CHANGE_URL is the URL of the PR
         booleanParam(
             defaultValue: false,
             description: 'Build GSSAPI dynamic client tarballs for OL8 and OL9 (amd64)',
@@ -57,7 +46,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 git poll: false,
-                    branch: PMM_BRANCH,
+                    branch: env.CHANGE_BRANCH,
                     url: 'http://github.com/Percona-Lab/pmm-submodules'
 
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -303,7 +292,7 @@ pipeline {
 
                             export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_IMAGE_TAG} -f "{{.Id}}") || true
 
-                            launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${PMM_BRANCH}" || true
+                            launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${CHANGE_BRANCH}" || true
                         '''
                     }
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -343,7 +332,7 @@ pipeline {
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
                         payload = [
-                          ref: "${PMM_BRANCH}",
+                          ref: "${env.CHANGE_BRANCH}",
                           inputs: [
                             pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                             pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_client_version: "${CLIENT_URL}"
@@ -394,7 +383,7 @@ pipeline {
     post {
         success {
             script {
-                if (params.CHANGE_URL) {
+                if (env.CHANGE_URL) {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
