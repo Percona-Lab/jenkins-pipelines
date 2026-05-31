@@ -45,6 +45,9 @@ pipeline {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
         PATH_TO_WATCHTOWER = 'sources/watchtower/src/github.com/percona/watchtower'
     }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
     stages {
         stage('Prepare') {
             steps {
