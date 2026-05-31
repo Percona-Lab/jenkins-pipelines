@@ -7,7 +7,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-        payload = [
+        def payload = [
             body: "${COMMENT}",
         ]
         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
@@ -323,7 +323,7 @@ pipeline {
                         addComment(message)
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        payload = [
+                        def payload = [
                           ref: "${env.CHANGE_BRANCH}",
                           inputs: [
                             pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
@@ -356,7 +356,7 @@ pipeline {
                     def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                     def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
 
-                    apiTestJob = build job: 'pmm3-api-tests', propagate: false, changelog: false, parameters: [
+                    def apiTestJob = build job: 'pmm3-api-tests', propagate: false, changelog: false, parameters: [
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
                         string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
