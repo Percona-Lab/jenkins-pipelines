@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -235,7 +235,7 @@ pipeline {
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh '''
-                            docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                            timeout 60 bash -c 'until [ "$(curl -s -o /dev/null -w "%{http_code}" --user "admin:${ADMIN_PASSWORD}" http://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'
                         '''
                         dir('codeceptjs-e2e') {
                             sh '''
@@ -300,7 +300,7 @@ pipeline {
                 stage('Connectivity check') {
                     steps {
                         sh '''
-                            if ! timeout 100 bash -c "until curl -sf ${PMM_URL}/ping; do sleep 1; done"; then
+                            if ! timeout 100 bash -c "until curl -sf ${PMM_URL}/v1/server/readyz; do sleep 1; done"; then
                                 echo "PMM Server did not pass the connectivity check" >&2
                                 exit 1
                             fi

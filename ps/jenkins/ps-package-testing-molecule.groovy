@@ -80,6 +80,29 @@ def ps84PackageTesting() {
     ]
 }
 
+def ps97PackageTesting() {
+    return [
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-8-arm',
+        'rhel-9',
+        'rhel-9-arm',
+        'rhel-10',
+        'rhel-10-arm',
+        'ubuntu-resolute',
+       'ubuntu-resolute-arm'
+    ]
+}
+
 def ps57PackageTesting() {
     return [
         "debian-10",
@@ -95,7 +118,7 @@ def ps57PackageTesting() {
     ]
 }
 
-List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting()
+List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()
 
 def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
     def tests = [:]
@@ -231,7 +254,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "client_test"]'
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "client_test"]'
                 ]
             ]
         ],
@@ -506,6 +529,9 @@ pipeline {
                                     }
                                     else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                    }
+                                    else if (product_to_test == "ps_97") {
+                                        moleculeParallelTestALL(allOS, ps97PackageTesting(), "molecule/ps/")
                                     }
                                     else {
                                         error("Unsupported product_to_test: ${product_to_test}")

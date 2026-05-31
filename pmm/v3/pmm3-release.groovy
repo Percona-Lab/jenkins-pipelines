@@ -530,7 +530,8 @@ ENDSSH
                 script {
                     imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}"),
-                        string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}")
+                        string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}"),
+                        booleanParam(name: 'USE_ONDEMAND', value: true)
                     ]
 
                     env.SCAN_REPORT_URL = ""

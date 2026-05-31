@@ -1,3 +1,3 @@
 def call() {
-  return ['debian-13', 'debian-13-arm']
+  return ['debian-13', 'debian-13-arm', 'ubuntu-resolute', 'ubuntu-resolute-arm']
 }

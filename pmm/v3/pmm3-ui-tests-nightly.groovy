@@ -394,7 +394,7 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)"; done' || false
                 '''
             }
         }
@@ -458,7 +458,7 @@ pipeline {
             steps {
                 dir('codeceptjs-e2e') {
                     sh '''
-                        curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                        curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
                         sudo apt-get install -y gettext

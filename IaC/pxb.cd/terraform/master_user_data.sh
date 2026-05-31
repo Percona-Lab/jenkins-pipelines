@@ -130,7 +130,7 @@ start_jenkins() {
     cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
          # Arguments for the Jenkins JVM
-          Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+          Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600 -Dhetzner.rehydrate.enabled=true -Dhetzner.rehydrate.grace-period-minutes=5"
 	EOF
 
     systemctl daemon-reload
@@ -289,6 +289,23 @@ EOF
     systemctl restart certbot-renew.timer
 }
 
+restore_real_cert_from_backup() {
+    # Must run before setup_nginx: OpenResty would otherwise start
+    # with the stale self-signed cert from create_fake_ssl_cert and
+    # serve TLS warnings until setup_letsencrypt swaps the symlinks.
+    [[ -d /mnt/ssl_backup ]] || return 0
+    local src_cert=/mnt/ssl_backup/live/$JENKINS_HOST/fullchain.pem
+    local src_key=/mnt/ssl_backup/live/$JENKINS_HOST/privkey.pem
+    [[ -f $src_cert && -f $src_key ]] || return 0
+    # Validate before rsync so an expired backup does not pollute
+    # /etc/letsencrypt/; setup_letsencrypt will provision fresh.
+    openssl x509 -in $src_cert -checkend 0 -noout || return 0
+    rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
+    mkdir -p /etc/nginx/ssl
+    ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
+    ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem  /etc/nginx/ssl/certificate.key
+}
+
 setup_dhparam() {
     if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem ]; then
         openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
@@ -341,17 +358,20 @@ setup_ssh_keys() {
     done
 }
 
+
 main() {
     setup_aws
     setup_ssh_keys
     mount_data_partition
     install_software
     create_fake_ssl_cert
+    restore_real_cert_from_backup
     setup_nginx
     start_jenkins
     setup_dhparam
     setup_letsencrypt
     setup_nginx_allow_list
+    curl -fsSL --retry 5 https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/08df5f4e101e52d0e03a7e0062696ace909a86bc/scripts/install-master-observability.sh | JENKINS_HOST="$JENKINS_HOST" bash
 }
 
 main

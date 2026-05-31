@@ -1,0 +1,94 @@
+- job:
+    name: percona-xtrabackup-9.x-trunk
+    project-type: freestyle
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: false
+    auth-token: xbparam24
+    node: micro-amazon
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 50
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 50
+    builders:
+    - trigger-builds:
+      - project: percona-xtrabackup-9.x-compile-param
+        current-parameters: false
+        predefined-parameters: |
+          GIT_REPO=https://github.com/percona/percona-xtrabackup
+          BRANCH=trunk
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+      - project: percona-xtrabackup-9.x-test-param
+        current-parameters: false
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: percona-xtrabackup-9.x-compile-param
+        which-build: specific-build
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_compile_param}}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_compile_param}}" > COMPILE_PIPELINE_BUILD_NUMBER
+    - copyartifact:
+        project: percona-xtrabackup-9.x-test-param
+        which-build: specific-build
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_test_param}}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_test_param}}" > TEST_PIPELINE_BUILD_NUMBER
+    publishers:
+    - raw:
+        xml: |
+          <io.jenkins.plugins.analysis.core.steps.IssuesRecorder plugin="warnings-ng@11.4.1">
+            <analysisTools>
+              <io.jenkins.plugins.analysis.warnings.Gcc4>
+                <id></id>
+                <name></name>
+                <jenkins plugin="plugin-util-api@4.1.0"/>
+                <pattern>build.log</pattern>
+                <reportEncoding></reportEncoding>
+                <skipSymbolicLinks>false</skipSymbolicLinks>
+              </io.jenkins.plugins.analysis.warnings.Gcc4>
+            </analysisTools>
+            <sourceCodeEncoding></sourceCodeEncoding>
+            <sourceDirectories/>
+            <sourceCodeRetention>EVERY_BUILD</sourceCodeRetention>
+            <ignoreQualityGate>false</ignoreQualityGate>
+            <failOnError>false</failOnError>
+            <healthy>0</healthy>
+            <unhealthy>0</unhealthy>
+            <minimumSeverity plugin="analysis-model-api@12.4.0">
+              <name>LOW</name>
+            </minimumSeverity>
+            <filters/>
+            <isEnabledForFailure>true</isEnabledForFailure>
+            <isAggregatingResults>false</isAggregatingResults>
+            <quiet>false</quiet>
+            <isBlameDisabled>false</isBlameDisabled>
+            <skipPublishingChecks>false</skipPublishingChecks>
+            <checksAnnotationScope>NEW</checksAnnotationScope>
+            <skipPostProcessing>false</skipPostProcessing>
+            <qualityGates/>
+            <trendChartType>AGGREGATION_TOOLS</trendChartType>
+            <scm></scm>
+          </io.jenkins.plugins.analysis.core.steps.IssuesRecorder>
+    - junit:
+        results: "**/junit.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'COMPILE_PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'TEST_PIPELINE_BUILD_NUMBER'

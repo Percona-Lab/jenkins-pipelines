@@ -24,7 +24,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'PG version for test',
             name: 'VERSION'
         )
@@ -63,12 +63,18 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}"
+                    if (params.MAJOR_REPO) {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}-Major_Repo"
+                    } else {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}"
+                    }
                 }
             }
         }
