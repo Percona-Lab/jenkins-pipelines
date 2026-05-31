@@ -27,6 +27,8 @@ def ps90PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
         'amazon-linux-2023',
         'amazon-linux-2023-arm'
     ]
@@ -81,6 +83,8 @@ def ps84PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
         'amazon-linux-2023',
         'amazon-linux-2023-arm'
     ]

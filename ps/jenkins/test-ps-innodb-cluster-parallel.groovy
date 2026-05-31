@@ -4,6 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
+    'ubuntu-resolute',
     'ubuntu-noble',
     'ubuntu-jammy',
     'debian-11',
@@ -23,7 +24,8 @@ List all_nodes = [
     'debian-12-arm',
     'debian-13-arm',
     'ubuntu-jammy-arm',
-    'ubuntu-noble-arm'
+    'ubuntu-noble-arm',
+    'ubuntu-resolute-arm'
 ]
 
 List TEST_DISTS = []

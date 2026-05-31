@@ -174,6 +174,7 @@ pipeline {
         choice(
             name: 'TEST_DIST',
             choices: [
+                'ubuntu-resolute',
                 'ubuntu-noble',
                 'ubuntu-jammy',
                 'debian-13',  
@@ -193,7 +194,8 @@ pipeline {
                 'debian-12-arm',
                 'debian-13-arm',
                 'ubuntu-jammy-arm',
-                'ubuntu-noble-arm'
+                'ubuntu-noble-arm',
+                'ubuntu-resolute-arm'
             ],
             description: 'Distribution to run test'
         )
