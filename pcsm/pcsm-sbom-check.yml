@@ -1,5 +1,5 @@
 - job:
-    name: pcsm_tarball-check
+    name: pcsm-sbom-check
     project-type: pipeline
     description: |
       Do not edit this job through the web!
@@ -11,4 +11,4 @@
               - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pcsm/pcsm_tarball-check.groovy
+      script-path: pcsm/pcsm-sbom-check.groovy
