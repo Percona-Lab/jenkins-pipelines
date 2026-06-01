@@ -62,15 +62,15 @@ pipeline {
         }
     }
     post {
-//        success {
-//            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - ok [${BUILD_URL}testReport/]")
-//        }
-//        unstable {
-//            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - some tests failed [${BUILD_URL}testReport/]")
-//        }
-//        failure {
-//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - failed [${BUILD_URL}]")
-//        }
+        success {
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - ok [${BUILD_URL}testReport/]")
+        }
+        unstable {
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - some tests failed [${BUILD_URL}testReport/]")
+        }
+        failure {
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - failed [${BUILD_URL}]")
+        }
         always {
             script {
                 junit testResults: "**/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
