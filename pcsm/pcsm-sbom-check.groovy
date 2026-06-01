@@ -42,7 +42,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker run --env PCSM_VERSION=${PCSM_VERSION} --rm -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install requests pytest && pytest -s --junitxml=tarball_checks/junit.xml tarball_checks/test_pcsm_tarball.py' || [ \$? = 1 ]
+                        docker run --env PCSM_VERSION=${PCSM_VERSION} --rm -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install requests pytest && pytest -s --junitxml=tarball_checks/junit.xml tarball_checks/test_pcsm_tarball.py'
                     """
                 }
             }
@@ -51,22 +51,22 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker run --env PCSM_VERSION=${PCSM_VERSION} --env IMAGE_REPO=${IMAGE_REPO} --rm -v /var/run/docker.sock:/var/run/docker.sock -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz -C /usr/local/bin --strip-components=1 docker/docker && curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz | tar xz -C /usr/local/bin oras && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install pytest && pytest -s --junitxml=docker-sbom-check/junit.xml docker-sbom-check/test_pcsm_docker_sbom.py ' || [ \$? = 1 ]
+                        docker run --env PCSM_VERSION=${PCSM_VERSION} --env IMAGE_REPO=${IMAGE_REPO} --rm -v /var/run/docker.sock:/var/run/docker.sock -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz -C /usr/local/bin --strip-components=1 docker/docker && curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz | tar xz -C /usr/local/bin oras && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install pytest && pytest -s --junitxml=docker-sbom-check/junit.xml docker-sbom-check/test_pcsm_docker_sbom.py'
                     """
                 }
             }
         }
     }
     post {
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - ok [${BUILD_URL}testReport/]")
-        }
-        unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - some tests failed [${BUILD_URL}testReport/]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - failed [${BUILD_URL}]")
-        }
+//        success {
+//            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - ok [${BUILD_URL}testReport/]")
+//        }
+//        unstable {
+//            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - some tests failed [${BUILD_URL}testReport/]")
+//        }
+//        failure {
+//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: SBOM checks for PCSM ${PCSM_VERSION} - failed [${BUILD_URL}]")
+//        }
         always {
             script {
                 junit testResults: "**/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
