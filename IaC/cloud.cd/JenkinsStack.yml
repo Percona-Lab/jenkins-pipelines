@@ -3,6 +3,11 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
+  MasterLtVersion:
+    Default: "$Latest"
+    Description: SpotFleet launch template version. Latest tracks the newest version (non-disruptive); a specific number pins it (forces one replacement).
+    Type: String
+
   JHostName:
     Default: cloud.cd.percona.com
     Description: Fully Qualified Domain Name
@@ -477,7 +482,7 @@ Resources:
         LaunchTemplateConfigs:
         - LaunchTemplateSpecification:
             LaunchTemplateId: !Ref JMasterTemplate
-            Version: !GetAtt JMasterTemplate.LatestVersionNumber
+            Version: !Ref MasterLtVersion
           Overrides:
           - InstanceType: c5a.xlarge
             AvailabilityZone:
@@ -570,13 +575,26 @@ Resources:
                              Key=iit-billing-tag,Value=$JENKINS_SHORT
               }
 
+              retry() {
+                  local attempt=1
+                  until "$@"; do
+                      if [ $attempt -ge 5 ]; then
+                          echo "command failed after $attempt attempts: $*" >&2
+                          return 1
+                      fi
+                      echo "command failed (attempt $attempt), retrying: $*"
+                      attempt=$((attempt + 1))
+                      sleep 5
+                  done
+              }
+
               install_software() {
                   until yum makecache; do
                       sleep 1
                       echo try again
                   done
 
-                  yum -y install yum-utils wget cronie rsync bc htop vim
+                  retry yum -y install yum-utils wget cronie rsync bc htop vim
                   yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
                   rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable-legacy/jenkins.repo
@@ -584,9 +602,9 @@ Resources:
                   grep -q 'repo_gpgcheck=0' /etc/yum.repos.d/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2023.key
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2026.key
-                  yum -y install java-17-amazon-corretto
-                  yum -y update --security
-                  yum -y install jenkins-2.528.3 certbot git dnf-automatic aws-cli xfsprogs openresty
+                  retry yum -y install java-17-amazon-corretto
+                  retry yum -y update --security
+                  retry yum -y install jenkins-2.528.3 certbot git dnf-automatic aws-cli xfsprogs openresty
 
                   sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
@@ -623,7 +641,11 @@ Resources:
                       [ -e /dev/xvdj ] && break || sleep 1
                   done
 
-                  mkfs.xfs -L DATA /dev/xvdj || :
+                  if mkfs.xfs -L DATA /dev/xvdj; then
+                      FRESH_DATA_VOLUME=1
+                  else
+                      FRESH_DATA_VOLUME=0
+                  fi
                   echo "/dev/xvdj /mnt xfs defaults,noatime,nofail 0 0" | tee -a /etc/fstab
                   mount /mnt
               }
@@ -647,7 +669,14 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   install -o jenkins -g jenkins -d /var/log/jenkins
-                  chown -hR jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
+                  # A full recursive chown of JENKINS_HOME over millions of inodes adds
+                  # ~13 min to every spot replacement (PKG-1335). The persistent data
+                  # volume is already jenkins-owned from prior boots, so only walk it on a
+                  # genuinely fresh volume (mkfs.xfs succeeded in mount_data_partition).
+                  if [ "$FRESH_DATA_VOLUME" = "1" ]; then
+                      echo "fresh data volume; running full recursive chown of JENKINS_HOME"
+                      chown -hR jenkins:jenkins /mnt/$JENKINS_HOST
+                  fi
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
@@ -669,7 +698,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
                        # Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600 -Dhetzner.rehydrate.enabled=true -Dhetzner.rehydrate.grace-period-minutes=5"
               	EOF
 
                   systemctl daemon-reload

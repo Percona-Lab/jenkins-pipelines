@@ -57,6 +57,16 @@ pipeline {
                 'io_uring'
             ]
         )
+        string(
+            defaultValue: 'https://github.com/percona/pg_tde.git',
+            description: 'In case you want to test a different pg_tde repository than the default one.',
+            name: 'TDE_REPO'
+        )
+        string(
+            defaultValue: 'main',
+            description: 'Branch for pg_tde repository. Would only be used with check-tde, check-all and installcheck-world testsuites.',
+            name: 'TDE_BRANCH'
+        )
         booleanParam(
             name: 'DESTROY_ENV',
             defaultValue: true,
@@ -69,6 +79,11 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -130,6 +145,10 @@ pipeline {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
+            archiveArtifacts(
+                artifacts: 'psp/server_tests/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }

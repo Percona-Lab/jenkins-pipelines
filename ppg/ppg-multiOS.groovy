@@ -63,7 +63,9 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
         disableConcurrentBuilds()
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {

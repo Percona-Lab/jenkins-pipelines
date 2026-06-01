@@ -110,12 +110,12 @@ pipeline {
     parameters {
         string(
             defaultValue: "pmm-${versions[0]}",
-            description: 'Tag/Branch for UI Tests repository for pre upgrade',
-            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
+            description: 'Tag/Branch for pmm-qa repository (Codecept in codeceptjs-e2e/) for pre upgrade',
+            name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository for post upgrade',
-            name: 'PMM_UI_GIT_BRANCH')
+            description: 'Tag/Branch for pmm-qa repository for post upgrade UI tests',
+            name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: upgradeAmiVersion,
             description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
@@ -137,14 +137,6 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for pmm qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
-        string(
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
             name: 'SSH_KEY')
@@ -162,30 +154,26 @@ pipeline {
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
-                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
+                    branch: PMM_QA_PRE_UPGRADE_GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-qa.git'
 
                 sh '''
-                    sudo mkdir -p /srv/pmm-qa || :
-                    cd  /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                    sudo mkdir -p /srv/qa-integration || true
-                    cd  /srv/qa-integration
-                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    sudo chmod -R 755 /srv/qa-integration
-                    sudo chown $(id -u):$(id -u) -R /srv/qa-integration
-                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
+                    sudo rsync -a "$WORKSPACE"/ /srv/pmm-qa/
+                    sudo chown -R ec2-user:ec2-user /srv/pmm-qa
+                    sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
         stage('Start AMI server Instance') {
             steps {
-                runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH, SSH_KEY)
+                runAMIStagingStart(AMI_TAG, PMM_QA_PRE_UPGRADE_GIT_BRANCH, SSH_KEY)
             }
         }
         stage('PMM Server sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Temporary change PMM Server password') {
@@ -205,7 +193,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
@@ -231,15 +219,16 @@ pipeline {
         }
         stage('Setup Dependencies and PMM Client') {
             steps {
-                sh '''
-                    npm ci
-                    npx playwright install
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                    ansible-galaxy collection install ansible.utils
-                '''
+                dir('codeceptjs-e2e') {
+                    sh '''
+                        npm ci
+                        npx playwright install
+                        envsubst < env.list > env.generated.list
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        ansible-galaxy collection install ansible.utils
+                    '''
+                }
             }
         }
         stage('Check PMM Server Packages before Upgrade') {
@@ -263,10 +252,12 @@ pipeline {
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
-                        export ADMIN_PASSWORD="pmm3admin!"
-                    '''
+                    dir('codeceptjs-e2e') {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
+                            export ADMIN_PASSWORD="pmm3admin!"
+                        '''
+                    }
                 }
             }
         }
@@ -276,10 +267,20 @@ pipeline {
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-upgrade'
-                        git checkout -f \${PMM_UI_GIT_BRANCH}
-                    '''
+                    dir('codeceptjs-e2e') {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-upgrade'
+                        '''
+                    }
+                    sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
+                    dir('codeceptjs-e2e') {
+                        sh '''
+                            npm ci
+                            npx playwright install
+                            envsubst < env.list > env.generated.list
+                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        '''
+                    }
                 }
             }
         }
@@ -299,9 +300,11 @@ pipeline {
                     """
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
-                    '''
+                    dir('codeceptjs-e2e') {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
+                        '''
+                    }
                 }
             }
         }
@@ -356,9 +359,11 @@ pipeline {
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
-                    '''
+                    dir('codeceptjs-e2e') {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
+                        '''
+                    }
                 }
             }
         }
@@ -375,7 +380,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+            archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/parallel_chunk*/*.png'
         }
     }
 }

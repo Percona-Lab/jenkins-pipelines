@@ -239,7 +239,7 @@ pipeline {
                     while true; do
                         set -x
                         # we only want to see the http code to improve troubleshooting
-                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
+                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/v1/server/readyz)
                         set +x
 
                         if [[ $HTTP_CODE == "200" ]]; then

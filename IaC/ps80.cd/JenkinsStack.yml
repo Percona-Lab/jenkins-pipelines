@@ -3,6 +3,11 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
 
+  MasterLtVersion:
+    Default: "$Latest"
+    Description: SpotFleet launch template version. Latest tracks the newest version (non-disruptive); a specific number pins it (forces one replacement).
+    Type: String
+
   JHostName:
     Default: ps80.cd.percona.com
     Description: Fully Qualified Domain Name
@@ -53,6 +58,8 @@ Resources:
 
   JVPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       CidrBlock: 10.155.0.0/22
       EnableDnsSupport: true
@@ -66,6 +73,8 @@ Resources:
 
   JInternetGateway: # Internet Gateway for jenkins VPC
     Type: AWS::EC2::InternetGateway
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Tags:
       - Key: Name
@@ -75,12 +84,16 @@ Resources:
 
   JVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VpcId: !Ref JVPC
       InternetGatewayId: !Ref JInternetGateway
 
   JSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VpcId: !Ref JVPC
       CidrBlock: 10.155.1.0/24
@@ -95,6 +108,8 @@ Resources:
 
   JSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VpcId: !Ref JVPC
       CidrBlock: 10.155.2.0/24
@@ -109,6 +124,8 @@ Resources:
 
   JRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       VpcId: !Ref JVPC
       Tags:
@@ -119,6 +136,8 @@ Resources:
 
   JInternetRoute: # add default route
     Type: AWS::EC2::Route
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref JInternetGateway
@@ -126,18 +145,24 @@ Resources:
 
   SubnetBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetB
 
   SubnetCRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetC
 
   S3Endpoint: # route S3 traffic over private network
     Type: AWS::EC2::VPCEndpoint
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       PolicyDocument:
         Version: 2012-10-17
@@ -165,11 +190,15 @@ Resources:
 
   TerminationQueue: # queue for termination notifications
     Type: AWS::SQS::Queue
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       QueueName: !Join [ '-', [ !Ref JShortName, 'termination' ]]
 
   TerminationQueuePolicy:
     Type: AWS::SQS::QueuePolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Queues:
         - !Ref TerminationQueue
@@ -190,6 +219,8 @@ Resources:
 
   TerminationRule1: # notify about instance interruption from aws side
     Type: AWS::Events::Rule
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Description: EC2 Spot Instance Interruption Warning
       EventPattern:
@@ -204,6 +235,8 @@ Resources:
 
   SSHSecurityGroup: # allow ssh access (assign when needed)
     Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       GroupName: SSH
       GroupDescription: SSH traffic in
@@ -239,6 +272,8 @@ Resources:
 
   HTTPSecurityGroup: # allow http and https access to jenkins master
     Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       GroupName: HTTP
       GroupDescription: HTTP and HTTPS traffic in
@@ -258,6 +293,8 @@ Resources:
 
   JWorkerRole: # create Role for jenkins workers (needed for assign tags)
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'worker' ]]
       AssumeRolePolicyDocument:
@@ -295,6 +332,8 @@ Resources:
 
   JWorkerProfile: # create Profile for jenkins workers (needed for assign tags)
     Type: AWS::IAM::InstanceProfile
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Path: /
       Roles:
@@ -303,6 +342,8 @@ Resources:
 
   JMasterRole: # create Role for jenkins master (needed for run workers)
     Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       RoleName: !Join [ '-', [ !Ref JShortName, 'master' ]]
       AssumeRolePolicyDocument:
@@ -391,6 +432,8 @@ Resources:
 
   JMasterProfile: # create Profile for jenkins master (needed for run workers)
     Type: AWS::IAM::InstanceProfile
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Path: /
       Roles:
@@ -413,12 +456,16 @@ Resources:
 
   MasterIP: # create public IP for jenkins master
     Type: AWS::EC2::EIP
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     DependsOn: JVPC
     Properties:
       Domain: vpc
 
   JDNSRecord: # create DNS record for jenkins master
     Type: AWS::Route53::RecordSet
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       HostedZoneId: !Ref ZoneId
       Name: !Ref JHostName
@@ -429,7 +476,8 @@ Resources:
 
   JDataVolume: # create volume for jenkins data directory
     Type: AWS::EC2::Volume
-    DeletionPolicy: Snapshot
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       AutoEnableIO: false
       AvailabilityZone:
@@ -458,7 +506,7 @@ Resources:
         LaunchTemplateConfigs:
         - LaunchTemplateSpecification:
             LaunchTemplateId: !Ref JMasterTemplate
-            Version: !GetAtt JMasterTemplate.LatestVersionNumber
+            Version: !Ref MasterLtVersion
           Overrides:
           - InstanceType: c5a.xlarge
             AvailabilityZone:
@@ -650,7 +698,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
                        # Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600 -Dhetzner.rehydrate.enabled=true -Dhetzner.rehydrate.grace-period-minutes=5"
               	EOF
 
                   systemctl daemon-reload
