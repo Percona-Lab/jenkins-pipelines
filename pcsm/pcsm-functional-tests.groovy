@@ -3,6 +3,9 @@ library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+// PSMDB version pairs; keep in sync with PSMDB_PAIR axis below (declarative limitation)
+PSMDB_PAIRS = ['6.0-6.0', '6.0-7.0', '6.0-8.0', '7.0-7.0', '7.0-8.0', '8.0-8.0']
+
 def set_agent(cloud, arch) {
     if (arch == 'x86') {
         if (cloud == 'Hetzner') {
@@ -38,12 +41,22 @@ pipeline {
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
         string(name: 'TEST_FILTER', defaultValue: '', description: 'Optional pytest filter, f.e. T2 or T3')
         booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: true, description: 'Include tests with jenkins marker')
+        booleanParam(name: 'MULTIVERSION', defaultValue: true, description: 'Run cross-version PSMDB pairs (e.g. 6.0-7.0) in addition to same-version pairs')
     }
     stages {
         stage('Set build name'){
             steps {
                 script {
                     currentBuild.displayName = "${params.PCSM_BRANCH}"
+                    def sameVersion = PSMDB_PAIRS.findAll {
+                        def p = it.split('-')
+                        return p.length == 2 && p[0] == p[1]
+                    }
+                    if (params.MULTIVERSION) {
+                        currentBuild.description = "PSMDB pairs (multiversion ON): ${PSMDB_PAIRS.join(', ')}"
+                    } else {
+                        currentBuild.description = "PSMDB pairs (multiversion OFF): ${sameVersion.join(', ')}"
+                    }
                 }
             }
         }
@@ -58,12 +71,23 @@ pipeline {
                         values '0','1','2','3','4'
                     }
                     axis {
-                        name 'PSMDB'
-                        values '6.0', '7.0', '8.0'
+                        name 'PSMDB_PAIR'
+                        // sync with PSMDB_PAIRS at top
+                        values '6.0-6.0', '6.0-7.0', '6.0-8.0', '7.0-7.0', '7.0-8.0', '8.0-8.0'
                     }
                 }
                 stages {
                     stage ('Run tests') {
+                        when {
+                            beforeAgent true
+                            anyOf {
+                                expression { return params.MULTIVERSION }
+                                expression {
+                                    def parts = env.PSMDB_PAIR.split('-')
+                                    return parts.length == 2 && parts[0] == parts[1]
+                                }
+                            }
+                        }
                         steps {
                             withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                                 sh """
@@ -82,15 +106,20 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/pcsm-pytest
+                                    SRC_PSMDB="\${PSMDB_PAIR%-*}"
+                                    TGT_PSMDB="\${PSMDB_PAIR#*-}"
                                     if [ "${params.MONGODB_COMMUNITY}" = "true" ]; then
-                                        MONGODB_IMAGE="mongo:${PSMDB}"
-                                        echo "Using MongoDB Community Edition: \$MONGODB_IMAGE"
+                                        REGISTRY="mongo"
+                                        echo "Using MongoDB Community Edition"
                                     else
-                                        MONGODB_IMAGE="perconalab/percona-server-mongodb:${PSMDB}"
-                                        echo "Using Percona Server for MongoDB: \$MONGODB_IMAGE"
+                                        REGISTRY="perconalab/percona-server-mongodb"
+                                        echo "Using Percona Server for MongoDB"
                                     fi
-                                    MONGODB_IMAGE=\$MONGODB_IMAGE docker compose build easyrsa --no-cache
-                                    MONGODB_IMAGE=\$MONGODB_IMAGE docker compose build --no-cache
+                                    export MONGODB_SRC_IMAGE="\${REGISTRY}:\${SRC_PSMDB}"
+                                    export MONGODB_DST_IMAGE="\${REGISTRY}:\${TGT_PSMDB}"
+                                    echo "SRC=\${MONGODB_SRC_IMAGE}  DST=\${MONGODB_DST_IMAGE}"
+                                    docker compose build easyrsa --no-cache
+                                    docker compose build --no-cache
                                     docker compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     if [ -n "${params.TEST_FILTER}" ]; then
@@ -99,7 +128,7 @@ pipeline {
                                         docker compose run test pytest -v -s \$JENKINS_FLAG --shard-id=${SHARD} --num-shards=5 --junitxml=junit.xml || true
                                     fi
                                     docker compose down -v --remove-orphans
-                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PCSM branch": "${PCSM_BRANCH}","PSMDB docker image": "perconalab/percona-server-mongodb:${PSMDB}"}};type=application/json' -i || true
+                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F "testCycle={\\"name\\":\\"${JOB_NAME}-${BUILD_NUMBER}\\",\\"customFields\\": { \\"PCSM branch\\": \\"${PCSM_BRANCH}\\",\\"PSMDB source image\\": \\"\${MONGODB_SRC_IMAGE}\\",\\"PSMDB target image\\": \\"\${MONGODB_DST_IMAGE}\\"}};type=application/json" -i || true
                                 """
                             }
                         }
