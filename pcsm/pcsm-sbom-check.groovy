@@ -51,16 +51,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker run --env PCSM_VERSION=${PCSM_VERSION} --env IMAGE_REPO=${IMAGE_REPO} --rm \\
-                            -v /var/run/docker.sock:/var/run/docker.sock \\
-                            -v `pwd`:/workspace -w /workspace python bash -c '
-                                wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin &&
-                                curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz -C /usr/local/bin --strip-components=1 docker/docker &&
-                                curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz | tar xz -C /usr/local/bin oras &&
-                                curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx &&
-                                pip3 install pytest &&
-                                pytest -s --junitxml=dockerImage-sbom-check/junit.xml dockerImage-sbom-check/test_pcsm_dockerimage.py
-                            ' || [ \$? = 1 ]
+                        docker run --env PCSM_VERSION=${PCSM_VERSION} --env IMAGE_REPO=${IMAGE_REPO} --rm -v /var/run/docker.sock:/var/run/docker.sock -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-27.5.1.tgz | tar xz -C /usr/local/bin --strip-components=1 docker/docker && curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz | tar xz -C /usr/local/bin oras && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install pytest && pytest -s --junitxml=docker-sbom-check/junit.xml docker-sbom-check/test_pcsm_docker_sbom.py ' || [ \$? = 1 ]
                     """
                 }
             }
