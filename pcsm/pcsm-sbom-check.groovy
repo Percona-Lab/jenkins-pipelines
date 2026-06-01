@@ -23,6 +23,10 @@ pipeline {
                 choices: ['perconalab', 'percona'],
                 description: 'Docker image repository (perconalab for testing, percona for release)',
                 name: 'IMAGE_REPO')
+        choice(
+                choices: ['testing', 'release', 'experimental'],
+                description: 'Repository for tarball download',
+                name: 'install_repo')
     }
     stages {
         stage('Set build name'){
@@ -42,7 +46,7 @@ pipeline {
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh """
-                        docker run --env PCSM_VERSION=${PCSM_VERSION} --rm -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install requests pytest && pytest -s --junitxml=tarball_checks/junit.xml tarball_checks/test_pcsm_tarball.py'
+                        docker run --env PCSM_VERSION=${PCSM_VERSION} --env install_repo=${install_repo} --rm -v `pwd`:/workspace -w /workspace python bash -c 'wget -qO- https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin && curl -fsSL -o /usr/local/bin/cyclonedx https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/cyclonedx-linux-x64 && chmod +x /usr/local/bin/cyclonedx && pip3 install requests pytest && pytest -s --junitxml=tarball_checks/junit.xml tarball_checks/test_pcsm_tarball.py'
                     """
                 }
             }
