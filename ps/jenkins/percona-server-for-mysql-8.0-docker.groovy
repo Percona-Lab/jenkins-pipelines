@@ -197,6 +197,11 @@ parameters {
                             if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
                                 PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                                 PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                                if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                else
+                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                fi
                             else
                                 TMP=$(mktemp)
                                 curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "${TMP}"
@@ -207,15 +212,9 @@ parameters {
                                 rm -f "${TMP}"
                                 PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
                                 PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                                MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                             fi
-
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            else
-                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            fi
+                            MYSQL_ROUTER_RELEASE=${PS_RELEASE}
 
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
