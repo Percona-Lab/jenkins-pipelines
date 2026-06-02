@@ -413,12 +413,15 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                def slackChannel = (env.BRANCH in ['trunk', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
+                if (slackChannel) {
+                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                }
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION})build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

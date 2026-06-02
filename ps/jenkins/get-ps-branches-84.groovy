@@ -85,7 +85,7 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                slackNotify("#mysql_operators", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
                 build job: 'ps8.0-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'experimental'), string(name: 'SLACKNOTIFY', value: '#releases-ci')]
 
             }

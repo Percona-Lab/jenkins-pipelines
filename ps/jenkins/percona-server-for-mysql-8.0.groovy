@@ -588,8 +588,8 @@ parameters {
                               string(name: 'ORGANIZATION', value: 'perconalab'),
                               string(name: 'BRANCH', value: "${BRANCH}"),
                               string(name: 'RPM_RELEASE', value: '1'),
-                              string(name: 'DEB_RELEASE', value: '1'),
                               string(name: 'FIPSMODE', value: 'NO'),
+                              string(name: 'COMPONENT', value: "${COMPONENT}"),
                               booleanParam(name: 'RUN_FAST', value: true)
                           ],
                           wait: false
