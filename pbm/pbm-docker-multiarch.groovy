@@ -12,6 +12,22 @@ library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+def installDockerTools() {
+    sh """
+        set -e
+        if docker buildx version >/dev/null 2>&1; then
+            echo "Docker buildx already available, skipping install"
+        else
+            echo "Docker buildx missing — installing modern Docker via get.docker.com"
+            curl -fsSL https://get.docker.com | sudo sh
+            docker buildx version >/dev/null 2>&1 \\
+                || { echo "ERROR: docker buildx still missing after install" >&2; exit 1; }
+        fi
+        docker version
+        docker buildx version
+    """
+}
+
 def installSbomTools() {
     sh """
         set -e
@@ -121,6 +137,7 @@ def buildArchAndSbom(String arch, String dockerfile) {
     def sbomFile = "percona-backup-mongodb-${params.PBM_VERSION}-${arch}.cdx.json"
 
     deleteDir()
+    installDockerTools()
 
     sh """
         set -e
@@ -128,7 +145,8 @@ def buildArchAndSbom(String arch, String dockerfile) {
         cd percona-docker/percona-backup-mongodb
         sed -E "s/ENV PBM_VERSION (.+)/ENV PBM_VERSION ${params.PBM_VERSION}/" -i ${dockerfile}
         sed -E "s/ENV PBM_REPO_CH (.+)/ENV PBM_REPO_CH ${params.PBM_REPO_CH}/" -i ${dockerfile}
-        docker build --provenance=false --sbom=false . -f ${dockerfile} -t percona-backup-mongodb:local-${arch}
+        docker buildx build --load --provenance=false --sbom=false \\
+            -f ${dockerfile} -t percona-backup-mongodb:local-${arch} .
     """
 
     installTrivy(method: 'binary', junitTpl: true)
@@ -228,7 +246,7 @@ def buildArchAndSbom(String arch, String dockerfile) {
 
 pipeline {
     agent {
-        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'micro-amazon'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
