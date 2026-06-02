@@ -36,7 +36,7 @@ enabled=1
 gpgkey=https://aquasecurity.github.io/trivy-repo/rpm/public.key
 EOF
 
-                        sudo dnf install -y trivy-0.70.0
+                        sudo dnf install -y trivy-0.71.0
 
                         # Download HTML template for Trivy
                         mkdir -p contrib
