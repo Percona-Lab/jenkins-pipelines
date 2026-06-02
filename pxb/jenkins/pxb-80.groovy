@@ -244,9 +244,9 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_src_rpm=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
                         }
 
@@ -337,7 +337,7 @@ pipeline {
                 } 
                 stage('Oracle Linux 9 ARM') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
                     steps {
                         script {
@@ -422,44 +422,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Ubuntu Focal(20.04)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("ubuntu:focal", "--build_deb=1")
-
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
-                        }
-                    }
-                }
-                stage('Ubuntu Focal(20.04) ARM') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("ubuntu:focal", "--build_deb=1")
-
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
-                        }
-                    }
-                }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -519,7 +481,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
                     steps {
                         script {

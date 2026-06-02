@@ -58,6 +58,10 @@ parameters {
         string(defaultValue: '2.8.18', description: 'HAProxy Version', name: 'VERSION')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to get packages',
+            name: 'COMPONENT')
+        choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')

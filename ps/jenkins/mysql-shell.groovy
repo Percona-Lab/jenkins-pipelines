@@ -365,6 +365,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute (26.04)') {
+                    when {
+                        expression { true }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -378,6 +381,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute (26.04) ARM') {
+                    when {
+                        expression { true }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -487,9 +493,35 @@ pipeline {
                         uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Oracle Linux 9 ARM tarball') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_tarball=1")
+
+                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Ubuntu Jammy (22.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_tarball=1")
+
+                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy (22.04) ARM tarball') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
