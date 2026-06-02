@@ -38,6 +38,7 @@ def delete_user(client, user_name):
         client.delete_user(UserName=user_name)
     except client.exceptions.NoSuchEntityException as e:
         logging.error(f"Delete of user failed with error: {e}")
+        raise
 
 def delete_user_policies(client, user_name):
     user_policies = client.list_user_policies(UserName=user_name)['PolicyNames']
