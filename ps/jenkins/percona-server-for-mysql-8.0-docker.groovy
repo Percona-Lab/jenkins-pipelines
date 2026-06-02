@@ -194,16 +194,26 @@ parameters {
                                 Dockerfile="Dockerfile-mysqlsh-upstream"
                             fi
 
-                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                            if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
+                                PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                                PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                            else
+                                TMP=$(mktemp)
+                                curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "${TMP}"
+                                VER_MAJOR=$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_MINOR=$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_PATCH=$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_EXTRA=$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                rm -f "${TMP}"
+                                PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
+                                PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                            fi
 
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                #MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             else
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                                #MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             fi
 
