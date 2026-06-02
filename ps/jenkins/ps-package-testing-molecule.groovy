@@ -7,10 +7,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 def ps90PackageTesting() {
     return [
-        'ubuntu-noble',
-        'ubuntu-noble-arm',
-        'ubuntu-jammy',
-        'ubuntu-jammy-arm',
         'debian-12',
         'debian-12-arm',
         'debian-13',
@@ -18,11 +14,23 @@ def ps90PackageTesting() {
         'oracle-8',
         'oracle-9',
         'rhel-8',
-        'rhel-8-arm',
         'rhel-9',
-        'rhel-9-arm',
         'rhel-10',
-        'rhel-10-arm'
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -75,6 +83,8 @@ def ps84PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
         'amazon-linux-2023',
         'amazon-linux-2023-arm'
     ]
