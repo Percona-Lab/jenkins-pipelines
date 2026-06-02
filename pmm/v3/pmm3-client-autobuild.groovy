@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
         string(
@@ -11,6 +11,11 @@ pipeline {
             choices: ['experimental', 'testing'],
             description: 'Publish packages to repositories: testing (for RC), experimental: (for dev-latest)',
             name: 'DESTINATION')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -47,27 +52,33 @@ pipeline {
                 }
             }
         }
-        stage('Build pmm3 client for amd64') {
-            steps {
-                script {
-                    pmmClientAmd64 = build job: 'pmm3-client-autobuild-amd', parameters: [
-                        string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                        string(name: 'DESTINATION', value: params.DESTINATION)
-                    ]
-                    env.TARBALL_AMD64_URL = pmmClientAmd64.buildVariables.TARBALL_URL
-                    env.TARBALL_AMD64_DYNAMIC_OL8_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL8_URL
-                    env.TARBALL_AMD64_DYNAMIC_OL9_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL9_URL
+        stage('Build pmm3 client') {
+            parallel {
+                stage('Build pmm3 client for amd64') {
+                    steps {
+                        script {
+                            pmmClientAmd64 = build job: 'pmm3-client-autobuild-amd', parameters: [
+                                string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                                string(name: 'DESTINATION', value: params.DESTINATION),
+                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+                            ]
+                            env.TARBALL_AMD64_URL = pmmClientAmd64.buildVariables.TARBALL_URL
+                            env.TARBALL_AMD64_DYNAMIC_OL8_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL8_URL
+                            env.TARBALL_AMD64_DYNAMIC_OL9_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL9_URL
+                        }
+                    }
                 }
-            }
-        }
-        stage('Build pmm3 client for arm64') {
-            steps {
-                script {
-                    pmmClientArm64 = build job: 'pmm3-client-autobuild-arm', parameters: [
-                        string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                        string(name: 'DESTINATION', value: params.DESTINATION)
-                    ]
-                    env.TARBALL_ARM64_URL = pmmClientArm64.buildVariables.TARBALL_URL
+                stage('Build pmm3 client for arm64') {
+                    steps {
+                        script {
+                            pmmClientArm64 = build job: 'pmm3-client-autobuild-arm', parameters: [
+                                string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                                string(name: 'DESTINATION', value: params.DESTINATION),
+                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+                            ]
+                            env.TARBALL_ARM64_URL = pmmClientArm64.buildVariables.TARBALL_URL
+                        }
+                    }
                 }
             }
         }

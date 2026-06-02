@@ -1,6 +1,12 @@
 - job:
     name: percona-xtrabackup-8.1-multijob
     project-type: multijob
+    node: launcher-x64
+    properties:
+    - groovy-label:
+        script: |
+            return (CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
+        sandbox: true
     parameters:
         - string:
             name: GIT_REPO
@@ -8,7 +14,7 @@
             description: URL to percona-xtrabackup repository
         - string:
             name: BRANCH
-            default: "8.0"
+            default: "8.4"
             description: Tag/Branch for percona-xtrabackup repository
         - string:
             name: CMAKE_OPTS
@@ -24,11 +30,11 @@
             description: ""
         - string:
             name: INNODB80_VERSION
-            default: "8.3.0"
+            default: "8.4.7"
             description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
         - string:
             name: XTRADB80_VERSION
-            default: "8.3.0.1"
+            default: "8.4.7-7"
             description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
         - string:
             name: XBTR_ARGS
@@ -51,11 +57,11 @@
             default: false
             description: "Run kmip tests"
         - choice:
-            name: LABEL
+            name: CLOUD
             choices:
-            - docker-32gb
-            - docker
-            description: Run build on specified instance type.
+            - "Hetzner"
+            - "AWS"
+            description: "Host provider for Jenkins workers"
     builders:
     - multijob:
         name: compile-stage

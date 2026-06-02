@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -33,6 +33,7 @@ imageMap['min-buster-x64']   = 'ami-090cd3aed687b1ee1'
 imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
 imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
 imageMap['min-noble-x64']    = 'ami-0cf2b4e024cdb6960'
+imageMap['min-resolute-x64']    = 'ami-0d13e2317a7e75c95'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 imageMap['min-bookworm-x64'] = 'ami-0544719b13af6edc3'
 
@@ -57,6 +58,7 @@ userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-jammy-x64'] = 'ubuntu'
 userMap['min-noble-x64'] = 'ubuntu'
+userMap['min-resolute-x64'] = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
 userMap['min-bookworm-x64'] = 'admin'
 
@@ -84,8 +86,10 @@ initMap['docker'] = '''
         echo try again
     done
 
-    sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y || :
+    if command -v amazon-linux-extras >/dev/null 2>&1; then
+        sudo amazon-linux-extras install epel -y
+    fi
+    sudo yum -y install java-17-amazon-corretto-headless tzdata-java || sudo yum -y install java-17-openjdk-headless tzdata-java || :
     sudo yum -y install git docker p7zip
     sudo yum -y remove java-1.7.0-openjdk awscli
 
@@ -207,8 +211,10 @@ initMap['rpmMap'] = '''
         fi
     fi
     if [[ $SYSREL -eq 2 ]]; then
-        sudo amazon-linux-extras install epel -y
-        sudo amazon-linux-extras install java-openjdk11 -y || :
+        if command -v amazon-linux-extras >/dev/null 2>&1; then
+            sudo amazon-linux-extras install epel -y
+        fi
+        sudo yum -y install java-17-amazon-corretto-headless tzdata-java || sudo yum -y install java-17-openjdk-headless tzdata-java || :
         PKGLIST="p7zip"
     fi
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
@@ -219,7 +225,7 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-11-openjdk tzdata-java git ${PKGLIST} || :
+    sudo yum -y install java-17-openjdk tzdata-java git ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     # CentOS 6 x32 workarounds
@@ -275,12 +281,12 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "resolute" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "resolute" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
@@ -306,6 +312,7 @@ initMap['min-bionic-x64'] = initMap['debMap']
 initMap['min-focal-x64']  = initMap['debMap']
 initMap['min-jammy-x64']  = initMap['debMap']
 initMap['min-noble-x64']  = initMap['debMap']
+initMap['min-resolute-x64']  = initMap['debMap']
 
 
 capMap = [:]
@@ -326,6 +333,7 @@ typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-noble-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-resolute-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64'] = typeMap['min-centos-7-x64']
@@ -345,6 +353,7 @@ execMap['min-buster-x64'] = '1'
 execMap['min-focal-x64'] = '1'
 execMap['min-jammy-x64'] = '1'
 execMap['min-noble-x64'] = '1'
+execMap['min-resolute-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-bookworm-x64'] = '1'
 
@@ -358,6 +367,7 @@ devMap['min-bionic-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64'] = devMap['min-bionic-x64']
 devMap['min-jammy-x64'] = devMap['min-bionic-x64']
 devMap['min-noble-x64'] = devMap['min-bionic-x64']
+devMap['min-resolute-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-ol-8-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
@@ -376,6 +386,7 @@ labelMap['min-bionic-x64'] = 'asan'
 labelMap['min-focal-x64'] = ''
 labelMap['min-jammy-x64'] = ''
 labelMap['min-noble-x64'] = ''
+labelMap['min-resolute-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-ol-8-x64'] = 'min-centos-8-x64'
@@ -394,6 +405,7 @@ jvmoptsMap['min-bionic-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-focal-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-noble-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-resolute-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-x64'] = jvmoptsMap['docker']
 jvmoptsMap['fips-centos-7-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-ol-8-x64'] = jvmoptsMap['docker']
@@ -430,7 +442,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
             new EC2Tag('Name', 'jenkins-pxb-' + OSType),
             new EC2Tag('iit-billing-tag', 'jenkins-pxb-worker')
         ],                                          // List<EC2Tag> tags
-        '3',                                        // String idleTerminationMinutes
+        '15',                                       // String idleTerminationMinutes
         0,                                          // Init minimumNumberOfInstances
         0,                                          // minimumNumberOfSpareInstances
         capMap[typeMap[OSType]],                    // String instanceCapStr
@@ -463,7 +475,7 @@ String sshKeysCredentialsId = '48702e74-c282-45e2-a5a2-518ba58fedf6'
 String region = 'us-west-2'
 ('a'..'a').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -483,6 +495,7 @@ String region = 'us-west-2'
             getTemplate('min-focal-x64', "${region}${it}"),
             getTemplate('min-jammy-x64', "${region}${it}"),
             getTemplate('min-noble-x64', "${region}${it}"),
+            getTemplate('min-resolute-x64', "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-bookworm-x64', "${region}${it}"),
             getTemplate('docker-32gb-aarch64', "${region}${it}"),
@@ -493,7 +506,7 @@ String region = 'us-west-2'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

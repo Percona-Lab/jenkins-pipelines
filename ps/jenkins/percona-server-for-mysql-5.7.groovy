@@ -171,7 +171,7 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'min-ol-8-x64'
                     }
@@ -180,7 +180,7 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
@@ -329,7 +329,7 @@ parameters {
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8 tarball') {
+                stage('Oracle Linux 8 tarball') {
                     agent {
                         label 'min-ol-8-x64'
                     }
@@ -338,11 +338,11 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_tarball=1 ")
+                        buildStage("oraclelinux:8", "--build_tarball=1 ")
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8 debug tarball') {
+                stage('Oracle Linux 8 debug tarball') {
                     agent {
                         label 'min-ol-8-x64'
                     }
@@ -351,7 +351,7 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--debug=1 --build_tarball=1 ")
+                        buildStage("oraclelinux:8", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }

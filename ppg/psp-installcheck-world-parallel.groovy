@@ -3,30 +3,28 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(psp_repo, psp_branch, version, testsuite, percona_server_version, io_method, tde_branch)
-{
- if ( currentBuild.result == "SUCCESS" ) {
-    buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nTestsuite: ${testsuite}\nPercona_Server_Version: ${percona_server_version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
-  slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
- }
- else {
-  buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nTestsuite: ${testsuite}\nPercona_Server_Version: ${percona_server_version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
-  slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
- }
+def sendSlackNotification(psp_repo, psp_branch, version, testsuite, percona_server_version, io_method, tde_branch) {
+    if (currentBuild.result == "SUCCESS") {
+        buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nTestsuite: ${testsuite}\nPercona_Server_Version: ${percona_server_version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+        slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
+    } else {
+        buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nTestsuite: ${testsuite}\nPercona_Server_Version: ${percona_server_version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+        slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
+    }
 }
 
 pipeline {
-  agent {
-      label 'min-ol-9-x64'
-  }
-  parameters {
+    agent {
+        label 'min-ol-9-x64'
+    }
+    parameters {
         string(
-            defaultValue: '18.1',
+            defaultValue: '18.4',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: '18.1.1',
+            defaultValue: '18.4.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
@@ -51,7 +49,6 @@ pipeline {
             choices: [
                 'check-server',
                 'check-tde',
-                'check-all',
                 'installcheck-world'
             ]
         )
@@ -65,59 +62,67 @@ pipeline {
             ]
         )
         string(
+            defaultValue: 'https://github.com/percona/pg_tde.git',
+            description: 'In case you want to test a different pg_tde repository than the default one.',
+            name: 'TDE_REPO'
+        )
+        string(
             defaultValue: 'main',
             description: 'Branch for pg_tde repository. Would only be used with check-tde, check-all and installcheck-world testsuites.',
             name: 'TDE_BRANCH'
         )
-        string(
-            defaultValue: 'yes',
-            description: 'Destroy VM after tests',
-            name: 'DESTROY_ENV'
-        )
-  } 
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "psp/server_tests";
-  }
-  options {
-          withCredentials(moleculeDistributionJenkinsCreds())
-          disableConcurrentBuilds()
-  }
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "psp/server_tests"
+    }
+    options {
+        withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
+    }
     stages {
-        stage('Set build name'){
-          steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}"
-                    }
+        stage('Set build name') {
+            steps {
+                script {
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.IO_METHOD}-${env.TESTSUITE}"
                 }
             }
+        }
         stage('Checkout') {
             steps {
                 deleteDir()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
             }
         }
-        stage ('Prepare') {
-          steps {
+        stage('Prepare') {
+            steps {
                 script {
-                   installMoleculePython39()
-             }
-           }
+                    installMoleculePython39()
+                }
+            }
         }
         stage('Test') {
-          steps {
+            steps {
                 script {
                     moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
-         }
-  }
+        }
+    }
     post {
         always {
-          script {
-              moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-              sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.TESTSUITE, env.PERCONA_SERVER_VERSION, env.IO_METHOD, env.TDE_BRANCH)
-         }
-      }
-   }
+            script {
+                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.TESTSUITE, env.PERCONA_SERVER_VERSION, env.IO_METHOD, env.TDE_BRANCH)
+            }
+            archiveArtifacts(
+                artifacts: 'psp/server_tests/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+           )
+        }
+    }
 }

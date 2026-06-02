@@ -17,7 +17,7 @@ def cleanupCluster() {
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
 
     options {
@@ -28,12 +28,12 @@ pipeline {
     parameters {
         choice(
             name: 'K8S_VERSION',
-            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
+            choices: ['1.35', '1.34', '1.33'],
             description: 'Select Kubernetes cluster version'
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'pmmha-v3',
+            defaultValue: 'main',
             description: 'Branch of percona-helm-charts repo'
         )
         string(
@@ -112,7 +112,7 @@ managedNodeGroups:
     volumeSize: 80
     spot: true
     minSize: 6
-    maxSize: 7
+    maxSize: 12
     desiredCapacity: 6
     tags:
         iit-billing-tag: "pmm"

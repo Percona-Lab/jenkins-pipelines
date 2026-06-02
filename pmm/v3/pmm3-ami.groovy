@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -19,6 +19,11 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Build a Release Candidate?",
             name: 'RELEASE_CANDIDATE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -26,7 +31,7 @@ pipeline {
         parallelsAlwaysFailFast()
     }
     triggers {
-        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
+        cron('0 3 * * 1-5')
     }
     stages {
         stage('Prepare') {

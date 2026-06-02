@@ -3,35 +3,36 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
+void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_FLAG, UPGRADE_TYPE) {
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
-        string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
+        string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: PMM_UI_PRE_UPGRADE_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
         string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_REPOSITORY', value: CLIENT_REPOSITORY),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
-        string(name: 'UPGRADE_FLAG', value: UPGRADE_FLAG)
+        string(name: 'UPGRADE_FLAG', value: UPGRADE_FLAG),
+        string(name: 'UPGRADE_TYPE', value: UPGRADE_TYPE)
+
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+def generateVariants(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_TYPE) {
     def results = new HashMap<>();
-    def UPGRADE_VARIANTS = ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"]
+    def UPGRADE_VARIANTS = ["SSL", "EXTERNAL SERVICES", "OTHERS"]
     for (UPGRADE_VARIANT in UPGRADE_VARIANTS) {
-        results.put("Run \"$UPGRADE_VARIANT\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_VARIANT))
+        results.put("Run \"$UPGRADE_VARIANT\" upgrade tests", generateStage(PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_VARIANT, UPGRADE_TYPE))
     }
 
     return results;
 }
 
-def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL) {
+def generateStage(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, LABEL, UPGRADE_TYPE) {
     return {
         stage("Run \"$LABEL\" upgrade tests") {
             retry(2) {
-                runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
+                runUpgradeJob(PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, LABEL, UPGRADE_TYPE);
             }
         }
     }
@@ -47,9 +48,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for UI Tests repository',
-            name: 'PMM_UI_GIT_BRANCH')
+            defaultValue: "pmm-$oldestVersion",
+            description: 'Tag/Branch for UI Tests repository for pre upgrade',
+            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
@@ -74,13 +75,13 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
+        choice(
+            choices: ["UI", "DOCKER"],
+            description: 'Way to upgrade PMM Server (UI or Docker)',
+            name: 'UPGRADE_TYPE')
     }
     options {
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 180, unit: 'MINUTES')
     }
     triggers {
         cron('0 3 * * *')
@@ -96,7 +97,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+                    parallel generateVariants(PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, UPGRADE_TYPE)
                 }
             }
         }

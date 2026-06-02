@@ -5,6 +5,11 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
+  MasterLtVersion:
+    Default: "$Latest"
+    Description: SpotFleet launch template version. Latest tracks the newest version (non-disruptive); a specific number pins it (forces one replacement).
+    Type: String
+
   JHostName:
     Default: pmm.cd.percona.com
     Description: Fully Qualified Domain Name
@@ -29,7 +34,7 @@ Parameters:
     Type: AWS::Route53::HostedZone::Id
 
   MasterKeyName:
-    Default: jenkins-master
+    Default: percona-jenkins
     Description: Key pair name
     Type: AWS::EC2::KeyPair::KeyName
 
@@ -382,6 +387,8 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
       Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
         - PolicyName: StartInstances
           PolicyDocument:
@@ -448,6 +455,13 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
                   - sqs:DeleteMessageBatch
+        - PolicyName: AlloyGatewayBearerRead
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Resource: !Sub 'arn:aws:secretsmanager:us-east-1:${AWS::AccountId}:secret:percona-ci-platform/alloy-gateway/bearer-*'
+              Action: secretsmanager:GetSecretValue
 
   JMasterProfile: # create Profile for jenkins master (needed for run workers)
     Type: AWS::IAM::InstanceProfile
@@ -518,15 +532,15 @@ Resources:
         LaunchTemplateConfigs:
           - LaunchTemplateSpecification:
               LaunchTemplateId: !Ref JMasterTemplate
-              Version: !GetAtt JMasterTemplate.LatestVersionNumber
+              Version: !Ref MasterLtVersion
             Overrides:
               - InstanceType: g4ad.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
-              - InstanceType: inf2.xlarge
+              - InstanceType: m7a.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
-              - InstanceType: m5zn.xlarge
+              - InstanceType: m7i-flex.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
 
@@ -608,20 +622,36 @@ Resources:
                            Key=iit-billing-tag,Value=$JENKINS_SHORT
             }
 
+            retry() {
+                local attempt=1
+                until "$@"; do
+                    if [ $attempt -ge 5 ]; then
+                        echo "command failed after $attempt attempts: $*" >&2
+                        return 1
+                    fi
+                    echo "command failed (attempt $attempt), retrying: $*"
+                    attempt=$((attempt + 1))
+                    sleep 5
+                done
+            }
+
             install_software() {
                 until yum makecache; do
                     sleep 1
                     echo try again
                 done
 
-                yum -y install yum-utils wget cronie rsync bc
+                retry yum -y install yum-utils wget cronie rsync bc
                 yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
                 rpm --import https://openresty.org/package/pubkey.gpg
-                wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-                rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-                yum -y install java-17-amazon-corretto
-                yum -y update --security
-                yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs openresty
+                wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable-legacy/jenkins.repo
+                sed -i 's/^repo_gpgcheck=1/repo_gpgcheck=0/' /etc/yum.repos.d/jenkins.repo
+                grep -q 'repo_gpgcheck=0' /etc/yum.repos.d/jenkins.repo
+                rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2023.key
+                rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2026.key
+                retry yum -y install java-17-amazon-corretto
+                retry yum -y update --security
+                retry yum -y install jenkins-2.528.3 certbot git dnf-automatic aws-cli xfsprogs openresty
 
                 sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
                 sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
@@ -658,7 +688,11 @@ Resources:
                     [ -e /dev/xvdj ] && break || sleep 1
                 done
 
-                mkfs.xfs -L DATA /dev/xvdj || :
+                if mkfs.xfs -L DATA /dev/xvdj; then
+                    FRESH_DATA_VOLUME=1
+                else
+                    FRESH_DATA_VOLUME=0
+                fi
                 echo "/dev/xvdj /mnt xfs defaults,noatime,nofail 0 0" | tee -a /etc/fstab
                 mount /mnt
             }
@@ -682,13 +716,21 @@ Resources:
                 install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                 install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                 install -o jenkins -g jenkins -d /var/log/jenkins
-                chown -R jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
+                # A full recursive chown of JENKINS_HOME over millions of inodes adds
+                # ~13 min to every spot replacement (PKG-1335). The persistent data
+                # volume is already jenkins-owned from prior boots, so only walk it on a
+                # genuinely fresh volume (mkfs.xfs succeeded in mount_data_partition).
+                if [ "$FRESH_DATA_VOLUME" = "1" ]; then
+                    echo "fresh data volume; running full recursive chown of JENKINS_HOME"
+                    chown -hR jenkins:jenkins /mnt/$JENKINS_HOST
+                fi
 
                 printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                     | tee -a /etc/hosts
                 mkdir -p /etc/systemd/system/jenkins.service.d
                 cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
                      [Service]
+                     TimeoutStartSec=600
                      # Directory where Jenkins stores its configuration and workspaces
                      Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
                      WorkingDirectory=/mnt/$JENKINS_HOST
@@ -700,11 +742,12 @@ Resources:
                      Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
 
                      # Arguments for the Jenkins JVM
-                     Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                     Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600 -Dhetzner.rehydrate.enabled=true -Dhetzner.rehydrate.grace-period-minutes=5"
             	EOF
 
                 systemctl daemon-reload
-                systemctl enable --now jenkins
+                systemctl enable jenkins
+                systemctl start --no-block jenkins
 
                 printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
             }
@@ -808,19 +851,70 @@ Resources:
 
             setup_letsencrypt() {
                 install -d /usr/share/nginx/html
+                # Wait for web server to serve port 80 (needed for ACME HTTP-01 challenge)
+                for i in $(seq 1 30); do
+                  curl -sf -o /dev/null http://127.0.0.1:80/ && break
+                  echo "Waiting for port 80... ($i/30)"
+                  sleep 2
+                done
+                curl -sf -o /dev/null http://127.0.0.1:80/ || echo "WARNING: port 80 not responding after 60s"
                 if [[ -d /mnt/ssl_backup ]]; then
                   rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
-                  certbot renew
+                  if ! certbot renew -q; then
+                    echo "WARNING: certbot renew failed (backup cert still in use)"
+                  fi
                 else
                   certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                 fi
                 ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                 ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
-                chmod 755 /etc/cron.daily/certbot
+
+                # Back up certs to EBS after successful setup
+                rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+
+                # Create deploy hook directory
+                mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+
+                # Create the hook script that runs after successful renewal
+                cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
+              #!/bin/bash
+              # This script runs automatically after certbot renews certificates
+              # Create certs backup
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              rsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup_$BACKUP_DATE/
+              # also to regular backup directory
+              rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+              # Prune timestamped backups older than 1 year
+              find /mnt -maxdepth 1 -name 'ssl_backup_*' -mtime +365 -exec rm -rf {} +
+              systemctl stop openresty
+              sleep 2
+              systemctl start openresty
+            EOF
+
+                chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
+
                 systemctl stop openresty
                 sleep 2
                 systemctl start openresty
+                systemctl enable certbot-renew.timer
+                systemctl restart certbot-renew.timer
+            }
+
+            restore_real_cert_from_backup() {
+                # Must run before setup_nginx: OpenResty would otherwise start
+                # with the stale self-signed cert from create_fake_ssl_cert and
+                # serve TLS warnings until setup_letsencrypt swaps the symlinks.
+                [[ -d /mnt/ssl_backup ]] || return 0
+                local src_cert=/mnt/ssl_backup/live/$JENKINS_HOST/fullchain.pem
+                local src_key=/mnt/ssl_backup/live/$JENKINS_HOST/privkey.pem
+                [[ -f $src_cert && -f $src_key ]] || return 0
+                # Validate before rsync so an expired backup does not pollute
+                # /etc/letsencrypt/; setup_letsencrypt will provision fresh.
+                openssl x509 -in $src_cert -checkend 0 -noout || return 0
+                rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
+                mkdir -p /etc/nginx/ssl
+                ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
+                ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem  /etc/nginx/ssl/certificate.key
             }
 
             setup_dhparam() {
@@ -852,7 +946,8 @@ Resources:
                          eduardo.casarero \
                          santiago.ruiz \
                          andrew.siemen \
-                         talha.rizwan"
+                         talha.rizwan \
+                         anderson.nogueira"
               for KEY in $KEYS_LIST; do
                   RETRY="3"
                   while [ $RETRY != "0" ]; do
@@ -871,17 +966,20 @@ Resources:
               done
             }
 
+
             main() {
                 setup_aws
                 setup_ssh_keys
+                mount_data_partition
                 install_software
                 setup_ssh_ciphers
-                mount_data_partition
                 start_jenkins
                 create_fake_ssl_cert
+                restore_real_cert_from_backup
                 setup_nginx
                 setup_dhparam
                 setup_letsencrypt
+                curl -fsSL --retry 5 https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/08df5f4e101e52d0e03a7e0062696ace909a86bc/scripts/install-master-observability.sh | JENKINS_HOST="$JENKINS_HOST" bash
             }
 
             main

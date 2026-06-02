@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_ENABLE_TELEMETRY=0'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -30,7 +30,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION , QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION , PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -42,7 +42,7 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'DAYS', value: '1'),
         string(name: 'PSMDB_VERSION', value: PSMDB_VERSION),
         string(name: 'MODB_VERSION', value: MODB_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     if ( NODE_TYPE == 'mongo-node' ) {
@@ -133,8 +133,8 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['docker', 'ovf', 'ami'],
             description: "PMM Server installation type.",
@@ -155,14 +155,6 @@ pipeline {
             defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
             description: "Percona Server for MongoDB version",
@@ -179,17 +171,10 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                sh '''
-                    sudo mkdir -p /srv/qa-integration || :
-                    sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
-                    sudo chmod -R 755 /srv/qa-integration
-
-                '''
             }
         }
         stage('Setup Docker Server Instance') {
@@ -197,13 +182,13 @@ pipeline {
                 expression { env.SERVER_TYPE == "docker" }
             }
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
             steps {
                 sh '''
-                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)"; done' || false
                 '''
             }
         }
@@ -211,7 +196,7 @@ pipeline {
             parallel {
                 stage('Mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss,GSSAPI=true', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss,GSSAPI=true', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -230,16 +215,18 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
-                sh """
-                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-                    sudo bash nodesource_setup.sh
-                    sudo apt install nodejs
-                    sudo apt-get install -y gettext
-                    npm ci
-                    npx playwright install
-                    sudo npx playwright install-deps
-                    envsubst < env.list > env.generated.list
-                """
+                dir('codeceptjs-e2e') {
+                    sh '''
+                        curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+                        sudo bash nodesource_setup.sh
+                        sudo apt install nodejs
+                        sudo apt-get install -y gettext
+                        npm ci
+                        npx playwright install
+                        sudo npx playwright install-deps
+                        envsubst < env.list > env.generated.list
+                    '''
+                }
             }
         }
         stage('Sleep') {
@@ -261,11 +248,13 @@ pipeline {
                 timeout(time: 150, unit: "MINUTES")
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
-                    """
+                dir('codeceptjs-e2e') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                            npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
+                        '''
+                    }
                 }
             }
         }
@@ -278,14 +267,14 @@ pipeline {
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
+                    archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png'
                 }
             }
             script {

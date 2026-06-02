@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_ENABLE_TELEMETRY=0'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -108,7 +108,7 @@ void runAMIStagingStart(String AMI_ID) {
 }
 
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
-PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -128,7 +128,7 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         string(name: 'PSMDB_VERSION', value: PSMDB_VERSION),
         string(name: 'MODB_VERSION', value: MODB_VERSION),
         string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
-        string(name: 'PMM_QA_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     if ( NODE_TYPE == 'mysql-node' ) {
@@ -241,8 +241,8 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
             description: "PMM Server installation type.",
@@ -265,15 +265,7 @@ pipeline {
             name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for pmm-qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'pmmha-v3',
-            description: 'HA setup branch of percona-helm-charts repo (pmmha-v3 has both pmm-ha and pmm-ha-dependencies)',
+            description: 'HA setup branch of percona-helm-charts repo',
             name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
@@ -319,6 +311,10 @@ pipeline {
             choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        string(
+            defaultValue: '93',
+            description: 'PTS (Cloudbees Predictive Tests Selection) confidence % for selecting tests to run. Valid values are from 0 to 100.',
+            name: 'PTS_CONFIDENCE')
     }
     options {
         skipDefaultCheckout()
@@ -330,16 +326,24 @@ pipeline {
                 script {
                     currentBuild.description = "${env.SERVER_TYPE} Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}"
                 }
-                // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
+                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    sudo mkdir -p /srv/qa-integration || :
-                    sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
-                    sudo chmod -R 755 /srv/qa-integration
-
+                    sudo apt update
+                    sudo apt install -y ca-certificates curl gnupg
+                    sudo install -m 0755 -d /etc/apt/keyrings
+                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+                      | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+                    echo \
+                      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+                      https://download.docker.com/linux/ubuntu noble stable" \
+                      | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+                    sudo apt update
+                    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                    sudo systemctl enable --now docker
                 '''
             }
         }
@@ -350,7 +354,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "docker" }
                     }
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('Setup OVF PMM Server Instance') {
@@ -390,7 +394,7 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)"; done' || false
                 '''
             }
         }
@@ -398,42 +402,42 @@ pipeline {
             parallel {
                 stage('external and haproxy client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'yes', env.VM_IP, 'external-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'yes', env.VM_IP, 'external-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('ps-group-replication and mysql client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr --database mysql', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr --database mysql', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('ps-replication and pxc client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replication --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replication --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('ps single and mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('pdpgsql, pgsql and pdpgsql patroni client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database pdpgsql,SETUP_TYPE=patroni', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database pdpgsql,SETUP_TYPE=patroni', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('psmdb sharded client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('extra pxc client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('valkey client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database valkey', 'yes', env.VM_IP, 'valkey-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database valkey', 'yes', env.VM_IP, 'valkey-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -452,18 +456,20 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
-                sh """
-                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
-                    sudo bash nodesource_setup.sh
-                    sudo apt install nodejs
-                    sudo apt-get install -y gettext
-                    npm ci
-                    npx playwright install
-                    sudo npx playwright install-deps
-                    envsubst < env.list > env.generated.list
-                    echo "Triggering Advisors Background Jobs..."
-                    node utils/triggerAdvisors.js
-                """
+                dir('codeceptjs-e2e') {
+                    sh '''
+                        curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+                        sudo bash nodesource_setup.sh
+                        sudo apt install nodejs
+                        sudo apt-get install -y gettext
+                        npm ci
+                        npx playwright install
+                        sudo npx playwright install-deps
+                        envsubst < env.list > env.generated.list
+                        echo "Triggering Advisors Background Jobs..."
+                        node utils/triggerAdvisors.js
+                    '''
+                }
             }
         }
         stage('Sleep') {
@@ -515,24 +521,67 @@ pipeline {
                 }
             }
         }
+        stage('Prepare Launchable') {
+            when {
+                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
+            }
+            steps {
+                dir('codeceptjs-e2e') {
+                    withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                        sh '''
+                            sudo apt install -y pipx python3-full
+                            pipx ensurepath
+                            export PATH="$HOME/.local/bin:$PATH"
+
+                            pipx install 'launchable~=1.0' || pipx upgrade 'launchable~=1.0'
+                            launchable --version
+                            launchable verify
+
+                            sudo docker pull ${DOCKER_VERSION}
+                            export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
+
+                            launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
+                            node launchable-prepare.js "@qan|@nightly|@menu" || true
+                            cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence ${PTS_CONFIDENCE}% --use-case feature-branch codeceptjs > launchable-subset.json || true
+                        '''
+                    }
+                }
+            }
+        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 300, unit: "MINUTES")
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
-                    """
+                dir('codeceptjs-e2e') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+
+                            if [ -s "launchable-subset.json" ]; then
+                                npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
+                            else
+                                npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                            fi
+                        '''
+                    }
                 }
             }
         }
     }
     post {
         always {
-            // stop staging
             script {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                        export PATH="$HOME/.local/bin:$PATH"
+                        cd codeceptjs-e2e || exit 0
+                        sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                        launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
+                    '''
+                }
+                // stop staging
                 if (env.SERVER_TYPE == "ovf") {
                     ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
                         string(name: 'VM', value: env.OVF_INSTANCE_NAME),
@@ -577,24 +626,21 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_VALKEY)
                 }
             }
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
         }
         success {
             script {
-                junit 'tests/output/*.xml'
+                junit 'codeceptjs-e2e/tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                 archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
             }
         }
         failure {
             script {
-                junit 'tests/output/*.xml'
+                junit 'codeceptjs-e2e/tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'tests/output/trace/*.zip', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/trace/*.zip', allowEmptyArchive: true
             }
         }
     }

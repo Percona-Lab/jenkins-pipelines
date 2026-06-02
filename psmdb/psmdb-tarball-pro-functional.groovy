@@ -64,7 +64,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
                                  string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        moleculeParallelTest(psmdb_default_os_list, moleculeDir)
+                        moleculeParallelTestPSMDB(psmdb_default_os_list, moleculeDir)
                     }
                 }
             }

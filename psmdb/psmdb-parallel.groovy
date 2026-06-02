@@ -89,7 +89,7 @@ pipeline {
                     usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
                     string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
+                        moleculeParallelTestPSMDB(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
                     }
                 }
             }

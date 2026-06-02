@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -129,7 +129,7 @@ pipeline {
         )
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH'
         )
     }
@@ -174,7 +174,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.large')
+                runSpotInstance('t3.xlarge')
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -245,15 +245,18 @@ pipeline {
                                         --volume pmm-data:/srv \
                                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                                         -e PMM_WATCHTOWER_TOKEN=testToken \
+                                        -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    sleep 10
-                                    docker logs pmm-server
-
-                                    if [ ${ADMIN_PASSWORD} != admin ]; then
-                                        docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                                    timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'
+                                    pmm_tag="${DOCKER_VERSION##*:}"
+                                    minor_version=${pmm_tag#3.}
+                                    minor_version=${minor_version%%.*}
+                                    if [ "${pmm_tag}" != "${pmm_tag#3.}" ] && [ "${minor_version}" -lt 8 ]; then
+                                        docker exec pmm-server change-admin-password "${ADMIN_PASSWORD}"
                                     fi
+                                    docker logs pmm-server
                                 '''
                             }
                         }
@@ -288,14 +291,15 @@ pipeline {
 
                         docker network create pmm-qa || true
 
-                        sudo mkdir -p /srv/qa-integration || :
-                        pushd /srv/qa-integration
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                        sudo rm -rf /srv/pmm-qa
+                        sudo mkdir -p /srv/pmm-qa
+                        pushd /srv/pmm-qa
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         popd
 
-                        sudo chown ec2-user -R /srv/qa-integration
+                        sudo chown ec2-user -R /srv/pmm-qa
 
-                        pushd /srv/qa-integration/pmm_qa
+                        pushd /srv/pmm-qa/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
                             python3 -m venv virtenv
                             . virtenv/bin/activate

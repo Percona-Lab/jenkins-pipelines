@@ -32,7 +32,7 @@ void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 18 17 16 15 14 13; do
+        for PG_VER in 18 17 16 15 14; do
             if [ ${IMAGE_POSTFIX} = pgbouncer ]; then
                 docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
                   -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
@@ -64,7 +64,7 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                    for PG_VER in 18 17 16 15 14 13; do
+                    for PG_VER in 18 17 16 15 14; do
                         if [ \\${SOME_IMAGE_POSTFIX} = pgbouncer ] || [ \\${SOME_IMAGE_POSTFIX} = pgbackrest ]; then
                             docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
                             echo "perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}" >> list-of-images.txt
@@ -86,6 +86,16 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
     }
 }
 
+List selectedImages() {
+    def images = []
+    if (params.BUILD_PGBACKREST) images << 'pgbackrest'
+    if (params.BUILD_PGBOUNCER) images << 'pgbouncer'
+    if (params.BUILD_POSTGRES) images << 'postgres'
+    if (params.BUILD_POSTGRES_GIS) images << 'postgres-gis'
+    if (params.BUILD_UPGRADE) images << 'upgrade'
+    return images
+}
+
 void generateImageSummary(filePath) {
     def images = readFile(filePath).trim().split("\n")
 
@@ -100,16 +110,19 @@ void generateImageSummary(filePath) {
     report += "</ul>\n"
     return report
 }
+
 pipeline {
+    agent {
+        label 'docker-x64'
+    }
+
+    environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
+        DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+    }
+
     parameters {
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona/percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-docker repository',
@@ -118,18 +131,31 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
             name: 'GIT_PD_REPO')
-    }
-    agent {
-         label 'docker-x64'
-    }
-    environment {
-        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
-        DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
-    }
-    options {
-        skipDefaultCheckout()
-        disableConcurrentBuilds()
+        booleanParam(
+            name: 'BUILD_PGBACKREST',
+            defaultValue: true,
+            description: 'Build pgbackrest'
+        )
+        booleanParam(
+            name: 'BUILD_PGBOUNCER',
+            defaultValue: true,
+            description: 'Build pgbouncer'
+        )
+        booleanParam(
+            name: 'BUILD_POSTGRES',
+            defaultValue: true,
+            description: 'Build postgres'
+        )
+        booleanParam(
+            name: 'BUILD_POSTGRES_GIS',
+            defaultValue: true,
+            description: 'Build postgres-gis'
+        )
+        booleanParam(
+            name: 'BUILD_UPGRADE',
+            defaultValue: true,
+            description: 'Build upgrade'
+        )
     }
 
     stages {
@@ -146,42 +172,52 @@ pipeline {
                 stash includes: "cloud/**", name: "cloud"
             }
         }
+
         stage('Build PG database related docker images') {
             steps {
-                sh '''
-                    sudo rm -rf cloud
-                '''
-                unstash "cloud"
-                sh """
-                   sudo rm -rf source
-                   export GIT_REPO=$GIT_PD_REPO
-                   export GIT_BRANCH=$GIT_PD_BRANCH
-                   ./cloud/local/checkout
-                """
-                retry(3) {
-                    build('pgbackrest')
-                }
-                retry(3) {
-                    build('pgbouncer')
-                }
-                retry(3) {
-                    build('postgres')
-                }
-                retry(3) {
-                    build('postgres-gis')
-                }
-                retry(3) {
-                    buildUpgrade('upgrade')
+                script {
+                    def images = selectedImages()
+
+                    if (images.isEmpty()) {
+                        error 'No image selected to build'
+                    }
+
+                    sh 'sudo rm -rf cloud'
+                    unstash "cloud"
+                    sh """
+                       sudo rm -rf source
+                       export GIT_REPO=$GIT_PD_REPO
+                       export GIT_BRANCH=$GIT_PD_BRANCH
+                       ./cloud/local/checkout
+                    """
+
+                    for (img in images) {
+                        if (img == 'upgrade') {
+                            retry(3) { buildUpgrade('upgrade') }
+                        } else {
+                            retry(3) { build(img) }
+                        }
+                    }
                 }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
-                pushImageToDockerHub('pgbackrest')
-                pushImageToDockerHub('pgbouncer')
-                pushImageToDockerHub('postgres')
-                pushImageToDockerHub('postgres-gis')
-                pushUpgradeImageToDockerHub('upgrade')
+                script {
+                    def images = selectedImages()
+
+                    if (images.isEmpty()) {
+                        error 'No image selected to push'
+                    }
+
+                    for (img in images) {
+                        if (img == 'upgrade') {
+                            pushUpgradeImageToDockerHub('upgrade')
+                        } else {
+                            pushImageToDockerHub(img)
+                        }
+                    }
+                }
             }
         }
     }

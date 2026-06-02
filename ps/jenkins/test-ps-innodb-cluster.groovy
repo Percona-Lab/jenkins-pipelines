@@ -11,7 +11,7 @@ void installDependencies() {
         . virtenv/bin/activate
         python3 --version
         python3 -m pip install --upgrade pip
-        python3 -m pip install --upgrade setuptools
+        python3 -m pip install --upgrade "setuptools<81"
         python3 -m pip install --upgrade setuptools-rust
         python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
        
@@ -167,13 +167,14 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['PS80','PS84','PS_LTS_INN'],
+            choices: ['PS97','PS80','PS84','PS_LTS_INN'],
             description: 'Product for which the packages will be tested',
             name: 'PRODUCT_TO_TEST'
         )
         choice(
             name: 'TEST_DIST',
             choices: [
+                'ubuntu-resolute',
                 'ubuntu-noble',
                 'ubuntu-jammy',
                 'debian-13',  
@@ -193,7 +194,8 @@ pipeline {
                 'debian-12-arm',
                 'debian-13-arm',
                 'ubuntu-jammy-arm',
-                'ubuntu-noble-arm'
+                'ubuntu-noble-arm',
+                'ubuntu-resolute-arm'
             ],
             description: 'Distribution to run test'
         )

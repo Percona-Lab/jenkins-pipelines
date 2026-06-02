@@ -19,8 +19,8 @@
     }
     parameters {
         choice(
-            choices: ['pxb_80', 'pxb_innovation_lts', 'pxb_84'],
-            description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation_lts',
+            choices: ['pxb_80', 'pxb_innovation', 'pxb_84'],
+            description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation',
             name: 'product_to_test'
         )
         choice(
@@ -41,8 +41,8 @@
         )
         choice(
             choices: [
-                'ps_innovation_lts',
-                'ms_innovation_lts',
+                'ps_innovation',
+                'ms_innovation',
                 'ps-80',
                 'ms-80',
                 'ps-84',

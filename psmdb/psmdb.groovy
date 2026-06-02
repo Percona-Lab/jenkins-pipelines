@@ -81,7 +81,7 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "create", env.PLATFORM)
             }
         }
     }
@@ -92,7 +92,7 @@ pipeline {
              usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
              string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                  script{
-                     moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
+                     moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "converge", env.PLATFORM)
                  }
             }
         }
@@ -100,14 +100,14 @@ pipeline {
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(moleculeDir, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "verify", env.PLATFORM)
             }
         }
     }
       stage ('Start Cleanup ') {
       steps {
           script {
-              moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -115,7 +115,7 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "destroy", env.PLATFORM)
         }
     }
   }
