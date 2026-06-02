@@ -7,15 +7,18 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-        payload = [
+        def payload = [
             body: "${COMMENT}",
         ]
         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
 
         sh '''
             REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
+            # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
             curl -X POST \
+                -H "Accept: application/vnd.github+json" \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
                 -d @body.json \
                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
         '''
@@ -27,23 +30,12 @@ pipeline {
         label 'agent-amd64'
     }
     parameters {
-        string(
-            defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-submodules repository',
-            name: 'PMM_BRANCH')
-        string(
-            defaultValue: '',
-            description: 'URL for pmm-submodules repository PR',
-            name: 'CHANGE_URL')
-        string(
-            defaultValue: '',
-            description: 'ID for pmm-submodules repository PR',
-            name: 'CHANGE_ID')
-        string(
-            // Starts with 'PR-', e.g., PR-2345
-            defaultValue: '',
-            description: 'Change Request Number for pmm-submodules repository PR',
-            name: 'BRANCH_NAME')
+        // Ref: https://pmm.cd.percona.com/env-vars.html/
+        // Jenkins automatically sets the following environment variables for multibranch pipelines:
+        // BRANCH_NAME is the PR number e.g., PR-12345
+        // CHANGE_BRANCH is the branch from which the PR was made e.g., feature-branch
+        // CHANGE_ID is the PR number e.g., 12345
+        // CHANGE_URL is the URL of the PR
         booleanParam(
             defaultValue: false,
             description: 'Build GSSAPI dynamic client tarballs for OL8 and OL9 (amd64)',
@@ -53,11 +45,14 @@ pipeline {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
         PATH_TO_WATCHTOWER = 'sources/watchtower/src/github.com/percona/watchtower'
     }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
     stages {
         stage('Prepare') {
             steps {
                 git poll: false,
-                    branch: PMM_BRANCH,
+                    branch: env.CHANGE_BRANCH,
                     url: 'http://github.com/Percona-Lab/pmm-submodules'
 
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -71,6 +66,10 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    if (!(env.PMM_VERSION =~ '^3.')) {
+                        currentBuild.result = 'NOT BUILD'
+                        error("Skipping: PMM version ${env.PMM_VERSION} does not match '^3.'")
+                    }
                     env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                     env.SHORTENED_COMMIT = env.FB_COMMIT.substring(0, 7)
                 }
@@ -299,7 +298,7 @@ pipeline {
 
                             export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_IMAGE_TAG} -f "{{.Id}}") || true
 
-                            launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${PMM_BRANCH}" || true
+                            launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${CHANGE_BRANCH}" || true
                         '''
                     }
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
@@ -321,25 +320,11 @@ pipeline {
                         }
                         message += "\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
 
-                        def payload = [
-                          body: message
-                        ]
-                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        sh '''
-                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
-                            # https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28#create-an-issue-comment
-                            # Comment on PR with docker server, client and the staging link
-                            curl -X POST \
-                                -H "Accept: application/vnd.github+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -H "X-GitHub-Api-Version: 2022-11-28" \
-                                -d @body.json \
-                                "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
-                        '''
+                        addComment(message)
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        payload = [
-                          ref: "${PMM_BRANCH}",
+                        def payload = [
+                          ref: "${env.CHANGE_BRANCH}",
                           inputs: [
                             pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                             pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_client_version: "${CLIENT_URL}"
@@ -371,7 +356,7 @@ pipeline {
                     def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                     def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
 
-                    apiTestJob = build job: 'pmm3-api-tests', propagate: false, parameters: [
+                    def apiTestJob = build job: 'pmm3-api-tests', propagate: false, changelog: false, parameters: [
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
                         string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
@@ -390,7 +375,7 @@ pipeline {
     post {
         success {
             script {
-                if (params.CHANGE_URL) {
+                if (env.CHANGE_URL) {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
@@ -400,14 +385,12 @@ pipeline {
                 }
             }
         }
-        always {
+        failure {
             script {
-                if (currentBuild.result != 'SUCCESS') {
-                    if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
-                        addComment("API tests have failed: ${API_TESTS_URL}")
-                    }
-                    slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
+                    addComment("API tests have failed: ${API_TESTS_URL}")
                 }
+                slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }
