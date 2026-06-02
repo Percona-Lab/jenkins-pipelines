@@ -68,18 +68,15 @@ def delete_stack(stack_name, aws_region):
     cf_client = boto3.client("cloudformation", region_name=aws_region)
     try:
         logging.info(f"Removing cloudformation stack: {stack_name}")
-        waiter_config = {
-            "Delay": 30,  # Time (in seconds) to wait between attempts
-            "MaxAttempts": 10,  # Maximum number of attempts (30s * 10 = 300s or 5 minutes)
-        }
         cf_client.update_termination_protection(
             EnableTerminationProtection=False, StackName=stack_name
         )
-        waiter = cf_client.get_waiter("stack_delete_complete")
-        print(f"Waiting for stack {stack_name} to be deleted...")
         cf_client.delete_stack(StackName=stack_name)
-        waiter.wait(StackName=stack_name, WaiterConfig=waiter_config)
+        logging.info(f"Stack {stack_name} deletion initiated.")
     except ClientError as e:
+        if "does not exist" in str(e):
+            logging.info(f"Stack {stack_name} no longer exists, skipping.")
+            return
         logging.error(f"Error deleting stack: {e}")
         raise
 
@@ -90,7 +87,14 @@ def delete_stack_resources(stack_name, aws_region):
 
     try:
         resources = cf_client.describe_stack_resources(StackName=stack_name)
-        for resource in resources["StackResources"]:
+    except ClientError as e:
+        if "does not exist" in str(e):
+            logging.info(f"Stack {stack_name} no longer exists, skipping resource cleanup.")
+            return
+        logging.error(f"Error describing stack resources: {e}")
+        raise
+
+    for resource in resources["StackResources"]:
             resource_id = resource["PhysicalResourceId"]
             resource_type = resource["ResourceType"]
             try:
@@ -120,7 +124,7 @@ def delete_stack_resources(stack_name, aws_region):
                                     f"Role attached to instance profile {resource_id}: {role['RoleName']}"
                                 )
                                 iam_client.remove_role_from_instance_profile(
-                                    InstanceProfileName=resource_id, RoleName=role
+                                    InstanceProfileName=resource_id, RoleName=role["RoleName"]
                                 )
                         else:
                             logging.info(f"No roles are attached to instance profile {resource_id}.")
@@ -134,9 +138,6 @@ def delete_stack_resources(stack_name, aws_region):
                 sleep(2)  # Sleep to avoid hitting rate limits
             except ClientError as e:
                 logging.error(f"Failed to delete resource: {resource_id}. Error: {e}")
-    except ClientError as e:
-        logging.error(f"Error describing stack resources: {e}")
-        raise
 
 
 def lambda_handler(event, context):
