@@ -117,7 +117,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     else
                         PKGLIST=\\"gcc-11\\"
                     fi
-                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie \\\$DEBIAN_VERSION = resolute ]; then
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie -o \\\$DEBIAN_VERSION = resolute ]; then
                         PKGLIST=\\"\\\${PKGLIST} python3-mysqldb\\"
                     else
                         PKGLIST=\\"\\\${PKGLIST} python-mysqldb\\"
