@@ -12,22 +12,6 @@ library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-def installDockerTools() {
-    sh """
-        set -e
-        if docker buildx version >/dev/null 2>&1; then
-            echo "Docker buildx already available, skipping install"
-        else
-            echo "Docker buildx missing — installing modern Docker via get.docker.com"
-            curl -fsSL https://get.docker.com | sudo sh
-            docker buildx version >/dev/null 2>&1 \\
-                || { echo "ERROR: docker buildx still missing after install" >&2; exit 1; }
-        fi
-        docker version
-        docker buildx version
-    """
-}
-
 def installSbomTools() {
     sh """
         set -e
@@ -137,7 +121,6 @@ def buildArchAndSbom(String arch, String dockerfile) {
     def sbomFile = "percona-backup-mongodb-${params.PBM_VERSION}-${arch}.cdx.json"
 
     deleteDir()
-    installDockerTools()
 
     sh """
         set -e
