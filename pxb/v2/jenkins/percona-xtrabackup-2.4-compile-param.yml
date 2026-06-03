@@ -60,7 +60,6 @@
          name: ARCH
          values:
          - x86_64
-         - aarch64
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-2.4-compile-pipeline

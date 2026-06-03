@@ -17,8 +17,8 @@ pipeline {
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
-            choices: 'x86_64\naarch64',
-            description: 'CPU architecture; selects the pxc-build image variant. LABEL must match for aarch64.',
+            choices: 'x86_64',
+            description: 'CPU architecture. PXB 2.4 is EOL and builds x86_64 only (no aarch64 base images for centos:7/EOL distros).',
             name: 'ARCH')
         choice(
             choices: 'RelWithDebInfo\nDebug',

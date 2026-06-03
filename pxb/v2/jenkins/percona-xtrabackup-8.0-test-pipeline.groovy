@@ -13,7 +13,7 @@ String MICRO_LABEL = (params.CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
 pipeline {
     parameters {
         choice(
-            choices: 'centos:8\noraclelinux:9\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm\nasan',
+            choices: 'centos:8\noraclelinux:9\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm\namazonlinux:2023\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
