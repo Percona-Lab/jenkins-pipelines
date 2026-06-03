@@ -508,6 +508,7 @@ parameters {
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE
+                        onlyStages: ['Oracle Linux 9', 'Oracle Linux 9 ARM']
                     )
                 }
             }
@@ -530,7 +531,7 @@ parameters {
         stage('Sign packages') {
             steps {
                 signRPM()
-                signDEB()
+                // signDEB()
             }
         }
         stage('Push to public repository') {
