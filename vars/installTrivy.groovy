@@ -76,9 +76,23 @@ def call(Map args = [:]) {
 
     if (htmlTpl) {
         sh """
-            if [ ! -f html.tpl ]; then
-                wget -q https://raw.githubusercontent.com/aquasecurity/trivy/v${TRIVY_VERSION}/contrib/html.tpl
-            fi
+TRIVY_VERSION="${TRIVY_VERSION:-0.71.0}"
+
+declare -A TPL_SHA256=(
+    ["0.71.0"]="d36b637cc77bc1a49b1f9a2358173756cd27a5d3385fab6365c0bab09abe5f0a"
+)
+
+expected_sha="${TPL_SHA256[$TRIVY_VERSION]:?No pinned html.tpl checksum for Trivy ${TRIVY_VERSION}. Verify and add one before building}"
+
+if [ ! -f html.tpl ] || ! echo "${expected_sha}  html.tpl" | sha256sum -c - >/dev/null 2>&1; then
+    tmp="$(mktemp)"
+    wget -q -O "$tmp" \
+        "https://raw.githubusercontent.com/aquasecurity/trivy/v${TRIVY_VERSION}/contrib/html.tpl" \
+        || { echo "html.tpl download failed" >&2; rm -f "$tmp"; exit 1; }
+    echo "${expected_sha}  ${tmp}" | sha256sum -c - \
+        || { echo "html.tpl checksum mismatch for v${TRIVY_VERSION} — refusing to use untrusted template" >&2; rm -f "$tmp"; exit 1; }
+    mv "$tmp" html.tpl
+fi
         """
     }
 }
