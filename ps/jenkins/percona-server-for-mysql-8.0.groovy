@@ -508,7 +508,7 @@ parameters {
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE
-                        onlyStages: ['Oracle Linux 9', 'Oracle Linux 9 ARM']
+                        onlyStages: ['Oracle Linux 9']
                     )
                 }
             }
