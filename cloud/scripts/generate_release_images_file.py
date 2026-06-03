@@ -146,12 +146,12 @@ def get_image_tasks(op):
 
     return {
         "psmdb": {
-            "8.0": (P, "percona-server-mongodb-8.0"),
-            "7.0": (P, "percona-server-mongodb-7.0"),
-            "6.0": (P, "percona-server-mongodb-6.0"),
-            "backup": (P, "percona-backup-mongodb"),
+            "8.0": (D, "percona/percona-server-mongodb", "8.0"),
+            "7.0": (D, "percona/percona-server-mongodb", "7.0"),
+            "6.0": (D, "percona/percona-server-mongodb", "6.0"),
+            "backup": (D, "percona/percona-backup-mongodb", "2"),
             "logcollector": (D, "percona/fluentbit"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
         "pxc": {
             "8.4": (D, "percona/percona-xtradb-cluster", "8.4"),
@@ -162,8 +162,9 @@ def get_image_tasks(op):
             "backup57": (D, "percona/percona-xtrabackup", "2.4"),
             "haproxy": (D, "percona/haproxy"),
             "proxysql": (D, "percona/proxysql2"),
+            "proxysql3": (D, "percona/proxysql3"),
             "logcollector": (D, "percona/fluentbit"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
         "pg": {
             "18": (D, "percona/percona-distribution-postgresql", "18"),
@@ -198,7 +199,7 @@ def get_image_tasks(op):
             ),
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
         "ps": {
             "8.4": (D, "percona/percona-server", "8.4"),
@@ -208,7 +209,7 @@ def get_image_tasks(op):
             "orchestrator": (D, "percona/percona-orchestrator"),
             "haproxy": (D, "percona/haproxy"),
             "toolkit": (D, "percona/percona-toolkit"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
     }.get(op, {})
 
@@ -236,6 +237,7 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("BACKUP80", "percona-xtrabackup", versions.get("backup80")),
             ("BACKUP57", "percona-xtrabackup", versions.get("backup57")),
             ("PROXY", "proxysql2", versions.get("proxysql")),
+            ("PROXY3", "proxysql3", versions.get("proxysql3")),
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
