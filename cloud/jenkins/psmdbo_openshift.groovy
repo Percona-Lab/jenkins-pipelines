@@ -115,7 +115,7 @@ void dockerBuildPush() {
                     docker buildx create --use
                     echo "$PASS" | docker login -u "$USER" --password-stdin
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    e2e-tests/build
+                    DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
                     docker logout
                 '
                 sudo rm -rf build
