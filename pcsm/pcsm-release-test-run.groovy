@@ -29,14 +29,14 @@ pipeline {
 //                build job: 'pcsm-packaging', parameters: [ string(name: 'pcsm_version', value: params.PCSM_VERSION), string(name: 'install_repo', value: "testing" )]
 //            }
 //        }
-        stage ('Create single-arch (amd64) docker image') {
-            steps {
-                script {
-                    def version = params.PCSM_VERSION + '-1'
-                    build job: 'pcsm-docker', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_REPO_CH', value: 'testing'), string(name: 'PCSM_VERSION', value: version), string(name: 'LATEST', value: "no") ]
-                }
-            }
-        }
+//        stage ('Create single-arch (amd64) docker image') {
+//            steps {
+//                script {
+//                    def version = params.PCSM_VERSION + '-1'
+//                    build job: 'pcsm-docker', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_REPO_CH', value: 'testing'), string(name: 'PCSM_VERSION', value: version), string(name: 'LATEST', value: "no") ]
+//                }
+//            }
+//        }
         stage ('Create multi-arch (amd64+arm) docker image') {
             steps {
                 script {
