@@ -14,6 +14,7 @@ def call(Map args = [:]) {
     def TRIVY_VERSION    = "0.71.0"
     def CHECKSUM_AMD64   = "30a3d22b23f88c233f1658f562fb477cae3b3e8b4761109d515b7698daf85814"
     def CHECKSUM_ARM64   = "2561be394a3199c911f82fced606cbc05e1cb23eb6ce1da6935540adb76f4252"
+    def CHECKSUM_HTMLTPL = "d36b637cc77bc1a49b1f9a2358173756cd27a5d3385fab6365c0bab09abe5f0a"
 
     def method    = args.get('method', 'auto')
     def junitTpl  = args.get('junitTpl', false)
@@ -75,24 +76,11 @@ def call(Map args = [:]) {
     }
 
     if (htmlTpl) {
-        withEnv(["TRIVY_VERSION=${TRIVY_VERSION}"]) {
-            sh '''
-                declare -A TPL_SHA256=(
-                    ["0.71.0"]="d36b637cc77bc1a49b1f9a2358173756cd27a5d3385fab6365c0bab09abe5f0a"
-                )
-
-                expected_sha="${TPL_SHA256[$TRIVY_VERSION]:?No pinned html.tpl checksum for Trivy ${TRIVY_VERSION}. Verify and add one before building}"
-
-                if [ ! -f html.tpl ] || ! echo "${expected_sha}  html.tpl" | sha256sum -c - >/dev/null 2>&1; then
-                    tmp="$(mktemp)"
-                    wget -q -O "$tmp" \
-                        "https://raw.githubusercontent.com/aquasecurity/trivy/v${TRIVY_VERSION}/contrib/html.tpl" \
-                        || { echo "html.tpl download failed" >&2; rm -f "$tmp"; exit 1; }
-                    echo "${expected_sha}  ${tmp}" | sha256sum -c - \
-                        || { echo "html.tpl checksum mismatch for v${TRIVY_VERSION} — refusing to use untrusted template" >&2; rm -f "$tmp"; exit 1; }
-                    mv "$tmp" html.tpl
-                fi
-            '''
-        }
+        sh """
+            if [ ! -f html.tpl ] || ! echo "${CHECKSUM_HTMLTPL}  html.tpl" | sha256sum -c - >/dev/null 2>&1; then
+                wget -q -O html.tpl https://raw.githubusercontent.com/aquasecurity/trivy/v${TRIVY_VERSION}/contrib/html.tpl
+                echo "${CHECKSUM_HTMLTPL}  html.tpl" | sha256sum -c -
+            fi
+        """
     }
 }
