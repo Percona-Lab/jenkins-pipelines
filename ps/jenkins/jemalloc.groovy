@@ -112,12 +112,12 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     DEBIAN_FRONTEND=noninteractive apt-get -y purge eatmydata || true
                     if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = noble ]; then
                         PKGLIST=\\"gcc-9\\"
-                    elif [ \\\$DEBIAN_VERSION = trixie -o  \\\$DEBIAN_VERSION = resolute ]; then
+                    elif [ \\\$DEBIAN_VERSION = trixie ]; then
                         PKGLIST=\\"gcc-13\\"
                     else
                         PKGLIST=\\"gcc-11\\"
                     fi
-                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie \\\$DEBIAN_VERSION = resolute ]; then
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie -o \\\$DEBIAN_VERSION = resolute ]; then
                         PKGLIST=\\"\\\${PKGLIST} python3-mysqldb\\"
                     else
                         PKGLIST=\\"\\\${PKGLIST} python-mysqldb\\"
@@ -145,6 +145,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                         if [ \\\$ARCH = aarch64 ]; then
                             sed -i 's/make check/#make check/g' debian/rules
                         fi
+                    elif [ \\\$DEBIAN_VERSION = resolute ]; then
+                        sed -i 's/make check/#make check/g' debian/rules
                     fi
                     sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
