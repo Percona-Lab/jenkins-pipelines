@@ -148,7 +148,7 @@ if [ -f /usr/bin/yum ]; then
 
   # PXC specific
   if [[ "${DIST}" == ".amzn2023" ]]; then
-      # AL2023: drop scons (not used in modern PXB); netcat is named nmap-ncat
+      # AL2023: drop scons (not in AL2023 base/percona repos, and modern PXB builds with cmake); netcat is named nmap-ncat
       PKGLIST+=" libmicrohttpd-devel re2-devel check-devel libgcrypt-devel libev-devel vim-common \
         perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools nmap-ncat \
         "
@@ -213,7 +213,6 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST+=" gcc14 gcc14-c++ gcc14-plugin-devel"
     fi
 
-    # KH: why?
     # asio-devel is not packaged on AL2023 (verified 2026-05-20 via prepare-docker
     # rebuild on m3: yum returns 'No match for argument: asio-devel'). xtrabackup
     # bundles asio internally so the build still succeeds without it.
