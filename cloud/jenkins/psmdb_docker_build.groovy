@@ -1,28 +1,20 @@
 void build(String IMAGE_SUFFIX){
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            set -e
+    sh """
+        set -e
 
-            cd ./source/
-            docker buildx create --use
-            echo "\$PASS" | docker login -u "\$USER" --password-stdin
-            if [ ${IMAGE_SUFFIX} = backup ]; then
-                docker buildx build --no-cache --progress plain --platform linux/amd64,linux/arm64 --push \
-                             -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
-                             -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
-            else
-                DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-                docker buildx build --no-cache --progress plain --platform linux/amd64,linux/arm64 --push \
-                             -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
-                             -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+        cd ./source/
+        if [ ${IMAGE_SUFFIX} = backup ]; then
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+                         -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
+        else
+            DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+                         -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
 
-                docker buildx build --build-arg DEBUG=1 --no-cache --progress plain --platform linux/amd64,linux/arm64 --push \
-                             -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
-                             -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
-            fi
-            docker logout
-        """
-    }
+            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
+                         -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+        fi
+    """
 }
 
 void pushImageToDocker(String IMAGE_SUFFIX){
@@ -32,7 +24,7 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             sg docker -c "
                 set -e
                 echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                docker buildx imagetools inspect perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
+                docker push perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
                 docker logout
             "
             echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
