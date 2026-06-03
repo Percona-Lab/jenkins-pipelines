@@ -114,6 +114,7 @@ def call(Map args = [:]) {
     def cloud        = args.get('cloud', '')
     def awsStashPath = args.get('awsStashPath', '')
     def fipsMode     = args.get('fipsMode', 'NO')
+    def onlyStages   = args.get('onlyStages', [])
 
     // Build type -> [sourceFolder, targetFolder]
     def artifactFolders = [
@@ -176,12 +177,6 @@ def call(Map args = [:]) {
             fipsFlags: null, skipInFips: false,
         ],
         // ---- DEB stages (x64) ----
-        //[
-        //    name: 'Ubuntu Focal(20.04)',
-        //    image: 'ubuntu:focal', arch: 'x64', buildType: 'deb',
-        //    flags: '--build_deb=1 --with_zenfs=1',
-        //    fipsFlags: null, skipInFips: true,
-        //],
         [
             name: 'Ubuntu Jammy(22.04)',
             image: 'ubuntu:jammy', arch: 'x64', buildType: 'deb',
@@ -339,6 +334,11 @@ def call(Map args = [:]) {
         def flags      = s.flags
         def fipsFl     = s.fipsFlags
         def skip       = s.skipInFips
+
+        // Whitelist filter — skip if onlyStages is set and this stage isn't in it
+        if (onlyStages && !onlyStages.contains(stageName)) {
+            return
+        }
 
         def sourceFolder = artifactFolders[buildType][0]
         def targetFolder = artifactFolders[buildType][1]
