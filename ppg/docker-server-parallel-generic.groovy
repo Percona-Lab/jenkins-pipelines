@@ -44,15 +44,17 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
             steps {
                 script {
                     if (params.WITH_POSTGIS) {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-generic-with-postgis-${env.SERVER_VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}-${env.REPOSITORY}"
                     } else {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-generic-${env.SERVER_VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.REPOSITORY}"
                     }
                 }
             }

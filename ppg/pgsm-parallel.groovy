@@ -33,12 +33,12 @@ pipeline {
             name: 'PGSM_REPO'
         )
         string(
-            defaultValue: 'release-2.3.2',
+            defaultValue: '2.3.2',
             description: 'PGSM repo version/branch/tag to use; e.g main, 2.0.5',
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
@@ -62,6 +62,11 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -98,6 +103,10 @@ pipeline {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
             }
+            archiveArtifacts(
+                artifacts: 'pg_stat_monitor/pgsm/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }

@@ -78,12 +78,14 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-parallel"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-${env.COMPONENT_VERSION}-parallel"
                 }
             }
         }

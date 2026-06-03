@@ -14,24 +14,26 @@ pipeline {
 
     parameters {
         choice(name: 'REPO', description: 'Repo for testing', choices: repoList())
-        string(defaultValue: 'ppg-18.3', description: 'PPG version for test', name: 'VERSION')
+        string(defaultValue: 'ppg-18.4', description: 'PPG version for test', name: 'VERSION')
         string(defaultValue: 'main', description: 'Base branch for ppg-testing repo', name: 'TESTING_BRANCH')
         string(defaultValue: '2.3.2', description: 'PGSM version', name: 'PGSM_VERSION')
-        string(defaultValue: '4.7.0', description: 'pgpool version', name: 'PGPOOL_VERSION')
-        string(defaultValue: '3.5.5', description: 'postgis version', name: 'POSTGIS_VERSION')
+        string(defaultValue: '4.7.1', description: 'pgpool version', name: 'PGPOOL_VERSION')
+        string(defaultValue: '3.5.6', description: 'postgis version', name: 'POSTGIS_VERSION')
         string(defaultValue: '18.0', description: 'PGAUDIT version', name: 'PGAUDIT_VERSION')
         string(defaultValue: 'ver_1.5.3', description: 'PG_REPACK version', name: 'PG_REPACK_VERSION')
-        string(defaultValue: 'v4.1.0', description: 'Patroni version', name: 'PATRONI_VERSION')
+        string(defaultValue: 'v4.1.3', description: 'Patroni version', name: 'PATRONI_VERSION')
         string(defaultValue: 'release/2.58.0', description: 'pgbackrest version', name: 'PGBACKREST_VERSION')
         string(defaultValue: 'REL4_2_0', description: 'pgaudit13_set_user version', name: 'SETUSER_VERSION')
         string(defaultValue: 'v13.2', description: 'pgbadger version', name: 'PGBADGER_VERSION')
-        string(defaultValue: 'pgbouncer_1_25_1', description: 'pgbouncer version', name: 'PGBOUNCER_VERSION')
+        string(defaultValue: 'pgbouncer_1_25_2', description: 'pgbouncer version', name: 'PGBOUNCER_VERSION')
         string(defaultValue: 'wal2json_2_6', description: 'wal2json version', name: 'WAL2JSON_VERSION')
-        string(defaultValue: 'v0.8.1', description: 'pgvector version', name: 'PGVECTOR_VERSION')
+        string(defaultValue: 'v0.8.2', description: 'pgvector version', name: 'PGVECTOR_VERSION')
     }
 
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        retry(conditions: [agent()], count: 2)
     }
 
     stages {

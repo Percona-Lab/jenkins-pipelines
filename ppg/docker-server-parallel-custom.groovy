@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 // Helper function
-def sendSlackNotification(repo, version, tag, with_postgis, milestone) {
+def sendSlackNotification(repo, version, tag) {
     // Note: Result might be null if the build fails early, default to FAILURE
     def status = currentBuild.result ?: "FAILURE"
     def color = (status == "SUCCESS") ? "good" : "danger"
@@ -13,8 +13,6 @@ def sendSlackNotification(repo, version, tag, with_postgis, milestone) {
 Version: ${version}
 Repo: ${repo}
 Docker-tag: ${tag}
-With_PostGIS: ${with_postgis}
-Milestone: ${milestone}
 Status: *${status}*
 Build Report: ${env.BUILD_URL}"""
 
@@ -25,12 +23,10 @@ pipeline {
     agent { label 'min-ol-9-x64' }
     
     parameters {
-        string(name: 'DOCKER_TAG', defaultValue: '18.3', description: 'TAG of the docker to test.')
-        string(name: 'SERVER_VERSION', defaultValue: '18.3', description: 'Docker PG version to test.')
+        string(name: 'DOCKER_TAG', defaultValue: '18.4', description: 'TAG of the docker to test.')
+        string(name: 'SERVER_VERSION', defaultValue: '18.4', description: 'Docker PG version to test.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
-        choice(name: 'MILESTONE', choices: ['3', '1', '2'], description: 'Custom image Milestone.')
-        booleanParam(name: 'WITH_POSTGIS', defaultValue: true, description: "Enable PostGIS testing.")
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
     }
 
@@ -42,15 +38,16 @@ pipeline {
     options {
         // Ensure this shared library function returns the correct wrapper
         withCredentials(moleculeDistributionJenkinsCreds())
-        timestamps() 
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        timestamps()
+        retry(conditions: [agent()], count: 2)
     }
 
     stages {
         stage('Set build name') {
             steps {
                 script {
-                    def suffix = params.WITH_POSTGIS ? "with-postgis" : "no-postgis"
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-custom-${suffix}-${params.SERVER_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-custom-${params.SERVER_VERSION}"
                 }
             }
         }
@@ -108,7 +105,7 @@ pipeline {
                     moleculeParallelPostDestroyPPG(distros, env.MOLECULE_DIR)
                 }
                 // FIX: Passing params explicitly
-                sendSlackNotification(params.REPOSITORY, params.SERVER_VERSION, params.DOCKER_TAG, params.WITH_POSTGIS, params.MILESTONE)
+                sendSlackNotification(params.REPOSITORY, params.SERVER_VERSION, params.DOCKER_TAG)
             }
         }
     }

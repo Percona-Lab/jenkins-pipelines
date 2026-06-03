@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 // Helper function
-def sendSlackNotification(repo, old_server_version, new_server_version, old_version_docker_tag, new_version_docker_tag, upgrade_docker_tag, with_postgis, milestone) {
+def sendSlackNotification(repo, old_server_version, new_server_version, old_version_docker_tag, new_version_docker_tag, upgrade_docker_tag) {
     // Note: Result might be null if the build fails early, default to FAILURE
     def status = currentBuild.result ?: "FAILURE"
     def color = (status == "SUCCESS") ? "good" : "danger"
@@ -16,8 +16,6 @@ Old Version Docker Tag: ${old_version_docker_tag}
 New Version Docker Tag: ${new_version_docker_tag}
 Upgrade Docker Tag: ${upgrade_docker_tag}
 Repo: ${repo}
-With_PostGIS: ${with_postgis}
-Milestone: ${milestone}
 Status: *${status}*
 Build Report: ${env.BUILD_URL}"""
 
@@ -28,15 +26,13 @@ pipeline {
     agent { label 'min-ol-9-x64' }
 
     parameters {
-        string(name: 'OLD_SERVER_VERSION', defaultValue: '16.13', description: 'Old server version that needs to be upgraded: 16.13, 17.9, 18.3, etc.')
-        string(name: 'NEW_SERVER_VERSION', defaultValue: '17.9', description: 'New server version to upgrade to: 17.9, 18.3. etc.')
-        string(name: 'OLD_VERSION_DOCKER_TAG', defaultValue: '16.13-v2', description: 'Old version docker tag to test: 16.13-v2, 17.9-v2, 18.3-v2. etc.')
-        string(name: 'NEW_VERSION_DOCKER_TAG', defaultValue: '17.9-v2', description: 'New version docker tag to test: 16.13-v2, 17.9-v2, 18.3-v2. etc.')
-        string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18.3-17.9-16.13-1', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
+        string(name: 'OLD_SERVER_VERSION', defaultValue: '16.14', description: 'Old server version that needs to be upgraded: 16.13, 17.9, 18.3, etc.')
+        string(name: 'NEW_SERVER_VERSION', defaultValue: '17.10', description: 'New server version to upgrade to: 17.9, 18.3. etc.')
+        string(name: 'OLD_VERSION_DOCKER_TAG', defaultValue: '16.14', description: 'Old version docker tag to test: 16.13, 17.9, 18.3. etc.')
+        string(name: 'NEW_VERSION_DOCKER_TAG', defaultValue: '17.10', description: 'New version docker tag to test: 16.13, 17.9, 18.3. etc.')
+        string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18-17-16', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
-        choice(name: 'MILESTONE', choices: ['3', '1', '2'], description: 'Custom image Milestone.')
-        booleanParam(name: 'WITH_POSTGIS', defaultValue: true, description: "Enable PostGIS testing.")
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
     }
 
@@ -48,7 +44,9 @@ pipeline {
     options {
         // Ensure this shared library function returns the correct wrapper
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
         timestamps()
+        retry(conditions: [agent()], count: 2)
     }
 
     stages {
@@ -112,7 +110,7 @@ pipeline {
                     moleculeParallelPostDestroyPPG(distros, env.MOLECULE_DIR)
                 }
                 // FIX: Passing params explicitly
-                sendSlackNotification(params.REPOSITORY, params.OLD_SERVER_VERSION, params.NEW_SERVER_VERSION, params.OLD_VERSION_DOCKER_TAG, params.NEW_VERSION_DOCKER_TAG, params.UPGRADE_DOCKER_TAG, params.WITH_POSTGIS, params.MILESTONE)
+                sendSlackNotification(params.REPOSITORY, params.OLD_SERVER_VERSION, params.NEW_SERVER_VERSION, params.OLD_VERSION_DOCKER_TAG, params.NEW_VERSION_DOCKER_TAG, params.UPGRADE_DOCKER_TAG)
             }
         }
     }

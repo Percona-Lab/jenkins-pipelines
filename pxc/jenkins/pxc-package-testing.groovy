@@ -807,7 +807,13 @@ properties([
                                         'rhel-9',
                                         'rhel-9-arm',
                                         'rhel-10',
-                                        'rhel-10-arm'
+                                        'rhel-10-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
+                                        'amazon-linux-2023',
+                                        'amazon-linux-2023-arm'
                         ]
 
                         def pxc57_nodes = [

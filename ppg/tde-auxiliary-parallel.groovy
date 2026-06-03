@@ -20,13 +20,13 @@ pipeline {
     parameters {
         string(
             name: 'VERSION',
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3'
         )
         choice(
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
-            choices: ['worker', 'sync', 'io_uring']
+            choices: ['sync', 'worker', 'io_uring']
         )
         string(
             name: 'TESTING_BRANCH',
@@ -63,7 +63,7 @@ pipeline {
         )
         string(
             name: 'TDE_BRANCH',
-            defaultValue: 'release-2.1.2',
+            defaultValue: 'release-2.2.0',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
         )
         string(
@@ -95,12 +95,17 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-tde-auxiliary-${env.VERSION}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-auxiliary-${env.VERSION}-${env.IO_METHOD}"
                 }
             }
         }
@@ -131,6 +136,10 @@ pipeline {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.IO_METHOD, env.TDE_BRANCH)
             }
+            archiveArtifacts(
+                artifacts: 'pg_tde/auxiliary/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }
