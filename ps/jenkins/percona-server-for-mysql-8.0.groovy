@@ -507,7 +507,7 @@ parameters {
                     psBuildMatrix(
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
-                        fipsMode: env.FIPSMODE
+                        fipsMode: env.FIPSMODE,
                         onlyStages: ['Oracle Linux 9']
                     )
                 }
