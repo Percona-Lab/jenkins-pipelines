@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
-        string(name: 'PCSM_VERSION', defaultValue: 'v0.9.0', description: 'PCSM Version')
+        string(name: 'PCSM_VERSION', defaultValue: '0.9.0', description: 'PCSM Version')
         string(name: 'PCSM_BRANCH', defaultValue: 'main', description: 'PCSM Branch')
     }
     options {
