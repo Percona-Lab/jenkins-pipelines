@@ -8,9 +8,11 @@ void build(String SOURCE_IMAGE) {
         sh """
             SOURCE_IMAGE=${SOURCE_IMAGE}
             ARCH=${params.ARCH}
+            ARCH_SUFFIX=""
+            if [ "\${ARCH}" = "aarch64" ]; then ARCH_SUFFIX="-aarch64"; fi
             aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
             sg docker -c "
-                docker push public.ecr.aws/e7j3v3n0/pxc-build:\${SOURCE_IMAGE//[:\\/]/-}-\${ARCH}
+                docker push public.ecr.aws/e7j3v3n0/pxc-build:\${SOURCE_IMAGE//[:\\/]/-}\${ARCH_SUFFIX}
             "
         """
     }
@@ -56,6 +58,7 @@ pipeline {
                         "debian:bullseye":  { build('debian:bullseye') },
                         "debian:bookworm":  { build('debian:bookworm') },
                         "debian:trixie":    { build('debian:trixie') },
+                        "amazonlinux:2023": { build('amazonlinux:2023') },
                     ]
                     if (params.ARCH != 'aarch64') {
                         builders["centos:7"] = { build('centos:7') }

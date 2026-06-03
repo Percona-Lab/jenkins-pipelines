@@ -21,7 +21,11 @@ build_docker() {
         exit 1
     fi
 
-    local TAG="${SOURCE_IMAGE//[:\/]/-}-${ARCH}"
+    # x86_64 images keep the historical unsuffixed tag (e.g. pxc-build:oraclelinux-9);
+    # only aarch64 carries a suffix. Matches the run-build/run-test consumer scheme.
+    local ARCH_SUFFIX=""
+    [[ ${ARCH} == "aarch64" ]] && ARCH_SUFFIX="-aarch64"
+    local TAG="${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX}"
 
     sed -e "s^FROM .*^FROM ${SOURCE_IMAGE}^" \
         ${DOCKER_DIR}/Dockerfile.inc \
@@ -46,6 +50,7 @@ build_docker() {
 #                    ubuntu:jammy, debian:bookworm). Colons and slashes are
 #                    sanitised to '-' when forming the resulting tag.
 #   $2 ARCH          CPU architecture for the build host. Must be one of
-#                    x86_64 or aarch64. Embedded into the Dockerfile name
-#                    and the ECR tag (e.g. pxc-build:ubuntu-jammy-aarch64).
+#                    x86_64 or aarch64. Embedded into the Dockerfile name;
+#                    the ECR tag is unsuffixed for x86_64 (pxc-build:ubuntu-jammy)
+#                    and -aarch64-suffixed for aarch64 (pxc-build:ubuntu-jammy-aarch64).
 build_docker "$1" "$2"

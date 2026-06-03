@@ -31,6 +31,7 @@
         - ubuntu:noble
         - debian:bookworm
         - debian:trixie
+        - amazonlinux:2023
         description: OS version for compilation and testing
     - choice:
         name: ARCH

@@ -68,7 +68,6 @@
         name: ARCH
         values:
         - x86_64
-        - aarch64
     - axis:
         name: XTRABACKUP_TARGET
         type: user-defined
