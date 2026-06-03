@@ -31,6 +31,14 @@ pipeline {
             }
         }
         stage ('Build image') {
+            when {
+                not {
+                    allOf {
+                        environment name: 'TARGET_REPO', value: 'DockerHub'
+                        expression { return params.IMAGE_TYPE == 'regular' }
+                    }
+                }
+            }
             steps {
                 sh """
                     sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
@@ -169,61 +177,47 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     script {
-                        sh "docker login -u '${USER}' -p '${PASS}'"
+                        sh """
+                            sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
+                            export DOCKER_CLI_EXPERIMENTAL=enabled
+                            sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-arm64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo systemctl restart docker
+                            docker login -u '${USER}' -p '${PASS}'
+                        """
                         if (params.BUILD_UBI9) {
                             sh """
                                 MAJ_TAG=\$(echo ${params.IMAGE_TAG} | sed -E 's/-[0-9]+\$//' | sed -E 's/\\.[0-9]+//g')
                                 echo "MAJ_TAG=\$MAJ_TAG"
-                                docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
-                                docker push percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}
-                                docker manifest push percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG
-                                docker manifest push percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-arm64
                             """
                         }
                         if (params.BUILD_UBI8) {
                             sh """
                                 MAJ_TAG=\$(echo ${params.IMAGE_TAG} | sed -E 's/-[0-9]+\$//' | sed -E 's/\\.[0-9]+//g')
                                 echo "MAJ_TAG=\$MAJ_TAG"
-                                docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8
-                                docker manifest push percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG-ubi8 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG-ubi8 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG-ubi8 \\
-                                   percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG-ubi8
-                                docker manifest push percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG-ubi8
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:\$MAJ_TAG-ubi8 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-arm64
                             """
                         }
                     }
