@@ -1,5 +1,19 @@
 def certificationTests = []
 def certification
+def certifiableImages = [
+    'IMAGE_OPERATOR',
+    'IMAGE_PMM3_CLIENT',
+    'IMAGE_PXC84',
+    'IMAGE_PXC80',
+    'IMAGE_PXC57',
+    'IMAGE_BACKUP84',
+    'IMAGE_BACKUP80',
+    'IMAGE_BACKUP57',
+    'IMAGE_HAPROXY',
+    'IMAGE_PROXY',
+    'IMAGE_PROXY3',
+    'IMAGE_LOGCOLLECTOR'
+]
 
 def imageTag(image) {
     def parts = image.tokenize(":")
@@ -70,25 +84,18 @@ pipeline {
             description: 'Target platform'
         )
 
-        choice(
-            name: 'IMAGE',
-            choices: [
-                'ALL',
-                'IMAGE_OPERATOR',
-                'IMAGE_PMM3_CLIENT',
-                'IMAGE_PXC84',
-                'IMAGE_PXC80',
-                'IMAGE_PXC57',
-                'IMAGE_BACKUP84',
-                'IMAGE_BACKUP80',
-                'IMAGE_BACKUP57',
-                'IMAGE_HAPROXY',
-                'IMAGE_PROXY',
-                'IMAGE_PROXY3',
-                'IMAGE_LOGCOLLECTOR'
-            ],
-            description: 'Select image to certify'
-        )
+        booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
+        booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
+        booleanParam(name: 'IMAGE_PXC84', defaultValue: true, description: 'Certify IMAGE_PXC84')
+        booleanParam(name: 'IMAGE_PXC80', defaultValue: true, description: 'Certify IMAGE_PXC80')
+        booleanParam(name: 'IMAGE_PXC57', defaultValue: true, description: 'Certify IMAGE_PXC57')
+        booleanParam(name: 'IMAGE_BACKUP84', defaultValue: true, description: 'Certify IMAGE_BACKUP84')
+        booleanParam(name: 'IMAGE_BACKUP80', defaultValue: true, description: 'Certify IMAGE_BACKUP80')
+        booleanParam(name: 'IMAGE_BACKUP57', defaultValue: true, description: 'Certify IMAGE_BACKUP57')
+        booleanParam(name: 'IMAGE_HAPROXY', defaultValue: true, description: 'Certify IMAGE_HAPROXY')
+        booleanParam(name: 'IMAGE_PROXY', defaultValue: true, description: 'Certify IMAGE_PROXY')
+        booleanParam(name: 'IMAGE_PROXY3', defaultValue: true, description: 'Certify IMAGE_PROXY3')
+        booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
@@ -123,21 +130,23 @@ pipeline {
                     echo "Release: ${params.RELEASE}"
                     echo "Branch: ${branch}"
                     echo "Platform: ${params.PLATFORM}"
-                    echo "Selection: ${params.IMAGE}"
+                    def selectedImageKeys = certifiableImages.findAll { params[it] }
+
+                    echo "Selection: ${selectedImageKeys.join(', ')}"
 
                     def failedImages = []
                     def skippedImages = []
-                    def imagesToCertify = images
-
-                    if (params.IMAGE == 'ALL') {
-                        echo "Running certification for ALL images"
-                    } else {
-                        def selectedImage = images[params.IMAGE]
+                    def imagesToCertify = selectedImageKeys.collectEntries { key ->
+                        def selectedImage = images[key]
                         if (!selectedImage) {
-                            error("Image not found in release_versions: ${params.IMAGE}")
+                            error("Image not found in release_versions: ${key}")
                         }
 
-                        imagesToCertify = [(params.IMAGE): selectedImage]
+                        [(key): selectedImage]
+                    }
+
+                    if (!imagesToCertify) {
+                        error("Select at least one image to certify")
                     }
 
                     imagesToCertify.each { key, image ->
