@@ -6,6 +6,7 @@ import requests
 from datetime import datetime
 from packaging.version import parse as parse_version
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from xml.etree import ElementTree as ET
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
@@ -25,6 +26,8 @@ MONTH_MAP = {
     "nov": 11,
     "dec": 12,
 }
+
+GKE_VERSION_RE = r"\d+\.\d+\.\d+-gke\.\d+"
 
 _session = requests.Session()
 
@@ -294,21 +297,51 @@ def get_eks():
     return sort_vers(filter_active(resp.json(), datetime.now().date()))
 
 
+def gke_release_entries(xml_text):
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return re.findall(r"<!\[CDATA\[(.*?)\]\]>", xml_text, re.DOTALL)
+
+    entries = []
+    for entry in root.iter():
+        if entry.tag.rsplit("}", 1)[-1] not in {"entry", "item"}:
+            continue
+        for child in entry:
+            if child.tag.rsplit("}", 1)[-1] in {"content", "description", "summary"}:
+                content = "".join(child.itertext()).strip()
+                if content:
+                    entries.append(content)
+                break
+    return entries
+
+
+def gke_removed_versions(html):
+    removed = set()
+    for block in re.findall(
+        r"no longer available in the Stable channel:.*?</ul>",
+        html,
+        re.DOTALL | re.IGNORECASE,
+    ):
+        removed.update(re.findall(GKE_VERSION_RE, block))
+    return removed
+
+
 def get_gke():
     resp = _session.get(
         "https://docs.cloud.google.com/feeds/kubernetes-engine-stable-channel-release-notes.xml",
         timeout=10,
     )
     resp.raise_for_status()
-    if m := re.search(
-        r"now available in the Stable channel.*?<ul>(.*?)</ul>",
-        resp.text,
-        re.DOTALL | re.IGNORECASE,
-    ):
-        minor_map = {}
-        for v in re.findall(r"(\d+\.\d+\.\d+-gke\.\d+)", m.group(1)):
-            minor_map[".".join(v.split(".")[:2])] = v
-        return sort_vers(list(minor_map.keys()))
+    available = set()
+    for entry in reversed(gke_release_entries(resp.text)):
+        removed = gke_removed_versions(entry)
+        available.update(set(re.findall(GKE_VERSION_RE, entry)) - removed)
+        available.difference_update(removed)
+
+    if available:
+        minors = sort_vers(list({".".join(v.split(".")[:2]) for v in available}))
+        return [minors[0], minors[-1]]
     return None
 
 
