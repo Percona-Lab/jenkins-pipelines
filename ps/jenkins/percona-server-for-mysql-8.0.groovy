@@ -528,7 +528,7 @@ parameters {
 
                 uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                 uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
+                // uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
             }
         }
 
