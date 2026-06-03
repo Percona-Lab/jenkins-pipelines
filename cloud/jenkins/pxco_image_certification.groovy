@@ -42,6 +42,9 @@ def buildTargetImage(key, image, params) {
 
         case 'IMAGE_PROXY':
             return target(image, containersProjectId, "${params.RELEASE}-proxysql", containersCredentials)
+        
+        case 'IMAGE_PROXY3':
+            return target(image, containersProjectId, "${params.RELEASE}-proxysql3", containersCredentials)
 
         case 'IMAGE_LOGCOLLECTOR':
             return target(image, containersProjectId, "${params.RELEASE}-logcollector-${imageTag(image)}", containersCredentials)
@@ -81,6 +84,7 @@ pipeline {
                 'IMAGE_BACKUP57',
                 'IMAGE_HAPROXY',
                 'IMAGE_PROXY',
+                'IMAGE_PROXY3',
                 'IMAGE_LOGCOLLECTOR'
             ],
             description: 'Select image to certify'
