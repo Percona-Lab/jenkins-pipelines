@@ -41,7 +41,7 @@ pipeline {
             steps {
                 script {
                     def version = params.PCSM_VERSION + '-1'
-                    build job: 'pcsm-docker-arm', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_REPO_CH', value: 'testing' ), string(name: 'PCSM_VERSION', value: version), string(name: 'LATEST', value: "no") ]
+                    build job: 'hetzner-pcsm-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_REPO_CH', value: 'testing' ), string(name: 'PCSM_VERSION', value: version), string(name: 'LATEST', value: "no") ]
                 }
             }
         }
