@@ -1041,6 +1041,25 @@ parameters {
                 }
             }
         }
+        stage('Build docker containers') {
+            agent {
+                label 'launcher-x64'
+            }
+            steps {
+                script {
+                    build job: 'hetzner-ps8.0-docker-build',
+                          parameters: [
+                              string(name: 'CLOUD', value: 'Hetzner'),
+                              string(name: 'ORGANIZATION', value: 'perconalab'),
+                              string(name: 'BRANCH', value: "${BRANCH}"),
+                              string(name: 'RPM_RELEASE', value: '1'),
+                              string(name: 'COMPONENT', value: "${COMPONENT}"),
+                              booleanParam(name: 'RUN_FAST', value: true)
+                          ],
+                          wait: false
+                }
+            }
+        }
     }
     post {
         success {

@@ -1,17 +1,14 @@
 - job:
-    name: ps84-autobuild
+    name: hetzner-pcsm-docker-multiarch
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-        Check PS repo for new release branches to build packages
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ps/jenkins/get-ps-branches-84.groovy
-    triggers:
-      - timed: "H/15 * * * *"
+      script-path: pcsm/pcsm-docker-multiarch.groovy

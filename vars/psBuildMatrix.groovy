@@ -114,6 +114,7 @@ def call(Map args = [:]) {
     def cloud        = args.get('cloud', '')
     def awsStashPath = args.get('awsStashPath', '')
     def fipsMode     = args.get('fipsMode', 'NO')
+    def onlyStages   = args.get('onlyStages', [])
 
     // Build type -> [sourceFolder, targetFolder]
     def artifactFolders = [
@@ -176,12 +177,6 @@ def call(Map args = [:]) {
             fipsFlags: null, skipInFips: false,
         ],
         // ---- DEB stages (x64) ----
-        //[
-        //    name: 'Ubuntu Focal(20.04)',
-        //    image: 'ubuntu:focal', arch: 'x64', buildType: 'deb',
-        //    flags: '--build_deb=1 --with_zenfs=1',
-        //    fipsFlags: null, skipInFips: true,
-        //],
         [
             name: 'Ubuntu Jammy(22.04)',
             image: 'ubuntu:jammy', arch: 'x64', buildType: 'deb',
@@ -199,6 +194,7 @@ def call(Map args = [:]) {
             image: 'ubuntu:resolute', arch: 'x64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
         ],
         [
             name: 'Debian Bullseye(11)',
@@ -243,6 +239,7 @@ def call(Map args = [:]) {
             image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
         ],
         [
             name: 'Debian Bullseye(11) ARM',
@@ -338,8 +335,14 @@ def call(Map args = [:]) {
         def fipsFl     = s.fipsFlags
         def skip       = s.skipInFips
 
+        // Whitelist filter — skip if onlyStages is set and this stage isn't in it
+        if (onlyStages && !onlyStages.contains(stageName)) {
+            return
+        }
+
         def sourceFolder = artifactFolders[buildType][0]
         def targetFolder = artifactFolders[buildType][1]
+        def versionConstraint = s.get('versionConstraint', null)
 
         // Determine agent label based on arch and cloud
         def agentLabel
@@ -355,6 +358,17 @@ def call(Map args = [:]) {
                 if (skip && fipsMode == 'YES') {
                     echo "Skipping '${stageName}' (not supported in FIPS mode)"
                     return
+                }
+
+                // Skip stages with a version constraint if the current PS version doesn't match
+                if (versionConstraint) {
+                    def major = env.MYSQL_VERSION_MAJOR
+                    def minor = env.MYSQL_VERSION_MINOR
+                    def allowed = versionConstraint.any { vc -> vc.major == major && vc.minor == minor }
+                    if (!allowed) {
+                        echo "Skipping '${stageName}' (requires PS version 8.4.x or 9.7.x, detected ${major}.${minor})"
+                        return
+                    }
                 }
 
                 node(agentLabel) {

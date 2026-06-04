@@ -441,6 +441,14 @@ parameters {
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
+                script {
+                    sh """
+                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                    """
+                    env.MYSQL_VERSION_MAJOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MAJOR=' MYSQL_VERSION | cut -d= -f2").trim()
+                    env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
+                    echo "Detected Percona Server version: ${env.MYSQL_VERSION_MAJOR}.${env.MYSQL_VERSION_MINOR}"
+                }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 stash includes: 'test/percona-server-8.0.properties', name: 'properties'
                 pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
@@ -500,6 +508,7 @@ parameters {
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE
+                        onlyStages: ['Oracle Linux 9', 'Oracle Linux 9 ARM']
                     )
                 }
             }
@@ -522,7 +531,7 @@ parameters {
         stage('Sign packages') {
             steps {
                 signRPM()
-                signDEB()
+                // signDEB()
             }
         }
         stage('Push to public repository') {
@@ -588,8 +597,8 @@ parameters {
                               string(name: 'ORGANIZATION', value: 'perconalab'),
                               string(name: 'BRANCH', value: "${BRANCH}"),
                               string(name: 'RPM_RELEASE', value: '1'),
-                              string(name: 'DEB_RELEASE', value: '1'),
                               string(name: 'FIPSMODE', value: 'NO'),
+                              string(name: 'COMPONENT', value: "${COMPONENT}"),
                               booleanParam(name: 'RUN_FAST', value: true)
                           ],
                           wait: false

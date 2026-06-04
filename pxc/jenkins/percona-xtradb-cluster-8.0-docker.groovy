@@ -31,17 +31,17 @@ pipeline {
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
-            description: 'Tag/Branch for percona-xtradb-cluster repository',
+            defaultValue: 'release-8.4.8',
+            description: 'release Tag/Branch for percona-xtradb-cluster repository or pxc version in the format 8.4.8',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
+        choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to retrieve packages',
+            name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
@@ -91,7 +91,7 @@ pipeline {
                             case ${PXC_MAJOR_RELEASE} in
                                 80) cd percona-xtradb-cluster-8.0 ;;
                                 84) cd percona-xtradb-cluster-8.4 ;;
-                                9*) cd percona-xtradb-cluster-9.x ;;
+                                *) cd percona-xtradb-cluster-9.x ;;
                             esac
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile

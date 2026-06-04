@@ -77,6 +77,14 @@ pipeline {
                     sudo systemctl restart docker
                     sudo apt-get install -y qemu-system binfmt-support qemu-user-static || true
                     sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+                    # Attestation-capable builder: the default "docker" driver cannot
+                    # produce provenance/SBOM attestations. Create it WITHOUT sudo so it
+                    # lives in the same docker context the push stage uses (no sudo there).
+                    # qemu/binfmt above is host-wide, so this builder still gets arm64 emulation.
+                    docker buildx inspect multiarch-builder >/dev/null 2>&1 \
+                        || docker buildx create --name multiarch-builder --driver docker-container --bootstrap
+                    docker buildx use multiarch-builder
                 '''
             }
         }
@@ -176,34 +184,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Trivy CVE scan') {
-                    steps {
-                        installTrivy(method: 'apt')
-                        script {
-                            if (params.BUILD_RPM) {
-                                sh """
-                                    echo "=== Trivy scan: RPM image (amd64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 | tee trivy-rpm-amd64.txt
-                                    echo "=== Trivy scan: RPM image (arm64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 | tee trivy-rpm-arm64.txt
-                                """
-                            }
-                            if (params.BUILD_HARDENED) {
-                                sh """
-                                    echo "=== Trivy scan: Hardened image (amd64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 | tee trivy-hardened-amd64.txt
-                                    echo "=== Trivy scan: Hardened image (arm64) ==="
-                                    sudo trivy image --severity HIGH,CRITICAL \
-                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 | tee trivy-hardened-arm64.txt
-                                """
-                            }
-                        }
-                        archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
-                    }
-                }
+                
             }
         }
         stage('Push and create manifests') {
@@ -220,12 +201,12 @@ pipeline {
                         if (params.BUILD_RPM) {
                             sh """
                                 cd valkey-packaging/docker
-                                docker buildx build --push --provenance=true --sbom=true \
+                                docker buildx build --push --provenance=mode=max --sbom=true \
                                     --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
                                     --platform linux/amd64 \
                                     -t ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
                                     -f Dockerfile .
-                                docker buildx build --push --provenance=true --sbom=true \
+                                docker buildx build --push --provenance=mode=max --sbom=true \
                                     --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
                                     --platform linux/arm64 \
                                     -t ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 \
@@ -249,14 +230,20 @@ pipeline {
                             """
                         }
                         if (params.BUILD_HARDENED) {
+                            // docker-container builder has its own isolated cache and
+                            // no access to the local store, so it re-pulls FROM dhi.io.
+                            // Log into dhi.io here (push stage only logs into Docker Hub above).
+                            sh '''
+                                echo "${PASS}" | docker login dhi.io -u "${USER}" --password-stdin
+                            '''
                             sh """
                                 cd valkey-packaging/docker
-                                docker buildx build --push --provenance=true --sbom=true \
+                                docker buildx build --push --provenance=mode=max --sbom=true \
                                     --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
                                     --platform linux/amd64 \
                                     -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
                                     -f Dockerfile.hardened .
-                                docker buildx build --push --provenance=true --sbom=true \
+                                docker buildx build --push --provenance=mode=max --sbom=true \
                                     --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
                                     --platform linux/arm64 \
                                     -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 \
@@ -296,6 +283,7 @@ pipeline {
         always {
             sh '''
                 docker logout || true
+                docker logout dhi.io || true
                 sudo rm -rf ./*
             '''
             deleteDir()

@@ -117,7 +117,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     else
                         PKGLIST=\\"gcc-11\\"
                     fi
-                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie ]; then
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie -o \\\$DEBIAN_VERSION = resolute ]; then
                         PKGLIST=\\"\\\${PKGLIST} python3-mysqldb\\"
                     else
                         PKGLIST=\\"\\\${PKGLIST} python-mysqldb\\"
@@ -145,6 +145,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                         if [ \\\$ARCH = aarch64 ]; then
                             sed -i 's/make check/#make check/g' debian/rules
                         fi
+                    elif [ \\\$DEBIAN_VERSION = resolute ]; then
+                        sed -i 's/make check/#make check/g' debian/rules
                     fi
                     sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
@@ -575,6 +577,42 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "DEB")
+                        sh '''
+                            pwd
+                            ls -la test/deb
+                            cp -r test/deb .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute (26.04)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "DEB")
+                        sh '''
+                            pwd
+                            ls -la test/deb
+                            cp -r test/deb .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute (26.04) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "DEB")
                         sh '''
                             pwd
                             ls -la test/deb

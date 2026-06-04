@@ -155,20 +155,18 @@ parameters {
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
-        string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
-        string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
-        string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Enable fipsmode',
-            name: 'FIPSMODE')
+        string(defaultValue: 'release-8.0.43-34', description: 'release Tag/Branch for percona-servers repository or a ps version in format 8.0.43-34', name: 'BRANCH')
+        string(
+            defaultValue: '1',
+            description: 'RPM release value',
+            name: 'RPM_RELEASE')
         choice(
             choices: 'percona\nmysql',
-            description: 'Which mysql-shell version have to be used in images.',
+            description: 'Which mysql-shell version should be used in images',
             name: 'MYSQLSHELL')
         choice(
             choices: 'testing\nexperimental\nrelease',
-            description: 'Repo component to push packages to',
+            description: 'Repository component used to retrieve packages',
             name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
@@ -196,18 +194,27 @@ parameters {
                                 Dockerfile="Dockerfile-mysqlsh-upstream"
                             fi
 
-                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
-
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                #MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                            if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
+                                PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                                PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                                if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                else
+                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                fi
                             else
-                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                                #MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                                TMP=$(mktemp)
+                                curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "${TMP}"
+                                VER_MAJOR=$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_MINOR=$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_PATCH=$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_EXTRA=$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                rm -f "${TMP}"
+                                PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
+                                PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                                MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                             fi
+                            MYSQL_ROUTER_RELEASE=${PS_RELEASE}
 
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
@@ -232,7 +239,7 @@ parameters {
                             case ${PS_MAJOR_RELEASE} in
                                 80) cd percona-server-8.0 ;;
                                 84) cd percona-server-8.4 ;;
-                                9*) cd percona-server-9.x ;;
+                                *) cd percona-server-9.x ;;
                             esac
 
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
@@ -261,8 +268,9 @@ parameters {
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
 
                             case ${PS_MAJOR_RELEASE} in
-                                84) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts testing/g" Dockerfile ;;
-                                9*) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-9x-innovation testing/g" Dockerfile ;;
+                                80) echo "no sed command is required" ;;
+                                84) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts ${COMPONENT}/g" Dockerfile ;;
+                                *) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-9x-innovation ${COMPONENT}/g" Dockerfile ;;
                             esac
 
                             if [ ${ORGANIZATION} != "percona" ]; then
@@ -414,12 +422,15 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                def slackChannel = (env.BRANCH in ['trunk', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
+                if (slackChannel) {
+                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                }
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION})build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

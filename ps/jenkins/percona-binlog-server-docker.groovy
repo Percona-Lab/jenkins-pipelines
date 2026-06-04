@@ -58,6 +58,10 @@ parameters {
         string(defaultValue: '0.1.0', description: 'PBS Version', name: 'VERSION')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to get packages',
+            name: 'COMPONENT')
+        choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
