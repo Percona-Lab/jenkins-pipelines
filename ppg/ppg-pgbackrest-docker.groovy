@@ -32,6 +32,9 @@ pipeline {
             }
         }
         stage ('Build image') {
+            when {
+                not { environment name: 'TARGET_REPO', value: 'DockerHub' }
+            }
             steps {
                 sh """
                     export DOCKER_CLI_EXPERIMENTAL=enabled
@@ -50,6 +53,9 @@ pipeline {
             }
         }
         stage ('Run trivy analyzer') {
+            when {
+                not { environment name: 'TARGET_REPO', value: 'DockerHub' }
+            }
             steps {
                 installTrivy(method: 'binary', junitTpl: true)
                 sh """
@@ -118,15 +124,23 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
+                         export DOCKER_CLI_EXPERIMENTAL=enabled
+                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                         sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo systemctl restart docker
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest percona/percona-pgbackrest:${env.IMAGE_VER}-amd64
-                         docker push percona/percona-pgbackrest:${env.IMAGE_VER}-amd64
-                         docker tag percona-pgbackrest percona/percona-pgbackrest:\$MAJ_VER-amd64
-                         docker push percona/percona-pgbackrest:\$MAJ_VER-amd64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbackrest:${env.IMAGE_VER}-amd64 \\
+                             perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbackrest:\$MAJ_VER-amd64 \\
+                             perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbackrest percona/percona-pgbackrest:latest
-                            docker push percona/percona-pgbackrest:latest
+                             docker buildx imagetools create \\
+                                 -t percona/percona-pgbackrest:latest \\
+                                 perconalab/percona-pgbackrest:latest
                          fi
                      """
                 }
