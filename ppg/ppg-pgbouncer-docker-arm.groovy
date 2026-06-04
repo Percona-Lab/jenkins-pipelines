@@ -32,6 +32,9 @@ pipeline {
             }
         }
         stage ('Build image') {
+            when {
+                not { environment name: 'TARGET_REPO', value: 'DockerHub' }
+            }
             steps {
                 sh """
                     sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
@@ -128,43 +131,33 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
+                         sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
+                         export DOCKER_CLI_EXPERIMENTAL=enabled
+                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                         sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-arm64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo systemctl restart docker
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer percona/percona-pgbouncer:${env.IMAGE_VER}-arm64
-                         docker push percona/percona-pgbouncer:${env.IMAGE_VER}-arm64
-                         docker tag percona-pgbouncer percona/percona-pgbouncer:\$MAJ_VER-arm64
-                         docker push percona/percona-pgbouncer:\$MAJ_VER-arm64
-
-                         docker manifest create --amend percona/percona-pgbouncer:${env.IMAGE_VER} \
-                            percona/percona-pgbouncer:${env.IMAGE_VER}-amd64 \
-                            percona/percona-pgbouncer:${env.IMAGE_VER}-arm64
-                         docker manifest annotate percona/percona-pgbouncer:${env.IMAGE_VER} \
-                            percona/percona-pgbouncer:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbouncer:${env.IMAGE_VER} \
-                            percona/percona-pgbouncer:${env.IMAGE_VER}-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbouncer:${env.IMAGE_VER}
-                         docker manifest push percona/percona-pgbouncer:${env.IMAGE_VER}
-
-                         docker manifest create --amend percona/percona-pgbouncer:\$MAJ_VER \
-                            percona/percona-pgbouncer:\$MAJ_VER-amd64 \
-                            percona/percona-pgbouncer:\$MAJ_VER-arm64
-                         docker manifest annotate percona/percona-pgbouncer:\$MAJ_VER \
-                            percona/percona-pgbouncer:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbouncer:\$MAJ_VER \
-                            percona/percona-pgbouncer:\$MAJ_VER-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbouncer:\$MAJ_VER
-                         docker manifest push percona/percona-pgbouncer:\$MAJ_VER
-
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbouncer:${env.IMAGE_VER}-arm64 \\
+                             perconalab/percona-pgbouncer:${env.IMAGE_VER}-arm64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbouncer:\$MAJ_VER-arm64 \\
+                             perconalab/percona-pgbouncer:\$MAJ_VER-arm64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbouncer:${env.IMAGE_VER} \\
+                             perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64 \\
+                             perconalab/percona-pgbouncer:${env.IMAGE_VER}-arm64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbouncer:\$MAJ_VER \\
+                             perconalab/percona-pgbouncer:\$MAJ_VER-amd64 \\
+                             perconalab/percona-pgbouncer:\$MAJ_VER-arm64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker manifest create --amend percona/percona-pgbouncer:latest \
-                               percona/percona-pgbouncer:\$MAJ_VER-amd64 \
-                               percona/percona-pgbouncer:\$MAJ_VER-arm64
-                            docker manifest annotate percona/percona-pgbouncer:latest \
-                               percona/percona-pgbouncer:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                            docker manifest annotate percona/percona-pgbouncer:latest \
-                               percona/percona-pgbouncer:\$MAJ_VER-amd64 --os linux --arch amd64
-                            docker manifest inspect percona/percona-pgbouncer:latest
-                            docker manifest push percona/percona-pgbouncer:latest
+                             docker buildx imagetools create \\
+                                 -t percona/percona-pgbouncer:latest \\
+                                 perconalab/percona-pgbouncer:\$MAJ_VER-amd64 \\
+                                 perconalab/percona-pgbouncer:\$MAJ_VER-arm64
                          fi
                      """
                 }

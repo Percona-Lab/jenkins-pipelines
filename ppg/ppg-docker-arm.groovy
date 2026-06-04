@@ -33,6 +33,9 @@ pipeline {
             }
         }
         stage ('Build image') {
+            when {
+                not { environment name: 'TARGET_REPO', value: 'DockerHub' }
+            }
             steps {
                 sh """
                     sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
@@ -310,105 +313,36 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     script {
-                        sh "docker login -u '${USER}' -p '${PASS}'"
+                        sh """
+                            sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
+                            export DOCKER_CLI_EXPERIMENTAL=enabled
+                            sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-arm64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo systemctl restart docker
+                            docker login -u '${USER}' -p '${PASS}'
+                        """
                         if (params.BUILD_UBI9) {
                             sh """
                                 MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                                 MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                                docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
-                                docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
-                                docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:\$MAJ_VER-arm64
-                                docker push percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
-                                docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
-                                docker push percona/percona-distribution-postgresql:\$MAJ_VER-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER-arm64 perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER} perconalab/percona-distribution-postgresql:${env.IMAGE_VER}
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER
 
-                                docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
-                                docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
-                                docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
-                                docker push percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
-                                docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
-                                docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
-
-                                docker manifest create --amend percona/percona-distribution-postgresql:${env.IMAGE_VER} \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql:${env.IMAGE_VER} \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql:${env.IMAGE_VER} \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql:${env.IMAGE_VER}
-                                docker manifest push percona/percona-distribution-postgresql:${env.IMAGE_VER}
-
-                                docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
-                                docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
-
-                                docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-amd64 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER
-                                docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
-                                docker manifest push percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER
-                                docker manifest push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER
-                                docker manifest push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER
 
                                 if [ ${params.LATEST} = "yes" ]; then
-                                   docker manifest create --amend percona/percona-distribution-postgresql:latest \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-amd64 \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-arm64
-                                   docker manifest annotate percona/percona-distribution-postgresql:latest \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                                   docker manifest annotate percona/percona-distribution-postgresql:latest \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-amd64 --os linux --arch amd64
-                                   docker manifest inspect percona/percona-distribution-postgresql:latest
-                                   docker manifest push percona/percona-distribution-postgresql:latest
-
-                                   docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:latest \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64 \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
-                                   docker manifest annotate percona/percona-distribution-postgresql-with-postgis:latest \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                                   docker manifest annotate percona/percona-distribution-postgresql-with-postgis:latest \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64 --os linux --arch amd64
-                                   docker manifest inspect percona/percona-distribution-postgresql-with-postgis:latest
-                                   docker manifest push percona/percona-distribution-postgresql-with-postgis:latest
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql:latest perconalab/percona-distribution-postgresql:latest
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:latest perconalab/percona-distribution-postgresql-with-postgis:latest
                                 fi
                             """
                         }
@@ -416,100 +350,23 @@ pipeline {
                             sh """
                                 MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                                 MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                                docker tag percona-distribution-postgresql:ubi8 percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-arm64
-                                docker tag percona-distribution-postgresql:ubi8 percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-arm64
-                                docker tag percona-distribution-postgresql:ubi8 percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-arm64 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-arm64 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64 perconalab/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql:\$MAJ_VER-ubi8
 
-                                docker tag percona-distribution-postgresql-with-postgis:ubi8 percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-arm64
-                                docker tag percona-distribution-postgresql-with-postgis:ubi8 percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-arm64
-                                docker tag percona-distribution-postgresql-with-postgis:ubi8 percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-arm64
-                                docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64
-
-                                docker manifest create --amend percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8 \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-amd64 \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8 \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8 \
-                                   percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8
-                                docker manifest push percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8
-
-                                docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-amd64 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8
-                                docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8
-
-                                docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER-ubi8 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER-ubi8 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER-ubi8 \
-                                   percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER-ubi8
-                                docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER-ubi8
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-amd64 \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8
-                                docker manifest push percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-amd64 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8
-                                docker manifest push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8
-
-                                docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                docker manifest annotate percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 \
-                                   percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64 --os linux --arch amd64
-                                docker manifest inspect percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8
-                                docker manifest push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-arm64 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-arm64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8
 
                                 if [ ${params.LATEST} = "yes" ]; then
-                                   docker manifest create --amend percona/percona-distribution-postgresql:latest-ubi8 \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64 \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64
-                                   docker manifest annotate percona/percona-distribution-postgresql:latest-ubi8 \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                   docker manifest annotate percona/percona-distribution-postgresql:latest-ubi8 \
-                                      percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64 --os linux --arch amd64
-                                   docker manifest inspect percona/percona-distribution-postgresql:latest-ubi8
-                                   docker manifest push percona/percona-distribution-postgresql:latest-ubi8
-
-                                   docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:latest-ubi8 \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64 \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64
-                                   docker manifest annotate percona/percona-distribution-postgresql-with-postgis:latest-ubi8 \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-arm64 --os linux --arch arm64 --variant v8
-                                   docker manifest annotate percona/percona-distribution-postgresql-with-postgis:latest-ubi8 \
-                                      percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64 --os linux --arch amd64
-                                   docker manifest inspect percona/percona-distribution-postgresql-with-postgis:latest-ubi8
-                                   docker manifest push percona/percona-distribution-postgresql-with-postgis:latest-ubi8
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql:latest-ubi8 perconalab/percona-distribution-postgresql:latest-ubi8
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:latest-ubi8 perconalab/percona-distribution-postgresql-with-postgis:latest-ubi8
                                 fi
                             """
                         }
