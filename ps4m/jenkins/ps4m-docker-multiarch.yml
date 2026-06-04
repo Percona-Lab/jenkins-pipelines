@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-ps4m-docker-RELEASE
+    name: hetzner-ps4m-docker-multiarch
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ps4m/jenkins/ps4m-docker.groovy
+      script-path: ps4m/jenkins/ps4m-docker-multiarch.groovy
