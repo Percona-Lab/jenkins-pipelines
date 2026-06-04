@@ -6,7 +6,17 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
+        ls -laR ./
+        # Backup properties file if it exists
+        if [ -f test/percona-server-mongodb-mongot.properties ]; then
+            cp test/percona-server-mongodb-mongot.properties percona-server-mongodb-mongot.properties.backup
+        fi
+        rm -rf test/*
         mkdir -p test
+        # Restore properties file if it was backed up
+        if [ -f percona-server-mongodb-mongot.properties.backup ]; then
+            mv percona-server-mongodb-mongot.properties.backup test/percona-server-mongodb-mongot.properties
+        fi
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/mongot_builder.sh -O mongot_builder.sh
         chmod +x mongot_builder.sh
         pwd -P
@@ -38,8 +48,8 @@ pipeline {
             description: 'Cloud infra for build',
             name: 'CLOUD')
         string(
-            defaultValue: 'https://github.com/vorsel/percona-mongot.git',
-            description: 'URL for Percona mongot fork (contains percona-packaging/)',
+            defaultValue: 'https://github.com/percona/percona-mongot.git',
+            description: 'URL for Percona Search for MongoDB (mongot) repository (contains percona-packaging/)',
             name: 'GIT_REPO')
         string(
             defaultValue: 'main',
