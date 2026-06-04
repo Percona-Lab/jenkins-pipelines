@@ -382,6 +382,10 @@ parameters {
         string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
+        string(
+            defaultValue: '',
+            description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
+            name: 'BUILD_STAGES')
         choice(
             choices: 'OFF\nON',
             description: 'The TokuDB storage is no longer supported since 8.0.28',
@@ -507,8 +511,8 @@ parameters {
                     psBuildMatrix(
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
-                        fipsMode: env.FIPSMODE
-                        onlyStages: ['Oracle Linux 9', 'Oracle Linux 9 ARM']
+                        fipsMode: env.FIPSMODE,
+                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
                     )
                 }
             }
