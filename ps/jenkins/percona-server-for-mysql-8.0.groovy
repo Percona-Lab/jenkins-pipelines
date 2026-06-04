@@ -406,6 +406,10 @@ parameters {
             choices: '#releases\n#releases-ci',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
+        string(
+            defaultValue: '',
+            description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
+            name: 'BUILD_STAGES')
     }
     options {
         skipDefaultCheckout()
@@ -522,16 +526,64 @@ parameters {
                 installCli("rpm")
                 unstash 'properties'
 
-                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
+                script {
+                    def rpmStages = [
+                        'Oracle Linux 8', 'Centos 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { rpmStages.contains(it) }) {
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                script {
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Noble(24.04)', 'Ubuntu Resolute(26.04)',
+                        'Debian Bullseye(11)', 'Debian Bookworm(12)', 'Debian Trixie(13)',
+                        'Ubuntu Jammy(22.04) ARM', 'Ubuntu Noble(24.04) ARM', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bullseye(11) ARM', 'Debian Bookworm(12) ARM', 'Debian Trixie(13) ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                script {
+                    def tarballStages = [
+                        'Oracle Linux 8 binary tarball', 'Oracle Linux 8 debug tarball',
+                        'Oracle Linux 9 tarball', 'Oracle Linux 9 ZenFS tarball', 'Oracle Linux 9 debug tarball',
+                        'Ubuntu Focal(20.04) tarball', 'Ubuntu Focal(20.04) debug tarball',
+                        'Ubuntu Jammy(22.04) tarball', 'Ubuntu Jammy(22.04) ZenFS tarball', 'Ubuntu Jammy(22.04) debug tarball'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { tarballStages.contains(it) }) {
+                        uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                // signDEB()
+                script {
+                    def rpmStages = [
+                        'Oracle Linux 8', 'Centos 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM'
+                    ]
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Noble(24.04)', 'Ubuntu Resolute(26.04)',
+                        'Debian Bullseye(11)', 'Debian Bookworm(12)', 'Debian Trixie(13)',
+                        'Ubuntu Jammy(22.04) ARM', 'Ubuntu Noble(24.04) ARM', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bullseye(11) ARM', 'Debian Bookworm(12) ARM', 'Debian Trixie(13) ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { rpmStages.contains(it) }) {
+                        signRPM()
+                    }
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        signDEB()
+                    }
+                }
             }
         }
         stage('Push to public repository') {
