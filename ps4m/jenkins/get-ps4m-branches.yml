@@ -7,9 +7,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/vorsel/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'PSMDB-1945_psmdb.cd_add_mongot_build_pipelie'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: ps4m/jenkins/get-ps4m-branches.groovy
