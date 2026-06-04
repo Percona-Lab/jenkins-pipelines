@@ -38,13 +38,13 @@ pipeline {
 //            }
 //        }
         stage ('Create multi-arch (amd64+arm) docker image') {
-            steps {
-                script {
-                    def version = params.PCSM_VERSION + '-1'
-                    build job: 'hetzner-pcsm-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_REPO_CH', value: 'testing' ), string(name: 'PCSM_VERSION', value: version), string(name: 'LATEST', value: "no") ]
-                }
-            }
-        }
+//            steps {
+//                script {
+//                    def version = params.PCSM_VERSION + '-1'
+//                    build job: 'hetzner-pcsm-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_REPO_CH', value: 'testing' ), string(name: 'PCSM_VERSION', value: version), string(name: 'LATEST', value: "no") ]
+//                }
+//            }
+//        }
         stage ('Run PCSM tarball/docker SBOM tests') {
             steps {
                 script {
