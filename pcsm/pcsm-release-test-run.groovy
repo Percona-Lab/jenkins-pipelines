@@ -37,7 +37,7 @@ pipeline {
 //                }
 //            }
 //        }
-        stage ('Create multi-arch (amd64+arm) docker image') {
+//        stage ('Create multi-arch (amd64+arm) docker image') {
 //            steps {
 //                script {
 //                    def version = params.PCSM_VERSION + '-1'
