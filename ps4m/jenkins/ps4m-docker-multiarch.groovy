@@ -111,7 +111,7 @@ pipeline {
             description: 'percona-release channel containing the mongot RPM. Preview builds currently land in `experimental`. Promotion path: laboratory → testing → experimental → release.')
         string(name: 'PSMDB_REPO',     defaultValue: 'psmdb-83',
             description: 'percona-release repo name (mongot ships under PSMDB repo).')
-        string(name: 'DOCKER_REPO',    defaultValue: 'https://github.com/vorsel/percona-docker.git',
+        string(name: 'DOCKER_REPO',    defaultValue: 'https://github.com/percona/percona-docker.git',
             description: 'Source repo for the Dockerfile.')
         string(name: 'DOCKER_BRANCH',  defaultValue: 'main',
             description: 'Branch/tag in DOCKER_REPO.')
