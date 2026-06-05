@@ -21,12 +21,12 @@ pipeline {
     stages {
         stage ('Run PCSM functional tests') {
             steps {
-                build job: 'hetzner-pcsm-functional-tests', propagate: false, parameters: [ string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_BRANCH', value: params.PCSM_BRANCH )]
+                build job: 'hetzner-pcsm-functional-tests', propagate: false, parameters: [ string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_BRANCH', value: 'release' + params.PCSM_BRANCH )]
             }
         }
         stage ('Run PCSM package tests') {
             steps {
-                build job: 'pcsm-packaging', parameters: [ string(name: 'pcsm_version', value: params.PCSM_VERSION), string(name: 'install_repo', value: "testing" )]
+                build job: 'pcsm-packaging', parameters: [ string(name: 'pcsm_version', value: 'release-' + params.PCSM_VERSION), string(name: 'install_repo', value: "testing" )]
             }
         }
         stage ('Create multi-arch (amd64+arm) docker image') {
