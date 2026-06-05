@@ -122,6 +122,10 @@ pipeline {
             description: "Skips checking CVE stage",
             name: 'SKIP_CVE_TEST'
         )
+        string(
+            defaultValue: '───────── Push Options ─────────',
+            description: '',
+            name: 'SEPARATOR_PUSH_OPTIONS')
         choice(
             choices: 'YES\nNO',
             description: 'Push amazonlinux 2023 packages',
@@ -147,6 +151,10 @@ pipeline {
             description: 'Push resolute packages',
             name: 'PUSHRESOLUTE'
         )
+        string(
+            defaultValue: '────────────────────────────────',
+            description: '',
+            name: 'SEPARATOR_PUSH_OPTIONS_END')
     }
     options {
         skipDefaultCheckout()
