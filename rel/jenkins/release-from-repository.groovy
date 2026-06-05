@@ -35,6 +35,23 @@ pipeline {
             choices: 'NO\nYES',
             description: 'PRO build',
             name: 'PROBUILD')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Push RHEL 10 packages',
+            name: 'PUSHRHEL10'
+        )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Enable if focal packages have to be pushed',
+            name: 'PUSHFOCAL')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Enable if resolute packages have to be pushed',
+            name: 'PUSHRESOLUTE')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Push trixie packages',
+            name: 'PUSHTRIXIE')
         booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository')
         booleanParam(name: 'SKIP_DEB_PUSH', defaultValue: false, description: 'Skip push to DEB repository')
         booleanParam(name: 'SKIP_PACKAGES_SYNC', defaultValue: false, description: 'Skip sync packages to production download')
@@ -85,7 +102,11 @@ pipeline {
                                        export REPOPATH="repo-copy/"\${PRO_FOLDER}\${LCREPOSITORY}"/yum"
                                     fi
                                     echo \${REPOPATH}
-                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                    if [ ${PUSHRHEL10} = YES ]; then
+                                        RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                    else
+                                        RHVERS=\$(ls -1 binary/redhat | grep -v 10 | grep -v 6)
+                                    fi
                                     # -------------------------------------> source processing
                                     if [[ -d source/redhat ]]; then
                                         SRCRPM=\$(find source/redhat -name '*.src.rpm')
@@ -166,6 +187,15 @@ ENDSSH
                                     echo "<*> reprepro binary is "\$(which reprepro)
                                     cd /srv/UPLOAD/${PATH_TO_BUILD}/binary/debian
                                     CODENAMES=\$(ls -1)
+                                    if [ ${PUSHFOCAL} != YES ]; then
+                                        CODENAMES=\$(echo "\${CODENAMES}" | grep -v focal)
+                                    fi
+                                    if [ ${PUSHRESOLUTE} != YES ]; then
+                                        CODENAMES=\$(echo "\${CODENAMES}" | grep -v resolute)
+                                    fi
+                                    if [ ${PUSHTRIXIE} != YES ]; then
+                                        CODENAMES=\$(echo "\${CODENAMES}" | grep -v trixie)
+                                    fi
                                     echo "<*> Distributions are: "\${CODENAMES}
                                     # -------------------------------------> source pushing, it's a bit specific
                                     if [[ ${REMOVE_LOCKFILE} = true ]]; then
