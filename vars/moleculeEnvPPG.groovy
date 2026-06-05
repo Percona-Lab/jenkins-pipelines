@@ -3,8 +3,17 @@ def call() {
         export ami_debian11_x86_64=ami-009e9420630204b5d
         export ami_debian12_x86_64=ami-09ca7bd4727fb280b
         export ami_debian13_x86_64=ami-0da1f66573556d917
-        export ami_ol8_x86_64=ami-058eb9eaa259563c0
-        export ami_ol9_x86_64=ami-0514f056ab68c7863
+        # Oracle Linux AMIs: resolved dynamically to the newest factory-built base
+        # per major+arch (tag role=ppg-package-test) so they auto-update on each
+        # rebake instead of being hand-pinned. boto3 (not the aws CLI):
+        # the molecule agent has boto3 (installMoleculePython39) but not always the CLI.
+        # Fail-closed: assign on its own line (a bare assignment propagates the
+        # helper's non-zero exit; an inline 'export VAR=...' masks it as export's
+        # status), then '|| exit 1' aborts the step rather than launch an empty image.
+        _ppg_ol_ami() { python3 -c "import sys,boto3,botocore.config as C; m,a=sys.argv[1],sys.argv[2]; i=sorted(boto3.client('ec2',region_name='eu-central-1',config=C.Config(retries={'max_attempts':8,'mode':'standard'})).describe_images(Owners=['self'],Filters=[{'Name':'tag:role','Values':['ppg-package-test']},{'Name':'tag:os','Values':['oraclelinux']},{'Name':'tag:os_major','Values':[m]},{'Name':'tag:arch','Values':[a]},{'Name':'state','Values':['available']}])['Images'],key=lambda x:x['CreationDate']); sys.stdout.write(i[-1]['ImageId'] if i else ''); sys.exit(0 if i else 1)" "\$1" "\$2"; }
+        ami_ol8_x86_64=\$(_ppg_ol_ami 8 x86_64) || exit 1; export ami_ol8_x86_64
+        ami_ol9_x86_64=\$(_ppg_ol_ami 9 x86_64) || exit 1; export ami_ol9_x86_64
+        ami_ol10_x86_64=\$(_ppg_ol_ami 10 x86_64) || exit 1; export ami_ol10_x86_64
         export ami_rhel8_x86_64=ami-0d38405c22c6dfaf3
         export ami_rhel9_x86_64=ami-01ea92f779cc1c71f
         export ami_rhel10_x86_64=ami-01777900cf626c469
@@ -17,8 +26,9 @@ def call() {
         export ami_debian11_arm64=ami-08bb051b83411b514
         export ami_debian12_arm64=ami-04991928175cf27a1
         export ami_debian13_arm64=ami-08241d277446b81d7
-        export ami_ol8_arm64=ami-02063adb64607f0f3
-        export ami_ol9_arm64=ami-0fcd8b1be597c5fcd
+        ami_ol8_arm64=\$(_ppg_ol_ami 8 arm64) || exit 1; export ami_ol8_arm64
+        ami_ol9_arm64=\$(_ppg_ol_ami 9 arm64) || exit 1; export ami_ol9_arm64
+        ami_ol10_arm64=\$(_ppg_ol_ami 10 arm64) || exit 1; export ami_ol10_arm64
         export ami_rhel8_arm64=ami-05796f88f5487ea38
         export ami_rhel9_arm64=ami-024a0efb56778bc6b
         export ami_rhel10_arm64=ami-0ad16a1fbf63249be
