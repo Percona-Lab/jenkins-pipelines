@@ -1,0 +1,72 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: pmm.cd S3 buckets in us-east-1 (PMM Server OVA / docker image tarball storage).
+
+Resources:
+
+  PerconaVmBucket: # PMM Server OVA images and docker image tarballs (public-read via ACL + bucket policy; CloudTrail audit trail)
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: percona-vm
+      AccessControl: PublicRead
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      LifecycleConfiguration:
+        TransitionDefaultMinimumObjectSize: varies_by_storage_class
+        Rules:
+          - Id: Remove after 3 months
+            Status: Enabled
+            Prefix: ''
+            ExpirationInDays: 90
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      LoggingConfiguration:
+        DestinationBucketName: s3-access-logs-119175775298
+        LogFilePrefix: logs/percona-vm/
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      Tags:
+      - Key: PerconaApproved
+        Value: HD-26384
+
+  PerconaVmBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref PerconaVmBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowPublicRead
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action: s3:GetObject
+            Resource: arn:aws:s3:::percona-vm/*.ova
+          - Sid: AWSCloudTrailAclCheck20150319
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: arn:aws:s3:::percona-vm
+          - Sid: AWSCloudTrailWrite20150319
+            Effect: Allow
+            Principal:
+              Service: cloudtrail.amazonaws.com
+            Action: s3:PutObject
+            Resource: arn:aws:s3:::percona-vm/AWSLogs/119175775298/*
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control

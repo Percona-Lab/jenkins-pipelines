@@ -1,0 +1,57 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Cross-fleet percona-jenkins-artifactory S3 bucket (shared by every Jenkins master).
+
+Resources:
+
+  PerconaJenkinsArtifactoryBucket: # Shared artefact / property-file store referenced by every master's pipelines and IAM grants
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: percona-jenkins-artifactory
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      LoggingConfiguration:
+        DestinationBucketName: s3-access-logs-119175775298
+        LogFilePrefix: logs/percona-jenkins-artifactory/
+      LifecycleConfiguration:
+        TransitionDefaultMinimumObjectSize: all_storage_classes_128K
+        Rules:
+          - Id: 30 Days Cleanup
+            Status: Enabled
+            Prefix: pxc-
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: 30 Days cloud-*
+            Status: Enabled
+            Prefix: cloud-
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: 30 Days fb-*
+            Status: Enabled
+            Prefix: fb-
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+          - Id: 30 Days psmdb-*
+            Status: Enabled
+            Prefix: psmdb-
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: BUILDS
+            Status: Enabled
+            Prefix: BUILDS/
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+              NewerNoncurrentVersions: 2
+      Tags:
+      - Key: iit-billing-tag
+        Value: jenkins

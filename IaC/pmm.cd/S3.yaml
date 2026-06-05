@@ -1,0 +1,45 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: pmm.cd S3 buckets (us-east-2 stack; percona-vm in us-east-1 is in IaC/pmm.cd/S3-us-east-1.yaml).
+
+Resources:
+
+  PmmBuildCacheBucket: # PR-build pmm-client tarballs (public-read via ACL + bucket policy)
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: pmm-build-cache
+      AccessControl: PublicRead
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      LifecycleConfiguration:
+        TransitionDefaultMinimumObjectSize: varies_by_storage_class
+        Rules:
+          - Id: delete_files_older_than_30_days
+            Status: Enabled
+            ExpirationInDays: 30
+      Tags:
+      - Key: PerconaApproved
+        Value: HD-26384
+      - Key: iit-billing-tag
+        Value: pmm-feature-builds
+
+  PmmBuildCacheBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref PmmBuildCacheBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowPublicRead
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action: s3:GetObject
+            Resource: arn:aws:s3:::pmm-build-cache/*
