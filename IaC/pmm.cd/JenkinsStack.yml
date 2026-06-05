@@ -534,7 +534,7 @@ Resources:
               LaunchTemplateId: !Ref JMasterTemplate
               Version: !Ref MasterLtVersion
             Overrides:
-              - InstanceType: g4ad.xlarge
+              - InstanceType: m7i.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
               - InstanceType: m7a.xlarge
