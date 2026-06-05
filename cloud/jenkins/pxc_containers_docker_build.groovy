@@ -11,7 +11,7 @@ void build(String IMAGE_PREFIX){
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile-proxysql2 proxysql
         elif [ ${IMAGE_PREFIX} = proxysql3 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile-proxysql3 proxysql3
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile-proxysql3 proxysql
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
             docker build --no-cache --squash --build-arg PXC_REPO=release --build-arg TOOLS_REPO=release --build-arg PXB_REPO=release --build-arg PS_REPO=release \
                 -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-8.0/Dockerfile percona-xtrabackup-8.0
