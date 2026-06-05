@@ -473,6 +473,7 @@ pipeline {
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
+        timeout(time: 6, unit: 'HOURS')
     }
         stages {
             stage('Set Build Name'){
