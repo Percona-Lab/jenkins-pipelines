@@ -26,7 +26,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./mongot_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./mongot_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --version=${VERSION} ${STAGE_PARAM}"
+            bash -x ./mongot_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --version=${VERSION} --ps4m_release=${PS4M_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -61,12 +61,8 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
+            description: 'Package release/revision number (same for rpm and deb)',
+            name: 'PS4M_RELEASE')
         string(
             defaultValue: 'psmdb-83',
             description: 'Target repo name for sync2ProdAutoBuild (mongot is shipped under PSMDB repo)',

@@ -26,12 +26,8 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
+            description: 'Package release/revision number (same for rpm and deb)',
+            name: 'PS4M_RELEASE')
         string(
             defaultValue: 'psmdb-83',
             description: 'Target repo name for the build job (mongot is shipped under the PSMDB repo)',
@@ -101,10 +97,9 @@ pipeline {
                     string(name: 'CLOUD',       value: params.CLOUD),
                     string(name: 'GIT_REPO',    value: params.GIT_REPO),
                     string(name: 'GIT_BRANCH',  value: BRANCH_NAME),
-                    string(name: 'VERSION',     value: params.VERSION),
-                    string(name: 'RPM_RELEASE', value: params.RPM_RELEASE),
-                    string(name: 'DEB_RELEASE', value: params.DEB_RELEASE),
-                    string(name: 'MONGOT_REPO', value: params.MONGOT_REPO),
+                    string(name: 'VERSION',      value: params.VERSION),
+                    string(name: 'PS4M_RELEASE', value: params.PS4M_RELEASE),
+                    string(name: 'MONGOT_REPO',  value: params.MONGOT_REPO),
                     string(name: 'COMPONENT',   value: 'testing')
                 ]
             }
