@@ -123,7 +123,7 @@ pipeline {
             name: 'SKIP_CVE_TEST'
         )
         string(
-            defaultValue: '───────── Push Options ─────────',
+            defaultValue: '---------───────── Push Options ─────────----------',
             description: '',
             name: 'SEPARATOR_PUSH_OPTIONS')
         choice(
@@ -151,10 +151,6 @@ pipeline {
             description: 'Push resolute packages',
             name: 'PUSHRESOLUTE'
         )
-        string(
-            defaultValue: '────────────────────────────────',
-            description: '',
-            name: 'SEPARATOR_PUSH_OPTIONS_END')
     }
     options {
         skipDefaultCheckout()
