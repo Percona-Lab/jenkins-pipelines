@@ -40,11 +40,11 @@ for REPOPATH in $REPOPATH_TMP; do
         if [[ "${PUSHAMAZONLINUX}" == "YES" ]] && [[ "${PUSHRHEL10}" == "YES" ]]; then
             RHVERS=$(ls -1 binary/redhat)
         elif [[ "${PUSHAMAZONLINUX}" == "YES" ]]; then
-            RHVERS=$(ls -1 binary/redhat | grep -v el10)
+            RHVERS=$(ls -1 binary/redhat | grep -v '^10')
         elif [[ "${PUSHRHEL10}" == "YES" ]]; then
             RHVERS=$(ls -1 binary/redhat | grep -v 2023)
         else
-            RHVERS=$(ls -1 binary/redhat | grep -v 2023 | grep -v el10)
+            RHVERS=$(ls -1 binary/redhat | grep -v 2023 | grep -v '^10')
         fi
         #
         # source processing
