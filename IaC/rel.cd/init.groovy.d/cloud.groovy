@@ -243,6 +243,10 @@ initMap['docker'] = '''
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
+    # PXB-3798: qemu-x86_64 for x86_64 helper containers on aarch64 (AL2 path)
+    if [ "$(uname -m)" = "aarch64" ]; then
+        sudo yum install -y qemu-user-static
+    fi
     echo "* * * * * root /usr/sbin/route add default gw 10.199.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
@@ -286,6 +290,7 @@ initMap['micro-amazon'] = '''
     sudo yum -y install git || :
     sudo yum -y install aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+    # PXB-3798: not applicable; this init block has no docker installed, see PXB-3798 description.
 '''
 initMap['min-amazon-2-x64']  = initMap['micro-amazon']
 initMap['min-al2023-x64']    = initMap['micro-amazon']
@@ -392,6 +397,10 @@ initMap['min-buster-x64'] = '''
         sudo apt-get -y install ${JAVA_VER} git
     fi
 
+    # PXB-3798: qemu-x86_64 for x86_64 helper containers on aarch64 (Debian/Ubuntu path)
+    if [ "$(uname -m)" = "aarch64" ]; then
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-user-static binfmt-support
+    fi
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['min-jammy-x64'] = initMap['min-bionic-x64']
