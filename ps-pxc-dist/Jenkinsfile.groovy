@@ -122,6 +122,10 @@ pipeline {
             description: "Skips checking CVE stage",
             name: 'SKIP_CVE_TEST'
         )
+        string(
+            defaultValue: '---------───────── Push Options ─────────----------',
+            description: '',
+            name: 'SEPARATOR_PUSH_OPTIONS')
         choice(
             choices: 'YES\nNO',
             description: 'Push amazonlinux 2023 packages',
@@ -133,14 +137,19 @@ pipeline {
             name: 'PUSHRHEL10'
         )
         choice(
+            choices: 'NO\nYES',
+            description: 'Push focal packages',
+            name: 'PUSHFOCAL'
+        )
+        choice(
             choices: 'YES\nNO',
             description: 'Push trixie packages',
             name: 'PUSHTRIXIE'
         )
         choice(
-            choices: 'NO\nYES',
-            description: 'Push focal packages',
-            name: 'PUSHFOCAL'
+            choices: 'YES\nNO',
+            description: 'Push resolute packages',
+            name: 'PUSHRESOLUTE'
         )
     }
     options {
@@ -173,13 +182,14 @@ pipeline {
                             echo "PUSHAMAZONLINUX=\${PUSHAMAZONLINUX}" >> args_pipeline
                             echo "PUSHRHEL10=\${PUSHRHEL10}" >> args_pipeline
                             echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHRESOLUTE=\${PUSHRESOLUTE}" >> args_pipeline
                             echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
-                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/rpm_release.sh -O rpm_release.sh
+                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/hetzner/ps-pxc-dist/rpm_release.sh -O rpm_release.sh
                                 bash -xe rpm_release.sh
                             "
                         """
@@ -211,13 +221,14 @@ pipeline {
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
                             echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHRESOLUTE=\${PUSHRESOLUTE}" >> args_pipeline
                             echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
-                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/apt_release.sh -O apt_release.sh
+                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/hetzner/ps-pxc-dist/apt_release.sh -O apt_release.sh
                                 bash -xe apt_release.sh
                             "
                         """

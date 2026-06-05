@@ -67,6 +67,11 @@ void cleanUpWS() {
     """
 }
 
+boolean shouldRunStage(String stageName) {
+    def requested = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+    return !requested || requested.contains(stageName)
+}
+
 def installDependencies(def nodeName) {
     def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64', 'min-resolute-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
@@ -217,6 +222,10 @@ parameters {
             choices: '#releases\n#releases-ci',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
+        string(
+            defaultValue: '',
+            description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
+            name: 'BUILD_STAGES')
     }
     options {
         skipDefaultCheckout()
@@ -301,6 +310,7 @@ parameters {
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Oracle Linux 8') {
+                    when { expression { shouldRunStage('Oracle Linux 8') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -323,6 +333,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 8 ARM') {
+                    when { expression { shouldRunStage('Oracle Linux 8 ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -344,6 +355,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9') {
+                    when { expression { shouldRunStage('Oracle Linux 9') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -365,6 +377,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
+                    when { expression { shouldRunStage('Oracle Linux 9 ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -386,6 +399,7 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023') {
+                    when { expression { shouldRunStage('Amazon Linux 2023') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -403,6 +417,7 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
+                    when { expression { shouldRunStage('Amazon Linux 2023 ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -420,6 +435,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 10') {
+                    when { expression { shouldRunStage('Oracle Linux 10') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -441,6 +457,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
+                    when { expression { shouldRunStage('Oracle Linux 10 ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -485,6 +502,7 @@ parameters {
                 }
 */
                 stage('Ubuntu Jammy(22.04)') {
+                    when { expression { shouldRunStage('Ubuntu Jammy(22.04)') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -506,6 +524,7 @@ parameters {
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
+                    when { expression { shouldRunStage('Ubuntu Noble(24.04)') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -525,6 +544,7 @@ parameters {
                     }
                 }
                 stage('Ubuntu Resolute(26.04)') {
+                    when { expression { shouldRunStage('Ubuntu Resolute(26.04)') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -567,6 +587,7 @@ parameters {
                 }
 */
                 stage('Debian Bookworm(12)') {
+                    when { expression { shouldRunStage('Debian Bookworm(12)') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -588,6 +609,7 @@ parameters {
                     }
                 }
                 stage('Debian Trixie(13)') {
+                    when { expression { shouldRunStage('Debian Trixie(13)') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -632,6 +654,7 @@ parameters {
                 }
 */
                 stage('Ubuntu Jammy(22.04) ARM') {
+                    when { expression { shouldRunStage('Ubuntu Jammy(22.04) ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -653,6 +676,7 @@ parameters {
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
+                    when { expression { shouldRunStage('Ubuntu Noble(24.04) ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -672,6 +696,7 @@ parameters {
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
+                    when { expression { shouldRunStage('Ubuntu Resolute(26.04) ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -715,6 +740,7 @@ parameters {
                 }
 */
                 stage('Debian Bookworm(12) ARM') {
+                    when { expression { shouldRunStage('Debian Bookworm(12) ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -737,6 +763,7 @@ parameters {
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
+                    when { expression { shouldRunStage('Debian Trixie(13) ARM') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -759,6 +786,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 8 binary tarball') {
+                    when { expression { shouldRunStage('Oracle Linux 8 binary tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -780,6 +808,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 8 debug tarball') {
+                    when { expression { shouldRunStage('Oracle Linux 8 debug tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -801,6 +830,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
+                    when { expression { shouldRunStage('Oracle Linux 9 tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -822,6 +852,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 ZenFS tarball') {
+                    when { expression { shouldRunStage('Oracle Linux 9 ZenFS tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -843,6 +874,7 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 debug tarball') {
+                    when { expression { shouldRunStage('Oracle Linux 9 debug tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -908,6 +940,7 @@ parameters {
                 }
 */
                 stage('Ubuntu Jammy(22.04) tarball') {
+                    when { expression { shouldRunStage('Ubuntu Jammy(22.04) tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -929,6 +962,7 @@ parameters {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ZenFS tarball') {
+                    when { expression { shouldRunStage('Ubuntu Jammy(22.04) ZenFS tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -950,6 +984,7 @@ parameters {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug tarball') {
+                    when { expression { shouldRunStage('Ubuntu Jammy(22.04) debug tarball') } }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -981,11 +1016,36 @@ parameters {
                 installCli("rpm")
                 unstash 'properties'
 
-                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-
                 script {
-                    if (env.EXPERIMENTALMODE == 'NO') {
+                    def rpmStages = [
+                        'Oracle Linux 8', 'Oracle Linux 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { rpmStages.contains(it) }) {
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                script {
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Noble(24.04)', 'Ubuntu Resolute(26.04)',
+                        'Debian Bookworm(12)', 'Debian Trixie(13)',
+                        'Ubuntu Jammy(22.04) ARM', 'Ubuntu Noble(24.04) ARM', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bookworm(12) ARM', 'Debian Trixie(13) ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                script {
+                    def tarballStages = [
+                        'Oracle Linux 8 binary tarball', 'Oracle Linux 8 debug tarball',
+                        'Oracle Linux 9 tarball', 'Oracle Linux 9 ZenFS tarball', 'Oracle Linux 9 debug tarball',
+                        'Ubuntu Jammy(22.04) tarball', 'Ubuntu Jammy(22.04) ZenFS tarball', 'Ubuntu Jammy(22.04) debug tarball'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (env.EXPERIMENTALMODE == 'NO' && (!requestedStages || requestedStages.any { tarballStages.contains(it) })) {
                         uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
@@ -994,11 +1054,24 @@ parameters {
         stage('Sign packages') {
             steps {
                 script {
-                    if (env.EXPERIMENTALMODE == 'NO') {
+                    def rpmStages = [
+                        'Oracle Linux 8', 'Oracle Linux 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM'
+                    ]
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Noble(24.04)', 'Ubuntu Resolute(26.04)',
+                        'Debian Bookworm(12)', 'Debian Trixie(13)',
+                        'Ubuntu Jammy(22.04) ARM', 'Ubuntu Noble(24.04) ARM', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bookworm(12) ARM', 'Debian Trixie(13) ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (env.EXPERIMENTALMODE == 'NO' && (!requestedStages || requestedStages.any { rpmStages.contains(it) })) {
                         signRPM()
                     }
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        signDEB()
+                    }
                 }
-                signDEB()
             }
         }
         stage('Push to public repository') {
