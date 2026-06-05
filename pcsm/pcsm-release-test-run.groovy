@@ -20,7 +20,7 @@ pipeline {
     stages {
         stage ('Run PCSM functional tests') {
             steps {
-                build job: 'hetzner-pcsm-functional-tests', propagate: false, parameters: [ string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_VERSION', value: 'release-' + params.PCSM_VERSION )]
+                build job: 'hetzner-pcsm-functional-tests', propagate: false, parameters: [ string(name: 'CLOUD', value: params.CLOUD), string(name: 'PCSM_BRANCH', value: 'release-' + params.PCSM_VERSION )]
             }
         }
         stage ('Run PCSM package tests') {
