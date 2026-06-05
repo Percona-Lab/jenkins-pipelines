@@ -65,6 +65,7 @@ void manifestPush(String registry) {
         MAJ_VER=\$(echo \$MIN_VER | awk -F "." '{print \$1}')
         IMG=${registry}/percona-server-mongodb-mongot
         LATEST=${params.LATEST}
+        CH=${params.MONGOT_REPO_CH}
 
         # Assemble the multi-arch manifest from the per-arch tags with
         # `docker buildx imagetools create` (not the legacy `docker manifest`
@@ -88,8 +89,11 @@ void manifestPush(String registry) {
         fi
 
         # `latest` is built from the always-pushed MIN_VER per-arch images
-        # (not MAJ_VER, which may be gated off).
-        if [ "\$LATEST" = "yes" ]; then
+        # (not MAJ_VER, which may be gated off). Fail-closed on channel: only
+        # a `release` build may move the rolling :latest tag, so a preview
+        # build (experimental/testing/laboratory) can never publish :latest
+        # even if LATEST=yes.
+        if [ "\$LATEST" = "yes" ] && [ "\$CH" = "release" ]; then
             docker buildx imagetools create -t \$IMG:latest \\
                 \$IMG:\$MIN_VER-amd64 \\
                 \$IMG:\$MIN_VER-arm64
@@ -118,7 +122,7 @@ pipeline {
         choice(name: 'TARGET_REPO',    choices: ['perconalab', 'percona'],
             description: 'Docker Hub namespace to push to. Use `percona` for releases, `perconalab` for previews.')
         choice(name: 'LATEST',         choices: ['yes', 'no'],
-            description: 'Also tag the multi-arch manifest as :latest. On by default — mongot has no major series yet.')
+            description: 'Also tag the multi-arch manifest as :latest. Takes effect ONLY when MONGOT_REPO_CH=release — a non-release (preview) build never publishes :latest regardless of this value.')
         choice(name: 'MAJOR_TAGS',     choices: ['no', 'yes'],
             description: 'Also push major-only tags (:0, :0-<arch>). Off by default — mongot is on the 0.x series, so a bare major tag (0) is not yet meaningful.')
     }
@@ -149,6 +153,12 @@ pipeline {
                             pushPerArch(params.TARGET_REPO, 'amd64')
                         }
                     }
+                    post {
+                        always {
+                            sh "sudo docker rmi -f \$(sudo docker images -q | uniq) || true"
+                            deleteDir()
+                        }
+                    }
                 }
                 stage('PS4M arm64') {
                     agent {
@@ -160,6 +170,12 @@ pipeline {
                                 passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh 'echo "$PASS" | docker login -u "$USER" --password-stdin'
                             pushPerArch(params.TARGET_REPO, 'arm64')
+                        }
+                    }
+                    post {
+                        always {
+                            sh "sudo docker rmi -f \$(sudo docker images -q | uniq) || true"
+                            deleteDir()
                         }
                     }
                 }
@@ -187,11 +203,11 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00",
+            slackNotify("#mongodb_autofeed", "#00FF00",
                 "[${JOB_NAME}]: Built mongot ${params.MONGOT_VERSION} (${params.TARGET_REPO}, channel ${params.MONGOT_REPO_CH}) — [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000",
+            slackNotify("#mongodb_autofeed", "#FF0000",
                 "[${JOB_NAME}]: Build of mongot ${params.MONGOT_VERSION} failed — [${BUILD_URL}]")
         }
     }
