@@ -35,6 +35,10 @@ pipeline {
             choices: 'NO\nYES',
             description: 'PRO build',
             name: 'PROBUILD')
+        string(
+            defaultValue: '───────── Push Options ─────────',
+            description: '',
+            name: 'SEPARATOR_PUSH_OPTIONS')
         choice(
             choices: 'YES\nNO',
             description: 'Push RHEL 10 packages',
@@ -45,13 +49,17 @@ pipeline {
             description: 'Enable if focal packages have to be pushed',
             name: 'PUSHFOCAL')
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Enable if resolute packages have to be pushed',
             name: 'PUSHRESOLUTE')
         choice(
             choices: 'YES\nNO',
             description: 'Push trixie packages',
             name: 'PUSHTRIXIE')
+        string(
+            defaultValue: '────────────────────────────────',
+            description: '',
+            name: 'SEPARATOR_PUSH_OPTIONS_END')
         booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository')
         booleanParam(name: 'SKIP_DEB_PUSH', defaultValue: false, description: 'Skip push to DEB repository')
         booleanParam(name: 'SKIP_PACKAGES_SYNC', defaultValue: false, description: 'Skip sync packages to production download')
