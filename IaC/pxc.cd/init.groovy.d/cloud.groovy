@@ -718,8 +718,8 @@ devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:12:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-al2023-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-al2023-aarch64'] = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['metal-x64']     = '/dev/sda1=:500:true:gp3'
-devMap['metal-aarch64'] = '/dev/sda1=:500:true:gp3'
+devMap['metal-x64']     = '/dev/sda1=:500:true:io2:6000'
+devMap['metal-aarch64'] = '/dev/sda1=:500:true:io2:6000'
 
 devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:12:true:gp2'
 devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
