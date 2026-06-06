@@ -48,9 +48,23 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         EC=0
+                        # `aws s3 ls <key>` is a prefix match; the marker name is unique so no
+                        # stray object shares this prefix. Exit code: 0=present, 1=absent.
                         AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/branch_commit_id_ps4m.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
 
-                        LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} '${RELEASE_BRANCH_PATTERN}' | tail -1)
+                        if [ "\${EC}" != "0" ] && [ "\${EC}" != "1" ]; then
+                          echo "ERROR: 'aws s3 ls' for the marker failed with exit code \${EC}; aborting to avoid a wrong build decision."
+                          exit \${EC}
+                        fi
+
+                        # Capture git's own exit status separately: a `| tail` pipe would
+                        # mask a git/network failure and the empty result would be misread
+                        # as "no branches" -> silent skip of a real build.
+                        LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} '${RELEASE_BRANCH_PATTERN}') || {
+                          echo "ERROR: 'git ls-remote' against ${GIT_REPO} failed; aborting to avoid a wrong build decision."
+                          exit 1
+                        }
+                        LATEST_RELEASE_BRANCH=\$(echo "\${LATEST_RELEASE_BRANCH}" | tail -1)
                         LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
                         LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
 
@@ -59,12 +73,13 @@ pipeline {
                           echo "START_NEW_BUILD=NO" > startBuild
                           echo "BRANCH_NAME=" > branch_commit_id_ps4m.properties
                           echo "COMMIT_ID=" >> branch_commit_id_ps4m.properties
-                        elif [ \${EC} = 1 ]; then
+                        elif [ "\${EC}" = "1" ]; then
+                          # First watcher run for a never-built product: no marker in S3 yet.
+                          # Build the latest release branch; the S3 marker is written only
+                          # after the downstream build succeeds (see 'Build needed' stage).
                           echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_ps4m.properties
                           echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_ps4m.properties
-
-                          AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_ps4m.properties s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
-                          echo "START_NEW_BUILD=NO" > startBuild
+                          echo "START_NEW_BUILD=YES" > startBuild
                         else
                           AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/branch_commit_id_ps4m.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                           source branch_commit_id_ps4m.properties
@@ -75,9 +90,10 @@ pipeline {
                             echo "START_NEW_BUILD=NO" > startBuild
                           fi
 
+                          # Persist LATEST values locally for the downstream build params;
+                          # the S3 marker is refreshed only after a successful build.
                           echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_ps4m.properties
                           echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_ps4m.properties
-                          AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_ps4m.properties s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                         fi
                     """
                 }
@@ -102,6 +118,21 @@ pipeline {
                     string(name: 'MONGOT_REPO',  value: params.MONGOT_REPO),
                     string(name: 'COMPONENT',   value: 'testing')
                 ]
+                // build job propagates downstream failure, so we only reach here on
+                // success: record the built branch/commit in S3 as the new baseline.
+                // If the build had failed the marker stays unchanged and the next
+                // watcher run retries the same commit.
+                script {
+                    String S3_STASH = (params.CLOUD == 'Hetzner') ? 'HTZ_STASH' : 'AWS_STASH'
+                    String S3_ENDPOINT = (params.CLOUD == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : '--endpoint-url https://s3.amazonaws.com'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh """
+                            echo "BRANCH_NAME=${BRANCH_NAME}" > branch_commit_id_ps4m.properties
+                            echo "COMMIT_ID=${COMMIT_ID}" >> branch_commit_id_ps4m.properties
+                            AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_ps4m.properties s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                        """
+                    }
+                }
             }
         }
         stage('Build skipped') {
