@@ -38,6 +38,10 @@ void cleanUpWS() {
 
 def AWS_STASH_PATH
 
+// Pull only the matching-arch mongot bundle from tarball/ in per-arch package stages.
+def S3_FILTER_X64 = "--exclude '*' --include '*linux_x86_64*'"
+def S3_FILTER_ARM = "--exclude '*' --include '*linux_aarch64*'"
+
 pipeline {
     agent {
         label params.CLOUD == 'AWS' ? 'micro-amazon' : 'launcher-x64'
@@ -126,7 +130,6 @@ pipeline {
                         script {
                             buildStage("oraclelinux:8", "--build_mongot=1 --build_variant=linux-x64")
                         }
-                        pushArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
@@ -141,7 +144,6 @@ pipeline {
                         script {
                             buildStage("oraclelinux:8", "--build_mongot=1 --build_variant=linux-aarch64")
                         }
-                        pushArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
@@ -158,7 +160,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("oraclelinux:8", "--build_rpm=1")
                         }
@@ -173,7 +175,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
                             buildStage("oraclelinux:8", "--build_rpm=1")
                         }
@@ -188,7 +190,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("oraclelinux:9", "--build_rpm=1")
                         }
@@ -203,7 +205,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
                             buildStage("oraclelinux:9", "--build_rpm=1")
                         }
@@ -218,7 +220,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("amazonlinux:2023", "--build_rpm=1")
                         }
@@ -233,7 +235,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
                             buildStage("amazonlinux:2023", "--build_rpm=1")
                         }
@@ -248,7 +250,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("ubuntu:jammy", "--build_deb=1")
                         }
@@ -263,7 +265,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
                             buildStage("ubuntu:jammy", "--build_deb=1")
                         }
@@ -278,7 +280,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("ubuntu:noble", "--build_deb=1")
                         }
@@ -293,7 +295,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
                             buildStage("ubuntu:noble", "--build_deb=1")
                         }
@@ -308,7 +310,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        popArtifactFolder(params.CLOUD, "bazel_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("debian:bookworm", "--build_deb=1")
                         }
