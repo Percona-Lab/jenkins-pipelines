@@ -73,6 +73,16 @@ void buildRpmFromSrpm(Map cfg) {
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${cfg.gitRepo} --branch=${cfg.branch} --psm_ver=${cfg.psmVer} --psm_release=${cfg.psmRelease} --mongo_tools_tag=${cfg.mongoToolsTag} --build_rpm=1
             "
             cp -av test/rpm/*.rpm ${env.WORKSPACE}/${cfg.customDir}/
+            # Bundle the latest percona-telemetry-agent for this arch alongside the
+            # psmdb packages: percona-server-mongodb pulls it in as a dependency, so
+            # the custom bundle must be self-contained for an offline install.
+            TELE_ARCH=\$(uname -m)
+            TELE_BASE="https://repo.percona.com/telemetry/yum/release/9/RPMS/\${TELE_ARCH}"
+            TELE_RPM=\$(curl -sL "\${TELE_BASE}/" | grep -oE "percona-telemetry-agent-[0-9.]+-[0-9]+\\.el9\\.\${TELE_ARCH}\\.rpm" | sort -Vu | tail -1)
+            if [ -z "\${TELE_RPM}" ]; then echo "ERROR: no percona-telemetry-agent rpm found for \${TELE_ARCH}"; exit 1; fi
+            curl -fL "\${TELE_BASE}/\${TELE_RPM}" -o "rpm/\${TELE_RPM}" \\
+              && test -s "rpm/\${TELE_RPM}" \\
+              && cp -av "rpm/\${TELE_RPM}" ${env.WORKSPACE}/${cfg.customDir}/
         """.stripIndent()
     }
 }
@@ -161,8 +171,8 @@ pipeline {
             name: 'MONGO_TOOLS_TAG_60'
         )
         string(
-            defaultValue: 'CUSTOM602822_96',
-            description: 'Custom folder for 6.0 artifacts',
+            defaultValue: 'CUSTOM60282296',
+            description: 'Custom folder for 6.0 artifacts (must be CUSTOM<digits> -> issue-CUSTOM<digits>, otherwise it is not indexed/reachable on the downloads host)',
             name: 'CUSTOM_DIR_60'
         )
         booleanParam(
@@ -201,8 +211,8 @@ pipeline {
             name: 'MONGO_TOOLS_TAG_70'
         )
         string(
-            defaultValue: 'CUSTOM703419_96',
-            description: 'Custom folder for 7.0 artifacts',
+            defaultValue: 'CUSTOM70341996',
+            description: 'Custom folder for 7.0 artifacts (must be CUSTOM<digits> -> issue-CUSTOM<digits>, otherwise it is not indexed/reachable on the downloads host)',
             name: 'CUSTOM_DIR_70'
         )
         booleanParam(
@@ -241,8 +251,8 @@ pipeline {
             name: 'MONGO_TOOLS_TAG_80'
         )
         string(
-            defaultValue: 'CUSTOM802310_96',
-            description: 'Custom folder for 8.0 artifacts',
+            defaultValue: 'CUSTOM80231096',
+            description: 'Custom folder for 8.0 artifacts (must be CUSTOM<digits> -> issue-CUSTOM<digits>, otherwise it is not indexed/reachable on the downloads host)',
             name: 'CUSTOM_DIR_80'
         )
     }

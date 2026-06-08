@@ -6,9 +6,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/vorsel/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'PSMDB-2104_psmdb_el9.x'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: psmdb/jenkins/custom/psmdb-el9.x.groovy
