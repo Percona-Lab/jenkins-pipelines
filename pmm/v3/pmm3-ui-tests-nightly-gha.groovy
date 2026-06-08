@@ -1,13 +1,3 @@
-// This pipeline:
-//   1. Starts a PMM Server only.
-//   2. Dispatches the `nightly-e2e-tests-matrix.yml` GH Actions workflow which
-//      handles client setup + parallel test execution.
-//   3. Waits for the dispatched run to complete.
-//   4. Tears down the server in `post { always }` regardless of outcome.
-//
-// All client VMs are gone — GH-hosted runners self-destruct, so the legacy
-// `runStagingClient` + `VM_CLIENT_NAME_*` plumbing is intentionally absent.
-
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
@@ -129,7 +119,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-15033-add-gh-related-scripts-for-nightly-tests',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
@@ -168,19 +158,11 @@ pipeline {
             defaultValue: '100',
             description: 'Launchable subset confidence % for selecting tests to run.',
             name: 'PTS_CONFIDENCE')
-        string(
-            defaultValue: 'percona/pmm-qa',
-            description: 'Owner/repo whose nightly-e2e-tests-matrix.yml will be dispatched.',
-            name: 'GH_REPO')
-        string(
-            defaultValue: 'nightly-e2e-tests-matrix.yml',
-            description: 'GH workflow filename to dispatch.',
-            name: 'GH_WORKFLOW_FILE')
     }
     options {
         skipDefaultCheckout()
     }
-    // triggers { cron('0 0 * * *') }
+    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -266,12 +248,6 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
                     sh '''
                         set -eux
-                        # Install jq/curl only when missing. This pipeline runs on
-                        # an OL9 agent, so use the RHEL-family package manager.
-                        if ! command -v jq >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
-                            sudo dnf install -y jq curl
-                        fi
-
                         # Build dispatch body. The workflow_dispatch payload only takes
                         # the ref + the inputs object — secrets are looked up server-side.
                         BODY=$(jq -nc \
@@ -294,7 +270,7 @@ pipeline {
                              }
                            }')
 
-                        echo "Dispatching ${GH_WORKFLOW_FILE} on ${GH_REPO} (ref=${PMM_QA_GIT_BRANCH}) with body: ${BODY}"
+                        echo "Dispatching nightly-e2e-tests-matrix.yml on percona/pmm-qa (ref=${PMM_QA_GIT_BRANCH}) with body: ${BODY}"
 
                         # Capture the timestamp BEFORE dispatching so we can disambiguate
                         # the new run from any in-flight runs.
@@ -304,20 +280,20 @@ pipeline {
                             -H "Authorization: token ${GH_TOKEN}" \
                             -H "Accept: application/vnd.github+json" \
                             -H "X-GitHub-Api-Version: 2022-11-28" \
-                            "https://api.github.com/repos/${GH_REPO}/actions/workflows/${GH_WORKFLOW_FILE}/dispatches" \
+                            "https://api.github.com/repos/percona/pmm-qa/actions/workflows/nightly-e2e-tests-matrix.yml/dispatches" \
                             -d "${BODY}"
 
                         chmod +x .github/scripts/wait-for-gh-run.sh .github/scripts/wait-for-gh-run-completion.sh
 
                         RUN_ID=$(.github/scripts/wait-for-gh-run.sh \
-                            "${GH_REPO}" \
-                            "${GH_WORKFLOW_FILE}" \
+                            "percona/pmm-qa" \
+                            "nightly-e2e-tests-matrix.yml" \
                             "${PMM_QA_GIT_BRANCH}" \
                             "${DISPATCH_AT}")
                         echo "GH Actions run id: ${RUN_ID}"
                         echo "${RUN_ID}" > gh_run_id.txt
 
-                        .github/scripts/wait-for-gh-run-completion.sh "${GH_REPO}" "${RUN_ID}"
+                        .github/scripts/wait-for-gh-run-completion.sh "percona/pmm-qa" "${RUN_ID}"
                     '''
                 }
             }
@@ -366,7 +342,7 @@ pipeline {
             script {
                 def runId = ''
                 try { runId = readFile('gh_run_id.txt').trim() } catch (ignored) {}
-                def runLink = runId ? "https://github.com/${env.GH_REPO}/actions/runs/${runId}" : "(GH run id not captured)"
+                def runLink = runId ? "https://github.com/percona/pmm-qa/actions/runs/${runId}" : "(GH run id not captured)"
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000',
                     message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}\nGH Actions run: ${runLink}"
             }

@@ -252,7 +252,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         choice(
@@ -319,7 +319,6 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
