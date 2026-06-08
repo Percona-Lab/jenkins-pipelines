@@ -129,7 +129,11 @@ Resources:
           DRY_RUN = os.environ.get("DRY_RUN", "true").lower() == "true"
           MOLECULE_BILLING_PATTERN = os.environ.get("MOLECULE_BILLING_PATTERN", r".*_package_testing$")
           MOLECULE_MAX_AGE = int(float(os.environ.get("MOLECULE_MAX_AGE_HOURS", "7")) * 3600)
-          MOLECULE_RE = re.compile(MOLECULE_BILLING_PATTERN)
+          try:
+              MOLECULE_RE = re.compile(MOLECULE_BILLING_PATTERN)
+          except re.error as e:
+              logger.error(f"Invalid MOLECULE_BILLING_PATTERN '{MOLECULE_BILLING_PATTERN}': {e}, molecule reaping disabled")
+              MOLECULE_RE = None
 
           logger.info(f"EKS_SKIP_PATTERN: {EKS_SKIP_PATTERN}")
           logger.info(f"DRY_RUN: {DRY_RUN}")
@@ -257,7 +261,7 @@ Resources:
               # aborted before "molecule destroy" runs, so age-bound them instead of
               # exempting them forever.
               bt = tags_dict.get("iit-billing-tag", "")
-              if bt and MOLECULE_RE.match(bt):
+              if bt and MOLECULE_RE and MOLECULE_RE.match(bt):
                   if running.total_seconds() > MOLECULE_MAX_AGE:
                       logger.info(f"Molecule leak: {instance.id} tag={bt} age={int(running.total_seconds())}s > {MOLECULE_MAX_AGE}s, terminate")
                       return True
