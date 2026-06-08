@@ -121,7 +121,7 @@ initMap['docker'] = '''
     sudo yum -y install java-17-amazon-corretto git cronie unzip dnf-plugins-core
     sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
     sudo sed -i 's/$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
-    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io docker-buildx-plugin; do
         sleep 1
         echo try again
     done
@@ -190,7 +190,7 @@ initMap['docker-32gb'] = '''
     sudo yum -y install java-17-amazon-corretto git cronie unzip dnf-plugins-core
     sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
     sudo sed -i 's/$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
-    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io docker-buildx-plugin; do
         sleep 1
         echo try again
     done

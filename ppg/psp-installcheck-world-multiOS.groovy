@@ -62,7 +62,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'release-2.2.0',
+            defaultValue: 'https://github.com/percona/pg_tde.git',
+            description: 'In case you want to test a different pg_tde repository than the default one.',
+            name: 'TDE_REPO'
+        )
+        string(
+            defaultValue: 'main',
             description: 'Branch for pg_tde repository. Would only be used with check-tde, check-all and installcheck-world testsuites.',
             name: 'TDE_BRANCH'
         )
@@ -74,6 +79,11 @@ pipeline {
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -110,6 +120,10 @@ pipeline {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.TESTSUITE, env.PERCONA_SERVER_VERSION, env.IO_METHOD, env.TDE_BRANCH)
             }
+            archiveArtifacts(
+                artifacts: 'psp/server_tests/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }

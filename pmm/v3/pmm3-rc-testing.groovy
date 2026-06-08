@@ -107,6 +107,7 @@ pipeline {
 |Each triggered job will appear below with a link.""".stripMargin()
                     def slackResponse = slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: intro
                     env.SLACK_RC_THREAD = slackResponse.threadId
+                    env.SLACK_RC_SCREENSHOTS_TARGET = "${slackResponse.channelId}:${slackResponse.ts}"
                 }
             }
         }
@@ -504,10 +505,8 @@ pipeline {
                             steps {
                                 script {
                                     triggerJenkinsRc('pmm3-upgrade-ami-test', 'pmm3-upgrade-ami-test', [
-                                        string(name: 'PMM_UI_GIT_BRANCH',         value: 'main'),
-                                        string(name: 'PMM_QA_GIT_BRANCH',         value: 'main'),
-                                        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                        booleanParam(name: 'IS_RC_TESTING',       value: true),
+                                        string(name: 'PMM_QA_GIT_BRANCH',   value: 'main'),
+                                        booleanParam(name: 'IS_RC_TESTING', value: true),
                                     ])
                                 }
                             }
@@ -574,8 +573,8 @@ pipeline {
                                         string(name: 'MODB_VERSION',                   value: '8.0'),
                                         string(name: 'PMM_QA_GIT_BRANCH',              value: 'main'),
                                         booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
-                                        string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_THREAD),
-                                    ])
+                                        string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_SCREENSHOTS_TARGET),
+                                    ]
                                 }
                             }
                         }
