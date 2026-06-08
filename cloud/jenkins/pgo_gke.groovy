@@ -1,100 +1,67 @@
-region='us-central1-c'
-tests=[]
-clusters=[]
-release_versions="source/e2e-tests/release_versions"
+def region = 'us-central1-c'
+def tests = []
+def clusters = []
+def release_versions = "source/e2e-tests/release_versions"
+def pgoCommon
 
-String getPillarVersionKey() {
-    return "$PILLAR_VERSION".replace('-postgis', '')
+void loadPgoCommon() {
+    pgoCommon = load "cloud/common/pgoPipelineCommon.groovy"
 }
 
-Boolean usePostgisImage() {
-    return "$PILLAR_VERSION".endsWith('-postgis')
-}
-
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
-
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
+Map providerConfig() {
+    return [
+        platformPrefix: 'GKE',
+        kubeconfig: "/tmp/$CLUSTER_NAME-\$clusterSuffix",
+        extraHashValues: [GKE_RELEASE_CHANNEL],
+        extraParameters: [GKE_RELEASE_CHANNEL: GKE_RELEASE_CHANNEL]
+    ]
 }
 
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
-        def pillarVersionKey = getPillarVersionKey()
-        def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
-
-        env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
-        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${pillarVersionKey}")
-        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${pillarVersionKey}")
-        env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        env.IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        env.IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
     }
+    PLATFORM_VER = pgoCommon.initReleaseParams(
+        releaseVersions: release_versions,
+        pillarVersion: PILLAR_VERSION,
+        platformVer: PLATFORM_VER,
+        platformPrefix: providerConfig().platformPrefix
+    )
 
     if ("$PLATFORM_VER" == "latest") {
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
 
-    if ("$IMAGE_POSTGRESQL") {
-        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
-    }
-    env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg18", , returnStdout: true).trim()
-    echo "DB_TAG is $DB_TAG"
-}
-
-void prepareSources() {
-    echo "=========================[ Cloning the sources ]========================="
-    checkout(scm)
-    sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
-    """
+    pgoCommon.setBuildDescription(PLATFORM_VER, IMAGE_POSTGRESQL, CLUSTER_WIDE, GIT_BRANCH, GKE_RELEASE_CHANNEL)
+    pgoCommon.setDbTag(IMAGE_POSTGRESQL)
 }
 
 void createHash() {
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    def hash = pgoCommon.createHash(
+        gitBranch: GIT_BRANCH,
+        extraHashValues: providerConfig().extraHashValues,
+        platformVer: PLATFORM_VER,
+        clusterWide: CLUSTER_WIDE,
+        pgVer: PG_VER,
+        imageOperator: IMAGE_OPERATOR,
+        imagePostgresql: IMAGE_POSTGRESQL,
+        imagePgbouncer: IMAGE_PGBOUNCER,
+        imageBackrest: IMAGE_BACKREST,
+        imagePmmClient: IMAGE_PMM_CLIENT,
+        imagePmmServer: IMAGE_PMM_SERVER,
+        imagePmm3Client: IMAGE_PMM3_CLIENT,
+        imagePmm3Server: IMAGE_PMM3_SERVER,
+        imageUpgrade: IMAGE_UPGRADE,
+        jobName: JOB_NAME
+    )
+    GIT_SHORT_COMMIT = hash.gitShortCommit
+    PARAMS_HASH = hash.paramsHash
+    CLUSTER_NAME = hash.clusterName
 }
 
-void prepareAgent() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+void prepareProviderAgent() {
     sh """
-        sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
 [google-cloud-cli]
 name=Google Cloud CLI
@@ -115,100 +82,12 @@ EOF
     }
 }
 
-void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
-                    docker logout
-                "
-                sudo rm -rf build
-            fi
-        """
-    }
-}
-
-void initTests() {
-    echo "=========================[ Initializing the tests ]========================="
-
-    echo "Populating tests into the tests array!"
-    def testList = "$TEST_LIST"
-    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
-
-    if (testList.length() != 0) {
-        suiteFileName = 'source/e2e-tests/run-custom.csv'
-        sh """
-            echo -e "$testList" > $suiteFileName
-            echo "Custom test suite contains following tests:"
-            cat $suiteFileName
-        """
-    }
-
-    def records = readCSV file: suiteFileName
-
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
-    }
-
-    echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-            sh """
-                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
-            """
-
-            for (int i=0; i<tests.size(); i++) {
-                def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
-                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
-
-                if (retFileExists == 0) {
-                    tests[i]["result"] = "passed"
-                }
-            }
-        } else {
-            sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
-            """
-        }
-    }
-
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
-        sh """
-            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-            chmod 600 source/e2e-tests/conf/cloud-secret.yml
-            cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
-            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
-        """
-    }
-    stash includes: "source/**", name: "sourceFILES"
-}
-
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    pgoCommon.clusterRunner(tests, cluster, this.&createCluster, this.&runTest, this.&shutdownCluster)
+}
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
-            }
-            runTest(i)
-        }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
-    }
+Map commonTestConfig() {
+    return pgoCommon.testConfig(this, providerConfig())
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
@@ -218,7 +97,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
 
-            maxRetries=15
+            maxRetries=10
             exitCode=1
 
             printf 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n' > ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml
@@ -231,9 +110,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --preemptible \
                     --disk-size 30 \
                     --machine-type n1-standard-4 \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
+                    --num-nodes=3 \
                     --network=jenkins-vpc \
                     --subnetwork=jenkins-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
@@ -259,106 +136,7 @@ void createCluster(String CLUSTER_SUFFIX) {
 }
 
 void runTest(Integer TEST_ID) {
-    def retryCount = 0
-    def testName = tests[TEST_ID]["name"]
-    def clusterSuffix = tests[TEST_ID]["cluster"]
-
-    waitUntil {
-        def timeStart = new Date().getTime()
-        try {
-            echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
-            tests[TEST_ID]["result"] = "failure"
-
-            timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    cd source
-
-                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
-                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    export PG_VER=$PG_VER
-                    if [[ "$IMAGE_POSTGRESQL" ]]; then
-                        export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
-                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')
-                    fi
-                    export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
-                    export IMAGE_BACKREST=$IMAGE_BACKREST
-                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
-                    export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
-                    export IMAGE_UPGRADE=$IMAGE_UPGRADE
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                    export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-                    export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
-
-                    kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
-                """
-            }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
-            tests[TEST_ID]["result"] = "passed"
-            return true
-        }
-        catch (exc) {
-            echo "Error occurred while running test $testName: $exc"
-            if (retryCount >= 1) {
-                currentBuild.result = 'FAILURE'
-                return true
-            }
-            retryCount++
-            return false
-        }
-        finally {
-            def timeStop = new Date().getTime()
-            def durationSec = (timeStop - timeStart) / 1000
-            tests[TEST_ID]["time"] = durationSec
-            echo "The $testName test was finished!"
-        }
-    }
-}
-
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-void makeReport() {
-    echo "=========================[ Generating Test Report ]========================="
-    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
-    for (int i = 0; i < tests.size(); i ++) {
-        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
-    }
-    testsReport += '</testsuite>\n'
-
-    echo "=========================[ Generating Parameters Report ]========================="
-    pipelineParameters = """
-testsuite name=$JOB_NAME
-PG_VER=${PG_VER ?: 'e2e_defaults'}
-IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
-IMAGE_POSTGRESQL=${IMAGE_POSTGRESQL ?: 'e2e_defaults'}
-IMAGE_PGBOUNCER=${IMAGE_PGBOUNCER ?: 'e2e_defaults'}
-IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
-IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
-IMAGE_UPGRADE=${IMAGE_UPGRADE ?: 'e2e_defaults'}
-PLATFORM_VER=$PLATFORM_VER
-GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
-
-    writeFile file: "TestsReport.xml", text: testsReport
-    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
-
-    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-        text: "<pre>${pipelineParameters}</pre>"
-    )
+    pgoCommon.runTest(tests, TEST_ID, commonTestConfig())
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -405,21 +183,26 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
-                prepareSources()
-                prepareAgent()
+                script {
+                    deleteDir()
+                    checkout(scm)
+                    loadPgoCommon()
+                }
+                script { pgoCommon.prepareSources(GIT_BRANCH, false) }
+                script { pgoCommon.prepareAgentBase() }
+                prepareProviderAgent()
                 initParams()
                 createHash()
             }
         }
         stage('Docker Build and Push') {
             steps {
-                dockerBuildPush()
+                script { pgoCommon.dockerBuildPush(GIT_BRANCH) }
             }
         }
         stage('Init Tests') {
             steps {
-                initTests()
+                script { pgoCommon.initTests(tests, commonTestConfig()) }
             }
         }
         stage('Run Tests') {
@@ -432,8 +215,10 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareAgent()
                         unstash "sourceFILES"
+                        loadPgoCommon()
+                        script { pgoCommon.prepareAgentBase() }
+                        prepareProviderAgent()
                         clusterRunner('cluster1')
                     }
                 }
@@ -442,8 +227,10 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareAgent()
                         unstash "sourceFILES"
+                        loadPgoCommon()
+                        script { pgoCommon.prepareAgentBase() }
+                        prepareProviderAgent()
                         clusterRunner('cluster2')
                     }
                 }
@@ -452,8 +239,10 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareAgent()
                         unstash "sourceFILES"
+                        loadPgoCommon()
+                        script { pgoCommon.prepareAgentBase() }
+                        prepareProviderAgent()
                         clusterRunner('cluster3')
                     }
                 }
@@ -462,8 +251,10 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareAgent()
                         unstash "sourceFILES"
+                        loadPgoCommon()
+                        script { pgoCommon.prepareAgentBase() }
+                        prepareProviderAgent()
                         clusterRunner('cluster4')
                     }
                 }
@@ -472,35 +263,13 @@ pipeline {
     }
     post {
         always {
-            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-            makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml,*.txt'
-
             script {
-                try {
-                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
-                    sendJobSlack.call(
-                        tests: tests,
-                        gitBranch: GIT_BRANCH,
-                        platformVer: PLATFORM_VER,
-                        gkeReleaseChannel: GKE_RELEASE_CHANNEL,
-                        clusterWide: CLUSTER_WIDE,
-                        image: IMAGE_POSTGRESQL,
-                        operatorImage: IMAGE_OPERATOR
-                    )
-
-                } catch (err) {
-                    echo "Slack helper load/call failed: ${err}"
-                }
-
-                clusters.each { shutdownCluster(it) }
+                def cfg = commonTestConfig()
+                cfg.clusters = clusters
+                cfg.shutdownClusterFn = this.&shutdownCluster
+                cfg.slack = [gkeReleaseChannel: GKE_RELEASE_CHANNEL]
+                pgoCommon.postCleanup(tests, cfg)
             }
-            sh """
-                sudo docker system prune --volumes -af
-                sudo rm -rf *
-            """
-            deleteDir()
         }
     }
 }
