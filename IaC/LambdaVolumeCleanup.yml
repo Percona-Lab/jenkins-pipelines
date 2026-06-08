@@ -46,33 +46,60 @@ Resources:
     Properties: 
       FunctionName: LambdaVolumeCleanup
       Description: Cleans up unused volumes
-      Runtime: python3.8
+      Runtime: python3.12
       Handler: index.lambda_handler
       MemorySize : 128
       Timeout: 240
+      Environment:
+        Variables:
+          MIN_AGE_HOURS: "24"
       Code: 
         ZipFile: |
+          import os
           import boto3
+          from datetime import datetime, timezone, timedelta
+
+          REGIONS = ["us-east-1", "us-east-2", "us-west-1", "us-west-2",
+                     "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3"]
+          DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
+          MIN_AGE_HOURS = int(os.environ.get("MIN_AGE_HOURS", "24"))
+          KEEP_NAME_SUBSTR = "do not remove"
+          KEEP_TAG = "PerconaKeep"
+
+
+          def _tags(volume):
+              # volume.tags is None when the volume has no tags at all.
+              return {t["Key"]: t.get("Value", "") for t in (volume.tags or [])}
+
 
           def lambda_handler(event, context):
-              regions=["us-east-1", "us-east-2", "us-west-1", "us-west-2", "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3"]
-              for region in regions:
+              cutoff = datetime.now(timezone.utc) - timedelta(hours=MIN_AGE_HOURS)
+              deleted, skipped = [], []
+              for region in REGIONS:
                   ec2 = boto3.resource("ec2", region_name=region)
-                  volumes = ec2.volumes.filter(Filters=[{"Name":"tag:Name", "Values":["*"]}])
-
-                  for volume in volumes:
-                      pkeeptag = ''
-                      for tag in volume.tags:
-                          if tag['Key'] == 'Name':
-                              name = tag.get('Value')
-                          if tag['Key'] == 'PerconaKeep':
-                              pkeeptag = True
-
-                      if "do not remove" not in name and volume.state=="available":
-                          if pkeeptag != True:
-                              volumeObject=ec2.Volume(volume.id)
-                              volumeObject.delete()
-                              print("Deleted ID: " + volume.id, "In region: " + region, sep="\n")
+                  # Evaluate ALL unattached volumes, not only those carrying a Name tag.
+                  for volume in ec2.volumes.filter(Filters=[{"Name": "status", "Values": ["available"]}]):
+                      tags = _tags(volume)
+                      name = tags.get("Name", "")
+                      if KEEP_TAG in tags:
+                          skipped.append((region, volume.id, "PerconaKeep"))
+                          continue
+                      if KEEP_NAME_SUBSTR in name.lower():
+                          skipped.append((region, volume.id, "name:do-not-remove"))
+                          continue
+                      if volume.create_time > cutoff:
+                          skipped.append((region, volume.id, "younger-than-%dh" % MIN_AGE_HOURS))
+                          continue
+                      if DRY_RUN:
+                          print("DRY_RUN would delete %s (%d GiB) in %s" % (volume.id, volume.size, region))
+                          deleted.append((region, volume.id, volume.size))
+                          continue
+                      volume.delete()
+                      print("Deleted %s (%d GiB) in %s" % (volume.id, volume.size, region))
+                      deleted.append((region, volume.id, volume.size))
+              print("Summary: %d deleted, %d skipped (DRY_RUN=%s, MIN_AGE_HOURS=%d)"
+                    % (len(deleted), len(skipped), DRY_RUN, MIN_AGE_HOURS))
+              return {"deleted": deleted, "skipped": skipped, "dry_run": DRY_RUN}
       Role: !GetAtt RoleVolumeCleanup.Arn
       Tags:
         - Key: iit-billing-tag
