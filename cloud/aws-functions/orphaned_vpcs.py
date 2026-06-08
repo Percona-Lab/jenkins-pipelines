@@ -255,7 +255,7 @@ def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
         attempt += 1
 
     else:
-        logging.error(
+        raise RuntimeError(
             f"NAT gateway with id {nat_gateway_id} was not deleted in {timeout} seconds."
         )
 
@@ -314,6 +314,4 @@ def lambda_handler(event, context):
 
         for vpc in vpcs:
             logging.info(f"Deleting all resources and VPC.")
-            response = terminate_vpc(vpc, aws_region)
-            logging.info(f"Failed to delete vpc. The error was: {response}")
-            continue
+            terminate_vpc(vpc, aws_region)

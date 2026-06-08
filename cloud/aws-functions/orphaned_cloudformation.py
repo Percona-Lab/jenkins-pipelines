@@ -67,18 +67,18 @@ def get_cloudformation_to_terminate(aws_region):
 def delete_stack(stack_name, aws_region):
     cf_client = boto3.client("cloudformation", region_name=aws_region)
     try:
-        # Initiate the delete operation add timeout
         logging.info(f"Removing cloudformation stack: {stack_name}")
-        waiter_config = {
-            "Delay": 30,  # Time (in seconds) to wait between attempts
-            "MaxAttempts": 10,  # Maximum number of attempts (30s * 40 = 1200s or 20 minutes)
-        }
-        waiter = cf_client.get_waiter("stack_delete_complete")
-        print(f"Waiting for stack {stack_name} to be deleted...")
-        response = cf_client.delete_stack(StackName=stack_name)
-        waiter.wait(StackName=stack_name, WaiterConfig=waiter_config)
+        cf_client.update_termination_protection(
+            EnableTerminationProtection=False, StackName=stack_name
+        )
+        cf_client.delete_stack(StackName=stack_name)
+        logging.info(f"Stack {stack_name} deletion initiated.")
     except ClientError as e:
+        if "does not exist" in str(e):
+            logging.info(f"Stack {stack_name} no longer exists, skipping.")
+            return
         logging.error(f"Error deleting stack: {e}")
+        raise
 
 
 def delete_stack_resources(stack_name, aws_region):
@@ -87,7 +87,14 @@ def delete_stack_resources(stack_name, aws_region):
 
     try:
         resources = cf_client.describe_stack_resources(StackName=stack_name)
-        for resource in resources["StackResources"]:
+    except ClientError as e:
+        if "does not exist" in str(e):
+            logging.info(f"Stack {stack_name} no longer exists, skipping resource cleanup.")
+            return
+        logging.error(f"Error describing stack resources: {e}")
+        raise
+
+    for resource in resources["StackResources"]:
             resource_id = resource["PhysicalResourceId"]
             resource_type = resource["ResourceType"]
             try:
@@ -95,6 +102,13 @@ def delete_stack_resources(stack_name, aws_region):
                     f"Attempting to delete resource: {resource_id} of type: {resource_type}"
                 )
                 if resource_type == "AWS::IAM::Role":
+                    attached_policies = iam_client.list_attached_role_policies(
+                        RoleName=resource_id
+                    )["AttachedPolicies"]
+                    for policy in attached_policies:
+                        iam_client.detach_role_policy(
+                            RoleName=resource_id, PolicyArn=policy["PolicyArn"]
+                        )
                     iam_client.delete_role(RoleName=resource_id)
                 elif resource_type == "AWS::IAM::Policy":
                     iam_client.delete_policy(PolicyArn=resource_id)
@@ -110,7 +124,7 @@ def delete_stack_resources(stack_name, aws_region):
                                     f"Role attached to instance profile {resource_id}: {role['RoleName']}"
                                 )
                                 iam_client.remove_role_from_instance_profile(
-                                    InstanceProfileName=resource_id, RoleName=role
+                                    InstanceProfileName=resource_id, RoleName=role["RoleName"]
                                 )
                         else:
                             logging.info(f"No roles are attached to instance profile {resource_id}.")
@@ -124,8 +138,6 @@ def delete_stack_resources(stack_name, aws_region):
                 sleep(2)  # Sleep to avoid hitting rate limits
             except ClientError as e:
                 logging.error(f"Failed to delete resource: {resource_id}. Error: {e}")
-    except ClientError as e:
-        logging.error(f"Error describing stack resources: {e}")
 
 
 def lambda_handler(event, context):
@@ -141,6 +153,6 @@ def lambda_handler(event, context):
                 logging.info(f"Deleting cloudformation stacks.")
                 delete_stack_resources(cloudformation_stack, aws_region)
                 delete_stack(cloudformation_stack, aws_region)
-            except ClientError as e:
-                logging.info(f"Failed to delete resource: {resource_id}. Error: {e}")
-                continue
+            except Exception as e:
+                logging.error(f"Failed to delete cloudformation stack {cloudformation_stack}. Error: {e}")
+                raise
