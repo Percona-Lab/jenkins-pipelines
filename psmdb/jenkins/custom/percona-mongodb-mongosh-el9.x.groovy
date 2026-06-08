@@ -103,6 +103,43 @@ void uploadRPMToDownloadsTesting(String cloudName, String productName, String pr
     }
 }
 
+// Returns true if the TESTING bundle dir issue-<customDir> already exists on the
+// downloads host. Used to drop mongosh only into psmdb bundles that were really
+// built, without altering the reusable uploadRPMToDownloadsTesting above.
+boolean testingDirExists(String cloudName, String customDir) {
+    def nodeLabel = (cloudName == 'Hetzner') ? 'launcher-x64' : 'master'
+    def rc = 255
+    node(nodeLabel) {
+        deleteDir()
+        withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+            // `test -d` is the last command, so its exit code is what sh returns:
+            // 0 = present, 1 = absent. Any other code (e.g. 255) is an ssh/transport
+            // failure and must NOT be silently treated as "absent".
+            rc = sh(returnStatus: true, script: """
+                #!/bin/bash
+                set -o xtrace
+
+                cat /etc/hosts > hosts
+                echo '10.30.6.9 repo.ci.percona.com' >> hosts
+                sudo cp ./hosts /etc || true
+
+                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                    ssh -p 2222 jenkins-deploy.jenkins-deploy.web.r.int.percona.com test -d /data/downloads/TESTING/issue-${customDir}
+            """)
+        }
+        deleteDir()
+    }
+    if (rc == 0) {
+        echo "testingDirExists(${customDir}) -> PRESENT"
+        return true
+    }
+    if (rc == 1) {
+        echo "testingDirExists(${customDir}) -> ABSENT"
+        return false
+    }
+    error("testingDirExists(${customDir}): could not determine bundle dir state on the downloads host (ssh rc=${rc}); refusing to silently treat it as absent")
+}
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'micro-amazon'
@@ -150,8 +187,13 @@ pipeline {
         )
         string(
             defaultValue: 'CUSTOM28396',
-            description: 'Issue folder suffix for testing downloads',
+            description: 'Fallback bundle dir (must be CUSTOM<digits> -> issue-CUSTOM<digits>, else it is not indexed/reachable). Used only when none of PSMDB_CUSTOM_DIRS exist.',
             name: 'CUSTOM_ISSUE'
+        )
+        string(
+            defaultValue: '',
+            description: 'Comma-separated psmdb bundle dirs (e.g. CUSTOM60282296,CUSTOM70341996,CUSTOM80231096). percona-server-mongodb depends on percona-mongodb-mongosh, so mongosh is dropped next to psmdb packages in every one of these dirs that already exists on the downloads host. If none exist (or left empty), it falls back to CUSTOM_ISSUE.',
+            name: 'PSMDB_CUSTOM_DIRS'
         )
     }
     options {
@@ -201,7 +243,21 @@ pipeline {
             steps {
                 cleanUpWS()
                 uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                uploadRPMToDownloadsTesting(params.CLOUD, "issue", params.CUSTOM_ISSUE)
+                script {
+                    // psmdb depends on percona-mongodb-mongosh, so the shell rpm must
+                    // sit inside each psmdb bundle. Drop mongosh into every requested
+                    // psmdb dir that already exists; if none exist, fall back to the
+                    // job's own standard bundle (CUSTOM_ISSUE), as before.
+                    def requested = params.PSMDB_CUSTOM_DIRS.split(',').collect { it.trim() }.findAll { it }
+                    def targets = requested.findAll { testingDirExists(params.CLOUD, it) }
+                    if (targets.isEmpty()) {
+                        uploadRPMToDownloadsTesting(params.CLOUD, "issue", params.CUSTOM_ISSUE)
+                    } else {
+                        targets.each { customDir ->
+                            uploadRPMToDownloadsTesting(params.CLOUD, "issue", customDir)
+                        }
+                    }
+                }
             }
         }
         stage('Sign packages') {
