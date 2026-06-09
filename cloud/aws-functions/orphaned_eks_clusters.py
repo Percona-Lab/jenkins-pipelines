@@ -65,7 +65,7 @@ def wait_for_node_group_delete(autoscaling_client, autoscaling_group_name):
         sleep(sleep_time)
         attempt += 1
     else:
-        logging.error(
+        raise RuntimeError(
             f"Node group {autoscaling_group_name} was not deleted in {timeout} seconds."
         )
 
@@ -80,6 +80,7 @@ def delete_nodegroup(aws_region):
             tags = group.get("Tags", [])
             team_value = False
             delete_cluster = False
+            creation_time = None
 
             for tag in tags:
                 if tag["Key"] == "team" and tag["Value"] == "cloud":
@@ -94,7 +95,7 @@ def delete_nodegroup(aws_region):
                         creation_time = float(tag["Value"])
                     except ValueError as e:
                         logging.error(
-                            f"Could not get creation_time for {auto_scaling_group} failed with error: {e}"
+                            f"Could not get creation_time for {group['AutoScalingGroupName']} failed with error: {e}"
                         )
 
             current_time = datetime.datetime.now().timestamp()
@@ -102,6 +103,7 @@ def delete_nodegroup(aws_region):
             if (
                 team_value
                 and delete_cluster
+                and creation_time is not None
                 and (current_time - creation_time) / 3600 > cluster_lifetime
             ):
                 auto_scaling_groups.append(group["AutoScalingGroupName"])
