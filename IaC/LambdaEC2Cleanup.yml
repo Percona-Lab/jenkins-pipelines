@@ -25,21 +25,6 @@ Parameters:
     Type: Number
     Default: 14
     AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90]
-  MoleculeBillingPattern:
-    Type: String
-    Default: ".*_package_testing$"
-    Description: >-
-      Regex on iit-billing-tag identifying ephemeral package-testing molecule
-      instances. Their tag is non-numeric, so has_valid_billing_tag would
-      otherwise exempt them forever; matches are age-reaped instead.
-  MoleculeMaxAgeHours:
-    Type: Number
-    Default: 7
-    Description: >-
-      Terminate MoleculeBillingPattern instances older than this many hours.
-      7h is derived from real build durations (worst genuine run 4.34h, p99
-      0.93h across 819 completed builds), so it clears live builds while
-      reclaiming aborted or leaked instances.
 
 Resources:
 
@@ -108,8 +93,6 @@ Resources:
         Variables:
           DRY_RUN: !Ref DryRunMode
           EKS_SKIP_PATTERN: !Ref EksSkipPattern
-          MOLECULE_BILLING_PATTERN: !Ref MoleculeBillingPattern
-          MOLECULE_MAX_AGE_HOURS: !Ref MoleculeMaxAgeHours
       Tags:
         - Key: iit-billing-tag
           Value: lambda-ec2-cleanup
@@ -127,17 +110,9 @@ Resources:
 
           EKS_SKIP_PATTERN = os.environ.get("EKS_SKIP_PATTERN", "pe-.*")
           DRY_RUN = os.environ.get("DRY_RUN", "true").lower() == "true"
-          MOLECULE_BILLING_PATTERN = os.environ.get("MOLECULE_BILLING_PATTERN", r".*_package_testing$")
-          MOLECULE_MAX_AGE = int(float(os.environ.get("MOLECULE_MAX_AGE_HOURS", "7")) * 3600)
-          try:
-              MOLECULE_RE = re.compile(MOLECULE_BILLING_PATTERN)
-          except re.error as e:
-              logger.error(f"Invalid MOLECULE_BILLING_PATTERN '{MOLECULE_BILLING_PATTERN}': {e}, molecule reaping disabled")
-              MOLECULE_RE = None
 
           logger.info(f"EKS_SKIP_PATTERN: {EKS_SKIP_PATTERN}")
           logger.info(f"DRY_RUN: {DRY_RUN}")
-          logger.info(f"MOLECULE: pattern={MOLECULE_BILLING_PATTERN} max_age={MOLECULE_MAX_AGE}s")
 
           eks_clusters_to_delete = {}
 
@@ -254,20 +229,9 @@ Resources:
 
           def should_terminate(instance):
               tags_dict = convert_tags_to_dict(instance.tags)
-              running = datetime.datetime.now(datetime.timezone.utc) - instance.launch_time
-              # Ephemeral package-testing molecule instances carry a non-numeric
-              # iit-billing-tag (e.g. ps_80_package_testing) that has_valid_billing_tag
-              # treats as a permanent category exemption. They leak when a build is
-              # aborted before "molecule destroy" runs, so age-bound them instead of
-              # exempting them forever.
-              bt = tags_dict.get("iit-billing-tag", "")
-              if bt and MOLECULE_RE and MOLECULE_RE.match(bt):
-                  if running.total_seconds() > MOLECULE_MAX_AGE:
-                      logger.info(f"Molecule leak: {instance.id} tag={bt} age={int(running.total_seconds())}s > {MOLECULE_MAX_AGE}s, terminate")
-                      return True
-                  return False
               if has_valid_billing_tag(tags_dict, instance.launch_time):
                   return False
+              running = datetime.datetime.now(datetime.timezone.utc) - instance.launch_time
               return running.total_seconds() > 600
 
 
