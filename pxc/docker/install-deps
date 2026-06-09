@@ -498,11 +498,6 @@ if [ ! -f /usr/local/lib/libeatmydata.so ]; then
 fi
 
 if [ -f /usr/bin/yum ]; then
-    RHVER="$(rpm --eval %rhel)"
-    DIST="$(rpm --eval %dist)"
-    # AL2023 does not define %rhel; normalize so the version branches below
-    # treat it like a sphinx-5.3.0 target without --break-system-packages.
-    if [[ "${DIST}" == ".amzn2023" ]]; then RHVER=2023; fi
     if [[ ${RHVER} -ge 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         pip3 install --break-system-packages --upgrade sphinx==5.3.0
     elif [[ ${RHVER} -eq 9 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
