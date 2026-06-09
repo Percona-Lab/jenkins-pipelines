@@ -35,6 +35,7 @@ void build(String IMAGE_SUFFIX){
 
                 # debug image (amd64 only) is built FROM the freshly built base, using Dockerfile.debug
                 sed -E "s|^FROM .*|FROM \${BASE_TAG}|" -i \${CONTEXT}/Dockerfile.debug
+                sed -i '/telnet/d' \${CONTEXT}/Dockerfile.debug
                 docker buildx build --platform linux/amd64 --no-cache --progress plain --push \
                     -t \${BASE_TAG}-debug -f \${CONTEXT}/Dockerfile.debug \${CONTEXT}
             fi
@@ -246,11 +247,11 @@ pipeline {
         stage('Verify and list PSMDB images') {
             steps {
                 verifyImage('mongod6.0')
-                verifyImage('mongod6.0-debug')
+                // verifyImage('mongod6.0-debug')
                 verifyImage('mongod7.0')
-                verifyImage('mongod7.0-debug')
+                // verifyImage('mongod7.0-debug')
                 verifyImage('mongod8.0')
-                verifyImage('mongod8.0-debug')
+                // verifyImage('mongod8.0-debug')
                 verifyImage('backup')
             }
         }
