@@ -142,6 +142,7 @@ pipeline {
     //withCredentials(moleculepxcJenkinsCreds())
     withCredentials(moleculepxbJenkinsCreds())
     disableConcurrentBuilds()
+    timeout(time: 6, unit: 'HOURS')
   }
 
   stages {
