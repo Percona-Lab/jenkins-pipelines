@@ -127,6 +127,9 @@ pipeline {
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export DOCKERFILE=Dockerfile.el9
+                    if [ -n "${DOCKER_RC_TAG}" ]; then
+                        export PMM_ENABLE_TELEMETRY=1
+                    fi
 
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
