@@ -61,17 +61,17 @@ pipeline {
             }
          }
   }
-    post {
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} finished succesfully - [${BUILD_URL}]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} failed - [${BUILD_URL}]")
-        }
-        always {
-            script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(psmdb_to_test), moleculeDir)
-            }
-        }
-    }
+//    post {
+//        success {
+//            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} finished succesfully - [${BUILD_URL}]")
+//        }
+//        failure {
+//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} failed - [${BUILD_URL}]")
+//        }
+//        always {
+//            script {
+//                moleculeParallelPostDestroy(pdmdbOperatingSystems(psmdb_to_test), moleculeDir)
+//            }
+//        }
+//    }
 }
