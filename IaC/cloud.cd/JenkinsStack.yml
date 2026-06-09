@@ -484,13 +484,13 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !Ref MasterLtVersion
           Overrides:
-          - InstanceType: c5a.xlarge
+          - InstanceType: c7a.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.xlarge
+          - InstanceType: c7i.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c6in.xlarge
+          - InstanceType: c8i.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: c7i-flex.xlarge

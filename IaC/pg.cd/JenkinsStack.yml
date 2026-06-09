@@ -515,16 +515,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !Ref MasterLtVersion
           Overrides:
-          - InstanceType: i3en.large
+          - InstanceType: i7i.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: i4i.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: r5a.large
+          - InstanceType: r7a.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: r5dn.large
+          - InstanceType: r7i.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 

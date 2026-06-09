@@ -409,7 +409,7 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !Ref MasterLtVersion
           Overrides:
-          - InstanceType: c5d.2xlarge
+          - InstanceType: c7a.2xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: c7i-flex.2xlarge
