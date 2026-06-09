@@ -23,9 +23,16 @@
           - ubuntu:jammy
           - ubuntu:noble
           - debian:bullseye
-          - debain:bookworm
+          - debian:bookworm
+          - amazonlinux:2023
           - asan
         description: OS version for compilation
+    - choice:
+        name: ARCH
+        choices:
+          - x86_64
+          - aarch64
+        description: CPU architecture; selects the pxc-build image variant. LABEL must match (e.g. docker-32gb-aarch64 for aarch64).
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:
@@ -79,4 +86,6 @@
         choices:
         - docker
         - docker-32gb
-        description: Run build on specified instance type.
+        - docker-32gb-aarch64
+        - docker-aarch64
+        description: Run build on specified instance type. Must match the selected ARCH (e.g. aarch64 image needs docker-32gb-aarch64 or docker-aarch64).

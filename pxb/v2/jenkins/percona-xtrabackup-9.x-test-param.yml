@@ -77,7 +77,14 @@
         - ubuntu:noble
         - debian:bookworm
         - debian:trixie
+        - amazonlinux:2023
         - asan
+    - axis:
+        type: user-defined
+        name: ARCH
+        values:
+        - x86_64
+        - aarch64
     - axis:
         name: XTRABACKUP_TARGET
         type: user-defined
@@ -90,6 +97,7 @@
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
           CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
           XTRABACKUP_TARGET=${{XTRABACKUP_TARGET}}
           CLOUD=${{CLOUD}}

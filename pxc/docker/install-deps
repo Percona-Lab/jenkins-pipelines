@@ -3,20 +3,44 @@
 set -o xtrace
 set -o errexit
 #
+
+# Bounded retry for transient failures (network blips, locked repo metadata).
+# Fail-fast after RETRY_MAX attempts so docker build does not hang on
+# permanent errors (404, missing package). Backoff is linear: 1s, 2s, ..., Ns.
+RETRY_MAX="${RETRY_MAX:-5}"
+retry() {
+    local attempt=0
+    until "$@"; do
+        attempt=$((attempt + 1))
+        if [ "$attempt" -ge "$RETRY_MAX" ]; then
+            echo "FATAL: retry exhausted after ${RETRY_MAX} attempts: $*" >&2
+            return 1
+        fi
+        sleep "$attempt"
+    done
+}
+
 DOWNLOAD_ROOT=/tmp/source_downloads
 wget_loop() {
     local FILE="$1"
     local URL="$2"
 
     mkdir -p "${DOWNLOAD_ROOT}"
-    until wget --progress=dot:giga -O "${DOWNLOAD_ROOT}/${FILE}" "${URL}"; do
-        echo "sleep before retry"
-        sleep 1
-    done
+    retry wget --progress=dot:giga -O "${DOWNLOAD_ROOT}/${FILE}" "${URL}"
 }
-#
-if [ -f /usr/bin/yum ]; then
+
+# Distro facts computed once. AL2023 does not define %rhel, so use a sentinel
+# to keep the RHVER arithmetic comparisons in the rest of the script reliable.
+RHVER=""
+DIST=""
+if command -v rpm >/dev/null 2>&1; then
   RHVER="$(rpm --eval %rhel)"
+  DIST="$(rpm --eval %dist)"
+  [[ "${DIST}" == ".amzn2023" ]] && RHVER=2023
+fi
+
+if [ -f /usr/bin/yum ]; then
+  mkdir -p /etc/yum/vars
   rpm --eval %_arch > /etc/yum/vars/basearch
   
   yum list installed
@@ -26,93 +50,82 @@ if [ -f /usr/bin/yum ]; then
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
-  if [[ ${RHVER} -lt 10 ]]; then
+  if [[ ${RHVER} -lt 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
       yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
       percona-release enable-only tools testing
   fi
 
-  until yum -y update; do
-    yum clean all
-    echo "waiting"
-    sleep 1
-  done
+  retry sh -c 'yum clean all && yum -y update'
 
   PKGLIST+=" wget"
 
   if [[ ${RHVER} -eq 10 ]]; then
-      until yum -y install oracle-epel-release-el10; do
-          echo "waiting"
-          sleep 1
-      done
+      retry yum -y install oracle-epel-release-el10
   elif [[ ${RHVER} -eq 8 ]]; then
-      until yum -y install oracle-epel-release-el8; do
-          echo "waiting"
-          sleep 1
-      done
+      retry yum -y install oracle-epel-release-el8
+  elif [[ "${DIST}" == ".amzn2023" ]]; then
+      : # AL2023 has no EPEL; required packages come from base + Percona repo
   else
-      until yum -y install epel-release; do
-          echo "waiting"
-          sleep 1
-      done
+      retry yum -y install epel-release
   fi
 
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
-      until yum -y install ${PKGLIST} ; do
-        echo "waiting"
-        sleep 1
-      done
-
-      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
-      rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      retry yum -y install ${PKGLIST}
+      if [[ $(uname -m) == "x86_64" ]]; then
+          # Legacy Percona-pinned x86_64 RPMs. procps-ng/procps-ng-devel now
+          # ship in base+CRB on OL8 and MySQL-python is python2 EOL, so this
+          # block is technical debt. Out of scope for ARM enablement; leaving
+          # the x86_64 path byte-identical to master.
+          wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
+          rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      fi
 
       dnf config-manager --enable ol8_codeready_builder
       PKGLIST+=" libedit-devel python3-docutils"
+      if [[ $(uname -m) != "x86_64" ]]; then
+          # OL8 aarch64: procps-ng is in base; procps-ng-devel lives in CRB.
+          # MySQL-python (python2 EOL) is skipped on aarch64; scons is filtered
+          # below via the aarch64 PKGLIST filter (modern PXB/PXC use cmake).
+          PKGLIST+=" procps-ng-devel"
+      fi
   fi
 
   if [[ ${RHVER} -eq 9 ]]; then
       PKGLIST+=" dnf-utils"
-      until yum -y install ${PKGLIST} ; do
-        echo "waiting"
-        sleep 1
-      done
-
+      retry yum -y install ${PKGLIST}
       dnf config-manager --enable ol9_codeready_builder
       PKGLIST+=" libedit-devel procps-ng-devel"
   fi
 
   if [[ ${RHVER} -eq 10 ]]; then
       PKGLIST+=" dnf-utils"
-      until yum -y install ${PKGLIST} ; do
-        echo "waiting"
-        sleep 1
-      done
-
+      retry yum -y install ${PKGLIST}
       dnf config-manager --enable ol10_codeready_builder
+      PKGLIST+=" libedit-devel procps-ng-devel"
+  fi
+
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      PKGLIST+=" dnf-plugins-core"
+      retry yum -y install ${PKGLIST}
+      # AL2023 has no ol*_codeready_builder; libedit-devel is in base
       PKGLIST+=" libedit-devel procps-ng-devel"
   fi
 
   if [[ ${RHVER} -lt 8 ]]; then
       PKGLIST+=" python-docutils procps-ng-devel"
-      until yum -y install centos-release-scl; do
-        echo "waiting"
-        sleep 1
-      done
+      retry yum -y install centos-release-scl
       # switch to vault scl repos
       sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
-  until yum -y install ${PKGLIST}; do
-    echo "waiting"
-    sleep 1
-  done
-
+  retry yum -y install ${PKGLIST}
   if [[ ${RHVER} -eq 8 ]]; then
       dnf config-manager --enable ol8_codeready_builder
   fi
@@ -128,20 +141,46 @@ if [ -f /usr/bin/yum ]; then
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
 
+  # AL2023 does not ship a few of the above packages. Strip them out so the
+  # final yum install does not fail. systemd-devel (added in the PXC-specific
+  # block below) substitutes libudev-devel. perl-Sys-MemInfo and ccache are
+  # not strictly required to build pxb on AL2023; skip them.
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      for pkg in perl-Sys-MemInfo ccache libudev-devel; do
+          PKGLIST="${PKGLIST// ${pkg} / }"
+      done
+  fi
+
   # mysql-devel / mariadb-connector-c-devel
-  if [[ ${RHVER} -eq 10 ]]; then
+  if [[ ${RHVER} -eq 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
       PKGLIST+=" mariadb-connector-c-devel"
   else
       PKGLIST+=" mysql-devel"
   fi
 
   # PXC specific
-  PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
-    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
-    "
+  if [[ "${DIST}" == ".amzn2023" ]]; then
+      # AL2023: drop scons (not in AL2023 base/percona repos, and modern PXB builds with cmake); netcat is named nmap-ncat
+      PKGLIST+=" libmicrohttpd-devel re2-devel check-devel libgcrypt-devel libev-devel vim-common \
+        perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools nmap-ncat \
+        "
+  else
+      PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
+        perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
+        "
+  fi
 
-  # qpress comes from Percona repo (disabled on OL10)
-  if [[ ${RHVER} -lt 10 ]]; then
+  # aarch64 images use the new pxc-build:*-aarch64 variants (PXB-3745). scons
+  # is not packaged for aarch64 on OL8 and modern PXB/PXC build with cmake, so
+  # strip it here. The x86_64 path keeps scons unchanged from master; the
+  # wider scons cleanup tracks in a follow-up ticket.
+  if [[ $(uname -m) != "x86_64" ]]; then
+      PKGLIST="${PKGLIST// scons / }"
+  fi
+
+  # qpress comes from Percona repo (disabled on OL10 and AL2023; not needed
+  # for 8.4+/9.7+ which is the only set that targets AL2023).
+  if [[ ${RHVER} -lt 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
       PKGLIST+=" qpress"
   fi
 
@@ -187,8 +226,20 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-libasan-devel gcc-toolset-15-libubsan-devel"
     fi
 
-    # KH: why?
-    if [[ ${RHVER} -ne 8 ]]; then
+    if [[ "${DIST}" == ".amzn2023" ]]; then
+        # AL2023 lacks gcc-toolset SCLs; gcc14 + gcc14-c++ provide modern toolchain.
+        # systemd-devel replaces libudev-devel. asio is bundled (see below).
+        PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
+        PKGLIST+=" gflags-devel util-linux"
+        PKGLIST+=" libxcrypt-compat ncurses-compat-libs libxcrypt-devel cyrus-sasl-gssapi"
+        PKGLIST+=" systemd-devel"
+        PKGLIST+=" gcc14 gcc14-c++ gcc14-plugin-devel"
+    fi
+
+    # asio-devel is not packaged on AL2023 (verified 2026-05-20 via prepare-docker
+    # rebuild on m3: yum returns 'No match for argument: asio-devel'). xtrabackup
+    # bundles asio internally so the build still succeeds without it.
+    if [[ ${RHVER} -ne 8 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         PKGLIST+=" asio-devel"
     fi
 
@@ -196,13 +247,18 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel"
     fi
 
-    # compat packages available on OL9 but not on OL10
+    # compat packages available on OL9 / AL2023 but not on OL10
     if [[ ${RHVER} -eq 9 ]]; then
         PKGLIST+=" libxcrypt-compat ncurses-compat-libs"
     fi
 
     if [[ ${RHVER} -lt 9 ]]; then
         PKGLIST+=" sysbench MySQL-python redhat-lsb-core"
+        if [[ ${RHVER} -eq 8 ]] && [[ $(uname -m) != "x86_64" ]]; then
+            # MySQL-python (python2 EOL) is not packaged for OL8 aarch64.
+            # mysql-connector + mysqlclient are installed via pip3 below.
+            PKGLIST="${PKGLIST// MySQL-python / }"
+        fi
     fi
 
 # Percona-Server
@@ -232,31 +288,17 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST+=" devtoolset-8-valgrind devtoolset-8-valgrind-devel perl-Digest-Perl-MD5 libedit-devel"
     fi
 
-    until yum -y install ${PKGLIST} ; do
-        echo "waiting"
-        sleep 1
-    done
-
+    retry yum -y install ${PKGLIST}
     if [[ ${RHVER} -eq 10 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET15}; do
-            echo "waiting"
-            sleep 1
-        done
+        retry yum -y install ${PKGLIST_DEVTOOLSET15}
     elif [[ ${RHVER} -eq 9 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
-            echo "waiting"
-            sleep 1
-        done
+        retry yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}
     elif [[ ${RHVER} -eq 8 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}; do
-            echo "waiting"
-            sleep 1
-        done
+        retry yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}
     elif [[ ${RHVER} -eq 7 ]]; then
-        until yum -y --enablerepo=centos-sclo-rh-testing install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11}; do
-            echo "waiting"
-            sleep 1
-        done
+        retry yum -y --enablerepo=centos-sclo-rh-testing install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11}
+    elif [[ "${DIST}" == ".amzn2023" ]]; then
+        : # AL2023 has no gcc-toolset; gcc14 was installed via PKGLIST above
     fi
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -264,7 +306,7 @@ if [ -f /usr/bin/yum ]; then
         update-alternatives --set python /usr/bin/python2
     fi
 
-    if [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 10 ]]; then
+    if [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
         ln -fs /usr/bin/python3 /usr/bin/python
     fi
 
@@ -273,7 +315,9 @@ if [ -f /usr/bin/yum ]; then
         rm /anaconda-post.log
     fi
 #   Install mysql-connector for QA framework run
-    if [[ ${RHVER} -ge 10 ]]; then
+    # AL2023 pip3 (21.x) lacks --break-system-packages; PEP 668 is not enforced
+    # there anyway, so the plain "pip3 install" form is sufficient.
+    if [[ ${RHVER} -ge 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         pip3 install --break-system-packages mysql-connector mysqlclient
     else
         pip3 install mysql-connector mysqlclient
@@ -283,22 +327,13 @@ fi
 if [ -f /usr/bin/apt-get ]; then
     echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
-    until apt-get update; do
-        sleep 1
-        echo "waiting"
-    done
+    retry apt-get update
 
-    until apt-get -y install lsb-release gnupg wget bc curl; do
-        sleep 1
-        echo "waiting"
-    done
+    retry apt-get -y install lsb-release gnupg wget bc curl
 
     DIST=$(lsb_release -sc)
 
-    until apt-get update; do
-        sleep 1
-        echo "waiting"
-    done
+    retry apt-get update
 
     # Percona Server (keep this list the same as in PS install-deps)
     PKGLIST=" \
@@ -318,7 +353,7 @@ if [ -f /usr/bin/apt-get ]; then
         python3-sphinx stunnel pigz net-tools netcat-openbsd \
     "
     # PXC specific - TODO: these packages are not present in PS, but were specified in common list. Verify if/why they are needed
-    PGKLIST+=" libsasl2-modules-gssapi-mit libgnutls28-dev"
+    PKGLIST+=" libsasl2-modules-gssapi-mit libgnutls28-dev"
 
     # liblz4-tool renamed to lz4 in Trixie
     if [[ ${DIST} == "trixie" ]]; then
@@ -411,11 +446,13 @@ if [ -f /usr/bin/apt-get ]; then
         PKGLIST+=" libre2-dev"
     fi
 
-    until apt-get -y install ${PKGLIST}; do
-        echo "waiting"
-        sleep 1
-    done
+    # aarch64 images skip scons (new pxc-build:*-aarch64 variants per PXB-3745;
+    # modern PXB/PXC build with cmake). x86_64 path keeps master's PKGLIST as-is.
+    if [[ $(uname -m) != "x86_64" ]]; then
+        PKGLIST="${PKGLIST// scons / }"
+    fi
 
+    retry apt-get -y install ${PKGLIST}
     # Install mysql-connector for QA framework run
     if [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == 'noble' ]] || [[ ${DIST} == 'trixie' ]]; then
         pip3 install mysql-connector --break-system-packages
@@ -492,9 +529,13 @@ fi
 
 if [ -f /usr/bin/yum ]; then
     RHVER="$(rpm --eval %rhel)"
-    if [[ ${RHVER} -ge 10 ]]; then
+    DIST="$(rpm --eval %dist)"
+    # AL2023 does not define %rhel; normalize so the version branches below
+    # treat it like a sphinx-5.3.0 target without --break-system-packages.
+    if [[ "${DIST}" == ".amzn2023" ]]; then RHVER=2023; fi
+    if [[ ${RHVER} -ge 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
         pip3 install --break-system-packages --upgrade sphinx==5.3.0
-    elif [[ ${RHVER} -eq 9 ]]; then
+    elif [[ ${RHVER} -eq 9 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
         pip3 install --upgrade sphinx==5.3.0
     else
         pip3 install --upgrade sphinx==1.6.7

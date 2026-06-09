@@ -32,8 +32,15 @@
         - ubuntu:noble
         - debian:bullseye
         - debian:bookworm
+        - amazonlinux:2023
         - asan
         description: OS version for compilation
+    - choice:
+        name: ARCH
+        choices:
+        - x86_64
+        - aarch64
+        description: CPU architecture; selects the pxc-build image variant and the worker label.
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:
