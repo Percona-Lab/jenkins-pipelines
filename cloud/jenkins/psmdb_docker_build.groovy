@@ -32,12 +32,6 @@ void build(String IMAGE_SUFFIX){
                 # keep the package channel consistent across the amd64 and arm64 Dockerfiles
                 sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO release/" -i \${CONTEXT}/Dockerfile \${CONTEXT}/Dockerfile.aarch64
                 build_multiarch "\$BASE_TAG" "\$CONTEXT" Dockerfile Dockerfile.aarch64
-
-                # debug image (amd64 only) is built FROM the freshly built base, using Dockerfile.debug
-                sed -E "s|^FROM .*|FROM \${BASE_TAG}|" -i \${CONTEXT}/Dockerfile.debug
-                sed -i '/telnet/d' \${CONTEXT}/Dockerfile.debug
-                docker buildx build --platform linux/amd64 --no-cache --progress plain --push \
-                    -t \${BASE_TAG}-debug -f \${CONTEXT}/Dockerfile.debug \${CONTEXT}
             fi
             docker logout
         """
@@ -247,11 +241,8 @@ pipeline {
         stage('Verify and list PSMDB images') {
             steps {
                 verifyImage('mongod6.0')
-                // verifyImage('mongod6.0-debug')
                 verifyImage('mongod7.0')
-                // verifyImage('mongod7.0-debug')
                 verifyImage('mongod8.0')
-                // verifyImage('mongod8.0-debug')
                 verifyImage('backup')
             }
         }
