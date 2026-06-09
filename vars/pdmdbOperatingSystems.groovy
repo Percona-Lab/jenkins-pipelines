@@ -2,13 +2,13 @@ def call(String version = 'default', String newVersion = null, String gatedBuild
     Boolean isGatedBuild = gatedBuild.toLowerCase() == 'true'
 
     def switchValues = [
-        (~/(p.mdb-)?4(\.)?0.*/):  ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy'],
-        (~/(p.mdb-)?5(\.)?0.*/):  ['debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy','ubuntu-noble'],
-        (~/(p.mdb-)?6(\.)?0.*/): ['debian-11', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'ubuntu-jammy', 'ubuntu-noble', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy-arm','ubuntu-noble-arm', 'al2023', 'al2023-arm' ],
-        (~/(p.mdb-)?7(\.)?0.*/): ['debian-11', 'debian-12', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'ubuntu-jammy', 'ubuntu-noble', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy-arm', 'ubuntu-noble-arm', 'al2023', 'al2023-arm' ],
-        (~/(p.mdb-)?8(\.)?0.*/): ['debian-13', 'rhel10', 'rhel10-arm'],
+//        (~/(p.mdb-)?4(\.)?0.*/):  ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy'],
+//        (~/(p.mdb-)?5(\.)?0.*/):  ['debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy','ubuntu-noble'],
+//        (~/(p.mdb-)?6(\.)?0.*/): ['debian-11', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'ubuntu-jammy', 'ubuntu-noble', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy-arm','ubuntu-noble-arm', 'al2023', 'al2023-arm' ],
+//        (~/(p.mdb-)?7(\.)?0.*/): ['debian-11', 'debian-12', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'ubuntu-jammy', 'ubuntu-noble', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy-arm', 'ubuntu-noble-arm', 'al2023', 'al2023-arm' ],
+//        (~/(p.mdb-)?8(\.)?0.*/): ['debian-13', 'rhel10', 'rhel10-arm'],
         (~/(p.mdb-)?8(\.)?3.*/): ['debian-13'],
-        'default': ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy']
+//        'default': ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy']
     ]
 
     def versionValues = (switchValues.find { key, value -> version ==~ key }?.value ?: switchValues['default']).collect()
