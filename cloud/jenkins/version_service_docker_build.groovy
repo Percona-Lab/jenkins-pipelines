@@ -1,15 +1,17 @@
 void checkImageForDocker(){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE=\$(cat IMG)
-            IMAGE_TAG=\$(echo "\$IMAGE" | cut -d':' -f2)
-            TrivyLog="$WORKSPACE/trivy-version-service-\${IMAGE_TAG}.xml"
+        sh '''
+            export IMAGE=$(cat IMG)
+            export IMAGE_TAG=$(echo "$IMAGE" | cut -d':' -f2)
+            export TrivyLog="${WORKSPACE}/trivy-version-service-${IMAGE_TAG}.xml"
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
-            "
-        """
+            sg docker -c '
+                set -e
+                echo "$PASS" | docker login -u "$USER" --password-stdin
+                /usr/local/bin/trivy -q --cache-dir "/mnt/jenkins/trivy-${JOB_NAME}/" image --format template --template @/tmp/junit.tpl -o "$TrivyLog" --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL "$IMAGE"
+                docker logout
+            '
+        '''
     }
 }
 
@@ -88,21 +90,26 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'DOCKER_REPOSITORY_PASSPHRASE', variable: 'DOCKER_REPOSITORY_PASSPHRASE'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
                     sh '''
-                        export IMG=\$(cat IMG)
-                        sg docker -c "
+                        export IMG=$(cat IMG)
+                        sg docker -c '
+                            set -e
                             if [ ! -d ~/.docker/trust/private ]; then
-                                mkdir -p /home/ec2-user/.docker/trust/private
-                                cp "${docker_key}" ~/.docker/trust/private/
+                                mkdir -p ~/.docker/trust/private
+                                cp "$docker_key" ~/.docker/trust/private/
                             fi
-                            docker login -u '${USER}' -p '${PASS}'
-                            docker push \$IMG
-                            if [[ "\$IMG" == *"perconalab/version-service:main-"* ]]; then
-                                export IMG_LATEST="perconalab/version-service:main-latest"
-                                docker tag \$IMG \\$IMG_LATEST
-                                docker push \\$IMG_LATEST
+
+                            echo "$PASS" | docker login -u "$USER" --password-stdin
+                            docker buildx create --use || true
+
+                            cd ./source
+                            if [[ "$IMG" == *"perconalab/version-service:main-"* ]]; then
+                                make docker-push IMG="$IMG" IMG_LATEST="perconalab/version-service:main-latest"
+                            else
+                                make docker-push IMG="$IMG"
                             fi
+
                             docker logout
-                        "
+                        '
                     '''
                 }
             }

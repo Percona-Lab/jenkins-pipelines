@@ -1,20 +1,30 @@
 void build(String IMAGE_SUFFIX){
-    sh """
-        set -e
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            set -e
 
-        cd ./source/
-        if [ ${IMAGE_SUFFIX} = backup ]; then
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
-                         -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
-        else
-            DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
-                         -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+            cd ./source/
+            echo "\$PASS" | docker login -u "\$USER" --password-stdin
+            docker buildx create --use || true
+            docker buildx inspect --bootstrap
 
-            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
-                         -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
-        fi
-    """
+            if [ ${IMAGE_SUFFIX} = backup ]; then
+                docker buildx build --platform linux/amd64,linux/arm64 --no-cache --progress plain --push \
+                             -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+                             -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
+            else
+                DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
+                docker buildx build --platform linux/amd64,linux/arm64 --no-cache --progress plain --push \
+                             -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+                             -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+
+                docker buildx build --platform linux/amd64,linux/arm64 --build-arg DEBUG=1 --no-cache --progress plain --push \
+                             -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
+                             -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+            fi
+            docker logout
+        """
+    }
 }
 
 void pushImageToDocker(String IMAGE_SUFFIX){
@@ -24,7 +34,7 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             sg docker -c "
                 set -e
                 echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                docker push perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
+                docker buildx imagetools inspect perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
                 docker logout
             "
             echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
@@ -74,7 +84,7 @@ void generateImageSummary(filePath) {
 String getTrivyCveSummary(String reportGlob) {
     int highCount = 0
     int criticalCount = 0
-    String perImageSummary = ''
+    def rows = []
 
     findFiles(glob: reportGlob).each { file ->
         def report = readFile(file.path)
@@ -84,14 +94,23 @@ String getTrivyCveSummary(String reportGlob) {
 
         highCount += imageHighCount
         criticalCount += imageCriticalCount
-        perImageSummary += "*${imageName}*\n*CRITICAL* `${imageCriticalCount}` *HIGH* `${imageHighCount}`\n"
+        if (imageHighCount > 0 || imageCriticalCount > 0) {
+            rows << [name: imageName, critical: imageCriticalCount, high: imageHighCount]
+        }
     }
 
     if (highCount == 0 && criticalCount == 0) {
         return ''
     }
 
-    return "\n*CVEs found:*\n${perImageSummary}\n"
+    int nameWidth = (rows.collect { it.name.length() } + ['IMAGE'.length()]).max()
+    String header = "${'IMAGE'.padRight(nameWidth)}  ${'CRITICAL'.padLeft(8)}  ${'HIGH'.padLeft(4)}"
+    String table = header + '\n'
+    rows.each { r ->
+        table += "${r.name.padRight(nameWidth)}  ${r.critical.toString().padLeft(8)}  ${r.high.toString().padLeft(4)}\n"
+    }
+
+    return "\n*CVEs found:*\n```\n${table}```\n"
 }
 pipeline {
     parameters {
