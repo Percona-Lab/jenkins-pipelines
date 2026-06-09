@@ -29,7 +29,10 @@ final Logger LOG = Logger.getLogger('ec2FleetCloud')
 final String CLOUD_NAME   = 'arm-graviton-fleet'
 final String REGION       = 'eu-west-1'
 final String ASG_NAME     = 'jenkins-rel-arm-graviton'
-final String LABEL        = 'docker-32gb-aarch64'
+// docker-aarch64 is deliberately included on rel ONLY: release builds queue on
+// that label and rel has had zero Hetzner aarch64 templates since the PS-11149
+// CAX mitigation; Graviton (8 vCPU / 32 GiB) is a superset of the cax41 it replaces.
+final String LABEL        = 'docker-32gb-aarch64 docker-aarch64'
 final String SSH_CRED_ID  = 'percona-jenkins'
 
 Jenkins.instance.clouds.findAll { it.name == CLOUD_NAME }.each {
@@ -63,7 +66,7 @@ def fleet = new EC2FleetCloud(
     true,                        // addNodeOnlyIfRunning
     false,                       // restrictUsage
     '-1',                        // maxTotalUses (-1 = unlimited)
-    false,                       // disableTaskResubmit
+    true,                        // disableTaskResubmit (PS-11265: resubmit aborts pipeline node bodies and re-schedules with wrong params and no cause)
     (Integer) 600,               // initOnlineTimeoutSec
     (Integer) 15,                // initOnlineCheckIntervalSec
     (Integer) 10,                // cloudStatusIntervalSec
