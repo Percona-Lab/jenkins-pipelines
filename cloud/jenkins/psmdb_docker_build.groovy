@@ -114,7 +114,12 @@ String getTrivyCveSummary(String reportGlob) {
         return ''
     }
 
-    int nameWidth = (rows.collect { it.name.length() } + ['IMAGE'.length()]).max()
+    int nameWidth = 'IMAGE'.length()
+    rows.each { r ->
+        if (r.name.length() > nameWidth) {
+            nameWidth = r.name.length()
+        }
+    }
     String header = "${'IMAGE'.padRight(nameWidth)}  ${'CRITICAL'.padLeft(8)}  ${'HIGH'.padLeft(4)}"
     String table = header + '\n'
     rows.each { r ->
