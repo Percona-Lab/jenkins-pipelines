@@ -33,7 +33,7 @@ pipeline {
             steps { 
                 script {
                     def version = params.PBM_VERSION + '-1'
-                    build job: 'hetzner-pbm-docker-multiarch', parameters: [string(name: 'PBM_REPO_CH', value: "testing"), string(name: 'PBM_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
+                    build job: 'hetzner-pbm-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PBM_REPO_CH', value: "testing"), string(name: 'PBM_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
                 }
             }
         }
