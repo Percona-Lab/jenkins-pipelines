@@ -21,7 +21,7 @@ void build(String IMAGE_SUFFIX){
                 docker buildx imagetools create -t \${TAG} \${TAG}-amd64 \${TAG}-arm64
             }
 
-            BASE_TAG=perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
+            BASE_TAG=${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
 
             if [ ${IMAGE_SUFFIX} = backup ]; then
                 build_multiarch "\$BASE_TAG" percona-backup-mongodb Dockerfile Dockerfile.aarch64
@@ -38,20 +38,21 @@ void build(String IMAGE_SUFFIX){
     }
 }
 
-void verifyImage(String IMAGE_SUFFIX){
+void verifyImage(String IMAGE){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            IMAGE_SUFFIX=${IMAGE_SUFFIX}
+            IMAGE='${IMAGE}'
             sg docker -c "
                 set -e
                 echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                docker buildx imagetools inspect perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
+                docker buildx imagetools inspect \$IMAGE
                 docker logout
             "
-            echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
+            echo "\$IMAGE" >> list-of-images.txt
         """
     }
 }
+
 void checkImagesForDocker(String imagesListPath){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
@@ -105,9 +106,7 @@ String getTrivyCveSummary(String reportGlob) {
 
         highCount += imageHighCount
         criticalCount += imageCriticalCount
-        if (imageHighCount > 0 || imageCriticalCount > 0) {
-            rows << [name: imageName, critical: imageCriticalCount, high: imageHighCount]
-        }
+        rows << [name: imageName, critical: imageCriticalCount, high: imageHighCount]
     }
 
     if (highCount == 0 && criticalCount == 0) {
@@ -152,6 +151,7 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        IMAGE_REPOSITORY = 'perconalab/percona-server-mongodb-operator'
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
         TRIVY_VERSION = '0.69.3'
     }
@@ -199,16 +199,16 @@ pipeline {
                         unstash "sourceFILES"
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh '''
-                                docker buildx create --use
+                                docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
+                                docker buildx inspect --bootstrap
                                 sg docker -c "
                                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                                     pushd source
-                                    export IMAGE=perconalab/percona-server-mongodb-operator:${GIT_BRANCH}
+                                    export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
                                     popd
                                     docker logout
                                 "
-                                echo "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}" >> list-of-images.txt
                             '''
                         }
                     }
@@ -245,10 +245,11 @@ pipeline {
 
         stage('Verify and list PSMDB images') {
             steps {
-                verifyImage('mongod6.0')
-                verifyImage('mongod7.0')
-                verifyImage('mongod8.0')
-                verifyImage('backup')
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_BRANCH}")
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod6.0")
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod7.0")
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.0")
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-backup")
             }
         }
         stage('Check PSMDB docker images') {
