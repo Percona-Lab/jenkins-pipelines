@@ -37,5 +37,12 @@ pipeline {
                 }
             }
         }
+        stage ('Run PCSM tarball/docker SBOM tests') {
+            steps {
+                script {
+                    build job: 'hetzner-pbm-sbom-tests', parameters: [string(name: 'PBM_VERSION', value: params.PBM_VERSION), string(name: 'install_repo', value: "testing")]
+                }
+            }
+        }
     }
 } 
