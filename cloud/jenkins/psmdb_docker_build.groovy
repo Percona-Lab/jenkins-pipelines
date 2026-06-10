@@ -28,9 +28,13 @@ void build(String IMAGE_SUFFIX){
             else
                 DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
                 CONTEXT=percona-server-mongodb-\$DOCKER_FILE_PREFIX
+                PSMDB_REPO=release
+                if [ ${IMAGE_SUFFIX} = mongod8.3 ]; then
+                    PSMDB_REPO=experimental
+                fi
 
                 # keep the package channel consistent across the amd64 and arm64 Dockerfiles
-                sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO release/" -i \${CONTEXT}/Dockerfile \${CONTEXT}/Dockerfile.aarch64
+                sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO \${PSMDB_REPO}/" -i \${CONTEXT}/Dockerfile \${CONTEXT}/Dockerfile.aarch64
                 build_multiarch "\$BASE_TAG" "\$CONTEXT" Dockerfile Dockerfile.aarch64
             fi
             docker logout
@@ -240,6 +244,9 @@ pipeline {
                 retry(3) {
                     build('mongod8.0')
                 }
+                retry(3) {
+                    build('mongod8.3')
+                }
             }
         }
 
@@ -249,6 +256,7 @@ pipeline {
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod6.0")
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod7.0")
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.0")
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.3")
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-backup")
             }
         }

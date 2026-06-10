@@ -28,6 +28,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_MONGOD60':
         case 'IMAGE_MONGOD70':
         case 'IMAGE_MONGOD80':
+        case 'IMAGE_MONGOD83':
             return target(image, projectId, "${params.RELEASE}-psmdb-${imageTag(image)}", credentials)
 
         case 'IMAGE_BACKUP':
@@ -68,6 +69,7 @@ pipeline {
                 'IMAGE_MONGOD60',
                 'IMAGE_MONGOD70',
                 'IMAGE_MONGOD80',
+                'IMAGE_MONGOD83',
                 'IMAGE_BACKUP',
                 'IMAGE_PMM3_CLIENT',
                 'IMAGE_LOGCOLLECTOR'
