@@ -90,26 +90,21 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'DOCKER_REPOSITORY_PASSPHRASE', variable: 'DOCKER_REPOSITORY_PASSPHRASE'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
                     sh '''
-                        export IMG=$(cat IMG)
-                        sg docker -c '
-                            set -e
+                        export IMG=\$(cat IMG)
+                        sg docker -c "
                             if [ ! -d ~/.docker/trust/private ]; then
-                                mkdir -p ~/.docker/trust/private
-                                cp "$docker_key" ~/.docker/trust/private/
+                                mkdir -p /home/ec2-user/.docker/trust/private
+                                cp "${docker_key}" ~/.docker/trust/private/
                             fi
-
-                            echo "$PASS" | docker login -u "$USER" --password-stdin
-                            docker buildx create --use || true
-
-                            cd ./source
-                            if [[ "$IMG" == *"perconalab/version-service:main-"* ]]; then
-                                make docker-push IMG="$IMG" IMG_LATEST="perconalab/version-service:main-latest"
-                            else
-                                make docker-push IMG="$IMG"
+                            docker login -u '${USER}' -p '${PASS}'
+                            docker push \$IMG
+                            if [[ "\$IMG" == *"perconalab/version-service:main-"* ]]; then
+                                export IMG_LATEST="perconalab/version-service:main-latest"
+                                docker tag \$IMG \\$IMG_LATEST
+                                docker push \\$IMG_LATEST
                             fi
-
                             docker logout
-                        '
+                        "
                     '''
                 }
             }
