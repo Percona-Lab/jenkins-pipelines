@@ -71,7 +71,7 @@ pipeline {
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 script {
                     env.SERVER_IP = "127.0.0.1"
-                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
                     env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                 }
             }
