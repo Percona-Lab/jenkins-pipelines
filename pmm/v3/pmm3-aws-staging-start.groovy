@@ -249,7 +249,11 @@ pipeline {
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'
+                                    if ! timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'; then
+                                        echo "PMM Server did not become ready within the timeout, dumping logs" >&2
+                                        docker logs pmm-server || true
+                                        exit 1
+                                    fi
                                     pmm_tag="${DOCKER_VERSION##*:}"
                                     minor_version=${pmm_tag#3.}
                                     minor_version=${minor_version%%.*}
