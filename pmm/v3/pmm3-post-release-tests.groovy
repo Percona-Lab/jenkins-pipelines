@@ -110,8 +110,8 @@ pipeline {
             steps {
                 sh '''
                     docker stop pmm-server
+                    docker rm pmm-server
                     docker pull ${DOCKER_TAG_UPGRADE}
-                    docker rename pmm-server pmm-server-old
                     docker run --detach --restart always \
                         --network="pmm-qa" \
                         -e PMM_DEBUG=1 \
@@ -119,7 +119,7 @@ pipeline {
                         -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                         -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
                         --publish 443:8443 \
-                        --volumes-from pmm-server-old \
+                        --volume pmm-volume:/srv \
                         --name pmm-server \
                         ${DOCKER_TAG_UPGRADE}
                     docker ps -a
@@ -140,7 +140,7 @@ pipeline {
         stage('Verify version after upgrade') {
             steps {
                 sh '''
-                    UPGRADED_VERSION=$(curl -sk --user admin:${ADMIN_PASSWORD} https://localhost/v1/server/version | jq -r '.version' | awk -F "-" '{print $1}')
+                    UPGRADED_VERSION=$(curl -sk --user admin:${ADMIN_PASSWORD} https://127.0.0.1/v1/server/version | jq -r '.version' | awk -F "-" '{print $1}')
                     echo "Upgraded PMM Server version: ${UPGRADED_VERSION}, expected: ${PMM_SERVER_LATEST}"
                     if [[ "${UPGRADED_VERSION}" != "${PMM_SERVER_LATEST}" ]]; then
                         echo "Version mismatch after docker upgrade" >&2
