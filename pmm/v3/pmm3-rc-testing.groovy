@@ -25,6 +25,25 @@ def triggerJenkinsRc(String shortName, String jobName, List jobParams) {
     }
 }
 
+def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
+    def defaults = [
+        PMM_QA_GIT_BRANCH : 'main',
+        SERVER_TYPE       : 'docker',
+        DOCKER_VERSION    : env.PMM_SERVER_IMAGE,
+        OVA_VERSION       : '',
+        CLIENT_VERSION    : 'pmm3-rc',
+        ADMIN_PASSWORD    : 'pmm3admin!',
+        HELM_CHART_BRANCH : 'main',
+        OPENSHIFT_VERSION : 'latest',
+        K8S_VERSION       : '1.34',
+        PTS_CONFIDENCE    : '93',
+    ]
+    def merged = defaults + cfg
+    triggerJenkinsRc(shortName, 'pmm3-ui-tests-nightly-gha', merged.collect { k, v ->
+        string(name: k, value: v.toString())
+    })
+}
+
 // ---------- pipeline ---------------------------------------------------------
 
 pipeline {
@@ -92,7 +111,32 @@ pipeline {
                     }
                     writeFile file: 'compat-tags.txt', text: compatTagsOut + '\n'
 
-                    currentBuild.description = "rc=${params.RC_VERSION.trim()} server=${env.PMM_SERVER_IMAGE}"
+                    env.IS_PATCH_RC = sh(
+                        returnStdout: true,
+                        script: """
+                            set -euo pipefail
+                            rc='${params.RC_VERSION.trim()}'
+                            ga=\$(wget -q 'https://registry.hub.docker.com/v2/repositories/percona/pmm-client/tags?page_size=250' -O - \\
+                                | jq -r '.results[].name' \\
+                                | grep -v latest \\
+                                | sort -V \\
+                                | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\$' \\
+                                | tail -n1)
+                            rc_major=\$(echo "\$rc" | cut -d. -f1)
+                            rc_minor=\$(echo "\$rc" | cut -d. -f2)
+                            rc_patch=\$(echo "\$rc" | cut -d. -f3)
+                            ga_major=\$(echo "\$ga" | cut -d. -f1)
+                            ga_minor=\$(echo "\$ga" | cut -d. -f2)
+                            ga_patch=\$(echo "\$ga" | cut -d. -f3)
+                            if [[ "\$rc_major" == "\$ga_major" && "\$rc_minor" == "\$ga_minor" && "\$rc_patch" != "\$ga_patch" ]]; then
+                                echo true
+                            else
+                                echo false
+                            fi
+                        """
+                    ).trim()
+
+                    currentBuild.description = "rc=${params.RC_VERSION.trim()} patch-rc=${env.IS_PATCH_RC} server=${env.PMM_SERVER_IMAGE}"
                 }
             }
         }
@@ -119,171 +163,69 @@ pipeline {
                         stage('nightly (AMI)') {
                             steps {
                                 script {
-                                    triggerJenkinsRc('pmm3-ui-tests-nightly (ami)', 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'ami'),
-                                        string(name: 'DOCKER_VERSION',          value: params.AMI_ID.trim()),
-                                        string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ami)', [
+                                        SERVER_TYPE    : 'ami',
+                                        DOCKER_VERSION : params.AMI_ID.trim(),
                                     ])
                                 }
                             }
                         }
                         stage('nightly (compat #1)') {
+                            when { expression { env.IS_PATCH_RC != 'true' } }
                             steps {
                                 script {
                                     def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
                                     def ver = tags[0]
-                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: ver),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc("pmm3-ui-tests-nightly-gha (compat ${ver})", [
+                                        CLIENT_VERSION: ver,
                                     ])
                                 }
                             }
                         }
                         stage('nightly (compat #2)') {
+                            when { expression { env.IS_PATCH_RC != 'true' } }
                             steps {
                                 script {
                                     def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
                                     def ver = tags[1]
-                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: ver),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc("pmm3-ui-tests-nightly-gha (compat ${ver})", [
+                                        CLIENT_VERSION: ver,
                                     ])
                                 }
                             }
                         }
                         stage('nightly (compat #3)') {
+                            when { expression { env.IS_PATCH_RC != 'true' } }
                             steps {
                                 script {
                                     def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
                                     def ver = tags[2]
-                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: ver),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc("pmm3-ui-tests-nightly-gha (compat ${ver})", [
+                                        CLIENT_VERSION: ver,
                                     ])
                                 }
                             }
                         }
                         stage('nightly (compat #4)') {
+                            when { expression { env.IS_PATCH_RC != 'true' } }
                             steps {
                                 script {
                                     def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
                                     def ver = tags[3]
-                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: ver),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc("pmm3-ui-tests-nightly-gha (compat ${ver})", [
+                                        CLIENT_VERSION: ver,
                                     ])
                                 }
                             }
                         }
                         stage('nightly (compat #5)') {
+                            when { expression { env.IS_PATCH_RC != 'true' } }
                             steps {
                                 script {
                                     def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
                                     def ver = tags[4]
-                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: ver),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc("pmm3-ui-tests-nightly-gha (compat ${ver})", [
+                                        CLIENT_VERSION: ver,
                                     ])
                                 }
                             }
@@ -296,26 +238,11 @@ pipeline {
                         stage('nightly (OVF)') {
                             steps {
                                 script {
-                                    triggerJenkinsRc('pmm3-ui-tests-nightly (ovf)', 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'ovf'),
-                                        string(name: 'DOCKER_VERSION',          value: "https://percona-vm.s3.amazonaws.com/PMM3-Server-${params.RC_VERSION.trim()}.ova"),
-                                        string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '99'),
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ovf)', [
+                                        SERVER_TYPE    : 'ovf',
+                                        OVA_VERSION    : "https://percona-vm.s3.amazonaws.com/PMM3-Server-${params.RC_VERSION.trim()}.ova",
+                                        ADMIN_PASSWORD : 'admin1',
+                                        PTS_CONFIDENCE : '99',
                                     ])
                                 }
                             }
@@ -323,53 +250,16 @@ pipeline {
                         stage('nightly (Docker)') {
                             steps {
                                 script {
-                                    triggerJenkinsRc('pmm3-ui-tests-nightly (docker)', 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
-                                    ])
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (docker)')
                                 }
                             }
                         }
                         stage('nightly (Helm)') {
                             steps {
                                 script {
-                                    triggerJenkinsRc('pmm3-ui-tests-nightly (helm)', 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'helm'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (helm)', [
+                                        SERVER_TYPE    : 'helm',
+                                        ADMIN_PASSWORD : 'admin1',
                                     ])
                                 }
                             }
@@ -377,26 +267,9 @@ pipeline {
                         stage('nightly (HA)') {
                             steps {
                                 script {
-                                    triggerJenkinsRc('pmm3-ui-tests-nightly (ha)', 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'ha'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ha)', [
+                                        SERVER_TYPE    : 'ha',
+                                        ADMIN_PASSWORD : 'admin1',
                                     ])
                                 }
                             }
@@ -449,6 +322,7 @@ pipeline {
                                                 pxc_version            : '8.0',
                                                 pxc_glibc              : '2.35',
                                                 pdpgsql_version        : '17',
+                                                skip_compatibility     : env.IS_PATCH_RC == 'true',
                                             ],
                                         ]).toString()
                                         writeFile file: 'rc-suite-dispatch.json', text: payload
