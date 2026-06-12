@@ -90,8 +90,13 @@ def log_lines(logger, text, default_level=logging.DEBUG):
     if isinstance(text, bytes):
         text = text.decode(errors="replace")
 
+    prefixes = ("ERROR:", "FAILED:", "WARNING:", "WARN:", "SUCCESS:", "OK:")
     for line in text.rstrip().splitlines():
-        logger.log(infer_log_level(line) if default_level is None else infer_log_level(line) if line.startswith(("ERROR:", "FAILED:", "WARNING:", "WARN:", "SUCCESS:", "OK:")) else default_level, line)
+        if default_level is None or line.startswith(prefixes):
+            level = infer_log_level(line)
+        else:
+            level = default_level
+        logger.log(level, line)
 
 
 def log_message(logger, msg, level=None):

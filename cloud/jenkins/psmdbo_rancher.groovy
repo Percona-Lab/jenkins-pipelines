@@ -30,6 +30,7 @@ pipeline {
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'Kubernetes version')
         string(name: 'PLATFORM_ARCH', defaultValue: 'amd64', description: 'Platform architecture')
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version')
+        string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: '')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: '')
@@ -39,7 +40,6 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: '')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: '')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: '')
-        string(name: 'GOOGLE_REGION', defaultValue: 'us-central1-a', description: '')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: '')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: '')
     }
@@ -83,7 +83,7 @@ pipeline {
                     libraries.dependencies.installGoogleCLI()
                     libraries.dependencies.installAzureCLI()
 
-                    libraries.google.auth()
+                    libraries.gcloud.auth()
                     libraries.azure.auth()
                 }
             }
@@ -110,11 +110,13 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb-operator',
 
-                        platform_type         : 'rancher',
+                        platform_provider     : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VERSION,
                         platform_arch         : PLATFORM_ARCH,
                         rancher_version       : RANCHER_VERSION,
+                        worker_count          : 4,
+                        zone                  : RANCHER_ZONE,
                         
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
@@ -176,10 +178,9 @@ pipeline {
         always {
             script {
                 echo "CLUSTER ASSIGNMENTS\n" +
-                    testVariables.tests.toString()
-                        .replace('], ', ']\n')
-                        .replace(']]', ']')
-                        .replaceFirst('\\[', '')
+                    (testVariables.tests ?: [:]).collect { testName, test ->
+                        "${testName}: cluster=${test.cluster}, result=${test.result}, time=${test.time}"
+                    }.join('\n')
 
                 libraries.tests.makeReport(testVariables.tests, testVariables)
 
@@ -206,12 +207,12 @@ pipeline {
                             clusterName  : testVariables.cluster_name,
                             clusterSuffix: clusterSuffix,
                             projectId    : testVariables.project_id,
-                            zone         : GOOGLE_REGION,
+                            zone         : RANCHER_ZONE,
                             kubeconfig   : "/tmp/${testVariables.cluster_name}-${clusterSuffix}"
                         ]
 
                         libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
-                        libraries[clusterType].shutdownCluster(clusterCfg)
+                        libraries.rancher.shutdownCluster(clusterCfg)
                     } catch (err) {
                         echo "Cleanup failed for ${clusterSuffix}: ${err}"
                     }

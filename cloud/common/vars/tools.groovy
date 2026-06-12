@@ -9,7 +9,7 @@ void gitClone(Map cfg) {
         set -e
         sudo git config --global --add safe.directory '*'
         sudo rm -rf source
-        git clone -b ${branch} ${repo} source
+        git clone -b "${branch}" "${repo}" source
     """
 }
 
@@ -64,13 +64,9 @@ void dockerBuildAndPush(Map cfg) {
 
                 sg docker -c '
                     docker buildx create --use || true
-
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
-
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
-
                     e2e-tests/build
-
                     docker logout
                 '
 

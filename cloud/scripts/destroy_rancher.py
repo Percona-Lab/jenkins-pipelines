@@ -207,7 +207,6 @@ def delete_firewalls(config):
     firewalls = [
         f"{prefix}-allow-ssh",
         f"{prefix}-allow-rancher",
-        f"{prefix}-allow-rke2-rancher",
         f"{prefix}-allow-internal",
     ]
 

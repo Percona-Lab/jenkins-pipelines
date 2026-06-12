@@ -1,5 +1,5 @@
 def call(Map cfg = [:]) {
-    def tests = (cfg.tests ?: []) as List
+    def tests = normalizeTests(cfg.tests)
     def channel = cfg.channel ?: '#cloud-dev-ci'
     def gitBranch = cfg.gitBranch ?: env.GIT_BRANCH
     def platformVer = cfg.platformVer ?: env.PLATFORM_VER
@@ -8,10 +8,10 @@ def call(Map cfg = [:]) {
     def image = cfg.image ?: env.IMAGE_PXC ?: env.IMAGE_MYSQL ?: env.IMAGE_MONGOD ?: env.IMAGE_POSTGRESQL ?: env.IMAGE
     def operatorImage = cfg.operatorImage ?: cfg.imageOperator ?: env.IMAGE_OPERATOR
 
-    def failedTests = tests.findAll { it["result"] == "failure" }
-    def passedCount = tests.count { it["result"] == "passed" }
+    def failedTests = tests.findAll { testName, test -> test["result"] == "failure" }
+    def passedCount = tests.values().count { test -> test["result"] == "passed" }
     def failedCount = failedTests.size()
-    def skippedCount = tests.count { it["result"] == "skipped" }
+    def skippedCount = tests.values().count { test -> test["result"] == "skipped" }
     def total = tests.size()
 
     def duration = (currentBuild.durationString ?: "N/A").replace(' and counting', '')
@@ -57,14 +57,14 @@ def call(Map cfg = [:]) {
 
     if (failedCount > 0) {
         message += "\n*Failed tests:*\n"
-        failedTests.each { t ->
+        failedTests.each { testName, test ->
             def mins = 0.0
             try {
-                mins = ((t["time"] ?: 0) as Double) / 60
+                mins = ((test["time"] ?: 0) as Double) / 60
             } catch (ignored) {
                 mins = 0.0
             }
-            message += "- `${t['name']}` on ${t['cluster']} (${String.format('%.1f', mins)} min)\n"
+            message += "- `${testName}` on ${test['cluster']} (${String.format('%.1f', mins)} min)\n"
         }
     }
 
@@ -72,6 +72,27 @@ def call(Map cfg = [:]) {
         slackSend channel: channel, color: color, message: message
     } catch (err) {
         echo "Slack notification failed: ${err}"
+    }
+}
+
+Map normalizeTests(Object rawTests) {
+    if (!rawTests) {
+        return [:]
+    }
+
+    def entries = rawTests instanceof Map
+        ? rawTests.collect { testName, test -> [name: testName, data: test] }
+        : (rawTests as List).collect { test -> [name: test["name"], data: test] }
+
+    return entries.findAll { it.name }.collectEntries { entry ->
+        def test = (entry.data ?: [:]) as Map
+        [
+            (entry.name as String): [
+                cluster: test["cluster"] ?: "NA",
+                result : test["result"] ?: "skipped",
+                time   : test["time"] ?: "0"
+            ]
+        ]
     }
 }
 

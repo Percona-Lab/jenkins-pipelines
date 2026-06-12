@@ -42,7 +42,7 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
     return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
-List load(String testList, String testSuite) {
+Map load(String testList, String testSuite) {
     echo "=========================[ Loading tests ]========================="
     def suiteFileName = "source/e2e-tests/${testSuite}"
 
@@ -57,9 +57,10 @@ List load(String testList, String testSuite) {
         """
     }
 
-    def tests = readCSV(file: suiteFileName).collect { record ->
-        [
-            name   : record[0],
+    def tests = [:]
+    readCSV(file: suiteFileName).each { record ->
+        def testName = record[0]
+        tests[testName] = [
             cluster: "NA",
             result : "skipped",
             time   : "0"
@@ -67,7 +68,7 @@ List load(String testList, String testSuite) {
     }
 
     echo "Loaded ${tests.size()} tests:"
-    echo tests.collect { " - ${it.name}" }.join('\n')
+    echo tests.keySet().collect { " - ${it}" }.join('\n')
 
     return tests
 }
@@ -84,8 +85,8 @@ void updateListWithLastExecutionStatus(Map testVariables) {
             aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
         """
 
-        testVariables.tests.each { test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, test.name))
+        testVariables.tests.each { testName, test ->
+            def file = artifactFileName(buildArtifactParams(testVariables, testName))
             def retFileExists = sh(
                 script: """
                     aws s3api head-object \
@@ -204,17 +205,48 @@ Map prepareVersions(Map testVariables) {
 
         testVariables.images = resolveImages(testVariables)
 
-        if (testVariables.platform_type == "rancher") {
-            testVariables.rancher_version = getReleaseVersionsParam(
-                testVariables.release_versions,
-                "RANCHER_VERSION",
-                testVariables.rancher_version ?: "latest"
-            )
-            testVariables.cert_manager_version = getReleaseVersionsParam(
-                testVariables.release_versions,
-                "CERT_MANAGER_VERSION",
-                testVariables.cert_manager_version ?: "latest"
-            )
+        switch (testVariables.platform_provider?.toLowerCase()) {
+            case "rancher":
+                testVariables.rancher_version = getReleaseVersionsParam(
+                    testVariables.release_versions,
+                    "RANCHER_VERSION"
+                )
+                testVariables.cert_manager_version = getReleaseVersionsParam(
+                    testVariables.release_versions,
+                    "CERT_MANAGER_VERSION"
+                )
+                break
+
+            case "gcloud":
+                testVariables.gke_version = getReleaseVersionsParam(
+                    testVariables.release_versions,
+                    "GKE_VERSION"
+                )
+                break
+
+            case "azure":
+                testVariables.aks_version = getReleaseVersionsParam(
+                    testVariables.release_versions,
+                    "AKS_VERSION"
+                )
+                break
+
+            case "redhat":
+                testVariables.openshift_version = getReleaseVersionsParam(
+                    testVariables.release_versions,
+                    "OPENSHIFT_VERSION"
+                )
+                break
+
+            case "digitalocean":
+                testVariables.doks_version = getReleaseVersionsParam(
+                    testVariables.release_versions,
+                    "DOKS_VERSION"
+                )
+                break
+
+            default:
+                error("Unsupported platform_provider: ${testVariables.platform_provider}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
@@ -223,19 +255,18 @@ Map prepareVersions(Map testVariables) {
     if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
         testVariables.platform_version = getReleaseVersionsParam(
             testVariables.release_versions,
-            "PLATFORM_VER",
-            "RANCHER_${testVariables.platform_version.toUpperCase()}"
+            "PLATFORM_VER"
         )
     }
 
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_type) {
-        testVariables.platform_version = libraries[testVariables.platform_type].getLatestVersion(
+    if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
+        testVariables.platform_version = libraries[testVariables.platform_provider].getLatestVersion(
             testVariables.platform_channel
         )
     }
 
-    if (testVariables.platform_arch && testVariables.platform_type) {
-        testVariables.machine_type = libraries[testVariables.platform_type].getMachineType(
+    if (testVariables.platform_arch && testVariables.platform_provider) {
+        testVariables.machine_type = libraries[testVariables.platform_provider].getMachineType(
             testVariables.platform_arch
         )
     }
@@ -261,7 +292,6 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
     exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
-
     exports << """
         [[ '${testVariables.images.IMAGE_OPERATOR}' ]] && \
             export IMAGE='${testVariables.images.IMAGE_OPERATOR}' || \
@@ -291,22 +321,70 @@ String getTestCommand(Map testVariables, String testName) {
     return "e2e-tests/${testName}/run"
 }
 
+@com.cloudbees.groovy.cps.NonCPS
+String claimNextSkippedTest(Map tests, String clusterSuffix) {
+    synchronized (tests) {
+        def entry = tests.find { testName, test ->
+            test.result == "skipped"
+        }
+
+        if (!entry) {
+            return null
+        }
+
+        entry.value.result = "failure"
+        entry.value.cluster = clusterSuffix
+
+        return entry.key as String
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void updateTestResult(Map tests, String testName, String result) {
+    synchronized (tests) {
+        tests[testName].result = result
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void updateTestTime(Map tests, String testName, Object time) {
+    synchronized (tests) {
+        tests[testName].time = time
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void addCluster(List clusters, String clusterSuffix) {
+    synchronized (clusters) {
+        if (!clusters.contains(clusterSuffix)) {
+            clusters.add(clusterSuffix)
+        }
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void removeCluster(List clusters, String clusterSuffix) {
+    synchronized (clusters) {
+        clusters.remove(clusterSuffix)
+    }
+}
+
 void runTest(Map testConfig) {
     def retryCount = 0
-    def test = testConfig.tests[testConfig.testId]
-    def testName = test.name
     def testVariables = testConfig.testVariables
+    def testName = testConfig.testName
+    def clusterSuffix = testConfig.clusterSuffix
 
     waitUntil {
         def timeStart = System.currentTimeMillis()
 
         try {
-            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, test.cluster)}!"
-            test.result = "failure"
+            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}!"
+            updateTestResult(testVariables.tests, testName, "failure")
 
 
             timeout(time: 90, unit: 'MINUTES') {
-                def exports = getExportedVariablesForTests(testVariables, test.cluster)
+                def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = getTestCommand(testVariables, testName)
 
                 sh """
@@ -323,7 +401,7 @@ void runTest(Map testConfig) {
                 testVariables.git_short_commit
             )
 
-            test.result = "passed"
+            updateTestResult(testVariables.tests, testName, "passed")
             return true
 
         } catch (exc) {
@@ -336,7 +414,7 @@ void runTest(Map testConfig) {
             return false
 
         } finally {
-            test.time = (System.currentTimeMillis() - timeStart) / 1000
+            updateTestTime(testVariables.tests, testName, (System.currentTimeMillis() - timeStart) / 1000)
             echo "The ${testName} test was finished!"
         }
     }
@@ -346,47 +424,49 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     def createdClusters = []
     def clusterCreated = false
     def clusterCfg = [
-        clusterName: testVariables.cluster_name,
-        clusterSuffix: clusterSuffix,
-        platformType: testVariables.platform_type,
+        clusterName     : testVariables.cluster_name,
+        clusterSuffix   : clusterSuffix,
+        platformProvider: testVariables.platform_provider,
         platformVersion : testVariables.platform_version,
         platformChannel : testVariables.platform_channel,
-        platformArch : testVariables.platform_arch,
-        machineType : testVariables.machine_type,
-        kubeconfig  : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
-        debug       : testVariables.debug
+        platformArch    : testVariables.platform_arch,
+        machineType     : testVariables.machine_type,
+        workerCountMin  : testVariables.worker_min_count ?: 4,
+        workerCountMax  : testVariables.worker_max_count ?: 6,
+        region          : testVariables.region ?: "",
+        zone            : testVariables.zone ?: "",
+        kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
+        debug           : testVariables.debug
     ]
 
-    if (testVariables.platform_type == "rancher") {
+    if (testVariables.platform_provider == "rancher") {
         clusterCfg.rancherVersion = testVariables.rancher_version
         clusterCfg.certManagerVersion = testVariables.cert_manager_version
     }
 
-    def createCluster = { testVariables.libraries[testVariables.platform_type].createCluster(clusterCfg) }
+    def createCluster = { testVariables.libraries[testVariables.platform_provider].createCluster(clusterCfg) }
     def clusterCleanup = { testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig) }
-    def shutdownCluster = { testVariables.libraries[testVariables.platform_type].shutdownCluster(clusterCfg) }
+    def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
 
     try {
-        testVariables.tests.eachWithIndex { test, index ->
-            if (test.result != "skipped") {
-                return
+        while (true) {
+            def testName = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+            if (!testName) {
+                break
             }
-
-            test.result = "failure"
-            test.cluster = clusterSuffix
 
             if (!clusterCreated) {
                 clusterCreated = true
                 createdClusters.add(clusterSuffix)
-                testVariables.clusters.add(clusterSuffix)
+                addCluster(testVariables.clusters, clusterSuffix)
 
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
             }
 
             runTest(
-                tests: testVariables.tests,
-                testId: index,
+                testName: testName,
+                clusterSuffix: clusterSuffix,
                 testVariables: testVariables,
                 retries: testVariables.retries ?: 1
             )
@@ -397,7 +477,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
             try {
                 clusterCleanup.call()
                 shutdownCluster.call()
-                testVariables.clusters.remove(cluster)
+                removeCluster(testVariables.clusters, cluster)
             } catch (Exception e) {
                 echo "Warning: Error cleaning up cluster ${cluster}: ${e.getMessage()}"
             }
@@ -427,12 +507,13 @@ Map getParallelStages(Map testVariables) {
     return parallelStages
 }
 
-void makeReport(List tests, Map testVariables) {
+void makeReport(Map tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
+    tests = tests ?: [:]
 
     def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
-    tests.each { test ->
-        testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
+    tests.each { testName, test ->
+        testsReport += "<testcase name=\"${testName}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
     }
 
     testsReport += "</testsuite>\n"

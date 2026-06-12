@@ -1,6 +1,6 @@
 String cluster(Map clusterCfg) {
-    def clusterName = clusterCfg.clusterName ?: env.CLUSTER_NAME
-    def clusterSuffix = clusterCfg.clusterSuffix ?: clusterCfg.suffix ?: env.CLUSTER_SUFFIX
+    def clusterName = clusterCfg.clusterName
+    def clusterSuffix = clusterCfg.clusterSuffix
     if (!clusterName || !clusterSuffix) {
         error("Set correct cluster name and suffix")
     }
@@ -12,20 +12,20 @@ void createCluster(Map clusterCfg) {
     def prefix = cluster(clusterCfg)
     def envVars = [
         "PREFIX=${prefix}",
-        "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: env.GOOGLE_REGION ?: env.ZONE ?: 'us-central1-a'}",
-        "WORKER_COUNT=${clusterCfg.workerCount ?: env.WORKER_COUNT ?: '3'}",
-        "MACHINE_TYPE=${clusterCfg.machineType ?: env.MACHINE_TYPE ?: 'e2-standard-4'}",
-        "BOOT_DISK_SIZE=${clusterCfg.bootDiskSize ?: env.BOOT_DISK_SIZE ?: '70GB'}",
-        "IMAGE_FAMILY=${clusterCfg.imageFamily ?: env.IMAGE_FAMILY ?: 'rocky-linux-9-optimized-gcp'}",
-        "IMAGE_PROJECT=${clusterCfg.imageProject ?: env.IMAGE_PROJECT ?: 'rocky-linux-cloud'}",
-        "OWNER=${clusterCfg.owner ?: env.OWNER ?: 'jenkins'}",
-        "PRODUCT=${clusterCfg.product ?: env.PRODUCT ?: 'psmdb'}",
-        "DELETE_AFTER_HOURS=${clusterCfg.deleteAfterHours ?: env.DELETE_AFTER_HOURS ?: '4'}",
-        "RANCHER_VERSION=${clusterCfg.rancherVersion ?: env.RANCHER_VERSION ?: ''}",
-        "CERT_MANAGER_VERSION=${clusterCfg.certManagerVersion ?: env.CERT_MANAGER_VERSION ?: 'v1.20.2'}",
-        "INSTALL_RKE2_CHANNEL=${clusterCfg.platform_channel ?: env.INSTALL_RKE2_CHANNEL ?: 'stable'}",
-        "INSTALL_RKE2_VERSION=${clusterCfg.version ?: clusterCfg.rke2version ?: env.INSTALL_RKE2_VERSION ?: ''}",
-        "KUBECONFIG=${clusterCfg.kubeconfig ?: env.KUBECONFIG ?: '/tmp/kubeconfig'}"
+        "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
+        "WORKER_COUNT=${clusterCfg.workerCountMin ?: '4'}",
+        "MACHINE_TYPE=${clusterCfg.machineType ?: 'e2-standard-4'}",
+        "BOOT_DISK_SIZE=${clusterCfg.bootDiskSize ?: '70GB'}",
+        "IMAGE_FAMILY=${clusterCfg.imageFamily ?: 'rocky-linux-9-optimized-gcp'}",
+        "IMAGE_PROJECT=${clusterCfg.imageProject ?: 'rocky-linux-cloud'}",
+        "OWNER=${clusterCfg.owner ?: 'jenkins'}",
+        "PRODUCT=${clusterCfg.product ?: 'psmdb'}",
+        "DELETE_AFTER_HOURS=${clusterCfg.deleteAfterHours ?: '6'}",
+        "RANCHER_VERSION=${clusterCfg.rancherVersion ?: 'latest'}",
+        "CERT_MANAGER_VERSION=${clusterCfg.certManagerVersion ?: 'latest'}",
+        "INSTALL_RKE2_CHANNEL=${clusterCfg.platformChannel ?: 'stable'}",
+        "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: clusterCfg.rke2version ?: ''}",
+        "KUBECONFIG=${clusterCfg.kubeconfig ?: '/tmp/kubeconfig'}"
     ]
 
     // Default timeout for cluster creation is 60 minutes

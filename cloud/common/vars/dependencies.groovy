@@ -25,8 +25,8 @@ void install(Map config = [:]) {
                     return
                 fi
 
-                local version
-                version="$(latest "$repo")"
+                local version_var="$(echo "$bin" | tr '[:lower:]' '[:upper:]')_VERSION"
+                local version="${!version_var:-$(latest "$repo")}"
 
                 echo "Installing $bin=${version}..."
                 local url
