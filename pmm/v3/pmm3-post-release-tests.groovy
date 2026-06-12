@@ -58,22 +58,28 @@ pipeline {
                         -e PMM_DEBUG=1 \
                         -e PMM_ENABLE_UPDATES=1 \
                         -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
-                        --publish 80:8080 --publish 443:8443 \
+                        -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+                        --publish 443:8443 \
                         --volume pmm-volume:/srv \
                         --name pmm-server \
                         ${DOCKER_TAG}
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
-                waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
                 script {
                     env.SERVER_IP = "127.0.0.1"
-                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                 }
             }
         }
         stage('Sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
+                sh '''
+                    if ! timeout 100 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'; then
+                        echo "PMM Server did not become ready within the timeout, dumping logs" >&2
+                        docker logs pmm-server || true
+                        exit 1
+                    fi
+                '''
             }
         }
         stage('Install dependencies') {
@@ -107,7 +113,8 @@ pipeline {
                         -e PMM_DEBUG=1 \
                         -e PMM_ENABLE_UPDATES=1 \
                         -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
-                        --publish 80:8080 --publish 443:8443 \
+                        -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+                        --publish 443:8443 \
                         --volumes-from pmm-server-old \
                         --name pmm-server \
                         ${DOCKER_TAG_UPGRADE}
@@ -117,13 +124,19 @@ pipeline {
         }
         stage('Sanity check after upgrade') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
+                sh '''
+                    if ! timeout 100 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'; then
+                        echo "PMM Server did not become ready within the timeout, dumping logs" >&2
+                        docker logs pmm-server || true
+                        exit 1
+                    fi
+                '''
             }
         }
         stage('Verify version after upgrade') {
             steps {
                 sh '''
-                    UPGRADED_VERSION=$(curl -s --user admin:${ADMIN_PASSWORD} http://localhost/v1/server/version | jq -r '.version' | awk -F "-" '{print $1}')
+                    UPGRADED_VERSION=$(curl -sk --user admin:${ADMIN_PASSWORD} https://localhost/v1/server/version | jq -r '.version' | awk -F "-" '{print $1}')
                     echo "Upgraded PMM Server version: ${UPGRADED_VERSION}, expected: ${PMM_SERVER_LATEST}"
                     if [[ "${UPGRADED_VERSION}" != "${PMM_SERVER_LATEST}" ]]; then
                         echo "Version mismatch after docker upgrade" >&2
