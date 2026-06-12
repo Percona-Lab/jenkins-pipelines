@@ -25,6 +25,7 @@ from utils.logging import log_lines, setup_stdout_logging
 ROOT = Path(__file__).resolve().parent
 TEMPLATES = ROOT / "templates"
 REMOTE_KUBECONFIG = "/etc/rancher/rke2/rke2.yaml"
+REMOTE_USER_KUBECONFIG = "/tmp/rke2-user.yaml"
 Config = dict[str, Any]
 LOGGER = logging.getLogger("create_rancher")
 
@@ -101,6 +102,7 @@ def parse_args():
 
     p.add_argument("--rancher-version", type=str, default=os.environ.get("RANCHER_VERSION"))
     p.add_argument("--cert-manager-version", type=str, default=os.environ.get("CERT_MANAGER_VERSION"))
+    p.add_argument("--longhorn-version", type=str, default=os.environ.get("LONGHORN_VERSION"))
     p.add_argument("--rke2-channel", type=str, default=os.environ.get("INSTALL_RKE2_CHANNEL", "stable"))
     p.add_argument("--rke2-version", type=str, default=os.environ.get("INSTALL_RKE2_VERSION"))
     p.add_argument("--log-level", type=str, default=os.environ.get("LOG_LEVEL", "info"), choices=("debug", "info", "warning", "error"))
@@ -776,16 +778,19 @@ def install_helm_step(cfg, base, step, done, total):
 
     raise_helm_step_error(cfg, proc, step)
 
+def normalize_helm_version(value, default="latest"):
+    version = (value or default).strip()
+
+    if version.lower() == "latest":
+        return "latest", ""
+
+    return version, f"--version {shlex.quote(version)}"
 
 def install_rancher(cfg):
 
-    cert_manager_version = cfg["cert_manager_version"] or "v1.20.2"
-    rancher_version = ""
-    rancher_version_label = "latest"
-    if cfg["rancher_version"]:
-        rancher_version_label = cfg["rancher_version"].strip()
-        if cfg["rancher_version"].lower() != "latest":
-            rancher_version = "--version " + shlex.quote(cfg["rancher_version"].strip()) + " \\\n"
+    cert_manager_version, cert_manager_version_helm = normalize_helm_version(cfg.get("cert_manager_version"))
+    rancher_version, rancher_version_helm = normalize_helm_version(cfg.get("rancher_version"))
+    longhorn_version, longhorn_version_helm = normalize_helm_version(cfg.get("longhorn_version"))
 
     # cert-manager is required for Rancher ingress TLS and for RKE2 cluster issuers
     # Longhorn is required for Rancher to manage local cluster storage and for the RKE2 local-path storage class
@@ -793,7 +798,10 @@ def install_rancher(cfg):
     base = textwrap.dedent(
         f"""
         set -euo pipefail
-        export KUBECONFIG={REMOTE_KUBECONFIG}
+        sudo cp {REMOTE_KUBECONFIG} {REMOTE_USER_KUBECONFIG}
+        sudo chown "$(id -u):$(id -g)" {REMOTE_USER_KUBECONFIG}
+        chmod 0600 {REMOTE_USER_KUBECONFIG}
+        export KUBECONFIG={REMOTE_USER_KUBECONFIG}
         export PATH=$PATH:/var/lib/rancher/rke2/bin
         """
     ).strip()
@@ -819,7 +827,7 @@ def install_rancher(cfg):
             "release": "cert-manager",
             "namespace": "cert-manager",
             "command": f"""
-            helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version {shlex.quote(cert_manager_version)} --set crds.enabled=true
+            helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace {cert_manager_version_helm} --set crds.enabled=true
             kubectl -n cert-manager rollout status deploy/cert-manager --timeout=5m
             kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
             kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
@@ -828,11 +836,11 @@ def install_rancher(cfg):
         {
             "name": "longhorn",
             "chart": "longhorn/longhorn",
-            "version": "latest",
+            "version": longhorn_version,
             "release": "longhorn",
             "namespace": "longhorn-system",
             "command": f"""
-            helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace
+            helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace {longhorn_version_helm}
             kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=10m
             kubectl -n longhorn-system wait --for=condition=Ready pod --all --timeout=10m
             kubectl patch storageclass longhorn -p '{set_default}' || true
@@ -841,12 +849,12 @@ def install_rancher(cfg):
         {
             "name": "rancher",
             "chart": "rancher-stable/rancher",
-            "version": rancher_version_label,
+            "version": rancher_version,
             "release": "rancher",
             "namespace": "cattle-system",
             "command": f"""
             kubectl create namespace cattle-system || true
-            helm upgrade --install rancher rancher-stable/rancher {rancher_version} \\
+            helm upgrade --install rancher rancher-stable/rancher {rancher_version_helm} \\
               --namespace cattle-system \\
               --set hostname={shlex.quote(cfg["hostname"])} \\
               --set bootstrapPassword={shlex.quote(cfg["admin_password"])} \\

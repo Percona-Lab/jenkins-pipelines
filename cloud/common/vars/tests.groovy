@@ -15,7 +15,7 @@ String getReleaseVersionsParam(String releaseVersions, String paramName, String 
 }
 
 String artifactFileName(Map cfg) {
-    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVer}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
+    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
 }
 
 String getClusterFullName(String clusterName, String clusterSuffix) {
@@ -63,7 +63,7 @@ Map load(String testList, String testSuite) {
         tests[testName] = [
             cluster: "NA",
             result : "skipped",
-            time   : "0"
+            time   : 0.0
         ]
     }
 
@@ -248,15 +248,16 @@ Map prepareVersions(Map testVariables) {
             default:
                 error("Unsupported platform_provider: ${testVariables.platform_provider}")
         }
+
+        if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
+            testVariables.platform_version = getReleaseVersionsParam(
+                testVariables.release_versions,
+                "PLATFORM_VER"
+            )
+        }
+
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
-    }
-
-    if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
-        testVariables.platform_version = getReleaseVersionsParam(
-            testVariables.release_versions,
-            "PLATFORM_VER"
-        )
     }
 
     if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
@@ -394,6 +395,11 @@ void updateTestTime(Map tests, String testName, Object time) {
 }
 
 @com.cloudbees.groovy.cps.NonCPS
+Double formatDuration(Object elapsedMillis) {
+    return String.format('%.1f', ((elapsedMillis ?: 0) as Double) / 60000) as Double
+}
+
+@com.cloudbees.groovy.cps.NonCPS
 void addCluster(List clusters, String clusterSuffix) {
     synchronized (clusters) {
         if (!clusters.contains(clusterSuffix)) {
@@ -460,7 +466,7 @@ void runTest(Map testConfig) {
             return false
 
         } finally {
-            updateTestTime(testVariables.tests, testName, (System.currentTimeMillis() - timeStart) / 1000)
+            updateTestTime(testVariables.tests, testName, formatDuration(System.currentTimeMillis() - timeStart))
             echo "The ${testName} test was finished!"
         }
     }
@@ -553,6 +559,26 @@ Map getParallelStages(Map testVariables) {
     return parallelStages
 }
 
+String htmlEscape(Object value) {
+    return "${value ?: ''}"
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+        .replace("'", '&#39;')
+}
+
+String testStatusStyle(String result) {
+    switch (result) {
+        case "passed":
+            return "color:#137333;font-weight:600;"
+        case "failure":
+            return "color:#b3261e;font-weight:600;"
+        default:
+            return "color:#8a6100;font-weight:600;"
+    }
+}
+
 void makeReport(Map tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
     tests = tests ?: [:]
@@ -579,8 +605,7 @@ void makeReport(Map tests, Map testVariables) {
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: "PipelineParameters.txt", text: pipelineParameters
 
-    addSummary(
-        icon: 'symbol-aperture-outline plugin-ionicons-api',
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
         text: "<pre>${pipelineParameters}</pre>"
     )
 }

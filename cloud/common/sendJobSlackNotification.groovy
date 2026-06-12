@@ -57,14 +57,14 @@ def call(Map cfg = [:]) {
 
     if (failedCount > 0) {
         message += "\n*Failed tests:*\n"
-        failedTests.each { testName, test ->
+        failedTests.each { t ->
             def mins = 0.0
             try {
-                mins = ((test["time"] ?: 0) as Double) / 60
+                mins = ((t["time"] ?: 0) as Double) / 60
             } catch (ignored) {
                 mins = 0.0
             }
-            message += "- `${testName}` on ${test['cluster']} (${String.format('%.1f', mins)} min)\n"
+            message += "- `${t['name']}` on ${t['cluster']} (${String.format('%.1f', mins)} min)\n"
         }
     }
 
@@ -80,19 +80,24 @@ Map normalizeTests(Object rawTests) {
         return [:]
     }
 
-    def entries = rawTests instanceof Map
-        ? rawTests.collect { testName, test -> [name: testName, data: test] }
-        : (rawTests as List).collect { test -> [name: test["name"], data: test] }
-
-    return entries.findAll { it.name }.collectEntries { entry ->
-        def test = (entry.data ?: [:]) as Map
-        [
-            (entry.name as String): [
-                cluster: test["cluster"] ?: "NA",
-                result : test["result"] ?: "skipped",
-                time   : test["time"] ?: "0"
-            ]
+    def normalize = { test ->
+        test = (test ?: [:]) as Map
+        return [
+            cluster: test["cluster"] ?: "NA",
+            result : test["result"] ?: "skipped"
         ]
+    }
+
+    if (rawTests instanceof Map) {
+        return rawTests.collectEntries { testName, test ->
+            [(testName as String): normalize(test)]
+        }
+    }
+
+    return (rawTests as List).findAll { test ->
+        test["name"]
+    }.collectEntries { test ->
+        [(test["name"] as String): normalize(test)]
     }
 }
 
