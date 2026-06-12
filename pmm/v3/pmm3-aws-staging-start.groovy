@@ -216,6 +216,7 @@ pipeline {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         node(env.VM_NAME){
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                              try {
                                 sh '''
                                     set -o errexit
                                     set -o xtrace
@@ -252,6 +253,8 @@ pipeline {
                                     if ! timeout 60 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'; then
                                         echo "PMM Server did not become ready within the timeout, dumping logs" >&2
                                         docker logs pmm-server || true
+                                        mkdir -p "${WORKSPACE}/logs"
+                                        docker cp pmm-server:/srv/logs/. "${WORKSPACE}/logs/" || true
                                         exit 1
                                     fi
                                     pmm_tag="${DOCKER_VERSION##*:}"
@@ -262,6 +265,11 @@ pipeline {
                                     fi
                                     docker logs pmm-server
                                 '''
+                              } finally {
+                                  if (fileExists('logs')) {
+                                      archiveArtifacts artifacts: 'logs/**', allowEmptyArchive: true
+                                  }
+                              }
                             }
                         }
                     }
