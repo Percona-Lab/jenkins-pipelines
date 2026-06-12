@@ -1,0 +1,389 @@
+# Oracle Linux AMI factory - local build management.
+#
+# Runs the SAME packer template + scripts the GitHub Actions workflow uses, so an
+# AMI built locally is identical to a CI-built one. Recipes are parameterized by
+# os_major / arch / env, and every factory-identity constant (tags, roles, bucket,
+# SGs, subnet, instance types) is a VARIABLE below -- to lift this dir to another
+# product, retag HERE (and in the packer templates' tag blocks) and point a new
+# consumer at the tags. Shared multi-step logic lives in the `_`-prefixed private
+# helper recipes (the just analog of functions).
+#
+# AWS auth: `export AWS_PROFILE=percona-dev-admin` first. Packer's AWS SDK does
+# not always resolve SSO profiles, so the build/bake recipes export concrete
+# short-lived creds into the env before invoking packer.
+#
+# env=prod  -> real tags the pg.cd consumer selects (role={{role_prod}}, source=factory)
+# env=test  -> isolated tags (role={{role_test}}, source=factory-test, factory_env=test),
+#              NEVER consumed by production; use for local/CI testing, then `just prune-test`.
+
+# --- AWS context ---
+region          := "eu-central-1"
+profile         := env_var_or_default("AWS_PROFILE", "percona-dev-admin")
+
+# --- factory identity: SINGLE SOURCE OF TRUTH (retag here to lift this dir to another product) ---
+os_name         := "oraclelinux"
+billing_tag     := "ppg-ami-factory"            # iit-billing-tag value (cost attribution + IAM fence)
+role_prod       := "ppg-package-test"           # promoted role the pg.cd consumer selects
+role_test       := "ppg-test-package-test"      # isolated promoted role for env=test bakes
+subnet          := "subnet-068170595951ab3a9"   # eu-central-1 default-VPC public subnet
+bucket_prefix   := "ppg-ami-factory-import"     # import bucket = "{{bucket_prefix}}-<account-id>"
+import_role     := "ppg-ol10-vmimport"          # vmimport role for the OL10 import-snapshot
+builder_profile := "ppg-ami-builder-ssm"        # SSM instance profile for packer builders
+boottest_key    := "ppg-ol10-boottest"          # OL10 boot-test keypair
+boottest_sg     := "ppg-ol10-boottest-sg"       # OL10 boot-test SSH security group
+
+# --- build matrix dimensions ---
+os_majors       := "8 9 10"
+arches          := "x86_64 arm64"
+
+# common create-tags / role-tags set (billing only), reused everywhere
+common_tags     := "Key=iit-billing-tag,Value=" + billing_tag
+
+# list recipes
+default:
+    @just --list
+
+# ===========================================================================
+# generic helpers (private; hidden from --list). The just analog of functions:
+# parameterized sub-recipes invoked as `just _name args` from other recipes.
+# ===========================================================================
+
+# resolve the per-account import bucket name ("{{bucket_prefix}}-<account-id>")
+_bucket:
+    @echo "{{bucket_prefix}}-$(aws sts get-caller-identity --profile {{profile}} --query Account --output text)"
+
+# map arch -> "<uname-arch> <instance-type>" (single source for the arch dimension)
+_arch-meta arch:
+    @[ "{{arch}}" = "arm64" ] && echo "aarch64 t4g.large" || echo "x86_64 t3.large"
+
+# tag an AMI with a role (promotion / retag), retried; a transient create-tags
+# failure must never leave a smoke-passed AMI unpromoted or trigger a deregister.
+_promote ami role:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for a in 1 2 3 4 5; do
+      aws ec2 create-tags --profile {{profile}} --region {{region}} --resources {{ami}} \
+        --tags Key=role,Value={{role}} Key=smoke,Value=passed && { echo "promoted {{ami}} -> {{role}}"; exit 0; }
+      echo "promote attempt $a failed; retry in $((a * 5))s"; sleep $((a * 5))
+    done
+    echo "FATAL: promote {{ami}} -> {{role}} failed after retries (AMI left intact for manual promote)" >&2; exit 1
+
+# deregister an AMI + delete its backing snapshots. Idempotent (an already-gone AMI
+# is a no-op) but NOT error-masking: a genuine API failure aborts rather than silently
+# leaking a snapshot. describe-images --image-ids errors InvalidAMIID.NotFound when gone.
+_deregister ami:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    err=$(mktemp)
+    snaps=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "{{ami}}" \
+      --query 'Images[0].BlockDeviceMappings[].Ebs.SnapshotId' --output text 2>"$err") || {
+        if grep -qiE "InvalidAMIID.NotFound|does not exist" "$err"; then echo "  {{ami}} already gone"; rm -f "$err"; exit 0; fi
+        echo "  ERROR describing {{ami}}:" >&2; cat "$err" >&2; rm -f "$err"; exit 1; }
+    rm -f "$err"
+    aws ec2 deregister-image --profile {{profile}} --region {{region}} --image-id "{{ami}}"
+    for s in $snaps; do [ "$s" = None ] && continue; aws ec2 delete-snapshot --profile {{profile}} --region {{region}} --snapshot-id "$s"; done
+
+# deregister every self-owned AMI matching a tag filter (+ snapshots), with a HARD guard
+# that NEVER touches a promoted prod base (role={{role_prod}}) or an AMI it cannot classify.
+# Lists by default; deletes only on apply=1. Args after apply are the describe-images filters.
+_prune-by-filter apply +filters:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ids=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
+      {{filters}} --query 'Images[].ImageId' --output text)
+    [ -z "$ids" ] && { echo "  (nothing matches)"; exit 0; }
+    for ami in $ids; do
+      role=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
+        --query 'Images[0].Tags[?Key==`role`]|[0].Value' --output text)
+      # fail-closed: never delete the prod base, nor anything we cannot positively
+      # classify (missing/None role) -- "don't delete what you can't identify".
+      if [ "$role" = "{{role_prod}}" ] || [ -z "$role" ] || [ "$role" = None ]; then echo "  SKIP $ami (protected: role=${role:-<none>})"; continue; fi
+      # fail-safe: deregister ONLY on an exact apply=1; any other value (incl a malformed
+      # `apply=1` arg, which just passes as the literal "apply=1") lists without deleting.
+      if [ "{{apply}}" = "1" ]; then echo "  deregister $ami (role=$role)"; just _deregister "$ami"; else echo "  would deregister $ami (role=$role)"; fi
+    done
+
+# ===========================================================================
+# packer build / validate (OL8/9 refresh + OL10 once bootstrapped)
+# ===========================================================================
+
+# install/upgrade the amazon plugin
+init:
+    packer init .
+
+# format the HCL (main + smoke templates)
+fmt:
+    packer fmt .
+    packer fmt smoke
+
+# validate one combo  (maj=8|9|10  arch=x86_64|arm64)
+validate maj="9" arch="x86_64":
+    packer validate -var os_major={{maj}} -var arch={{arch}} .
+
+# validate every OL major x arch combo + the smoke template
+validate-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    packer init . >/dev/null
+    for m in {{os_majors}}; do for a in {{arches}}; do
+      echo "validate OL$m $a"; packer validate -var os_major=$m -var arch=$a .
+    done; done
+    ( cd smoke && packer init . >/dev/null && packer validate -var candidate_ami=ami-00000000000000000 -var os_major=9 -var arch=x86_64 . )
+
+# fmt-check + validate everything + actionlint the GHA workflow (CI gate, no AWS)
+check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    packer fmt -check -diff . && packer fmt -check -diff smoke
+    just validate-all
+    command -v actionlint >/dev/null && actionlint ../../.github/workflows/ppg-oracle-ami-factory.yml || echo "actionlint not installed; skipping workflow lint"
+    echo "check OK"
+
+# trigger the GHA factory workflow for the full matrix (drive CI from just). Targets the
+# current repo's origin; env=test isolates from the pg.cd consumer (use for validation).
+ci-validate ref="master" env="test":
+    gh workflow run ppg-oracle-ami-factory.yml --ref {{ref}} -f env={{env}} \
+      -f combos='[{"os_major":"8","arch":"x86_64"},{"os_major":"8","arch":"arm64"},{"os_major":"9","arch":"x86_64"},{"os_major":"9","arch":"arm64"},{"os_major":"10","arch":"x86_64"},{"os_major":"10","arch":"arm64"}]'
+    @echo "dispatched on {{ref}} (env={{env}}); list runs: gh run list --workflow ppg-oracle-ami-factory.yml -L1"
+
+# build one combo  (env=prod real tags | test isolated tags)  -- candidate only, no promote
+build maj="9" arch="x86_64" env="prod":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    rm -f manifest.json
+    AWS_REGION={{region}} packer build -color=false \
+      -var os_major={{maj}} -var arch={{arch}} -var env={{env}} -var region={{region}} .
+
+# smoke-test (boot+install) an already-built AMI, then promote on success.
+# Promotion is a SEPARATE retried step: deregister ONLY on a real boot/install
+# failure, never on a transient promote-tag failure.
+smoke ami maj arch promote_role=role_prod:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    ( cd smoke && packer init . >/dev/null && \
+      packer build -color=false -var candidate_ami={{ami}} -var os_major={{maj}} -var arch={{arch}} \
+        -var region={{region}} . ) \
+      || { echo "smoke (boot+install) failed; deregistering {{ami}}"; just _deregister {{ami}}; exit 1; }
+    just _promote {{ami}} {{promote_role}}
+
+# full one-combo factory run: build (env) -> native smoke boot-test -> promote
+bake maj="9" arch="x86_64" env="prod":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    rm -f manifest.json
+    AWS_REGION={{region}} packer build -color=false \
+      -var os_major={{maj}} -var arch={{arch}} -var env={{env}} -var region={{region}} .
+    AMI=$(python3 -c "import json;print(json.load(open('manifest.json'))['builds'][-1]['artifact_id'].split(':')[-1])")
+    pr={{role_prod}}; [ "{{env}}" = "test" ] && pr={{role_test}}
+    echo "smoke (boot+install) $AMI"
+    ( cd smoke && packer init . >/dev/null && packer build -color=false \
+        -var candidate_ami=$AMI -var os_major={{maj}} -var arch={{arch}} -var region={{region}} . ) \
+      || { echo "smoke (boot+install) failed; deregistering $AMI"; just _deregister $AMI; exit 1; }
+    just _promote $AMI $pr
+
+# isolated TEST bake of one combo (env=test) - never consumed by pg.cd
+test maj="9" arch="x86_64":
+    @just bake {{maj}} {{arch}} test
+
+# build + promote ALL OL major x arch  (env=prod by default; pass test for isolated).
+# Resilient: a failed combo is recorded and the rest still run; exits non-zero with a
+# summary if any combo failed (each combo's own deregister-on-smoke-failure still applies).
+all env="prod":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    ok=""; fail=""
+    for m in {{os_majors}}; do for a in {{arches}}; do
+      echo "=========== bake OL$m $a (env={{env}}) ==========="
+      if just bake $m $a {{env}}; then ok="$ok OL$m-$a"; else fail="$fail OL$m-$a"; fi
+    done; done
+    echo "=========== summary (env={{env}}) ==========="
+    echo "  ok:    ${ok:- none}"
+    echo "  failed:${fail:- none}"
+    [ -z "$fail" ] || exit 1
+
+# list factory AMIs for an env (prod|test) with role + creation date
+list env="prod":
+    aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
+      --filters Name=tag:factory_env,Values={{env}} \
+      --query 'reverse(sort_by(Images,&CreationDate))[].{Name:Name,AMI:ImageId,role:Tags[?Key==`role`]|[0].Value,arch:Architecture,created:CreationDate}' \
+      --output table
+
+# resolve the newest promoted AMI for a combo (exactly what moleculeEnvPPG does)
+latest maj="9" arch="x86_64" role=role_prod:
+    aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
+      --filters Name=tag:role,Values={{role}} Name=tag:os,Values={{os_name}} \
+                Name=tag:os_major,Values={{maj}} Name=tag:arch,Values={{arch}} Name=state,Values=available \
+      --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text
+
+# list isolated TEST AMIs (factory_env=test); pass `1` to deregister them + snapshots.
+prune-test apply="0":
+    @echo "prune-test (apply={{apply}}; lists unless apply=1):"
+    @just _prune-by-filter "{{apply}}" --filters Name=tag:factory_env,Values=test
+
+# deregister stale factory intermediates: factory-owned OL AMIs (selected by the
+# {{billing_tag}} + {{os_name}} VARIABLES, not by role name) that are neither the
+# promoted prod base (role={{role_prod}}) nor an isolated test AMI (factory_env=test).
+# Selecting by factory-ownership instead of enumerating role literals catches every
+# transient (raw, refresh/bootstrap candidates, renamed orphans) and never drifts as
+# the intermediate role names change. Lists by default; pass `1` to deregister.
+prune-stale apply="0":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "prune-stale (apply={{apply}}; lists unless apply=1):"
+    ids=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
+      --filters Name=tag:iit-billing-tag,Values={{billing_tag}} Name=tag:os,Values={{os_name}} \
+      --query 'Images[].ImageId' --output text)
+    [ -z "$ids" ] && { echo "  (no factory AMIs)"; exit 0; }
+    for ami in $ids; do
+      # two scalar command-subs (not a process-sub `read`): a describe failure propagates
+      # under set -e instead of being silently swallowed, and no IFS field-shift on tag values.
+      role=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
+        --query 'Images[0].Tags[?Key==`role`]|[0].Value' --output text)
+      env=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
+        --query 'Images[0].Tags[?Key==`factory_env`]|[0].Value' --output text)
+      # fail-closed: never delete the prod base, nor anything we cannot positively classify.
+      if [ "$role" = "{{role_prod}}" ] || [ -z "$role" ] || [ "$role" = None ]; then echo "  SKIP $ami (protected: role=${role:-<none>})"; continue; fi
+      if [ "$env" = "test" ]; then echo "  SKIP $ami (test AMI -> use prune-test)"; continue; fi
+      if [ "{{apply}}" = "1" ]; then echo "  deregister $ami (role=$role env=$env)"; just _deregister "$ami"; else echo "  would deregister $ami (role=$role env=$env)"; fi
+    done
+
+# list ALL factory housekeeping AMIs (test + stale intermediates); never prod. Pass `1` to delete.
+prune-all apply="0":
+    @just prune-test "{{apply}}"
+    @just prune-stale "{{apply}}"
+
+# deregister SUPERSEDED prod bases: per (os_major, arch) KEEP the newest role={{role_prod}}
+# AMI (the one the consumer selects) and remove older duplicates left by refreshes
+# (deprecate_at only marks, never deletes -> inventory grows). Lists by default; pass `1`
+# to deregister. NEVER deletes the newest-per-combo, and skips any AMI missing maj/arch.
+prune-superseded apply="0":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "prune-superseded (apply={{apply}}; lists unless apply=1):"
+    aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
+      --filters Name=tag:role,Values={{role_prod}} Name=tag:os,Values={{os_name}} Name=state,Values=available \
+      --query 'reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key==`os_major`]|[0].Value, Tags[?Key==`arch`]|[0].Value]' --output text \
+      | { declare -A keep; while read -r id maj arch; do
+            [ -z "$id" ] && continue
+            { [ "$maj" = None ] || [ "$arch" = None ]; } && { echo "  SKIP $id (untagged maj/arch)"; continue; }
+            k="$maj/$arch"
+            if [ -z "${keep[$k]:-}" ]; then keep[$k]=$id; echo "  KEEP $id (OL$maj $arch, newest)"; continue; fi
+            if [ "{{apply}}" = "1" ]; then echo "  deregister $id (OL$maj $arch, superseded)"; just _deregister "$id"; else echo "  would deregister $id (OL$maj $arch, superseded)"; fi
+          done; }
+
+# create the SSM builder instance profile locally (one-time, for local builds).
+# PRODUCTION is terraform-managed: percona-cd-platform terraform/ppg-ami-factory.tf.
+iam-setup:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    aws iam create-role --profile {{profile}} --role-name {{builder_profile}} \
+      --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}' \
+      --tags Key=temp-ppg-ami-test,Value=true 2>/dev/null || echo "role exists"
+    aws iam attach-role-policy --profile {{profile}} --role-name {{builder_profile}} \
+      --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+    aws iam create-instance-profile --profile {{profile}} --instance-profile-name {{builder_profile}} \
+      --tags Key=temp-ppg-ami-test,Value=true 2>/dev/null || echo "profile exists"
+    aws iam add-role-to-instance-profile --profile {{profile}} --instance-profile-name {{builder_profile}} \
+      --role-name {{builder_profile}} 2>/dev/null || echo "role already in profile"
+
+# tear down the LOCAL/temp factory infra this justfile created (SSM builder profile,
+# vmimport role, boot-test key + SG). Lists by default; pass `1` to actually delete.
+# Existence-gated (no error-masking). Does NOT touch the terraform-managed PROD OIDC
+# role, nor the separate fork-CI test role gha-ppg-ami-factory-test.
+teardown-temp apply="0":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    P="--profile {{profile}}"
+    # fail-safe: ACT only on an exact apply=1; any other value lists without deleting.
+    act(){ if [ "{{apply}}" = "1" ]; then echo "  + $*"; "$@"; else echo "  [list] $*"; fi; }
+    # present <get-cmd...>: 0 = exists, 1 = genuinely absent (NoSuchEntity); ABORTS on any
+    # other error so a throttle / expired creds / AccessDenied is never misread as 'absent'.
+    present(){ local e; e=$(mktemp); if "$@" >/dev/null 2>"$e"; then rm -f "$e"; return 0; fi
+      grep -qiE "NoSuchEntity|InvalidGroup.NotFound|does not exist|cannot be found" "$e" && { rm -f "$e"; return 1; }
+      echo "  ERROR probing: $*" >&2; cat "$e" >&2; rm -f "$e"; exit 1; }
+    if present aws iam get-instance-profile $P --instance-profile-name {{builder_profile}}; then
+      act aws iam remove-role-from-instance-profile $P --instance-profile-name {{builder_profile}} --role-name {{builder_profile}}
+      act aws iam delete-instance-profile $P --instance-profile-name {{builder_profile}}
+    else echo "  (instance-profile {{builder_profile}} absent)"; fi
+    if present aws iam get-role $P --role-name {{builder_profile}}; then
+      act aws iam detach-role-policy $P --role-name {{builder_profile}} --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      act aws iam delete-role $P --role-name {{builder_profile}}
+    else echo "  (role {{builder_profile}} absent)"; fi
+    if present aws iam get-role $P --role-name {{import_role}}; then
+      act aws iam delete-role-policy $P --role-name {{import_role}} --policy-name {{import_role}}-perms
+      act aws iam delete-role $P --role-name {{import_role}}
+    else echo "  (role {{import_role}} absent)"; fi
+    act aws ec2 delete-key-pair $P --region {{region}} --key-name {{boottest_key}}
+    # --filters no-match returns None at exit 0; a non-zero exit is a real error -> abort (no mask).
+    sg=$(aws ec2 describe-security-groups $P --region {{region}} --filters Name=group-name,Values={{boottest_sg}} --query 'SecurityGroups[0].GroupId' --output text)
+    if [ "$sg" != None ]; then act aws ec2 delete-security-group $P --region {{region}} --group-id "$sg"; else echo "  (sg {{boottest_sg}} absent)"; fi
+    echo "teardown-temp done (apply={{apply}})"
+
+# ---------------------------------------------------------------------------
+# OL10 bootstrap (one-time per arch): import Oracle's official OL10 cloud image
+# and finalize it into the consumable lineage-root base. Greenfield - there is
+# no OL10 base to refresh from. PRODUCTION-equivalents (import bucket, vmimport
+# role) are terraform-managed; these recipes are the operator/local path.
+# Flow:  just bootstrap-ol10-prep  ->  just bootstrap-ol10 <arch>  ->  just bootstrap-ol10-verify <ami> <arch>
+# ---------------------------------------------------------------------------
+
+# one-time prereqs: in-region import bucket + dedicated vmimport role + boot-test keypair + SSH SG (from this host's IP)
+bootstrap-ol10-prep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bucket=$(just _bucket)
+    aws s3api create-bucket --profile {{profile}} --bucket "$bucket" --region {{region}} \
+      --create-bucket-configuration LocationConstraint={{region}} 2>/dev/null || echo "bucket $bucket exists"
+    trust='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"vmie.amazonaws.com"},"Action":"sts:AssumeRole","Condition":{"StringEquals":{"sts:ExternalId":"vmimport"}}}]}'
+    aws iam create-role --profile {{profile}} --role-name {{import_role}} \
+      --assume-role-policy-document "$trust" --tags {{common_tags}} 2>/dev/null || echo "role {{import_role}} exists"
+    perms='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetBucketLocation","s3:GetObject","s3:ListBucket"],"Resource":["arn:aws:s3:::'"$bucket"'","arn:aws:s3:::'"$bucket"'/*"]},{"Effect":"Allow","Action":["ec2:ModifySnapshotAttribute","ec2:CopySnapshot","ec2:RegisterImage","ec2:Describe*","ec2:CreateTags"],"Resource":"*"}]}'
+    aws iam put-role-policy --profile {{profile}} --role-name {{import_role}} --policy-name {{import_role}}-perms --policy-document "$perms"
+    mkdir -p ol10-import
+    [ -f ol10-import/{{boottest_key}}.pem ] || aws ec2 create-key-pair --profile {{profile}} --region {{region}} --key-name {{boottest_key}} --query KeyMaterial --output text > ol10-import/{{boottest_key}}.pem
+    chmod 600 ol10-import/{{boottest_key}}.pem
+    vpc=$(aws ec2 describe-subnets --profile {{profile}} --region {{region}} --subnet-ids {{subnet}} --query 'Subnets[0].VpcId' --output text)
+    myip=$(curl -s https://checkip.amazonaws.com)
+    sg=$(aws ec2 describe-security-groups --profile {{profile}} --region {{region}} --filters Name=group-name,Values={{boottest_sg}} --query 'SecurityGroups[0].GroupId' --output text)
+    [ "$sg" = None ] && sg=$(aws ec2 create-security-group --profile {{profile}} --region {{region}} --group-name {{boottest_sg}} --description "PPG OL10 finalize boot-test SSH" --vpc-id "$vpc" --query GroupId --output text)
+    # tolerate ONLY the idempotent already-authorized case; surface any other error.
+    ze=$(mktemp); aws ec2 authorize-security-group-ingress --profile {{profile}} --region {{region}} --group-id "$sg" --protocol tcp --port 22 --cidr "${myip}/32" 2>"$ze" \
+      || { grep -qiE "InvalidPermission.Duplicate" "$ze" && echo "  (ingress already present)" || { cat "$ze" >&2; rm -f "$ze"; exit 1; }; }
+    rm -f "$ze"
+    echo "prep ok: bucket=$bucket role={{import_role}} key=ol10-import/{{boottest_key}}.pem sg=$sg"
+
+# one-time bootstrap of the OL10 candidate base for an arch (import Oracle's official
+# image -> register raw -> Packer finalize). Both arches have built-in source URLs.
+# Idempotent: re-running detects an already-promoted base and exits without re-downloading.
+bootstrap-ol10 arch="arm64":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    aws iam get-role --role-name {{import_role}} >/dev/null 2>&1 || { echo "run 'just bootstrap-ol10-prep' first"; exit 1; }
+    ARCH={{arch}} REGION={{region}} BUCKET=$(just _bucket) VMIMPORT_ROLE={{import_role}} \
+      BILLING_TAG={{billing_tag}} OS_NAME={{os_name}} ROLE_PROMOTED={{role_prod}} \
+      bash scripts/bootstrap-ol10.sh
+
+# boot-validate a candidate OL10 base then promote it to role={{role_prod}} (the refresh lineage root)
+bootstrap-ol10-verify ami arch="arm64":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    read -r uarch inst < <(just _arch-meta {{arch}})
+    sg=$(aws ec2 describe-security-groups --region {{region}} --filters Name=group-name,Values={{boottest_sg}} --query 'SecurityGroups[0].GroupId' --output text)
+    iid=$(aws ec2 run-instances --region {{region}} --image-id {{ami}} --instance-type "$inst" \
+      --key-name {{boottest_key}} --security-group-ids "$sg" --subnet-id {{subnet}} --associate-public-ip-address \
+      --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=ol10-verify},{Key=iit-billing-tag,Value={{billing_tag}}}]' \
+      --query 'Instances[0].InstanceId' --output text)
+    trap 'aws ec2 terminate-instances --region {{region}} --instance-ids "$iid" >/dev/null 2>&1 || true' EXIT
+    echo "launched $iid ; waiting 2/2 status..."; aws ec2 wait instance-status-ok --region {{region}} --instance-ids "$iid"
+    ip=$(aws ec2 describe-instances --region {{region}} --instance-ids "$iid" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+    so="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25"
+    ssh -i ol10-import/{{boottest_key}}.pem $so ec2-user@"$ip" 'echo "ssm: $(systemctl is-active amazon-ssm-agent)"; id -un'
+    ssh -i ol10-import/{{boottest_key}}.pem $so ec2-user@"$ip" "sudo OS_MAJOR=10 UNAME_ARCH=$uarch bash -s" < scripts/validate.sh
+    echo "promote {{ami}} -> role={{role_prod}}"
+    just _promote {{ami}} {{role_prod}}
+    echo "OL10 {{arch}} base {{ami}} verified + promoted (role={{role_prod}})"
