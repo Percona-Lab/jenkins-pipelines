@@ -395,8 +395,8 @@ void updateTestTime(Map tests, String testName, Object time) {
 }
 
 @com.cloudbees.groovy.cps.NonCPS
-Double formatDuration(Object elapsedMillis) {
-    return String.format('%.1f', ((elapsedMillis ?: 0) as Double) / 60000) as Double
+Double elapsedSeconds(Object elapsedMillis) {
+    return String.format('%.1f', ((elapsedMillis ?: 0) as Double) / 1000) as Double
 }
 
 @com.cloudbees.groovy.cps.NonCPS
@@ -466,7 +466,7 @@ void runTest(Map testConfig) {
             return false
 
         } finally {
-            updateTestTime(testVariables.tests, testName, formatDuration(System.currentTimeMillis() - timeStart))
+            updateTestTime(testVariables.tests, testName, elapsedSeconds(System.currentTimeMillis() - timeStart))
             echo "The ${testName} test was finished!"
         }
     }
