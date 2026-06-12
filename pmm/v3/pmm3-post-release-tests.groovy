@@ -18,6 +18,10 @@ pipeline {
     }
     parameters {
         string(
+            defaultValue: 'admin',
+            description: 'PMM Server admin password.',
+            name: 'ADMIN_PASSWORD')
+        string(
             defaultValue: 'main',
             description: 'pmm-qa git branch.',
             name: 'PMM_QA_GIT_BRANCH')
@@ -30,7 +34,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.ADMIN_PASSWORD = 'admin'
+                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     env.PMM_SERVER_LATEST = latestVersion
                     env.DOCKER_TAG = "percona/pmm-server:${prevVersion}"
                     env.DOCKER_TAG_UPGRADE = "percona/pmm-server:${latestVersion}"
