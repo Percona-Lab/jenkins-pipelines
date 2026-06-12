@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 
 def operatingsystems() {
-    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'al-2023' , 'debian-12', 'debian-13']
+    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023' , 'debian-12', 'debian-13']
 }
 
 
@@ -48,6 +48,7 @@ pipeline {
   options {
     withCredentials(moleculePdpsJenkinsCreds())
     disableConcurrentBuilds()
+    timeout(time: 6, unit: 'HOURS')
   }
   stages {
     stage('Set build name'){

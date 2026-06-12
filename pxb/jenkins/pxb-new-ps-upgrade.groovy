@@ -4,16 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def PXBskipOSPRO() {
-  return ['debian-11', 'oracle-8', 'rhel-8','ubuntu-focal']
-}
-
-def PXBskipOSNONPRO() {
-  return []
-}
-
-
-def noSkip() {
-  return []
+  return ['debian-11', 'debian-12', 'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023']
 }
 
 def deleteBuildInstances(){
@@ -90,81 +81,107 @@ def deleteBuildInstances(){
     }
 }
 
+def loadEnvFile(envFilePath) {
+    def envMap = []
+    def envFileContent = readFile(file: envFilePath).trim().split('\n')
+    envFileContent.each { line ->
+        if (line && !line.startsWith('#')) {
+            def parts = line.split('=')
+            if (parts.length == 2) {
+                envMap << "${parts[0].trim()}=${parts[1].trim()}"
+            }
+        }
+    }
+    return envMap
+}
+
 
 pipeline {
   agent {
-
-    label 'min-bookworm-x64'
-
+    label 'deb12-x64-min'
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-    MOLECULE_DIR = "molecule/pxb-binary-tarball/";
+    MOLECULE_DIR = "molecule/pxb-new-ps-upgrade/";
     PXB_VERSION = "${params.PXB_VERSION}";
-    install_repo = "${params.TESTING_REPO}";
+    OLD_PXB_VERSION = "${params.OLD_PXB_VERSION}";
+    PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
-    TESTING_GIT_ACCOUNT = "${params.TESTING_GIT_ACCOUNT}";
-    REPO_TYPE = "${params.REPO_TYPE}";
+    SELECT_TEST_PYTEST = "${params.SELECT_TEST_PYTEST}";
   }
   parameters {
     string(
-      name: 'PXB_VERSION', 
-      defaultValue: '8.0.35-33', 
+      name: 'PXB_VERSION',
+      defaultValue: '8.4.0-5',
       description: 'PXB full version'
     )
-    //string(
-    //  name: 'install_repo',
-    //  defaultValue: 'main',
-    //  description: 'Repository to install PXB from'
-    //)
+    string(
+      name: 'OLD_PXB_VERSION',
+      defaultValue: '8.4.0-4',
+      description: 'Older PXB full version'
+    )
+    string(
+      name: 'PXB_RHEL_GCLIBC_VERSION',
+      defaultValue: '2.39',
+      description: 'PXB glibc version for RHEL'
+    )
+    string(
+      name: 'PXB_DEBIAN_GCLIBC_VERSION',
+      defaultValue: '2.36',
+      description: 'PXB glibc version for Debian'
+    )
+    string(
+      name: 'PS_VERSION',
+      defaultValue: '8.4.8-8',
+      description: 'PS full version'
+    )
+    string(
+      name: 'PS_RHEL_GCLIBC_VERSION',
+      defaultValue: '2.35',
+      description: 'PS glibc version for RHEL'
+    )
+    string(
+      name: 'PS_DEBIAN_GCLIBC_VERSION',
+      defaultValue: '2.35',
+      description: 'PS glibc version for Debian'
+    )
     string(
       defaultValue: 'master',
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
     string(
-      defaultValue: 'Percona-QA',
-      description: 'Git account for package-testing repository',
-      name: 'TESTING_GIT_ACCOUNT'
-    )
-    choice(
-        choices: ['NORMAL', 'PRO'],
-        description: 'Choose the product to test',
-        name: 'REPO_TYPE'
-    )
-    choice(
-        choices: ['main', 'testing'],
-        description: 'Choose the product to test',
-        name: 'TESTING_REPO'
+      name: 'SELECT_TEST_PYTEST',
+      defaultValue: 'all',
+      description: 'Pytest -k filter expression. Use "all" to run every test from upgrade_backup_tests.py, or a pytest -k expression like "test_upgrade_full_backup or test_upgrade_inc_backup"'
     )
   }
   options {
-    //withCredentials(moleculepxcJenkinsCreds())
     withCredentials(moleculepxbJenkinsCreds())
     disableConcurrentBuilds()
-    timeout(time: 6, unit: 'HOURS')
   }
 
   stages {
-
     stage('Set build name'){
       steps {
         script {
           def PXB_RELEASE = params.PXB_VERSION.tokenize('-')[0].tokenize('.').with { it[0] + it[1] }
           env.PXB_RELEASE = PXB_RELEASE
           
-          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.REPO_TYPE}-${params.TESTING_REPO}"
-          currentBuild.description = "${env.PXB_REVISION}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.TESTING_BRANCH}"
+          //currentBuild.description = "${env.PXB_REVISION}"
         }
       }
     }
+
     stage('Checkout') {
       steps {
         deleteDir()
-        git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
+        git poll: false, branch: TESTING_BRANCH, url: "https://github.com/Percona-QA/package-testing.git"
         echo "PXB_VERSION is ${env.PXB_VERSION}"
       }
     }
+
     stage ('Prepare') {
       steps {
         script {
@@ -174,31 +191,48 @@ pipeline {
       }
     }
 
-    stage('Run tarball molecule') {
+    stage('Run test') {
       steps {
-          script {
-              withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                if (params.REPO_TYPE == 'PRO') {
-                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
-                } else if (params.REPO_TYPE != 'PRO') {
-                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSNONPRO())
-                }
-                else {
-                  error "Release type not recognized"
-                }
-              }
+        script {
+          sh """
+              echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
+          """
+          def envMap = loadEnvFile('.env.ENV_VARS')
+          def testCredentials = [
+            usernamePassword(
+                credentialsId: 'PS_PRIVATE_REPO_ACCESS',
+                passwordVariable: 'PASSWORD',
+                usernameVariable: 'USERNAME'
+            ),
+            string(
+                credentialsId: 'FORTANIX_EMAIL',
+                variable: 'FORTANIX_EMAIL'
+            ),
+            string(
+                credentialsId: 'FORTANIX_PASSWORD',
+                variable: 'FORTANIX_PASSWORD'
+            ),
+            string(
+                credentialsId: 'KMS_TESTING_KEY_ID',
+                variable: 'KMS_KEYID'
+            ),
+          ]
+          withEnv(envMap) {
+            withCredentials(testCredentials) {
+                moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
+            }
           }
+        }
       }
     }
-
   }
-  post {
 
+  post {
     always {
       script {
-        //archiveArtifacts artifacts: "*.tar.gz" , followSymlinks: false
+        archiveArtifacts artifacts: "*.tar.gz", followSymlinks: false, allowEmptyArchive: true
+        junit allowEmptyResults: true, testResults: "**/pytest-junit*.xml"
         moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
-
       }
       deleteBuildInstances()
     }
@@ -215,16 +249,16 @@ pipeline {
         } else if (PXB_RELEASE == "84") {
             product_to_test = "pxb_84"
         } else {
-            product_to_test = "pxb_innovation"
+            product_to_test = "pxb_innovation_lts"
         }
 
-        build job: 'pxb-package-testing-molecule-all', propagate: false, wait: false, parameters: [
-            string(name: 'product_to_test', value: "${product_to_test}"),
-            string(name: 'install_repo', value: "${params.TESTING_REPO}"),
-            string(name: 'git_repo', value: "https://github.com/${params.TESTING_GIT_ACCOUNT}/package-testing.git"),
-            string(name: 'TESTING_BRANCH', value: "${params.TESTING_BRANCH}"),
-            string(name: 'upstream', value: "no")
-        ]
+        // build job: 'pxb-package-testing-molecule-all', propagate: false, wait: false, parameters: [
+        //     string(name: 'product_to_test', value: "${product_to_test}"),
+        //     string(name: 'install_repo', value: "${params.TESTING_REPO}"),
+        //     string(name: 'git_repo', value: "https://github.com/${params.TESTING_GIT_ACCOUNT}/package-testing.git"),
+        //     string(name: 'TESTING_BRANCH', value: "${params.TESTING_BRANCH}"),
+        //     string(name: 'upstream', value: "no")
+        // ]
 
         }
     }
