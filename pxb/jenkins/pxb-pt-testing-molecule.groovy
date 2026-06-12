@@ -93,6 +93,7 @@
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())
+        timeout(time: 6, unit: 'HOURS')
     }
 
         stages {
