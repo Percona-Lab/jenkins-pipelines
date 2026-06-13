@@ -1,5 +1,5 @@
 def call(Map cfg = [:]) {
-    def tests = (cfg.tests ?: []) as List
+    def tests = normalizeTests(cfg.tests)
     def channel = cfg.channel ?: '#cloud-dev-ci'
     def gitBranch = cfg.gitBranch ?: env.GIT_BRANCH
     def platformVer = cfg.platformVer ?: env.PLATFORM_VER
@@ -8,10 +8,10 @@ def call(Map cfg = [:]) {
     def image = cfg.image ?: env.IMAGE_PXC ?: env.IMAGE_MYSQL ?: env.IMAGE_MONGOD ?: env.IMAGE_POSTGRESQL ?: env.IMAGE
     def operatorImage = cfg.operatorImage ?: cfg.imageOperator ?: env.IMAGE_OPERATOR
 
-    def failedTests = tests.findAll { it["result"] == "failure" }
-    def passedCount = tests.count { it["result"] == "passed" }
+    def failedTests = tests.findAll { testName, test -> test["result"] == "failure" }
+    def passedCount = tests.values().count { test -> test["result"] == "passed" }
     def failedCount = failedTests.size()
-    def skippedCount = tests.count { it["result"] == "skipped" }
+    def skippedCount = tests.values().count { test -> test["result"] == "skipped" }
     def total = tests.size()
 
     def duration = (currentBuild.durationString ?: "N/A").replace(' and counting', '')
@@ -57,14 +57,8 @@ def call(Map cfg = [:]) {
 
     if (failedCount > 0) {
         message += "\n*Failed tests:*\n"
-        failedTests.each { t ->
-            def mins = 0.0
-            try {
-                mins = ((t["time"] ?: 0) as Double) / 60
-            } catch (ignored) {
-                mins = 0.0
-            }
-            message += "- `${t['name']}` on ${t['cluster']} (${String.format('%.1f', mins)} min)\n"
+        failedTests.each { testName, test ->
+            message += "- `${testName}` on ${test['cluster']} (${formatMinutes(test['time'])} min)\n"
         }
     }
 
@@ -72,6 +66,41 @@ def call(Map cfg = [:]) {
         slackSend channel: channel, color: color, message: message
     } catch (err) {
         echo "Slack notification failed: ${err}"
+    }
+}
+
+Map normalizeTests(Object rawTests) {
+    if (!rawTests) {
+        return [:]
+    }
+
+    def normalize = { test ->
+        test = (test ?: [:]) as Map
+        return [
+            cluster: test["cluster"] ?: "NA",
+            result : test["result"] ?: "skipped",
+            time   : test["time"] ?: 0
+        ]
+    }
+
+    if (rawTests instanceof Map) {
+        return rawTests.collectEntries { testName, test ->
+            [(testName as String): normalize(test)]
+        }
+    }
+
+    return (rawTests as List).findAll { test ->
+        test["name"]
+    }.collectEntries { test ->
+        [(test["name"] as String): normalize(test)]
+    }
+}
+
+String formatMinutes(Object seconds) {
+    try {
+        return String.format('%.1f', ((seconds ?: 0) as Double) / 60)
+    } catch (ignored) {
+        return '0.0'
     }
 }
 
