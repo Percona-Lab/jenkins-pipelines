@@ -57,14 +57,8 @@ def call(Map cfg = [:]) {
 
     if (failedCount > 0) {
         message += "\n*Failed tests:*\n"
-        failedTests.each { t ->
-            def mins = 0.0
-            try {
-                mins = ((t["time"] ?: 0) as Double) / 60
-            } catch (ignored) {
-                mins = 0.0
-            }
-            message += "- `${t['name']}` on ${t['cluster']} (${String.format('%.1f', mins)} min)\n"
+        failedTests.each { testName, test ->
+            message += "- `${testName}` on ${test['cluster']} (${formatMinutes(test['time'])} min)\n"
         }
     }
 
@@ -84,7 +78,8 @@ Map normalizeTests(Object rawTests) {
         test = (test ?: [:]) as Map
         return [
             cluster: test["cluster"] ?: "NA",
-            result : test["result"] ?: "skipped"
+            result : test["result"] ?: "skipped",
+            time   : test["time"] ?: 0
         ]
     }
 
@@ -98,6 +93,14 @@ Map normalizeTests(Object rawTests) {
         test["name"]
     }.collectEntries { test ->
         [(test["name"] as String): normalize(test)]
+    }
+}
+
+String formatMinutes(Object seconds) {
+    try {
+        return String.format('%.1f', ((seconds ?: 0) as Double) / 60)
+    } catch (ignored) {
+        return '0.0'
     }
 }
 

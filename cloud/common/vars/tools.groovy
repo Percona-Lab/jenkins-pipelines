@@ -5,12 +5,17 @@ void gitClone(Map cfg) {
     echo "=========================[ Cloning sources ]========================="
     echo "Using branch: ${branch}"
 
-    sh """
-        set -e
-        sudo git config --global --add safe.directory '*'
-        sudo rm -rf source
-        git clone -b "${branch}" "${repo}" source
-    """
+    withEnv([
+        "GIT_BRANCH_NAME=${branch}",
+        "GIT_REPO_URL=${repo}"
+    ]) {
+        sh '''
+            set -e
+            sudo git config --global --add safe.directory '*'
+            sudo rm -rf source
+            git clone -b "$GIT_BRANCH_NAME" "$GIT_REPO_URL" source
+        '''
+    }
 }
 
 void gitResetWorkspace() {

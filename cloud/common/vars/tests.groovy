@@ -61,14 +61,18 @@ Map prepareVersions(Map testVariables) {
 
         switch (testVariables.platform_provider?.toLowerCase()) {
             case "rancher":
-                testVariables.rancher_version = getReleaseVersionsParam(
-                    testVariables.release_versions,
-                    "RANCHER_VERSION"
-                )
-                testVariables.cert_manager_version = getReleaseVersionsParam(
-                    testVariables.release_versions,
-                    "CERT_MANAGER_VERSION"
-                )
+                if (!testVariables.rancher_version || testVariables.rancher_version == "latest") {
+                    testVariables.rancher_version = getReleaseVersionsParam(
+                        testVariables.release_versions,
+                        "RANCHER_VERSION"
+                    )
+                }
+                if (!testVariables.cert_manager_version || testVariables.cert_manager_version == "latest") {
+                    testVariables.cert_manager_version = getReleaseVersionsParam(
+                        testVariables.release_versions,
+                        "CERT_MANAGER_VERSION"
+                    )
+                }
                 break
 
             case "gcloud":
@@ -486,6 +490,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         machineType     : testVariables.machine_type,
         workerCountMin  : testVariables.worker_min_count ?: 4,
         workerCountMax  : testVariables.worker_max_count ?: 6,
+        sourceRanges    : testVariables.source_ranges ?: "0.0.0.0/0",
         region          : testVariables.region ?: "",
         zone            : testVariables.zone ?: "",
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",

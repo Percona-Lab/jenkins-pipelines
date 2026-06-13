@@ -18,13 +18,14 @@ void createCluster(Map clusterCfg) {
         "BOOT_DISK_SIZE=${clusterCfg.bootDiskSize ?: '70GB'}",
         "IMAGE_FAMILY=${clusterCfg.imageFamily ?: 'rocky-linux-9-optimized-gcp'}",
         "IMAGE_PROJECT=${clusterCfg.imageProject ?: 'rocky-linux-cloud'}",
+        "SOURCE_RANGES=${clusterCfg.sourceRanges ?: '0.0.0.0/0'}",
         "OWNER=${clusterCfg.owner ?: 'jenkins'}",
         "PRODUCT=${clusterCfg.product ?: 'psmdb'}",
         "DELETE_AFTER_HOURS=${clusterCfg.deleteAfterHours ?: '6'}",
         "RANCHER_VERSION=${clusterCfg.rancherVersion ?: 'latest'}",
         "CERT_MANAGER_VERSION=${clusterCfg.certManagerVersion ?: 'latest'}",
         "INSTALL_RKE2_CHANNEL=${clusterCfg.platformChannel ?: 'stable'}",
-        "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: clusterCfg.rke2version ?: ''}",
+        "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: ''}",
         "KUBECONFIG=${clusterCfg.kubeconfig ?: '/tmp/kubeconfig'}"
     ]
 

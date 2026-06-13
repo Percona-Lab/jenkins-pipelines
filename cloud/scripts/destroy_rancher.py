@@ -84,8 +84,6 @@ def run_command(config, step, cmd, check=True, log_output=True, timeout=None):
 
     if proc.returncode == 0:
         LOGGER.success("OK: %s", step)
-    elif not check:
-        LOGGER.warning("SKIP: %s", step)
 
     return proc
 

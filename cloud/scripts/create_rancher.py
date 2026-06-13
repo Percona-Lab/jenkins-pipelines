@@ -90,6 +90,7 @@ def parse_args():
     p.add_argument("--image-family", type=str, default=os.environ.get("IMAGE_FAMILY", "rocky-linux-9-optimized-gcp"))
     p.add_argument("--image", type=str, default=os.environ.get("IMAGE"))
     p.add_argument("--image-project", type=str, default=os.environ.get("IMAGE_PROJECT", "rocky-linux-cloud"))
+    p.add_argument("--source-ranges", type=str, default=os.environ.get("SOURCE_RANGES", "0.0.0.0/0"))
 
     p.add_argument("--owner", type=str, default=os.environ.get("OWNER") or current_user())
     p.add_argument("--product", type=str, default=os.environ.get("PRODUCT", "psmdb"))
@@ -267,9 +268,7 @@ def ensure_ssh_key(cfg):
             [
                 "ssh-keygen",
                 "-t",
-                "rsa",
-                "-b",
-                "4096",
+                "ed25519",
                 "-N",
                 "",
                 "-f",
@@ -317,12 +316,12 @@ def create_firewalls(cfg):
         (
             f"{cfg['prefix']}-allow-ssh",
             "tcp:22",
-            ("--source-ranges", "0.0.0.0/0"),
+            ("--source-ranges", cfg["source_ranges"]),
         ),
         (
             f"{cfg['prefix']}-allow-rancher",
             "tcp:80,tcp:443,tcp:6443,tcp:9345,tcp:10250,udp:8472",
-            ("--source-ranges", "0.0.0.0/0"),
+            ("--source-ranges", cfg["source_ranges"]),
         ),
         (
             f"{cfg['prefix']}-allow-internal",
