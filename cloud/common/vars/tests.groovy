@@ -559,26 +559,6 @@ Map getParallelStages(Map testVariables) {
     return parallelStages
 }
 
-String htmlEscape(Object value) {
-    return "${value ?: ''}"
-        .replace('&', '&amp;')
-        .replace('<', '&lt;')
-        .replace('>', '&gt;')
-        .replace('"', '&quot;')
-        .replace("'", '&#39;')
-}
-
-String testStatusStyle(String result) {
-    switch (result) {
-        case "passed":
-            return "color:#137333;font-weight:600;"
-        case "failure":
-            return "color:#b3261e;font-weight:600;"
-        default:
-            return "color:#8a6100;font-weight:600;"
-    }
-}
-
 void makeReport(Map tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
     tests = tests ?: [:]
