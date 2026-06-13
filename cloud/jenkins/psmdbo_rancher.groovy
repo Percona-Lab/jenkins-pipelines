@@ -147,7 +147,7 @@ pipeline {
         stage('Init Tests') {
             steps {
                 script {
-                    testVariables.tests = libraries.tests.load(TEST_LIST, TEST_SUITE)
+                    testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE)
 
                     if (IGNORE_PREVIOUS_RUN == 'NO') {
                         libraries.tests.updateListWithLastExecutionStatus(testVariables)

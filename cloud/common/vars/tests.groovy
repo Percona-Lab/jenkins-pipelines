@@ -1,3 +1,14 @@
+void loadCloudSecret(String operator) {
+    withCredentials([file(
+        credentialsId: "cloud-secret-file-${operator}",
+        variable: 'CLOUD_SECRET_FILE'
+    )]) {
+        sh '''
+            cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
+        '''
+    }
+}
+
 String getReleaseVersionsParam(String releaseVersions, String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
@@ -12,10 +23,6 @@ String getReleaseVersionsParam(String releaseVersions, String paramName, String 
 
     echo "${paramName}=${param} (from params file)"
     return param
-}
-
-String artifactFileName(Map cfg) {
-    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
 }
 
 String getClusterFullName(String clusterName, String clusterSuffix) {
@@ -40,159 +47,6 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
     ]
 
     return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
-}
-
-Map load(String testList, String testSuite) {
-    echo "=========================[ Loading tests ]========================="
-    def suiteFileName = "source/e2e-tests/${testSuite}"
-
-    if (testList?.trim()) {
-        suiteFileName = "source/e2e-tests/run-custom.csv"
-
-        writeFile file: suiteFileName, text: testList
-
-        sh """
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
-    }
-
-    def tests = [:]
-    readCSV(file: suiteFileName).each { record ->
-        def testName = record[0]
-        tests[testName] = [
-            cluster: "NA",
-            result : "skipped",
-            time   : 0.0
-        ]
-    }
-
-    echo "Loaded ${tests.size()} tests:"
-    echo tests.keySet().collect { " - ${it}" }.join('\n')
-
-    return tests
-}
-
-void updateListWithLastExecutionStatus(Map testVariables) {
-    echo "=========================[ Checking previous execution ]========================="
-
-    withCredentials([aws(
-        credentialsId: 'AMI/OVF',
-        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-    )]) {
-        sh """
-            aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
-        """
-
-        testVariables.tests.each { testName, test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, testName))
-            def retFileExists = sh(
-                script: """
-                    aws s3api head-object \
-                        --bucket percona-jenkins-artifactory \
-                        --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} \
-                        >/dev/null 2>&1
-                """,
-                returnStatus: true
-            )
-
-            if (retFileExists == 0) {
-                test.result = "passed"
-            }
-        }
-    }
-}
-
-Map buildArtifactParams(Map testVariables, String testName) {
-    return [
-        gitBranch     : testVariables.git_branch,
-        gitShortCommit: testVariables.git_short_commit,
-        testName      : testName,
-        platformVersion : testVariables.platform_version,
-        dbTag         : testVariables.db_tag,
-        clusterWide   : testVariables.cluster_wide,
-        paramsHash    : testVariables.params_hash
-    ]
-}
-
-String buildParamsHash(Map testVariables) {
-    def hashValues = [
-        testVariables.git_branch,
-        testVariables.git_short_commit,
-        testVariables.platform_version,
-        testVariables.cluster_wide,
-        testVariables.platform_arch,
-        testVariables.platform_channel,
-        testVariables.pillar_version
-    ].findAll { it != null }
-
-    testVariables.images.values().findAll { it }.each { imageValue ->
-        hashValues << imageValue
-    }
-
-    return sh(
-        script: "echo '${hashValues.join('-')}' | md5sum | cut -d' ' -f1",
-        returnStdout: true
-    ).trim()
-}
-
-Map resolveImages(Map testVariables) {
-    def resolvedImages = [:]
-    def releaseRun = "${testVariables.pillar_version}" != "none"
-
-    testVariables.images.each { imageName, imageValue ->
-        if (!releaseRun) {
-            resolvedImages[imageName] = imageValue
-            return
-        }
-
-        def releaseParamName = getReleaseParamName(
-            imageName,
-            testVariables.pillar_version,
-            testVariables.operator
-        )
-
-        resolvedImages[imageName] = imageValue ?: getReleaseVersionsParam(
-            testVariables.release_versions,
-            imageName,
-            releaseParamName
-        )
-    }
-
-    return resolvedImages
-}
-
-void loadCloudSecret(String operator) {
-    withCredentials([file(
-        credentialsId: "cloud-secret-file-${operator}",
-        variable: 'CLOUD_SECRET_FILE'
-    )]) {
-        sh '''
-            cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
-        '''
-    }
-}
-
-void pushArtifactFile(String fileName, String gitShortCommit) {
-    gitShortCommit = gitShortCommit ?: env.GIT_SHORT_COMMIT
-
-    echo "Push ${fileName} file to S3!"
-
-    withCredentials([aws(
-        credentialsId: 'AMI/OVF',
-        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-    )]) {
-        sh """
-            touch ${fileName}
-
-            S3_PATH=s3://percona-jenkins-artifactory/${JOB_NAME}/${gitShortCommit}
-
-            aws s3 ls \$S3_PATH/${fileName} || :
-            aws s3 cp --quiet ${fileName} \$S3_PATH/${fileName} || :
-        """
-    }
 }
 
 Map prepareVersions(Map testVariables) {
@@ -287,6 +141,152 @@ Map prepareVersions(Map testVariables) {
     return testVariables
 }
 
+Map loadTestList(String testList, String testSuite) {
+    echo "=========================[ Loading tests ]========================="
+    def suiteFileName = "source/e2e-tests/${testSuite}"
+
+    if (testList?.trim()) {
+        suiteFileName = "source/e2e-tests/run-custom.csv"
+
+        writeFile file: suiteFileName, text: testList
+
+        sh """
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    def tests = [:]
+    readCSV(file: suiteFileName).each { record ->
+        def testName = record[0]
+        tests[testName] = [
+            cluster: "NA",
+            result : "skipped",
+            time   : 0.0
+        ]
+    }
+
+    echo "Loaded ${tests.size()} tests:"
+    echo tests.keySet().collect { " - ${it}" }.join('\n')
+
+    return tests
+}
+
+String artifactFileName(Map cfg) {
+    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
+}
+
+Map buildArtifactParams(Map testVariables, String testName) {
+    return [
+        gitBranch     : testVariables.git_branch,
+        gitShortCommit: testVariables.git_short_commit,
+        testName      : testName,
+        platformVersion : testVariables.platform_version,
+        dbTag         : testVariables.db_tag,
+        clusterWide   : testVariables.cluster_wide,
+        paramsHash    : testVariables.params_hash
+    ]
+}
+
+String buildParamsHash(Map testVariables) {
+    def hashValues = [
+        testVariables.git_branch,
+        testVariables.git_short_commit,
+        testVariables.platform_version,
+        testVariables.cluster_wide,
+        testVariables.platform_arch,
+        testVariables.platform_channel,
+        testVariables.pillar_version
+    ].findAll { it != null }
+
+    testVariables.images.values().findAll { it }.each { imageValue ->
+        hashValues << imageValue
+    }
+
+    return sh(
+        script: "echo '${hashValues.join('-')}' | md5sum | cut -d' ' -f1",
+        returnStdout: true
+    ).trim()
+}
+
+void pushArtifactFile(String fileName, String gitShortCommit) {
+    gitShortCommit = gitShortCommit ?: env.GIT_SHORT_COMMIT
+
+    echo "Push ${fileName} file to S3!"
+
+    withCredentials([aws(
+        credentialsId: 'AMI/OVF',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    )]) {
+        sh """
+            touch ${fileName}
+
+            S3_PATH=s3://percona-jenkins-artifactory/${JOB_NAME}/${gitShortCommit}
+
+            aws s3 ls \$S3_PATH/${fileName} || :
+            aws s3 cp --quiet ${fileName} \$S3_PATH/${fileName} || :
+        """
+    }
+}
+
+void updateListWithLastExecutionStatus(Map testVariables) {
+    echo "=========================[ Checking previous execution ]========================="
+
+    withCredentials([aws(
+        credentialsId: 'AMI/OVF',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    )]) {
+        sh """
+            aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
+        """
+
+        testVariables.tests.each { testName, test ->
+            def file = artifactFileName(buildArtifactParams(testVariables, testName))
+            def retFileExists = sh(
+                script: """
+                    aws s3api head-object \
+                        --bucket percona-jenkins-artifactory \
+                        --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} \
+                        >/dev/null 2>&1
+                """,
+                returnStatus: true
+            )
+
+            if (retFileExists == 0) {
+                test.result = "passed"
+            }
+        }
+    }
+}
+
+Map resolveImages(Map testVariables) {
+    def resolvedImages = [:]
+    def releaseRun = "${testVariables.pillar_version}" != "none"
+
+    testVariables.images.each { imageName, imageValue ->
+        if (!releaseRun) {
+            resolvedImages[imageName] = imageValue
+            return
+        }
+
+        def releaseParamName = getReleaseParamName(
+            imageName,
+            testVariables.pillar_version,
+            testVariables.operator
+        )
+
+        resolvedImages[imageName] = imageValue ?: getReleaseVersionsParam(
+            testVariables.release_versions,
+            imageName,
+            releaseParamName
+        )
+    }
+
+    return resolvedImages
+}
+
 String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     def exports = []
 
@@ -314,7 +314,7 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     return exports.join("\n")
 }
 
-String getTestCommand(Map testVariables, String testName) {
+String defineTestCommand(Map testVariables, String testName) {
     if (testVariables.test_executor_type == "kuttl") {
         return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
     }
@@ -362,6 +362,7 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
     }
 }
 
+// Below functions are annoted with @NonCPS because they are called from parallel stages and manipulate shared state (clusters list and tests map).
 @com.cloudbees.groovy.cps.NonCPS
 String claimNextSkippedTest(Map tests, String clusterSuffix) {
     synchronized (tests) {
@@ -431,7 +432,7 @@ void runTest(Map testConfig) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
-                def command = getTestCommand(testVariables, testName)
+                def command = defineTestCommand(testVariables, testName)
 
                 sh """
                     cd source
