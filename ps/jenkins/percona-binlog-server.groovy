@@ -389,6 +389,24 @@ pipeline {
                 sync2ProdAutoBuild(params.CLOUD, PBS_REPO, COMPONENT)
             }
         }
+        stage('Build docker containers') {
+            agent {
+                label 'launcher-x64'
+            }
+            steps {
+                script {
+                    def VERSION = sh(returnStdout: true, script: """
+                        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
+                        grep 'semantic_version app_version' app_version.hpp | head -1 | awk -F'[{}]' '{print \$2}' | sed 's:U::g; s:, *:\\.:g'
+                    """).trim()
+                    build job: 'hetzner-pbs-docker-build',
+                          parameters: [
+                              string(name: 'VERSION', value: VERSION)
+                          ],
+                          wait: false
+                }
+            }
+        }
 
     }
     post {
