@@ -26,11 +26,19 @@ def default_project():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Destroy a Rancher RKE2 cluster created on Google Compute Engine.")
+    parser = argparse.ArgumentParser(
+        description="Destroy a Rancher RKE2 cluster created on Google Compute Engine."
+    )
     parser.add_argument("prefix", help="Cluster prefix used during creation")
-    parser.add_argument("--project-id", default=os.environ.get("PROJECT_ID") or default_project())
+    parser.add_argument(
+        "--project-id", default=os.environ.get("PROJECT_ID") or default_project()
+    )
     parser.add_argument("--zone", default=os.environ.get("ZONE", "us-central1-a"))
-    parser.add_argument("--log-level", default=os.environ.get("LOG_LEVEL", "info"), choices=("debug", "info", "warning", "error"))
+    parser.add_argument(
+        "--log-level",
+        default=os.environ.get("LOG_LEVEL", "info"),
+        choices=("debug", "info", "warning", "error"),
+    )
     return parser.parse_args()
 
 
@@ -68,19 +76,26 @@ def run_command(config, step, cmd, check=True, log_output=True, timeout=None):
         proc = subprocess.CompletedProcess(cmd, 124, exc.stdout, exc.stderr)
 
         if check:
-            raise subprocess.CalledProcessError(proc.returncode, cmd, proc.stdout, proc.stderr)
+            raise subprocess.CalledProcessError(
+                proc.returncode, cmd, proc.stdout, proc.stderr
+            )
 
         return proc
 
     if log_output and proc.stdout:
         LOGGER.debug("%s", proc.stdout)
     if log_output and proc.stderr:
-        LOGGER.warning("%s", proc.stderr)
+        if proc.returncode:
+            LOGGER.warning("%s", proc.stderr)
+        else:
+            LOGGER.debug("%s", proc.stderr)
 
     if check and proc.returncode:
         LOGGER.error("FAILED: %s", step)
         LOGGER.error("Exit code: %s", proc.returncode)
-        raise subprocess.CalledProcessError(proc.returncode, cmd, proc.stdout, proc.stderr)
+        raise subprocess.CalledProcessError(
+            proc.returncode, cmd, proc.stdout, proc.stderr
+        )
 
     if proc.returncode == 0:
         LOGGER.success("OK: %s", step)
@@ -93,7 +108,9 @@ def validate(config):
         raise ValueError("prefix cannot be empty")
 
     if not config["project_id"] or config["project_id"] == "gcloud":
-        raise ValueError("invalid project id. Use --project-id or set gcloud config project")
+        raise ValueError(
+            "invalid project id. Use --project-id or set gcloud config project"
+        )
 
 
 def resource_exists(config, step, cmd):
@@ -126,7 +143,9 @@ def instance_exists(config, name):
     return resource_exists(
         config,
         f"Check instance: {name}",
-        gcloud(config, "compute", "instances", "describe", name, "--zone", config["zone"]),
+        gcloud(
+            config, "compute", "instances", "describe", name, "--zone", config["zone"]
+        ),
     )
 
 
@@ -157,7 +176,9 @@ def delete_instances(config, instances):
         LOGGER.warning("SKIP: No instances found for cluster: %s", config["prefix"])
         return
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(instances), 8)) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(len(instances), 8)
+    ) as executor:
         futures = {
             executor.submit(delete_instance, config, instance): instance
             for instance in instances
@@ -208,7 +229,9 @@ def delete_firewalls(config):
         f"{prefix}-allow-internal",
     ]
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(firewalls), 4)) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(len(firewalls), 4)
+    ) as executor:
         futures = {
             executor.submit(delete_firewall, config, firewall): firewall
             for firewall in firewalls
@@ -245,10 +268,7 @@ def delete_local_files(config):
 
 def summary(config):
     LOGGER.info(
-        "Cleanup complete.\n\n"
-        "Project: %s\n"
-        "Zone: %s\n"
-        "Cluster prefix: %s",
+        "Cleanup complete.\n\nProject: %s\nZone: %s\nCluster prefix: %s",
         config["project_id"],
         config["zone"],
         config["prefix"],

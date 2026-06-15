@@ -149,6 +149,7 @@ def validate(cfg):
 def setup_logging(cfg):
     setup_stdout_logging(LOGGER, level=cfg["log_level"])
 
+
 def run_command(
     cfg,
     step,
@@ -594,7 +595,9 @@ def join_workers(cfg):
     LOGGER.info(f"Adding worker nodes: {', '.join(cfg['workers'])}")
     LOGGER.debug("START: Join workers in parallel")
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cfg["workers"])) as pool:
-        futures = {pool.submit(join_worker, cfg, worker): worker for worker in cfg["workers"]}
+        futures = {
+            pool.submit(join_worker, cfg, worker): worker for worker in cfg["workers"]
+        }
         for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
             future.result()
             LOGGER.success("OK: %s", futures[future])
@@ -603,6 +606,7 @@ def join_workers(cfg):
 
 # Kubeconfig and Kubernetes readiness
 
+
 def kube_env(*paths):
     env = os.environ.copy()
     env["KUBECONFIG"] = os.pathsep.join(str(path) for path in paths if path)
@@ -610,7 +614,7 @@ def kube_env(*paths):
 
 
 def fetch_kubeconfig(cfg):
-    cmd = f'sudo sed "s/127.0.0.1/{cfg["master_external_ip"]}/" {REMOTE_KUBECONFIG} > /tmp/rke2.yaml && sudo chmod 0644 /tmp/rke2.yaml'
+    cmd = f'sudo sed "s/127.0.0.1/{cfg["master_external_ip"]}/" {REMOTE_KUBECONFIG} > /tmp/rke2.yaml && sudo chown "$(id -u):$(id -g)" /tmp/rke2.yaml && chmod 0600 /tmp/rke2.yaml'
     ssh(cfg, cfg["master"], cmd, "Prepare local kubeconfig")
     scp_from(
         cfg, cfg["master"], "/tmp/rke2.yaml", cfg["kubeconfig"], "Download kubeconfig"
@@ -767,15 +771,24 @@ def raise_helm_step_error(cfg, proc, step):
 def install_helm_step(cfg, base, step, done, total):
     proc = None
     for attempt in range(1, 3):
-        LOGGER.info("Installing Rancher (%s/%s): %s attempt %s/2", done, total, helm_step_label(step), attempt)
+        LOGGER.info(
+            "Installing Rancher (%s/%s): %s attempt %s/2",
+            done,
+            total,
+            helm_step_label(step),
+            attempt,
+        )
         proc = run_helm_step(cfg, base, step)
         if proc.returncode == 0:
-            LOGGER.success("OK: Installing Rancher (%s/%s): %s", done, total, helm_step_label(step))
+            LOGGER.success(
+                "OK: Installing Rancher (%s/%s): %s", done, total, helm_step_label(step)
+            )
             return
         if attempt == 1:
             cleanup_helm_step(cfg, base, step)
 
     raise_helm_step_error(cfg, proc, step)
+
 
 def normalize_helm_version(value, default="latest"):
     version = (value or default).strip()
@@ -785,11 +798,18 @@ def normalize_helm_version(value, default="latest"):
 
     return version, f"--version {shlex.quote(version)}"
 
+
 def install_rancher(cfg):
 
-    cert_manager_version, cert_manager_version_helm = normalize_helm_version(cfg.get("cert_manager_version"))
-    rancher_version, rancher_version_helm = normalize_helm_version(cfg.get("rancher_version"))
-    longhorn_version, longhorn_version_helm = normalize_helm_version(cfg.get("longhorn_version"))
+    cert_manager_version, cert_manager_version_helm = normalize_helm_version(
+        cfg.get("cert_manager_version")
+    )
+    rancher_version, rancher_version_helm = normalize_helm_version(
+        cfg.get("rancher_version")
+    )
+    longhorn_version, longhorn_version_helm = normalize_helm_version(
+        cfg.get("longhorn_version")
+    )
 
     # cert-manager is required for Rancher ingress TLS and for RKE2 cluster issuers
     # Longhorn is required for Rancher to manage local cluster storage and for the RKE2 local-path storage class
@@ -904,7 +924,9 @@ def write_output(cfg):
 
 
 def summary(cfg):
-    kubeconfig = cfg["local_kubeconfig"] if cfg["save_kubeconfig"] else cfg["kubeconfig"]
+    kubeconfig = (
+        cfg["local_kubeconfig"] if cfg["save_kubeconfig"] else cfg["kubeconfig"]
+    )
     files = "\n".join(
         [
             f"  OUTPUT_FILE={cfg['output']}",
