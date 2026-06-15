@@ -36,9 +36,6 @@ pipeline {
                             | jq -r '.results[].name' | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+$' | sort -V''',
                         returnStdout: true
                     ).trim().split('\n').findAll { it }
-                    if (tags.size() < 2) {
-                        error('Need at least two released percona/pmm-server tags on Docker Hub')
-                    }
                     def prevVersion = tags[-2]
                     def latestVersion = tags[-1]
                     env.PMM_SERVER_LATEST = latestVersion
