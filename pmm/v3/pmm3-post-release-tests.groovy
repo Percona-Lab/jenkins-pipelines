@@ -8,10 +8,6 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-def versionsList = pmmVersion('v3')
-def latestVersion = versionsList.last()
-def prevVersion = versionsList[-2]
-
 pipeline {
     agent {
         label 'agent-amd64'
@@ -35,6 +31,16 @@ pipeline {
             steps {
                 script {
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
+                    def tags = sh(
+                        script: '''wget -q "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags?page_size=100" -O - \
+                            | jq -r '.results[].name' | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+$' | sort -V''',
+                        returnStdout: true
+                    ).trim().split('\n').findAll { it }
+                    if (tags.size() < 2) {
+                        error('Need at least two released percona/pmm-server tags on Docker Hub')
+                    }
+                    def prevVersion = tags[-2]
+                    def latestVersion = tags[-1]
                     env.PMM_SERVER_LATEST = latestVersion
                     env.DOCKER_TAG = "percona/pmm-server:${prevVersion}"
                     env.DOCKER_TAG_UPGRADE = "percona/pmm-server:${latestVersion}"
