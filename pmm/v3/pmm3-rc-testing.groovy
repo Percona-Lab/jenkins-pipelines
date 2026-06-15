@@ -36,7 +36,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         HELM_CHART_BRANCH : 'main',
         OPENSHIFT_VERSION : 'latest',
         K8S_VERSION       : '1.34',
-        PTS_CONFIDENCE    : '93',
+        PTS_CONFIDENCE    : '100',
     ]
     def params = (defaults + cfg).collect { k, v -> string(name: k, value: v.toString()) }
     triggerJenkinsRc(shortName, 'pmm3-ui-tests-nightly-gha', params)
@@ -218,7 +218,6 @@ pipeline {
                                         SERVER_TYPE    : 'ovf',
                                         OVA_VERSION    : "https://percona-vm.s3.amazonaws.com/PMM3-Server-${params.RC_VERSION.trim()}.ova",
                                         ADMIN_PASSWORD : 'admin1',
-                                        PTS_CONFIDENCE : '99',
                                     ])
                                 }
                             }
