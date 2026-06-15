@@ -145,7 +145,7 @@ Map prepareVersions(Map testVariables) {
     return testVariables
 }
 
-Map loadTestList(String testList, String testSuite) {
+List loadTestList(String testList, String testSuite) {
     echo "=========================[ Loading tests ]========================="
     def suiteFileName = "source/e2e-tests/${testSuite}"
 
@@ -160,18 +160,17 @@ Map loadTestList(String testList, String testSuite) {
         """
     }
 
-    def tests = [:]
-    readCSV(file: suiteFileName).each { record ->
-        def testName = record[0]
-        tests[testName] = [
+    def tests = readCSV(file: suiteFileName).collect { record ->
+        [
+            name   : record[0],
             cluster: "NA",
             result : "skipped",
-            time   : 0.0
+            time   : 0.0,
         ]
     }
 
     echo "Loaded ${tests.size()} tests:"
-    echo tests.keySet().collect { " - ${it}" }.join('\n')
+    echo tests.collect { " - ${it.name}" }.join('\n')
 
     return tests
 }
@@ -246,8 +245,8 @@ void updateListWithLastExecutionStatus(Map testVariables) {
             aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
         """
 
-        testVariables.tests.each { testName, test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, testName))
+        testVariables.tests.each { test ->
+            def file = artifactFileName(buildArtifactParams(testVariables, test.name))
             def retFileExists = sh(
                 script: """
                     aws s3api head-object \
@@ -366,36 +365,36 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
     }
 }
 
-// Below functions are annoted with @NonCPS because they are called from parallel stages and manipulate shared state (clusters list and tests map).
+// Below functions are annotated with @NonCPS because they are called from parallel stages and manipulate shared state.
 @com.cloudbees.groovy.cps.NonCPS
-String claimNextSkippedTest(Map tests, String clusterSuffix) {
+Integer claimNextSkippedTest(List tests, String clusterSuffix) {
     synchronized (tests) {
-        def entry = tests.find { testName, test ->
+        def index = tests.findIndexOf { test ->
             test.result == "skipped"
         }
 
-        if (!entry) {
+        if (index < 0) {
             return null
         }
 
-        entry.value.result = "failure"
-        entry.value.cluster = clusterSuffix
+        tests[index].result = "failure"
+        tests[index].cluster = clusterSuffix
 
-        return entry.key as String
+        return index
     }
 }
 
 @com.cloudbees.groovy.cps.NonCPS
-void updateTestResult(Map tests, String testName, String result) {
+void updateTestResult(List tests, Integer testId, String result) {
     synchronized (tests) {
-        tests[testName].result = result
+        tests[testId].result = result
     }
 }
 
 @com.cloudbees.groovy.cps.NonCPS
-void updateTestTime(Map tests, String testName, Object time) {
+void updateTestTime(List tests, Integer testId, Object time) {
     synchronized (tests) {
-        tests[testName].time = time
+        tests[testId].time = time
     }
 }
 
@@ -423,7 +422,8 @@ void removeCluster(List clusters, String clusterSuffix) {
 void runTest(Map testConfig) {
     def retryCount = 0
     def testVariables = testConfig.testVariables
-    def testName = testConfig.testName
+    def testId = testConfig.testId
+    def testName = testVariables.tests[testId].name
     def clusterSuffix = testConfig.clusterSuffix
 
     waitUntil {
@@ -431,7 +431,7 @@ void runTest(Map testConfig) {
 
         try {
             echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}!"
-            updateTestResult(testVariables.tests, testName, "failure")
+            updateTestResult(testVariables.tests, testId, "failure")
 
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -452,7 +452,7 @@ void runTest(Map testConfig) {
                 testVariables.git_short_commit
             )
 
-            updateTestResult(testVariables.tests, testName, "passed")
+            updateTestResult(testVariables.tests, testId, "passed")
             return true
 
         } catch (exc) {
@@ -471,7 +471,7 @@ void runTest(Map testConfig) {
             return false
 
         } finally {
-            updateTestTime(testVariables.tests, testName, elapsedSeconds(System.currentTimeMillis() - timeStart))
+            updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
             echo "The ${testName} test was finished!"
         }
     }
@@ -508,8 +508,8 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 
     try {
         while (true) {
-            def testName = claimNextSkippedTest(testVariables.tests, clusterSuffix)
-            if (!testName) {
+            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+            if (testId == null) {
                 break
             }
 
@@ -523,7 +523,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
             }
 
             runTest(
-                testName: testName,
+                testId: testId,
                 clusterSuffix: clusterSuffix,
                 testVariables: testVariables,
                 retries: testVariables.retries ?: 1
@@ -565,13 +565,13 @@ Map getParallelStages(Map testVariables) {
     return parallelStages
 }
 
-void makeReport(Map tests, Map testVariables) {
+void makeReport(List tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
-    tests = tests ?: [:]
+    tests = tests ?: []
 
     def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
-    tests.each { testName, test ->
-        testsReport += "<testcase name=\"${testName}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
+    tests.each { test ->
+        testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
     }
 
     testsReport += "</testsuite>\n"

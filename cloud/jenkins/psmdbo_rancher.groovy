@@ -178,9 +178,10 @@ pipeline {
         always {
             script {
                 echo "CLUSTER ASSIGNMENTS\n" +
-                    (testVariables.tests ?: [:]).collect { testName, test ->
-                        "${testName}: cluster=${test.cluster}, result=${test.result}, time=${test.time}"
-                    }.join('\n')
+                    testVariables.tests.toString()
+                        .replace('], ', ']\n')
+                        .replace(']]', ']')
+                        .replaceFirst('\\[', '')
 
                 libraries.tests.makeReport(testVariables.tests, testVariables)
 
