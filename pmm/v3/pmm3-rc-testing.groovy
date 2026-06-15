@@ -38,10 +38,8 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         K8S_VERSION       : '1.34',
         PTS_CONFIDENCE    : '93',
     ]
-    def merged = defaults + cfg
-    triggerJenkinsRc(shortName, 'pmm3-ui-tests-nightly-gha', merged.collect { k, v ->
-        string(name: k, value: v.toString())
-    })
+    def params = (defaults + cfg).collect { k, v -> string(name: k, value: v.toString()) }
+    triggerJenkinsRc(shortName, 'pmm3-ui-tests-nightly-gha', params)
 }
 
 // ---------- pipeline ---------------------------------------------------------
@@ -111,9 +109,10 @@ pipeline {
                     }
                     writeFile file: 'compat-tags.txt', text: compatTagsOut + '\n'
 
+                    currentBuild.description = "rc=${params.RC_VERSION.trim()} server=${env.PMM_SERVER_IMAGE}"
+
                     env.IS_PATCH_RC = (params.RC_VERSION.trim().tokenize('.')[2] != '0').toString()
 
-                    currentBuild.description = "rc=${params.RC_VERSION.trim()} patch=${env.IS_PATCH_RC} server=${env.PMM_SERVER_IMAGE}"
                 }
             }
         }
