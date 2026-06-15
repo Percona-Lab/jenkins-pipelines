@@ -518,6 +518,13 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 createdClusters.add(clusterSuffix)
                 addCluster(testVariables.clusters, clusterSuffix)
 
+                echo "=========================[ Cleanup existing cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="  
+                try {
+                    shutdownCluster.call()
+                } catch (Exception e) {
+                    echo "Cluster shutdown failed, maybe cluster does not exist or is already deleted: ${e.getMessage()}"
+                }
+
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
             }
