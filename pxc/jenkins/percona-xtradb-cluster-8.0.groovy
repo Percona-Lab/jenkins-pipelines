@@ -136,6 +136,13 @@ pipeline {
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
+                script {
+                    sh """
+                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                    """
+                    env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
+                    echo "Detected PXC version minor: ${env.MYSQL_VERSION_MINOR}"
+                }
                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
@@ -433,6 +440,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute(26.04)') {
+                    when {
+                        expression { env.MYSQL_VERSION_MINOR == '4' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -454,6 +464,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
+                    when {
+                        expression { env.MYSQL_VERSION_MINOR == '4' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
