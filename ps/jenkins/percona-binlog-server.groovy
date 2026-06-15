@@ -401,7 +401,8 @@ pipeline {
                     """).trim()
                     build job: 'hetzner-pbs-docker-build',
                           parameters: [
-                              string(name: 'VERSION', value: VERSION)
+                              string(name: 'VERSION', value: VERSION),
+                              string(name: 'COMPONENT', value: params.COMPONENT)
                           ],
                           wait: false
                 }
