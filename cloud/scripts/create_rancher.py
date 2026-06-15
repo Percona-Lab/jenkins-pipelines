@@ -13,7 +13,6 @@ import string
 import subprocess
 import sys
 import tempfile
-import textwrap
 import time
 from pathlib import Path
 from string import Template
@@ -23,7 +22,7 @@ from utils.logging import log_lines, setup_stdout_logging
 
 
 ROOT = Path(__file__).resolve().parent
-TEMPLATES = ROOT / "templates"
+FILES = ROOT / "files"
 REMOTE_KUBECONFIG = "/etc/rancher/rke2/rke2.yaml"
 REMOTE_USER_KUBECONFIG = "/tmp/rke2-user.yaml"
 Config = dict[str, Any]
@@ -253,6 +252,101 @@ def scp_from(cfg, host, remote, local, step):
     )
 
 
+def scp_to(cfg, local, host, remote, step):
+    target = f"{cfg['ssh_user']}@{host}:{remote}"
+    return run_command(
+        cfg,
+        step,
+        gcloud(
+            cfg,
+            "compute",
+            "scp",
+            str(local),
+            target,
+            "--zone",
+            cfg["zone"],
+            "--ssh-key-file",
+            str(cfg["ssh_key"]),
+            "--strict-host-key-checking=no",
+            "--quiet",
+        ),
+    )
+
+
+def remote_path(cfg, name):
+    return f"/tmp/{cfg['prefix']}-{Path(name).name}"
+
+
+def upload_remote_asset(cfg, node, filename, remote=None):
+    remote = remote or remote_path(cfg, filename)
+    scp_to(
+        cfg,
+        FILES / filename,
+        node,
+        remote,
+        f"Upload {filename}: {node}",
+    )
+    return remote
+
+
+def upload_remote_content(cfg, node, filename, content, remote=None):
+    cfg["workdir"].mkdir(parents=True, exist_ok=True)
+    local = cfg["workdir"] / filename
+    local.write_text(content.rstrip() + "\n")
+    local.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    remote = remote or remote_path(cfg, filename)
+    scp_to(cfg, local, node, remote, f"Upload {filename}: {node}")
+    return remote
+
+
+def shell_args(*args):
+    return " ".join(shlex.quote(str(arg)) for arg in args if arg is not None)
+
+
+def run_remote_script(cfg, node, filename, step, *args, check=True):
+    remote = upload_remote_asset(cfg, node, filename)
+    return ssh(
+        cfg,
+        node,
+        f"bash {shlex.quote(remote)} {shell_args(*args)}",
+        step,
+        check=check,
+    )
+
+
+def configure_node_firewalld_base(cfg, node):
+    return run_remote_script(
+        cfg,
+        node,
+        "firewalld-rke2-base.sh",
+        f"Configure firewalld base rules: {node}",
+    )
+
+
+def configure_node_firewalld_cni(cfg, node):
+    return run_remote_script(
+        cfg,
+        node,
+        "firewalld-rke2-cni.sh",
+        f"Configure firewalld CNI interfaces: {node}",
+        check=False,
+    )
+
+
+def configure_cluster_firewalld_cni(cfg):
+    nodes = [cfg["master"], *cfg["workers"]]
+    LOGGER.info("Configuring firewalld CNI interfaces: %s", ", ".join(nodes))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        futures = {
+            pool.submit(configure_node_firewalld_cni, cfg, node): node for node in nodes
+        }
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+            LOGGER.success(
+                "OK: Configure firewalld CNI interfaces: %s", futures[future]
+            )
+
+
 def out(cfg, step, cmd):
     return run_command(cfg, step, cmd).stdout.strip()
 
@@ -454,7 +548,7 @@ def get_node_ips(cfg):
 
 
 def template(name, **values):
-    return Template((TEMPLATES / name).read_text()).safe_substitute(values)
+    return Template((FILES / name).read_text()).safe_substitute(values)
 
 
 def install_env(cfg, kind=None):
@@ -468,52 +562,39 @@ def install_env(cfg, kind=None):
     return " ".join(env)
 
 
-def write_remote(path, content):
-    parent = shlex.quote(str(Path(path).parent))
-    path = shlex.quote(path)
-    content = shlex.quote(content.rstrip() + "\n")
-    return f"sudo mkdir -p {parent}\nprintf %s {content} | sudo tee {path} >/dev/null"
-
-
 def install_server(cfg):
-    LOGGER.info(f"Installing RKE2 server: {cfg['master']}")
+    LOGGER.info("Installing RKE2 server: %s", cfg["master"])
     rke2 = template(
         "rke2-server-config.yaml.tmpl",
         master_external_ip=cfg["master_external_ip"],
         master_internal_ip=cfg["master_internal_ip"],
         hostname=cfg["hostname"],
     )
-    cmd = textwrap.dedent(
-        f"""
-        set -euo pipefail
-        if sudo systemctl is-active --quiet rke2-server && sudo test -s /var/lib/rancher/rke2/server/node-token; then
-            sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig {REMOTE_KUBECONFIG} get nodes
-            exit 0
-        fi
-        sudo dnf install -y curl tar wget iptables iscsi-initiator-utils
-        sudo systemctl enable --now iscsid || true
-        {write_remote("/etc/rancher/rke2/config.yaml", rke2)}
-        curl -sfL https://get.rke2.io -o /tmp/install-rke2.sh
-        sudo env {install_env(cfg)} sh /tmp/install-rke2.sh
-        sudo systemctl daemon-reload
-        sudo systemctl cat rke2-server >/dev/null
-        sudo systemctl enable rke2-server
-        sudo systemctl restart rke2-server
-        for _ in $(seq 1 60); do
-            if sudo test -s /var/lib/rancher/rke2/server/node-token; then
-                break
-            fi
-            sleep 5
-        done
-        sudo test -s /var/lib/rancher/rke2/server/node-token || {{
-            sudo systemctl status rke2-server --no-pager || true
-            sudo journalctl -u rke2-server -n 80 --no-pager || true
-            exit 1
-        }}
-        sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig {REMOTE_KUBECONFIG} get nodes
-        """
-    ).strip()
-    ssh(cfg, cfg["master"], cmd, "Install RKE2 server")
+    config_file = upload_remote_content(
+        cfg,
+        cfg["master"],
+        "rke2-server-config.yaml",
+        rke2,
+    )
+    firewalld_script = upload_remote_asset(
+        cfg,
+        cfg["master"],
+        "firewalld-rke2-base.sh",
+    )
+    run_remote_script(
+        cfg,
+        cfg["master"],
+        "install-rke2-server.sh",
+        "Install RKE2 server",
+        "--config-file",
+        config_file,
+        "--firewalld-script",
+        firewalld_script,
+        "--install-env",
+        install_env(cfg),
+        "--remote-kubeconfig",
+        REMOTE_KUBECONFIG,
+    )
     LOGGER.success("OK: RKE2 server installed on %s", cfg["master"])
 
 
@@ -533,30 +614,10 @@ def ensure_server_installed(cfg):
 
 
 def read_token(cfg):
-    cmd = textwrap.dedent(
-        """
-        set -euo pipefail
-        if ! sudo systemctl cat rke2-server >/dev/null 2>&1; then
-            echo "ERROR: rke2-server.service is missing. The RKE2 install step did not complete on this VM."
-            exit 1
-        fi
-        for _ in $(seq 1 60); do
-            if sudo test -s /var/lib/rancher/rke2/server/node-token; then
-                sudo cat /var/lib/rancher/rke2/server/node-token
-                exit 0
-            fi
-            sleep 5
-        done
-
-        sudo systemctl status rke2-server --no-pager || true
-        sudo journalctl -u rke2-server -n 80 --no-pager || true
-        exit 1
-        """
-    ).strip()
-    cfg["token"] = ssh(
+    cfg["token"] = run_remote_script(
         cfg,
         cfg["master"],
-        cmd,
+        "read-rke2-token.sh",
         "Read RKE2 token",
     ).stdout.strip()
     if not cfg["token"]:
@@ -569,24 +630,29 @@ def join_worker(cfg, worker):
         master_internal_ip=cfg["master_internal_ip"],
         token=cfg["token"],
     )
-    cmd = textwrap.dedent(
-        f"""
-        set -euo pipefail
-        if sudo systemctl is-active --quiet rke2-agent; then
-            exit 0
-        fi
-        sudo dnf install -y curl tar wget iptables iscsi-initiator-utils
-        sudo systemctl enable --now iscsid || true
-        {write_remote("/etc/rancher/rke2/config.yaml", rke2)}
-        curl -sfL https://get.rke2.io -o /tmp/install-rke2.sh
-        sudo env {install_env(cfg, "agent")} sh /tmp/install-rke2.sh
-        sudo systemctl daemon-reload
-        sudo systemctl cat rke2-agent >/dev/null
-        sudo systemctl enable rke2-agent
-        sudo systemctl start rke2-agent
-        """
-    ).strip()
-    ssh(cfg, worker, cmd, f"Join worker: {worker}")
+    config_file = upload_remote_content(
+        cfg,
+        worker,
+        f"{worker}-rke2-agent-config.yaml",
+        rke2,
+    )
+    firewalld_script = upload_remote_asset(
+        cfg,
+        worker,
+        "firewalld-rke2-base.sh",
+    )
+    run_remote_script(
+        cfg,
+        worker,
+        "install-rke2-agent.sh",
+        f"Join worker: {worker}",
+        "--config-file",
+        config_file,
+        "--firewalld-script",
+        firewalld_script,
+        "--install-env",
+        install_env(cfg, "agent"),
+    )
 
 
 def join_workers(cfg):
@@ -614,8 +680,18 @@ def kube_env(*paths):
 
 
 def fetch_kubeconfig(cfg):
-    cmd = f'sudo sed "s/127.0.0.1/{cfg["master_external_ip"]}/" {REMOTE_KUBECONFIG} > /tmp/rke2.yaml && sudo chown "$(id -u):$(id -g)" /tmp/rke2.yaml && chmod 0600 /tmp/rke2.yaml'
-    ssh(cfg, cfg["master"], cmd, "Prepare local kubeconfig")
+    run_remote_script(
+        cfg,
+        cfg["master"],
+        "prepare-kubeconfig.sh",
+        "Prepare local kubeconfig",
+        "--master-external-ip",
+        cfg["master_external_ip"],
+        "--remote-kubeconfig",
+        REMOTE_KUBECONFIG,
+        "--output-file",
+        "/tmp/rke2.yaml",
+    )
     scp_from(
         cfg, cfg["master"], "/tmp/rke2.yaml", cfg["kubeconfig"], "Download kubeconfig"
     )
@@ -723,35 +799,35 @@ def helm_step_label(step):
     return f"{step['chart']}@{step['version']}"
 
 
-def run_helm_step(cfg, base, step):
-    cmd = f"{base}\n{textwrap.dedent(step['command']).strip()}"
-    return ssh(
+def run_helm_step(cfg, step):
+    return run_remote_script(
         cfg,
         cfg["master"],
-        cmd,
+        step["script"],
         f"Install Rancher: {step['name']}",
+        *step["args"],
         check=False,
     )
 
 
-def cleanup_helm_step(cfg, base, step):
+def cleanup_helm_step(cfg, step):
     if not step["release"]:
         return
 
     LOGGER.warning("Retrying %s after uninstall", helm_step_label(step))
-    cleanup = textwrap.dedent(
-        f"""
-        {base}
-        helm uninstall {shlex.quote(step["release"])} --namespace {shlex.quote(step["namespace"])} || true
-        kubectl -n {shlex.quote(step["namespace"])} delete job --all --ignore-not-found=true || true
-        kubectl -n {shlex.quote(step["namespace"])} delete pod --all --ignore-not-found=true --force --grace-period=0 || true
-        """
-    ).strip()
-    ssh(
+    run_remote_script(
         cfg,
         cfg["master"],
-        cleanup,
+        "cleanup-helm-release.sh",
         f"Cleanup failed Helm install: {step['name']}",
+        "--release",
+        step["release"],
+        "--namespace",
+        step["namespace"],
+        "--remote-kubeconfig",
+        REMOTE_KUBECONFIG,
+        "--remote-user-kubeconfig",
+        REMOTE_USER_KUBECONFIG,
         check=False,
     )
     time.sleep(10)
@@ -768,7 +844,7 @@ def raise_helm_step_error(cfg, proc, step):
     )
 
 
-def install_helm_step(cfg, base, step, done, total):
+def install_helm_step(cfg, step, done, total):
     proc = None
     for attempt in range(1, 3):
         LOGGER.info(
@@ -778,52 +854,39 @@ def install_helm_step(cfg, base, step, done, total):
             helm_step_label(step),
             attempt,
         )
-        proc = run_helm_step(cfg, base, step)
+        proc = run_helm_step(cfg, step)
         if proc.returncode == 0:
             LOGGER.success(
                 "OK: Installing Rancher (%s/%s): %s", done, total, helm_step_label(step)
             )
             return
         if attempt == 1:
-            cleanup_helm_step(cfg, base, step)
+            cleanup_helm_step(cfg, step)
 
     raise_helm_step_error(cfg, proc, step)
 
 
 def normalize_helm_version(value, default="latest"):
     version = (value or default).strip()
-
-    if version.lower() == "latest":
-        return "latest", ""
-
-    return version, f"--version {shlex.quote(version)}"
+    return "latest" if version.lower() == "latest" else version
 
 
 def install_rancher(cfg):
 
-    cert_manager_version, cert_manager_version_helm = normalize_helm_version(
-        cfg.get("cert_manager_version")
-    )
-    rancher_version, rancher_version_helm = normalize_helm_version(
-        cfg.get("rancher_version")
-    )
-    longhorn_version, longhorn_version_helm = normalize_helm_version(
-        cfg.get("longhorn_version")
-    )
+    cert_manager_version = normalize_helm_version(cfg.get("cert_manager_version"))
+    rancher_version = normalize_helm_version(cfg.get("rancher_version"))
+    longhorn_version = normalize_helm_version(cfg.get("longhorn_version"))
 
-    # cert-manager is required for Rancher ingress TLS and for RKE2 cluster issuers
-    # Longhorn is required for Rancher to manage local cluster storage and for the RKE2 local-path storage class
+    # cert-manager is required for Rancher ingress TLS and for RKE2 cluster issuers.
+    # Longhorn is required for Rancher to manage local cluster storage.
     set_default = '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-    base = textwrap.dedent(
-        f"""
-        set -euo pipefail
-        sudo cp {REMOTE_KUBECONFIG} {REMOTE_USER_KUBECONFIG}
-        sudo chown "$(id -u):$(id -g)" {REMOTE_USER_KUBECONFIG}
-        chmod 0600 {REMOTE_USER_KUBECONFIG}
-        export KUBECONFIG={REMOTE_USER_KUBECONFIG}
-        export PATH=$PATH:/var/lib/rancher/rke2/bin
-        """
-    ).strip()
+    helm_kubeconfig_args = [
+        "--remote-kubeconfig",
+        REMOTE_KUBECONFIG,
+        "--remote-user-kubeconfig",
+        REMOTE_USER_KUBECONFIG,
+    ]
+    
     steps = [
         {
             "name": "helm repositories",
@@ -831,13 +894,8 @@ def install_rancher(cfg):
             "version": "latest",
             "release": "",
             "namespace": "",
-            "command": """
-            command -v helm >/dev/null 2>&1 || curl -sSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-            helm repo add jetstack https://charts.jetstack.io || true
-            helm repo add rancher-stable https://releases.rancher.com/server-charts/stable || true
-            helm repo add longhorn https://charts.longhorn.io || true
-            helm repo update
-            """,
+            "script": "install-helm-repos.sh",
+            "args": [],
         },
         {
             "name": "cert-manager",
@@ -845,12 +903,14 @@ def install_rancher(cfg):
             "version": cert_manager_version,
             "release": "cert-manager",
             "namespace": "cert-manager",
-            "command": f"""
-            helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace {cert_manager_version_helm} --set crds.enabled=true
-            kubectl -n cert-manager rollout status deploy/cert-manager --timeout=5m
-            kubectl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=5m
-            kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=5m
-            """,
+            "script": "install-helm.sh",
+            "args": [
+                "--release-name", "cert-manager",
+                "--chart", "jetstack/cert-manager",
+                "--chart-version", cert_manager_version,
+                "--namespace", "cert-manager",
+                *helm_kubeconfig_args,
+            ],
         },
         {
             "name": "longhorn",
@@ -858,12 +918,15 @@ def install_rancher(cfg):
             "version": longhorn_version,
             "release": "longhorn",
             "namespace": "longhorn-system",
-            "command": f"""
-            helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace {longhorn_version_helm}
-            kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=10m
-            kubectl -n longhorn-system wait --for=condition=Ready pod --all --timeout=10m
-            kubectl patch storageclass longhorn -p '{set_default}' || true
-            """,
+            "script": "install-helm.sh",
+            "args": [
+                "--release-name", "longhorn",
+                "--chart", "longhorn/longhorn",
+                "--chart-version", longhorn_version,
+                "--namespace", "longhorn-system",
+                "--set-default-storageclass-patch", set_default,
+                *helm_kubeconfig_args,
+            ],
         },
         {
             "name": "rancher",
@@ -871,16 +934,16 @@ def install_rancher(cfg):
             "version": rancher_version,
             "release": "rancher",
             "namespace": "cattle-system",
-            "command": f"""
-            kubectl create namespace cattle-system || true
-            helm upgrade --install rancher rancher-stable/rancher {rancher_version_helm} \\
-              --namespace cattle-system \\
-              --set hostname={shlex.quote(cfg["hostname"])} \\
-              --set bootstrapPassword={shlex.quote(cfg["admin_password"])} \\
-              --set ingress.tls.source=rancher \\
-              --set replicas=1
-            kubectl -n cattle-system rollout status deploy/rancher --timeout=10m
-            """,
+            "script": "install-helm.sh",
+            "args": [
+                "--release-name", "rancher",
+                "--chart", "rancher-stable/rancher",
+                "--chart-version", rancher_version,
+                "--namespace", "cattle-system",
+                "--hostname", cfg["hostname"],
+                "--admin-password", cfg["admin_password"],
+                *helm_kubeconfig_args,
+            ],
         },
     ]
 
@@ -893,7 +956,7 @@ def install_rancher(cfg):
     LOGGER.info(f"Installing Rancher charts: {charts}")
 
     for done, step in enumerate(steps, 1):
-        install_helm_step(cfg, base, step, done, len(steps))
+        install_helm_step(cfg, step, done, len(steps))
 
     LOGGER.success("OK: Rancher stack installed")
 
@@ -972,6 +1035,7 @@ def main():
             wait_for_ssh(cfg, worker)
         join_workers(cfg)
         wait_nodes(cfg)
+        configure_cluster_firewalld_cni(cfg)
 
         install_rancher(cfg)
         write_output(cfg)
