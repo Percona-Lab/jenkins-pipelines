@@ -111,32 +111,9 @@ pipeline {
                     }
                     writeFile file: 'compat-tags.txt', text: compatTagsOut + '\n'
 
-                    env.IS_PATCH_RC = sh(
-                        returnStdout: true,
-                        script: """
-                            set -euo pipefail
-                            rc='${params.RC_VERSION.trim()}'
-                            ga=\$(wget -q 'https://registry.hub.docker.com/v2/repositories/percona/pmm-client/tags?page_size=250' -O - \\
-                                | jq -r '.results[].name' \\
-                                | grep -v latest \\
-                                | sort -V \\
-                                | grep -E '^[0-9]+\\.[0-9]+\\.[0-9]+\$' \\
-                                | tail -n1)
-                            rc_major=\$(echo "\$rc" | cut -d. -f1)
-                            rc_minor=\$(echo "\$rc" | cut -d. -f2)
-                            rc_patch=\$(echo "\$rc" | cut -d. -f3)
-                            ga_major=\$(echo "\$ga" | cut -d. -f1)
-                            ga_minor=\$(echo "\$ga" | cut -d. -f2)
-                            ga_patch=\$(echo "\$ga" | cut -d. -f3)
-                            if [[ "\$rc_major" == "\$ga_major" && "\$rc_minor" == "\$ga_minor" && "\$rc_patch" != "\$ga_patch" ]]; then
-                                echo true
-                            else
-                                echo false
-                            fi
-                        """
-                    ).trim()
+                    env.IS_PATCH_RC = (params.RC_VERSION.trim().tokenize('.')[2] != '0').toString()
 
-                    currentBuild.description = "rc=${params.RC_VERSION.trim()} patch-rc=${env.IS_PATCH_RC} server=${env.PMM_SERVER_IMAGE}"
+                    currentBuild.description = "rc=${params.RC_VERSION.trim()} patch=${env.IS_PATCH_RC} server=${env.PMM_SERVER_IMAGE}"
                 }
             }
         }
