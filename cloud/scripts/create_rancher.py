@@ -86,7 +86,7 @@ def parse_args():
 
     p.add_argument("--worker-count", type=int, default=int(os.environ.get("WORKER_COUNT", "3")))
     p.add_argument("--machine-type", type=str, default=os.environ.get("MACHINE_TYPE", "e2-standard-4"))
-    p.add_argument("--boot-disk-size", type=str, default=os.environ.get("BOOT_DISK_SIZE", "70GB"))
+    p.add_argument("--boot-disk-size", type=str, default=os.environ.get("BOOT_DISK_SIZE", "200GB"))
     p.add_argument("--image-family", type=str, default=os.environ.get("IMAGE_FAMILY", "rocky-linux-9-optimized-gcp"))
     p.add_argument("--image", type=str, default=os.environ.get("IMAGE"))
     p.add_argument("--image-project", type=str, default=os.environ.get("IMAGE_PROJECT", "rocky-linux-cloud"))

@@ -15,7 +15,7 @@ void createCluster(Map clusterCfg) {
         "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
         "WORKER_COUNT=${clusterCfg.workerCountMin ?: '4'}",
         "MACHINE_TYPE=${clusterCfg.machineType ?: 'e2-standard-4'}",
-        "BOOT_DISK_SIZE=${clusterCfg.bootDiskSize ?: '70GB'}",
+        "BOOT_DISK_SIZE=${clusterCfg.bootDiskSize ?: '200GB'}",
         "IMAGE_FAMILY=${clusterCfg.imageFamily ?: 'rocky-linux-9-optimized-gcp'}",
         "IMAGE_PROJECT=${clusterCfg.imageProject ?: 'rocky-linux-cloud'}",
         "SOURCE_RANGES=${clusterCfg.sourceRanges ?: '0.0.0.0/0'}",
