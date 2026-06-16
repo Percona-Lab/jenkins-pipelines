@@ -131,6 +131,26 @@ pipeline {
       description: 'PXB glibc version for Debian'
     )
     string(
+      name: 'PXB_GIT_REPO',
+      defaultValue: 'https://github.com/percona/percona-xtrabackup',
+      description: 'PXB git repository to build an unreleased PXB from (used only when PXB_BRANCH is set). Builds the NEW PXB (PXB_VERSION); OLD_PXB_VERSION is always a released download.'
+    )
+    string(
+      name: 'PXB_BRANCH',
+      defaultValue: '',
+      description: 'PXB git branch/tag to build for the NEW PXB. Leave EMPTY to download the released PXB_VERSION (default behavior). When set, the new PXB is built from this branch via the percona-xtrabackup compile pipeline and tested against the released PS_VERSION and released OLD_PXB_VERSION.'
+    )
+    string(
+      name: 'PXB_BUILD_DOCKER_OS',
+      defaultValue: 'oraclelinux:8',
+      description: 'OS image used by the compile pipeline when PXB_BRANCH is set. Use an old-glibc OS (e.g. oraclelinux:8) so the produced binary runs on all tested OSes. Note: 8.x branches build via percona-xtrabackup-8.0-compile-pipeline, 9.x via percona-xtrabackup-9.x-compile-pipeline.'
+    )
+    choice(
+      name: 'PXB_BUILD_TYPE',
+      choices: ['RelWithDebInfo', 'Debug'],
+      description: 'CMAKE_BUILD_TYPE for the branch build (used only when PXB_BRANCH is set)'
+    )
+    string(
       name: 'PS_VERSION',
       defaultValue: '8.4.8-8',
       description: 'PS full version'
@@ -170,6 +190,49 @@ pipeline {
           
           currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.TESTING_BRANCH}"
           //currentBuild.description = "${env.PXB_REVISION}"
+        }
+      }
+    }
+
+    stage('Build PXB from branch') {
+      when {
+        expression { params.PXB_BRANCH?.trim() }
+      }
+      steps {
+        script {
+          def pxbMajor = params.PXB_VERSION.tokenize('.')[0]
+          def compileJob = (pxbMajor == '9') ? 'percona-xtrabackup-9.x-compile-pipeline' : 'percona-xtrabackup-8.0-compile-pipeline'
+          echo "Building unreleased NEW PXB from ${params.PXB_GIT_REPO} branch '${params.PXB_BRANCH}' via ${compileJob} (${params.PXB_BUILD_DOCKER_OS}, ${params.PXB_BUILD_TYPE}); OLD_PXB_VERSION stays a released download"
+
+          def compileBuild = build job: compileJob, wait: true, propagate: true, parameters: [
+            string(name: 'GIT_REPO', value: params.PXB_GIT_REPO),
+            string(name: 'BRANCH', value: params.PXB_BRANCH),
+            string(name: 'DOCKER_OS', value: params.PXB_BUILD_DOCKER_OS),
+            string(name: 'CMAKE_BUILD_TYPE', value: params.PXB_BUILD_TYPE)
+          ]
+
+          copyArtifacts(
+            projectName: compileJob,
+            selector: specific("${compileBuild.number}"),
+            filter: 'COMPILE_BUILD_TAG'
+          )
+
+          def buildTag = readFile('COMPILE_BUILD_TAG').trim()
+          def dockerOsDashed = params.PXB_BUILD_DOCKER_OS.replaceAll(':', '-')
+          def grepPattern = (params.PXB_BUILD_TYPE == 'Debug') ? "x86_64-${dockerOsDashed}-debug.tar.gz" : "x86_64-${dockerOsDashed}.tar.gz"
+
+          def tarball = sh(
+            script: "aws s3 ls pxb-build-cache/${buildTag}/ | grep '${grepPattern}' | awk '{print \$4}' | head -1",
+            returnStdout: true
+          ).trim()
+
+          if (!tarball) {
+            error "No PXB tarball matching '${grepPattern}' found in s3://pxb-build-cache/${buildTag}/"
+          }
+
+          env.PXB_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pxb-build-cache/${buildTag}/${tarball}"
+          echo "Branch-built PXB tarball: ${env.PXB_TARBALL_URL}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-branch:${params.PXB_BRANCH}-${params.TESTING_BRANCH}"
         }
       }
     }
