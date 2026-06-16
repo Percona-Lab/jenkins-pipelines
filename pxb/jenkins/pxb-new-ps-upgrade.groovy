@@ -142,8 +142,8 @@ pipeline {
     )
     string(
       name: 'PXB_BUILD_DOCKER_OS',
-      defaultValue: 'oraclelinux:8',
-      description: 'OS image used by the compile pipeline when PXB_BRANCH is set. Use an old-glibc OS (e.g. oraclelinux:8) so the produced binary runs on all tested OSes. Note: 8.x branches build via percona-xtrabackup-8.0-compile-pipeline, 9.x via percona-xtrabackup-9.x-compile-pipeline.'
+      defaultValue: 'oraclelinux:9',
+      description: 'Must be a valid DOCKER_OS choice of the target compile pipeline. Default oraclelinux:9 (glibc 2.34) is valid for both the 8.0 and 9.x compile pipelines and is old enough to run on all currently tested OSes. Valid 8.0 choices: centos:8, oraclelinux:9, ubuntu:focal, ubuntu:jammy, ubuntu:noble, debian:bullseye, debian:bookworm. Valid 9.x choices: oraclelinux:9, ubuntu:jammy, ubuntu:noble, debian:bookworm, debian:trixie.'
     )
     choice(
       name: 'PXB_BUILD_TYPE',
