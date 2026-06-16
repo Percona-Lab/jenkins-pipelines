@@ -60,7 +60,7 @@ def gcloud(config, *args):
 
 
 def run_command(config, step, cmd, check=True, log_output=True, timeout=None):
-    LOGGER.info("START: %s", step)
+    LOGGER.debug("START: %s", step)
     LOGGER.debug("COMMAND: %s", " ".join(shlex.quote(str(x)) for x in cmd))
 
     try:

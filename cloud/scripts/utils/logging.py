@@ -3,7 +3,7 @@ import os
 import sys
 
 
-SUCCESS = 25
+SUCCESS = 15
 RESET = "\033[0m"
 
 COLORS = {
@@ -90,13 +90,24 @@ def log_lines(logger, text, default_level=logging.DEBUG):
     if isinstance(text, bytes):
         text = text.decode(errors="replace")
 
-    prefixes = ("ERROR:", "FAILED:", "WARNING:", "WARN:", "SUCCESS:", "OK:")
+    prefixes = (
+        "ERROR:",
+        "FAILED:",
+        "WARNING:",
+        "WARN:",
+        "SUCCESS:",
+        "OK:",
+    )
+
+    current_level = default_level
+
     for line in text.rstrip().splitlines():
-        if default_level is None or line.startswith(prefixes):
-            level = infer_log_level(line)
-        else:
-            level = default_level
-        logger.log(level, line)
+        line = line.rstrip()
+
+        if line.startswith(prefixes):
+            current_level = infer_log_level(line)
+
+        logger.log(current_level, line)
 
 
 def log_message(logger, msg, level=None):

@@ -2,6 +2,7 @@
 import argparse
 import concurrent.futures
 import getpass
+import ipaddress
 import json
 import logging
 import os
@@ -20,16 +21,14 @@ from typing import Any
 
 from utils.logging import log_lines, setup_stdout_logging
 
-
 ROOT = Path(__file__).resolve().parent
 FILES = ROOT / "files"
 REMOTE_KUBECONFIG = "/etc/rancher/rke2/rke2.yaml"
-REMOTE_USER_KUBECONFIG = "/tmp/rke2-user.yaml"
 Config = dict[str, Any]
 LOGGER = logging.getLogger("create_rancher")
 
 
-# Arguments and config
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def bool_arg(value):
@@ -43,13 +42,14 @@ def bool_arg(value):
 
 
 def password(length=24):
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+    return "".join(
+        secrets.choice(string.ascii_letters + string.digits) for _ in range(length)
+    )
 
 
 def slug(value):
     chars = [c if c.isalnum() else "-" for c in value.lower()]
-    return "-".join(part for part in "".join(chars).split("-") if part)
+    return "-".join(p for p in "".join(chars).split("-") if p)
 
 
 def current_user():
@@ -61,52 +61,98 @@ def default_ssh_user():
     return "jenkins" if user == "root" else user
 
 
-def default_prefix():
-    return f"rke2-rancher-{current_user()[:24]}-{secrets.token_hex(3)}"
-
-
 def default_project():
     proc = subprocess.run(
-        ["gcloud", "config", "get-value", "project"],
-        text=True,
-        capture_output=True,
+        ["gcloud", "config", "get-value", "project"], text=True, capture_output=True
     )
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
+def normalize_helm_version(value):
+    v = (value or "latest").strip()
+    return "latest" if v.lower() == "latest" else v
+
+
+def shell_args(*args):
+    return " ".join(shlex.quote(str(a)) for a in args if a is not None)
+
+
+def template(name, **values):
+    return Template((FILES / name).read_text()).safe_substitute(values)
+
+
+def region_from_zone(zone):
+    return "-".join(zone.split("-")[:-1])
+
+
+# ── Args & config ─────────────────────────────────────────────────────────────
+
+
 def parse_args():
-    p = argparse.ArgumentParser(
-        description="Create an RKE2 Rancher cluster on Google Compute Engine."
+    p = argparse.ArgumentParser(description="Create an RKE2 Rancher cluster on GCE.")
+    p.add_argument("prefix")
+    p.add_argument(
+        "--project-id", default=os.environ.get("PROJECT_ID") or default_project()
     )
-    # fmt: off
-    p.add_argument("prefix", help="Cluster prefix used during creation")
-    p.add_argument("--project-id", type=str, default=os.environ.get("PROJECT_ID") or default_project())
-    p.add_argument("--zone", type=str, default=os.environ.get("ZONE", "us-central1-a"))
-
-    p.add_argument("--worker-count", type=int, default=int(os.environ.get("WORKER_COUNT", "3")))
-    p.add_argument("--machine-type", type=str, default=os.environ.get("MACHINE_TYPE", "e2-standard-4"))
-    p.add_argument("--boot-disk-size", type=str, default=os.environ.get("BOOT_DISK_SIZE", "200GB"))
-    p.add_argument("--image-family", type=str, default=os.environ.get("IMAGE_FAMILY", "rocky-linux-9-optimized-gcp"))
-    p.add_argument("--image", type=str, default=os.environ.get("IMAGE"))
-    p.add_argument("--image-project", type=str, default=os.environ.get("IMAGE_PROJECT", "rocky-linux-cloud"))
-    p.add_argument("--source-ranges", type=str, default=os.environ.get("SOURCE_RANGES", "0.0.0.0/0"))
-
-    p.add_argument("--owner", type=str, default=os.environ.get("OWNER") or current_user())
-    p.add_argument("--product", type=str, default=os.environ.get("PRODUCT", "psmdb"))
-    p.add_argument("--delete-after-hours", type=int, default=int(os.environ.get("DELETE_AFTER_HOURS", "3")))
-
-    p.add_argument("--local-kubeconfig", type=Path, default=Path(os.environ.get("KUBECONFIG", "~/.kube/config").split(os.pathsep)[0]))
+    p.add_argument("--zone", default=os.environ.get("ZONE", "us-central1-a"))
+    p.add_argument(
+        "--worker-count", type=int, default=int(os.environ.get("WORKER_COUNT", "3"))
+    )
+    p.add_argument(
+        "--machine-type", default=os.environ.get("MACHINE_TYPE", "e2-standard-4")
+    )
+    p.add_argument(
+        "--boot-disk-size", default=os.environ.get("BOOT_DISK_SIZE", "200GB")
+    )
+    p.add_argument(
+        "--image-family",
+        default=os.environ.get("IMAGE_FAMILY", "rocky-linux-9-optimized-gcp"),
+    )
+    p.add_argument("--image", default=os.environ.get("IMAGE"))
+    p.add_argument(
+        "--image-project", default=os.environ.get("IMAGE_PROJECT", "rocky-linux-cloud")
+    )
+    p.add_argument(
+        "--source-ranges", default=os.environ.get("SOURCE_RANGES", "0.0.0.0/0")
+    )
+    p.add_argument("--owner", default=os.environ.get("OWNER") or current_user())
+    p.add_argument("--product", default=os.environ.get("PRODUCT", "psmdb"))
+    p.add_argument(
+        "--delete-after-hours",
+        type=int,
+        default=int(os.environ.get("DELETE_AFTER_HOURS", "3")),
+    )
+    p.add_argument(
+        "--local-kubeconfig",
+        type=Path,
+        default=Path(
+            os.environ.get("KUBECONFIG", "~/.kube/config").split(os.pathsep)[0]
+        ),
+    )
     p.add_argument("--save-kubeconfig", type=bool_arg, default=True)
-    p.add_argument("--ssh-user", type=str, default=os.environ.get("SSH_USER") or default_ssh_user())
-    p.add_argument("--admin-password", type=str, default=os.environ.get("RANCHER_ADMIN_PASSWORD") or password())
-
-    p.add_argument("--rancher-version", type=str, default=os.environ.get("RANCHER_VERSION"))
-    p.add_argument("--cert-manager-version", type=str, default=os.environ.get("CERT_MANAGER_VERSION"))
-    p.add_argument("--longhorn-version", type=str, default=os.environ.get("LONGHORN_VERSION"))
-    p.add_argument("--rke2-channel", type=str, default=os.environ.get("INSTALL_RKE2_CHANNEL", "stable"))
-    p.add_argument("--rke2-version", type=str, default=os.environ.get("INSTALL_RKE2_VERSION"))
-    p.add_argument("--log-level", type=str, default=os.environ.get("LOG_LEVEL", "info"), choices=("debug", "info", "warning", "error"))
-    # fmt: on
+    p.add_argument(
+        "--ssh-user", default=os.environ.get("SSH_USER") or default_ssh_user()
+    )
+    p.add_argument(
+        "--admin-password",
+        default=os.environ.get("RANCHER_ADMIN_PASSWORD") or password(),
+    )
+    p.add_argument("--rancher-version", default=os.environ.get("RANCHER_VERSION"))
+    p.add_argument(
+        "--cert-manager-version", default=os.environ.get("CERT_MANAGER_VERSION")
+    )
+    p.add_argument("--longhorn-version", default=os.environ.get("LONGHORN_VERSION"))
+    p.add_argument("--metallb-version", default=os.environ.get("METALLB_VERSION"))
+    p.add_argument("--metallb-range", default=os.environ.get("METALLB_RANGE"))
+    p.add_argument(
+        "--rke2-channel", default=os.environ.get("INSTALL_RKE2_CHANNEL", "stable")
+    )
+    p.add_argument("--rke2-version", default=os.environ.get("INSTALL_RKE2_VERSION"))
+    p.add_argument(
+        "--log-level",
+        default=os.environ.get("LOG_LEVEL", "info"),
+        choices=("debug", "info", "warning", "error"),
+    )
     return p.parse_args()
 
 
@@ -142,32 +188,15 @@ def validate(cfg):
         raise ValueError("set --image-family or --image")
 
 
-# Logging and command execution
+# ── Command execution ─────────────────────────────────────────────────────────
 
 
-def setup_logging(cfg):
-    setup_stdout_logging(LOGGER, level=cfg["log_level"])
-
-
-def run_command(
-    cfg,
-    step,
-    cmd,
-    check=True,
-    env=None,
-    timeout=None,
-    log_output=True,
-):
+def run_command(cfg, step, cmd, check=True, env=None, timeout=None, log_output=True):
     LOGGER.debug("START: %s", step)
     LOGGER.debug("COMMAND: %s", " ".join(shlex.quote(str(x)) for x in cmd))
-
     try:
         proc = subprocess.run(
-            cmd,
-            text=True,
-            capture_output=True,
-            env=env,
-            timeout=timeout,
+            cmd, text=True, capture_output=True, env=env, timeout=timeout
         )
     except subprocess.TimeoutExpired as exc:
         LOGGER.warning("Timeout after %ss: %s", timeout, step)
@@ -176,30 +205,41 @@ def run_command(
         if log_output and exc.stderr:
             log_lines(LOGGER, exc.stderr)
         proc = subprocess.CompletedProcess(cmd, 124, exc.stdout, exc.stderr)
-
         if check:
             raise subprocess.CalledProcessError(
                 proc.returncode, cmd, proc.stdout, proc.stderr
             ) from exc
-
         return proc
 
     if log_output and proc.stdout:
         log_lines(LOGGER, proc.stdout)
     if log_output and proc.stderr:
         log_lines(LOGGER, proc.stderr)
-
     if check and proc.returncode:
-        LOGGER.error("FAILED: %s", step)
-        LOGGER.error("Exit code: %s", proc.returncode)
+        LOGGER.error("FAILED: %s (exit %s)", step, proc.returncode)
         raise subprocess.CalledProcessError(
             proc.returncode, cmd, proc.stdout, proc.stderr
         )
-
     if proc.returncode == 0:
         LOGGER.success("OK: %s", step)
-
     return proc
+
+
+def out(cfg, step, cmd):
+    return run_command(cfg, step, cmd, log_output=False).stdout.strip()
+
+
+def exists(cfg, step, cmd):
+    return run_command(cfg, step, cmd, check=False, log_output=False).returncode == 0
+
+
+def kube_env(cfg):
+    env = os.environ.copy()
+    env["KUBECONFIG"] = str(cfg["kubeconfig"])
+    return env
+
+
+# ── GCloud / SSH shortcuts ────────────────────────────────────────────────────
 
 
 def gcloud(cfg, *args):
@@ -208,7 +248,6 @@ def gcloud(cfg, *args):
 
 def ssh(cfg, host, command, step=None, check=True):
     opts = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
-    target = f"{cfg['ssh_user']}@{host}"
     return run_command(
         cfg,
         step or f"SSH {host}",
@@ -216,7 +255,7 @@ def ssh(cfg, host, command, step=None, check=True):
             cfg,
             "compute",
             "ssh",
-            target,
+            f"{cfg['ssh_user']}@{host}",
             "--zone",
             cfg["zone"],
             "--ssh-key-file",
@@ -231,8 +270,11 @@ def ssh(cfg, host, command, step=None, check=True):
     )
 
 
-def scp_from(cfg, host, remote, local, step):
-    target = f"{cfg['ssh_user']}@{host}:{remote}"
+def scp(cfg, src, dst, host, step, direction="to"):
+    target = f"{cfg['ssh_user']}@{host}"
+    remote_arg = f"{target}:{dst}" if direction == "to" else f"{target}:{src}"
+    local_arg = src if direction == "to" else dst
+    args = [local_arg, remote_arg] if direction == "to" else [remote_arg, local_arg]
     return run_command(
         cfg,
         step,
@@ -240,29 +282,7 @@ def scp_from(cfg, host, remote, local, step):
             cfg,
             "compute",
             "scp",
-            target,
-            str(local),
-            "--zone",
-            cfg["zone"],
-            "--ssh-key-file",
-            str(cfg["ssh_key"]),
-            "--strict-host-key-checking=no",
-            "--quiet",
-        ),
-    )
-
-
-def scp_to(cfg, local, host, remote, step):
-    target = f"{cfg['ssh_user']}@{host}:{remote}"
-    return run_command(
-        cfg,
-        step,
-        gcloud(
-            cfg,
-            "compute",
-            "scp",
-            str(local),
-            target,
+            *[str(a) for a in args],
             "--zone",
             cfg["zone"],
             "--ssh-key-file",
@@ -277,81 +297,30 @@ def remote_path(cfg, name):
     return f"/tmp/{cfg['prefix']}-{Path(name).name}"
 
 
-def upload_remote_asset(cfg, node, filename, remote=None):
+def upload_asset(cfg, node, filename, remote=None):
     remote = remote or remote_path(cfg, filename)
-    scp_to(
-        cfg,
-        FILES / filename,
-        node,
-        remote,
-        f"Upload {filename}: {node}",
-    )
+    scp(cfg, FILES / filename, remote, node, f"Upload {filename}: {node}")
     return remote
 
 
-def upload_remote_content(cfg, node, filename, content, remote=None):
+def upload_content(cfg, node, filename, content, remote=None):
     cfg["workdir"].mkdir(parents=True, exist_ok=True)
     local = cfg["workdir"] / filename
     local.write_text(content.rstrip() + "\n")
     local.chmod(stat.S_IRUSR | stat.S_IWUSR)
     remote = remote or remote_path(cfg, filename)
-    scp_to(cfg, local, node, remote, f"Upload {filename}: {node}")
+    scp(cfg, local, remote, node, f"Upload {filename}: {node}")
     return remote
 
 
-def shell_args(*args):
-    return " ".join(shlex.quote(str(arg)) for arg in args if arg is not None)
-
-
 def run_remote_script(cfg, node, filename, step, *args, check=True):
-    remote = upload_remote_asset(cfg, node, filename)
+    remote = upload_asset(cfg, node, filename)
     return ssh(
-        cfg,
-        node,
-        f"bash {shlex.quote(remote)} {shell_args(*args)}",
-        step,
-        check=check,
+        cfg, node, f"bash {shlex.quote(remote)} {shell_args(*args)}", step, check=check
     )
 
 
-def configure_node_firewalld_base(cfg, node):
-    return run_remote_script(
-        cfg,
-        node,
-        "firewalld-rke2-base.sh",
-        f"Configure firewalld base rules: {node}",
-    )
-
-
-def configure_node_firewalld_cni(cfg, node):
-    return run_remote_script(
-        cfg,
-        node,
-        "firewalld-rke2-cni.sh",
-        f"Configure firewalld CNI interfaces: {node}",
-        check=False,
-    )
-
-
-def configure_cluster_firewalld_cni(cfg):
-    nodes = [cfg["master"], *cfg["workers"]]
-    LOGGER.info("Configuring firewalld CNI interfaces: %s", ", ".join(nodes))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(nodes)) as pool:
-        futures = {
-            pool.submit(configure_node_firewalld_cni, cfg, node): node for node in nodes
-        }
-        for future in concurrent.futures.as_completed(futures):
-            future.result()
-            LOGGER.success(
-                "OK: Configure firewalld CNI interfaces: %s", futures[future]
-            )
-
-
-def out(cfg, step, cmd):
-    return run_command(cfg, step, cmd).stdout.strip()
-
-
-# Local setup and GCP infrastructure
+# ── GCP infrastructure ────────────────────────────────────────────────────────
 
 
 def ensure_ssh_key(cfg):
@@ -375,21 +344,18 @@ def ensure_ssh_key(cfg):
     cfg["ssh_key"].chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
-def exists(cfg, step, cmd):
-    return run_command(cfg, step, cmd, check=False, log_output=False).returncode == 0
-
-
 def create_firewall(cfg, name, allow, *extra):
+    LOGGER.info("Provisioning firewall rule: %s", name)
     if exists(
         cfg,
-        f"Check firewall rule: {name}",
+        f"Check firewall: {name}",
         gcloud(cfg, "compute", "firewall-rules", "describe", name),
     ):
-        LOGGER.warning("SKIP: Firewall rule already exists: %s", name)
+        LOGGER.warning("SKIP: Firewall already exists: %s", name)
         return
     run_command(
         cfg,
-        f"Create firewall rule: {name}",
+        f"Create firewall: {name}",
         gcloud(
             cfg,
             "compute",
@@ -424,16 +390,13 @@ def create_firewalls(cfg):
             ("--source-tags", cfg["prefix"]),
         ),
     ]
-
-    LOGGER.info(f"Creating firewall rules: {', '.join(rule[0] for rule in rules)}")
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(rules)) as pool:
         futures = {
             pool.submit(create_firewall, cfg, name, allow, *extra): name
             for name, allow, extra in rules
         }
-        for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            future.result()
-            LOGGER.success("OK: %s", futures[future])
+        for f in concurrent.futures.as_completed(futures):
+            f.result()
 
 
 def create_instance(cfg, name):
@@ -442,21 +405,14 @@ def create_instance(cfg, name):
         f"Check VM: {name}",
         gcloud(cfg, "compute", "instances", "describe", name, "--zone", cfg["zone"]),
     ):
-        LOGGER.debug("SKIP: VM already exists: %s", name)
+        LOGGER.warning("SKIP: VM already exists: %s", name)
         return
-
     image = (
         ["--image", cfg["image"]]
         if cfg["image"]
         else ["--image-family", cfg["image_family"]]
     )
-
-    labels = (
-        f"delete-after-hours={cfg['delete_after_hours']},"
-        f"product={cfg['product']},"
-        f"owner={cfg['owner']}"
-    )
-
+    labels = f"delete-after-hours={cfg['delete_after_hours']},product={cfg['product']},owner={cfg['owner']}"
     run_command(
         cfg,
         f"Create VM: {name}",
@@ -488,34 +444,27 @@ def create_instance(cfg, name):
 
 def create_instances(cfg):
     names = [cfg["master"], *cfg["workers"]]
-    LOGGER.info(f"Creating instances: {', '.join(names)}")
-    with concurrent.futures.ThreadPoolExecutor(
-        max_workers=1 + len(cfg["workers"])
-    ) as pool:
-        futures = {pool.submit(create_instance, cfg, name): name for name in names}
-        for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            future.result()
-            LOGGER.success("OK: %s", futures[future])
-    LOGGER.success("OK: Create all VMs in parallel")
+    LOGGER.info("Provisioning instances: %s", ", ".join(names))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(names)) as pool:
+        futures = {pool.submit(create_instance, cfg, n): n for n in names}
+        for f in concurrent.futures.as_completed(futures):
+            f.result()
+            LOGGER.success("OK: %s", futures[f])
 
 
 def wait_for_ssh(cfg, name):
-    LOGGER.debug("START: Wait for SSH on %s", name)
     for _ in range(60):
-        if (
-            ssh(cfg, name, "echo ok", f"Check SSH on {name}", check=False).returncode
-            == 0
-        ):
-            LOGGER.success("OK: SSH ready on %s", name)
+        if ssh(cfg, name, "echo ok", f"Check SSH: {name}", check=False).returncode == 0:
+            LOGGER.success("OK: SSH ready: %s", name)
             return
         time.sleep(10)
-    raise TimeoutError(f"SSH not ready on {name}")
+    raise TimeoutError(f"SSH not ready: {name}")
 
 
-def get_instance_ip(cfg, instance, ip_format):
+def get_instance_ip(cfg, instance, fmt):
     return out(
         cfg,
-        f"Get {instance} {ip_format}",
+        f"Get {instance} {fmt}",
         gcloud(
             cfg,
             "compute",
@@ -524,7 +473,7 @@ def get_instance_ip(cfg, instance, ip_format):
             instance,
             "--zone",
             cfg["zone"],
-            f"--format=value({ip_format})",
+            f"--format=value({fmt})",
         ),
     )
 
@@ -537,50 +486,88 @@ def get_node_ips(cfg):
                 cfg, node, "networkInterfaces[0].accessConfigs[0].natIP"
             ),
         }
-
     cfg["master_internal_ip"] = cfg["node_ips"][cfg["master"]]["internal"]
     cfg["master_external_ip"] = cfg["node_ips"][cfg["master"]]["external"]
     cfg["hostname"] = f"{cfg['master_external_ip']}.sslip.io"
-    LOGGER.debug("Rancher hostname: %s", cfg["hostname"])
 
 
-# RKE2 install helpers
+def discover_metallb_range(cfg):
+    subnet_link = out(
+        cfg,
+        f"Get {cfg['master']} subnet",
+        gcloud(
+            cfg,
+            "compute",
+            "instances",
+            "describe",
+            cfg["master"],
+            "--zone",
+            cfg["zone"],
+            "--format=value(networkInterfaces[0].subnetwork)",
+        ),
+    )
+    subnet_name = subnet_link.rstrip("/").split("/")[-1]
+    cidr = out(
+        cfg,
+        f"Get subnet CIDR: {subnet_name}",
+        gcloud(
+            cfg,
+            "compute",
+            "networks",
+            "subnets",
+            "describe",
+            subnet_name,
+            "--region",
+            region_from_zone(cfg["zone"]),
+            "--format=value(ipCidrRange)",
+        ),
+    )
+    network = ipaddress.ip_network(cidr)
+    used = {
+        ipaddress.ip_address(v["internal"])
+        for v in cfg["node_ips"].values()
+        if v.get("internal")
+    }
+    candidates = [ip for ip in network.hosts() if ip not in used]
+    if len(candidates) < 30:
+        raise RuntimeError(f"Not enough IPs in {cidr} for MetalLB")
+    selected = candidates[-30:-10]
+    r = f"{selected[0]}-{selected[-1]}"
+    LOGGER.info("Discovered MetalLB range: %s", r)
+    return r
 
 
-def template(name, **values):
-    return Template((FILES / name).read_text()).safe_substitute(values)
+def ensure_metallb_range(cfg):
+    if not cfg.get("metallb_range"):
+        cfg["metallb_range"] = discover_metallb_range(cfg)
+
+
+# ── RKE2 install ──────────────────────────────────────────────────────────────
 
 
 def install_env(cfg, kind=None):
-    env = []
+    parts = []
     if cfg["rke2_channel"]:
-        env.append(f"INSTALL_RKE2_CHANNEL={shlex.quote(cfg['rke2_channel'])}")
+        parts.append(f"INSTALL_RKE2_CHANNEL={shlex.quote(cfg['rke2_channel'])}")
     if cfg["rke2_version"]:
-        env.append(f"INSTALL_RKE2_VERSION={shlex.quote(cfg['rke2_version'])}")
+        parts.append(f"INSTALL_RKE2_VERSION={shlex.quote(cfg['rke2_version'])}")
     if kind:
-        env.append(f"INSTALL_RKE2_TYPE={kind}")
-    return " ".join(env)
+        parts.append(f"INSTALL_RKE2_TYPE={kind}")
+    return " ".join(parts)
 
 
 def install_server(cfg):
     LOGGER.info("Installing RKE2 server: %s", cfg["master"])
-    rke2 = template(
+    rke2_cfg = template(
         "rke2-server-config.yaml.tmpl",
         master_external_ip=cfg["master_external_ip"],
         master_internal_ip=cfg["master_internal_ip"],
         hostname=cfg["hostname"],
     )
-    config_file = upload_remote_content(
-        cfg,
-        cfg["master"],
-        "rke2-server-config.yaml",
-        rke2,
+    config_file = upload_content(
+        cfg, cfg["master"], "rke2-server-config.yaml", rke2_cfg
     )
-    firewalld_script = upload_remote_asset(
-        cfg,
-        cfg["master"],
-        "firewalld-rke2-base.sh",
-    )
+    firewalld = upload_asset(cfg, cfg["master"], "firewalld-rke2-base.sh")
     run_remote_script(
         cfg,
         cfg["master"],
@@ -589,13 +576,12 @@ def install_server(cfg):
         "--config-file",
         config_file,
         "--firewalld-script",
-        firewalld_script,
+        firewalld,
         "--install-env",
         install_env(cfg),
         "--remote-kubeconfig",
         REMOTE_KUBECONFIG,
     )
-    LOGGER.success("OK: RKE2 server installed on %s", cfg["master"])
 
 
 def ensure_server_installed(cfg):
@@ -603,44 +589,33 @@ def ensure_server_installed(cfg):
         cfg,
         cfg["master"],
         "sudo systemctl cat rke2-server >/dev/null 2>&1",
-        "Check RKE2 server unit",
+        "Check RKE2 unit",
         check=False,
     )
-    if proc.returncode == 0:
-        return
-
-    LOGGER.warning("RKE2 server unit is missing; reinstalling server")
-    install_server(cfg)
+    if proc.returncode != 0:
+        LOGGER.warning("RKE2 server unit missing; reinstalling")
+        install_server(cfg)
 
 
 def read_token(cfg):
     cfg["token"] = run_remote_script(
-        cfg,
-        cfg["master"],
-        "read-rke2-token.sh",
-        "Read RKE2 token",
+        cfg, cfg["master"], "read-rke2-token.sh", "Read RKE2 token"
     ).stdout.strip()
     if not cfg["token"]:
         raise RuntimeError("Empty RKE2 token")
 
 
 def join_worker(cfg, worker):
-    rke2 = template(
+    LOGGER.info("Joining worker: %s", worker)
+    rke2_cfg = template(
         "rke2-agent-config.yaml.tmpl",
         master_internal_ip=cfg["master_internal_ip"],
         token=cfg["token"],
     )
-    config_file = upload_remote_content(
-        cfg,
-        worker,
-        f"{worker}-rke2-agent-config.yaml",
-        rke2,
+    config_file = upload_content(
+        cfg, worker, f"{worker}-rke2-agent-config.yaml", rke2_cfg
     )
-    firewalld_script = upload_remote_asset(
-        cfg,
-        worker,
-        "firewalld-rke2-base.sh",
-    )
+    firewalld = upload_asset(cfg, worker, "firewalld-rke2-base.sh")
     run_remote_script(
         cfg,
         worker,
@@ -649,7 +624,7 @@ def join_worker(cfg, worker):
         "--config-file",
         config_file,
         "--firewalld-script",
-        firewalld_script,
+        firewalld,
         "--install-env",
         install_env(cfg, "agent"),
     )
@@ -658,25 +633,34 @@ def join_worker(cfg, worker):
 def join_workers(cfg):
     if not cfg["workers"]:
         return
-    LOGGER.info(f"Adding worker nodes: {', '.join(cfg['workers'])}")
-    LOGGER.debug("START: Join workers in parallel")
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cfg["workers"])) as pool:
-        futures = {
-            pool.submit(join_worker, cfg, worker): worker for worker in cfg["workers"]
-        }
-        for done, future in enumerate(concurrent.futures.as_completed(futures), 1):
-            future.result()
-            LOGGER.success("OK: %s", futures[future])
-    LOGGER.success("OK: Join workers in parallel")
+        futures = {pool.submit(join_worker, cfg, w): w for w in cfg["workers"]}
+        for f in concurrent.futures.as_completed(futures):
+            f.result()
+            LOGGER.success("OK: %s", futures[f])
 
 
-# Kubeconfig and Kubernetes readiness
+def configure_node_firewalld_cni(cfg, node):
+    remote = upload_asset(cfg, node, "firewalld-rke2-cni.sh")
+    return ssh(
+        cfg,
+        node,
+        f"sudo bash {shlex.quote(remote)}",
+        f"Configure CNI: {node}",
+        check=False,
+    )
 
 
-def kube_env(*paths):
-    env = os.environ.copy()
-    env["KUBECONFIG"] = os.pathsep.join(str(path) for path in paths if path)
-    return env
+def configure_cluster_firewalld_cni(cfg):
+    nodes = [cfg["master"], *cfg["workers"]]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        futures = {pool.submit(configure_node_firewalld_cni, cfg, n): n for n in nodes}
+        for f in concurrent.futures.as_completed(futures):
+            f.result()
+            LOGGER.success("OK: Configure CNI: %s", futures[f])
+
+
+# ── Kubeconfig ────────────────────────────────────────────────────────────────
 
 
 def fetch_kubeconfig(cfg):
@@ -684,7 +668,7 @@ def fetch_kubeconfig(cfg):
         cfg,
         cfg["master"],
         "prepare-kubeconfig.sh",
-        "Prepare local kubeconfig",
+        "Prepare kubeconfig",
         "--master-external-ip",
         cfg["master_external_ip"],
         "--remote-kubeconfig",
@@ -692,89 +676,79 @@ def fetch_kubeconfig(cfg):
         "--output-file",
         "/tmp/rke2.yaml",
     )
-    scp_from(
-        cfg, cfg["master"], "/tmp/rke2.yaml", cfg["kubeconfig"], "Download kubeconfig"
+    scp(
+        cfg,
+        "/tmp/rke2.yaml",
+        cfg["kubeconfig"],
+        cfg["master"],
+        "Download kubeconfig",
+        direction="from",
     )
     cfg["kubeconfig"].chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
 def normalize_kubeconfig(cfg):
-    context = cfg["prefix"]
+    ctx = cfg["prefix"]
     data = json.loads(
         run_command(
             cfg,
-            "Read downloaded kubeconfig",
+            "Read kubeconfig",
             ["kubectl", "config", "view", "--raw", "-o", "json"],
-            env=kube_env(cfg["kubeconfig"]),
+            env=kube_env(cfg),
             log_output=False,
         ).stdout
     )
-
-    data["current-context"] = context
+    data["current-context"] = ctx
     for cluster in data.get("clusters", []):
-        cluster["name"] = context
+        cluster["name"] = ctx
         cluster["cluster"]["server"] = f"https://{cfg['master_external_ip']}:6443"
     for user in data.get("users", []):
-        user["name"] = context
-    for ctx in data.get("contexts", []):
-        ctx["name"] = context
-        ctx["context"]["cluster"] = context
-        ctx["context"]["user"] = context
-
+        user["name"] = ctx
+    for c in data.get("contexts", []):
+        c["name"] = ctx
+        c["context"]["cluster"] = ctx
+        c["context"]["user"] = ctx
     cfg["kubeconfig"].write_text(json.dumps(data, indent=2) + "\n")
     cfg["kubeconfig"].chmod(stat.S_IRUSR | stat.S_IWUSR)
 
 
 def merge_kubeconfig(cfg):
-    context = cfg["prefix"]
-    local = cfg["local_kubeconfig"]
-    fetched = cfg["kubeconfig"]
     normalize_kubeconfig(cfg)
+    local = cfg["local_kubeconfig"]
     local.parent.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env["KUBECONFIG"] = (
+        f"{cfg['kubeconfig']}{os.pathsep}{local}"
+        if local.exists()
+        else str(cfg["kubeconfig"])
+    )
     if local.exists():
         merged = run_command(
             cfg,
-            "Flatten merged kubeconfig",
+            "Flatten kubeconfig",
             ["kubectl", "config", "view", "--flatten"],
-            env=kube_env(fetched, local),
+            env=env,
         ).stdout
         tmp = local.with_suffix(local.suffix + ".tmp")
         tmp.write_text(merged)
         tmp.replace(local)
     else:
-        shutil.copyfile(fetched, local)
+        shutil.copyfile(cfg["kubeconfig"], local)
     local.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    env["KUBECONFIG"] = str(local)
     run_command(
         cfg,
-        f"Use kubeconfig context: {context}",
-        ["kubectl", "config", "use-context", context],
-        env=kube_env(local),
+        f"Use context: {cfg['prefix']}",
+        ["kubectl", "config", "use-context", cfg["prefix"]],
+        env=env,
     )
 
 
 def node_ready(node):
     return any(
-        condition.get("type") == "Ready" and condition.get("status") == "True"
-        for condition in node.get("status", {}).get("conditions", [])
+        c.get("type") == "Ready" and c.get("status") == "True"
+        for c in node.get("status", {}).get("conditions", [])
     )
-
-
-def list_nodes(cfg):
-    proc = run_command(
-        cfg,
-        "List Kubernetes nodes",
-        ["kubectl", "get", "nodes", "-o", "json"],
-        env=kube_env(cfg["kubeconfig"]),
-        check=False,
-        log_output=False,
-    )
-    if proc.returncode:
-        LOGGER.warning("Kubernetes API is not ready yet")
-        if proc.stderr:
-            log_lines(LOGGER, proc.stderr)
-        return []
-
-    return json.loads(proc.stdout).get("items", [])
 
 
 def wait_nodes(cfg):
@@ -783,185 +757,200 @@ def wait_nodes(cfg):
         merge_kubeconfig(cfg)
     expected = 1 + len(cfg["workers"])
     for _ in range(60):
-        nodes = list_nodes(cfg)
-        ready_count = sum(1 for node in nodes if node_ready(node))
-        LOGGER.info("Nodes Ready: %s/%s", ready_count, expected)
-        if ready_count == expected:
-            return
+        proc = run_command(
+            cfg,
+            "List nodes",
+            ["kubectl", "get", "nodes", "-o", "json"],
+            env=kube_env(cfg),
+            check=False,
+            log_output=False,
+        )
+        if proc.returncode == 0:
+            nodes = json.loads(proc.stdout).get("items", [])
+            ready = sum(1 for n in nodes if node_ready(n))
+            LOGGER.info("Nodes Ready: %s/%s", ready, expected)
+            if ready == expected:
+                return
         time.sleep(10)
     raise TimeoutError(f"Timed out waiting for {expected} Ready nodes")
 
 
-# Rancher install and outputs
+# ── Helm install (local) ──────────────────────────────────────────────────────
 
 
-def helm_step_label(step):
-    return f"{step['chart']}@{step['version']}"
+def helm_add_repos(cfg):
+    repos = [
+        ("jetstack", "https://charts.jetstack.io"),
+        ("longhorn", "https://charts.longhorn.io"),
+        ("metallb", "https://metallb.github.io/metallb"),
+        ("rancher-stable", "https://releases.rancher.com/server-charts/stable"),
+    ]
+    for name, url in repos:
+        run_command(
+            cfg,
+            f"Helm repo add: {name}",
+            ["helm", "repo", "add", "--force-update", name, url],
+            env=kube_env(cfg),
+        )
+    run_command(cfg, "Helm repo update", ["helm", "repo", "update"], env=kube_env(cfg))
 
 
-def run_helm_step(cfg, step):
-    return run_remote_script(
-        cfg,
-        cfg["master"],
-        step["script"],
-        f"Install Rancher: {step['name']}",
-        *step["args"],
-        check=False,
-    )
-
-
-def cleanup_helm_step(cfg, step):
-    if not step["release"]:
-        return
-
-    LOGGER.warning("Retrying %s after uninstall", helm_step_label(step))
-    run_remote_script(
-        cfg,
-        cfg["master"],
-        "cleanup-helm-release.sh",
-        f"Cleanup failed Helm install: {step['name']}",
-        "--release",
+def helm_install(cfg, step):
+    version_args = ["--version", step["version"]] if step["version"] != "latest" else []
+    cmd = [
+        "helm",
+        "upgrade",
+        "--install",
         step["release"],
+        step["chart"],
         "--namespace",
         step["namespace"],
-        "--remote-kubeconfig",
-        REMOTE_KUBECONFIG,
-        "--remote-user-kubeconfig",
-        REMOTE_USER_KUBECONFIG,
+        "--create-namespace",
+        *version_args,
+        *step.get("extra_args", []),
+    ]
+    return run_command(
+        cfg, f"Helm install: {step['name']}", cmd, env=kube_env(cfg), check=False
+    )
+
+
+def helm_uninstall(cfg, step):
+    run_command(
+        cfg,
+        f"Helm uninstall: {step['name']}",
+        [
+            "helm",
+            "uninstall",
+            step["release"],
+            "--namespace",
+            step["namespace"],
+            "--ignore-not-found",
+        ],
+        env=kube_env(cfg),
         check=False,
     )
-    time.sleep(10)
 
 
-def raise_helm_step_error(cfg, proc, step):
-    LOGGER.error("Install Rancher failed: %s", helm_step_label(step))
-    if proc.stdout:
-        LOGGER.error("%s", proc.stdout.rstrip())
-    if proc.stderr:
-        LOGGER.error("%s", proc.stderr.rstrip())
+def install_helm_step(cfg, step, done, total):
+    label = f"{step['chart']}@{step['version']}"
+    for attempt in range(1, 3):
+        LOGGER.info("Installing (%s/%s): %s attempt %s/2", done, total, label, attempt)
+        proc = helm_install(cfg, step)
+        if proc.returncode == 0:
+            LOGGER.success("OK: (%s/%s): %s", done, total, label)
+            return
+        if attempt == 1:
+            LOGGER.warning("Retrying %s after uninstall", label)
+            helm_uninstall(cfg, step)
+            time.sleep(10)
+    LOGGER.error("Install failed: %s", label)
     raise subprocess.CalledProcessError(
         proc.returncode, proc.args, proc.stdout, proc.stderr
     )
 
 
-def install_helm_step(cfg, step, done, total):
-    proc = None
-    for attempt in range(1, 3):
-        LOGGER.info(
-            "Installing Rancher (%s/%s): %s attempt %s/2",
-            done,
-            total,
-            helm_step_label(step),
-            attempt,
+def wait_metallb_crds(cfg):
+    crds = ["ipaddresspools.metallb.io", "l2advertisements.metallb.io"]
+    for _ in range(30):
+        proc = run_command(
+            cfg,
+            "Check MetalLB CRDs",
+            ["kubectl", "get", "crd", *crds],
+            env=kube_env(cfg),
+            check=False,
+            log_output=False,
         )
-        proc = run_helm_step(cfg, step)
         if proc.returncode == 0:
-            LOGGER.success(
-                "OK: Installing Rancher (%s/%s): %s", done, total, helm_step_label(step)
-            )
+            LOGGER.info("MetalLB CRDs ready")
             return
-        if attempt == 1:
-            cleanup_helm_step(cfg, step)
-
-    raise_helm_step_error(cfg, proc, step)
+        time.sleep(5)
+    raise TimeoutError("MetalLB CRDs not ready after 150s")
 
 
-def normalize_helm_version(value, default="latest"):
-    version = (value or default).strip()
-    return "latest" if version.lower() == "latest" else version
+def configure_metallb(cfg):
+    ensure_metallb_range(cfg)
+    local = cfg["workdir"] / "metallb-config.yaml"
+    local.write_text(
+        template(
+            "metallb-config.yaml.tmpl", METALLB_RANGE=cfg["metallb_range"]
+        ).rstrip()
+        + "\n"
+    )
+    run_command(
+        cfg,
+        "Configure MetalLB",
+        ["kubectl", "apply", "--server-side", "--force-conflicts", "-f", str(local)],
+        env=kube_env(cfg),
+    )
 
 
 def install_rancher(cfg):
+    cert_ver = normalize_helm_version(cfg.get("cert_manager_version"))
+    rancher_ver = normalize_helm_version(cfg.get("rancher_version"))
+    longhorn_ver = normalize_helm_version(cfg.get("longhorn_version"))
+    metallb_ver = normalize_helm_version(cfg.get("metallb_version"))
 
-    cert_manager_version = normalize_helm_version(cfg.get("cert_manager_version"))
-    rancher_version = normalize_helm_version(cfg.get("rancher_version"))
-    longhorn_version = normalize_helm_version(cfg.get("longhorn_version"))
-
-    # cert-manager is required for Rancher ingress TLS and for RKE2 cluster issuers.
-    # Longhorn is required for Rancher to manage local cluster storage.
-    set_default = '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-    helm_kubeconfig_args = [
-        "--remote-kubeconfig",
-        REMOTE_KUBECONFIG,
-        "--remote-user-kubeconfig",
-        REMOTE_USER_KUBECONFIG,
-    ]
-    
     steps = [
         {
-            "name": "helm repositories",
-            "chart": "repositories",
-            "version": "latest",
-            "release": "",
-            "namespace": "",
-            "script": "install-helm-repos.sh",
-            "args": [],
+            "name": "metallb",
+            "chart": "metallb/metallb",
+            "version": metallb_ver,
+            "release": "metallb",
+            "namespace": "metallb-system",
+            "extra_args": [],
         },
         {
             "name": "cert-manager",
             "chart": "jetstack/cert-manager",
-            "version": cert_manager_version,
+            "version": cert_ver,
             "release": "cert-manager",
             "namespace": "cert-manager",
-            "script": "install-helm.sh",
-            "args": [
-                "--release-name", "cert-manager",
-                "--chart", "jetstack/cert-manager",
-                "--chart-version", cert_manager_version,
-                "--namespace", "cert-manager",
-                *helm_kubeconfig_args,
-            ],
+            "extra_args": ["--set", "crds.enabled=true"],
         },
         {
             "name": "longhorn",
             "chart": "longhorn/longhorn",
-            "version": longhorn_version,
+            "version": longhorn_ver,
             "release": "longhorn",
             "namespace": "longhorn-system",
-            "script": "install-helm.sh",
-            "args": [
-                "--release-name", "longhorn",
-                "--chart", "longhorn/longhorn",
-                "--chart-version", longhorn_version,
-                "--namespace", "longhorn-system",
-                "--set-default-storageclass-patch", set_default,
-                *helm_kubeconfig_args,
-            ],
+            "extra_args": [],
         },
         {
             "name": "rancher",
             "chart": "rancher-stable/rancher",
-            "version": rancher_version,
+            "version": rancher_ver,
             "release": "rancher",
             "namespace": "cattle-system",
-            "script": "install-helm.sh",
-            "args": [
-                "--release-name", "rancher",
-                "--chart", "rancher-stable/rancher",
-                "--chart-version", rancher_version,
-                "--namespace", "cattle-system",
-                "--hostname", cfg["hostname"],
-                "--admin-password", cfg["admin_password"],
-                *helm_kubeconfig_args,
+            "extra_args": [
+                "--set",
+                f"hostname={cfg['hostname']}",
+                "--set",
+                f"bootstrapPassword={cfg['admin_password']}",
             ],
         },
     ]
 
-    charts = ", ".join(
-        f"{step['chart']}@{step['version']}"
-        for step in steps
-        if step["chart"] != "repositories"
-    )
+    charts = ", ".join(f"{s['chart']}@{s['version']}" for s in steps)
+    LOGGER.info("Installing Rancher charts: %s", charts)
 
-    LOGGER.info(f"Installing Rancher charts: {charts}")
+    helm_add_repos(cfg)
 
     for done, step in enumerate(steps, 1):
         install_helm_step(cfg, step, done, len(steps))
+        if step["name"] == "metallb":
+            wait_metallb_crds(cfg)
+            configure_metallb(cfg)
 
     LOGGER.success("OK: Rancher stack installed")
 
 
+# ── Output ────────────────────────────────────────────────────────────────────
+
+
 def write_output(cfg):
+    kubeconfig = (
+        cfg["local_kubeconfig"] if cfg["save_kubeconfig"] else cfg["kubeconfig"]
+    )
     lines = {
         "RANCHER_URL": f"https://{cfg['hostname']}",
         "RANCHER_USER": "admin",
@@ -971,16 +960,14 @@ def write_output(cfg):
         "MASTER": cfg["master"],
         "MASTER_EXTERNAL_IP": cfg["master_external_ip"],
         "MASTER_INTERNAL_IP": cfg["master_internal_ip"],
+        "METALLB_RANGE": cfg.get("metallb_range", ""),
         "SSH_KEY_FILE": cfg["ssh_key"],
-        "KUBECONFIG": cfg["local_kubeconfig"]
-        if cfg["save_kubeconfig"]
-        else cfg["kubeconfig"],
+        "KUBECONFIG": kubeconfig,
     }
     for node, ips in cfg["node_ips"].items():
-        env_name = node.upper().replace("-", "_")
-        lines[f"{env_name}_INTERNAL_IP"] = ips["internal"]
-        lines[f"{env_name}_EXTERNAL_IP"] = ips["external"]
-
+        prefix = node.upper().replace("-", "_")
+        lines[f"{prefix}_INTERNAL_IP"] = ips["internal"]
+        lines[f"{prefix}_EXTERNAL_IP"] = ips["external"]
     cfg["workdir"].mkdir(parents=True, exist_ok=True)
     cfg["output"].write_text("\n".join(f"{k}={v}" for k, v in lines.items()) + "\n")
     cfg["output"].chmod(stat.S_IRUSR | stat.S_IWUSR)
@@ -990,57 +977,65 @@ def summary(cfg):
     kubeconfig = (
         cfg["local_kubeconfig"] if cfg["save_kubeconfig"] else cfg["kubeconfig"]
     )
-    files = "\n".join(
-        [
-            f"  OUTPUT_FILE={cfg['output']}",
-            f"  SSH_KEY_FILE={cfg['ssh_key']}",
-            f"  KUBECONFIG={kubeconfig}",
-        ]
-    )
     nodes = "\n".join(
-        f"  {node}: internal={ips['internal']} external={ips['external']}"
-        for node, ips in cfg["node_ips"].items()
+        f"  {n}: internal={ips['internal']} external={ips['external']}"
+        for n, ips in cfg["node_ips"].items()
     )
-    ssh_commands = "\n".join(
-        f"  gcloud compute ssh {cfg['ssh_user']}@{node} --zone {cfg['zone']} --ssh-key-file {cfg['ssh_key']}"
-        for node in [cfg["master"], *cfg["workers"]]
+    ssh_cmds = "\n".join(
+        f"  gcloud compute ssh {cfg['ssh_user']}@{n} --zone {cfg['zone']} --ssh-key-file {cfg['ssh_key']}"
+        for n in [cfg["master"], *cfg["workers"]]
     )
     LOGGER.info(
-        f"Cluster created with below information:\n\n"
+        "Cluster created:\n\n"
         f"Rancher URL: https://{cfg['hostname']}\n\n"
         f"Credentials:\n  RANCHER_USER=admin\n  RANCHER_PASSWORD={cfg['admin_password']}\n\n"
-        f"Files:\n{files}\n\n"
-        f"Nodes:\n{nodes}\n\n"
-        f"SSH:\n{ssh_commands}"
+        f"Files:\n  OUTPUT_FILE={cfg['output']}\n  SSH_KEY_FILE={cfg['ssh_key']}\n  KUBECONFIG={kubeconfig}\n\n"
+        f"Nodes:\n{nodes}\n\nSSH:\n{ssh_cmds}"
     )
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 
 def main():
     cfg = make_config(parse_args())
-    setup_logging(cfg)
-
+    setup_stdout_logging(LOGGER, level=cfg["log_level"])
     try:
         validate(cfg)
         ensure_ssh_key(cfg)
 
+        LOGGER.info("Provisioning firewall rules")
         create_firewalls(cfg)
-        create_instances(cfg)
-        get_node_ips(cfg)
 
+        LOGGER.info("Provisioning instances")
+        create_instances(cfg)
+
+        get_node_ips(cfg)
+        ensure_metallb_range(cfg)
+
+        LOGGER.info("Waiting for SSH on master: %s", cfg["master"])
         wait_for_ssh(cfg, cfg["master"])
+
         install_server(cfg)
         ensure_server_installed(cfg)
         read_token(cfg)
+
         for worker in cfg["workers"]:
+            LOGGER.info("Waiting for SSH on worker: %s", worker)
             wait_for_ssh(cfg, worker)
+
+        LOGGER.info("Joining workers: %s", ", ".join(cfg["workers"]))
         join_workers(cfg)
+
+        LOGGER.info("Waiting for all nodes to be Ready")
         wait_nodes(cfg)
+
+        LOGGER.info("Configuring firewalld CNI on all nodes")
         configure_cluster_firewalld_cni(cfg)
 
         install_rancher(cfg)
         write_output(cfg)
         summary(cfg)
-
         return 0
     except KeyboardInterrupt:
         LOGGER.warning("Interrupted by user")

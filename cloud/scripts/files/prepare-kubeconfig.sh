@@ -42,4 +42,4 @@ fi
 
 sudo sed "s/127.0.0.1/${MASTER_EXTERNAL_IP}/" "$REMOTE_KUBECONFIG" > "$OUTPUT_FILE"
 sudo chown "$(id -u):$(id -g)" "$OUTPUT_FILE"
-chmod 0600 "$OUTPUT_FILE"
+sudo chmod 0600 "$OUTPUT_FILE"
