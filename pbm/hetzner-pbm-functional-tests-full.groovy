@@ -51,7 +51,8 @@ pipeline {
                             file(credentialsId: 'PBM-GCS-HMAC-S3-EU', variable: 'PBM_GCS_HMAC_S3_YML'),
                             file(credentialsId: 'PBM-MINIO-S3-EU', variable: 'PBM_MINIO_S3_YML'),
                             file(credentialsId: 'PBM-AZURE-EU', variable: 'PBM_AZURE_YML'),
-                            file(credentialsId: 'PBM-OSS-EU', variable: 'PBM_OSS_YML')]) {
+                            file(credentialsId: 'PBM-OSS-EU', variable: 'PBM_OSS_YML'),
+                            file(credentialsId: 'PBM-OCI-EU', variable: 'PBM_OCI_YML')]) {
                                 sh """
                                     docker kill \$(docker ps -a -q) || true
                                     docker rm \$(docker ps -a -q) || true
@@ -69,6 +70,7 @@ pipeline {
                                     cp $PBM_AZURE_YML ./conf/pbm/azure.yaml
                                     cp $PBM_MINIO_S3_YML ./conf/pbm/aws_minio.yaml
                                     cp $PBM_OSS_YML ./conf/pbm/oss.yaml
+                                    cp $PBM_OCI_YML ./conf/pbm/oci.yaml
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build easyrsa
                                     PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build
