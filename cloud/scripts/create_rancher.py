@@ -203,7 +203,11 @@ def run_command(cfg, step, cmd, check=True, env=None, timeout=None, log_output=T
         if log_output and exc.stdout:
             log_lines(LOGGER, exc.stdout)
         if log_output and exc.stderr:
-            log_lines(LOGGER, exc.stderr)
+            log_lines(
+                LOGGER,
+                exc.stderr,
+                default_level=logging.ERROR if proc.returncode else logging.DEBUG,
+            )
         proc = subprocess.CompletedProcess(cmd, 124, exc.stdout, exc.stderr)
         if check:
             raise subprocess.CalledProcessError(
@@ -214,7 +218,11 @@ def run_command(cfg, step, cmd, check=True, env=None, timeout=None, log_output=T
     if log_output and proc.stdout:
         log_lines(LOGGER, proc.stdout)
     if log_output and proc.stderr:
-        log_lines(LOGGER, proc.stderr)
+        log_lines(
+            LOGGER,
+            proc.stderr,
+            default_level=logging.ERROR if proc.returncode else logging.DEBUG,
+        )
     if check and proc.returncode:
         LOGGER.error("FAILED: %s (exit %s)", step, proc.returncode)
         raise subprocess.CalledProcessError(
@@ -548,9 +556,9 @@ def ensure_metallb_range(cfg):
 def install_env(cfg, kind=None):
     parts = []
     if cfg["rke2_channel"]:
-        parts.append(f"INSTALL_RKE2_CHANNEL={shlex.quote(cfg['rke2_channel'])}")
+        parts.append(f"INSTALL_RKE2_CHANNEL={cfg['rke2_channel']}")
     if cfg["rke2_version"]:
-        parts.append(f"INSTALL_RKE2_VERSION={shlex.quote(cfg['rke2_version'])}")
+        parts.append(f"INSTALL_RKE2_VERSION={cfg['rke2_version']}")
     if kind:
         parts.append(f"INSTALL_RKE2_TYPE={kind}")
     return " ".join(parts)
@@ -647,7 +655,7 @@ def configure_node_firewalld_cni(cfg, node):
         node,
         f"sudo bash {shlex.quote(remote)}",
         f"Configure CNI: {node}",
-        check=False,
+        check=True,
     )
 
 
@@ -808,6 +816,7 @@ def helm_install(cfg, step):
         "--create-namespace",
         *version_args,
         *step.get("extra_args", []),
+        "--wait",
     ]
     return run_command(
         cfg, f"Helm install: {step['name']}", cmd, env=kube_env(cfg), check=False
