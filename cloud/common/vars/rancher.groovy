@@ -69,11 +69,28 @@ void shutdownCluster(Map clusterCfg) {
     }
 }
 
-def getLatestVersion(String channel) {
+def getLatestPlatformVersion(String channel) {
     sh(
         script: """
             curl -fsSL https://update.rke2.io/v1-release/channels \
             | jq -r --arg channel "${channel}" '.data[] | select(.id == \$channel) | .latest'
+        """,
+        returnStdout: true
+    ).trim()
+}
+
+def getPlatformVersion(String prefixVersion) {
+    def parts = prefixVersion.tokenize('.')
+    def channel = "v${parts[0]}.${parts[1]}"
+
+    return sh(
+        script: """
+            curl -fsSL https://update.rke2.io/v1-release/channels \
+            | jq -r --arg channel "${channel}" '
+                .data[]
+                | select(.id == \$channel)
+                | .latest
+            '
         """,
         returnStdout: true
     ).trim()

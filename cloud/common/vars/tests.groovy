@@ -114,13 +114,21 @@ Map prepareVersions(Map testVariables) {
             )
         }
 
+        testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
+            testVariables.platform_version
+        )
+
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
     if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getLatestVersion(
+        testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
             testVariables.platform_channel
+        )
+    } else {
+        testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
+            testVariables.platform_version
         )
     }
 
