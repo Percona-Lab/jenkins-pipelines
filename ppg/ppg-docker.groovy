@@ -57,6 +57,7 @@ pipeline {
                             MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                             echo \$MIN_VER
                             git clone https://github.com/surbhat1595/percona-docker
+                            git checkout PG
                             cd percona-docker/percona-distribution-postgresql-\$MAJ_VER
                             sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile
                             sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
@@ -77,6 +78,7 @@ pipeline {
                             MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                             echo \$MIN_VER
                             git clone https://github.com/surbhat1595/percona-docker percona-docker-ubi8
+                            git checkout PG
                             cd percona-docker-ubi8/percona-distribution-postgresql-\$MAJ_VER
                             sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile-ubi8
                             sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-ubi8

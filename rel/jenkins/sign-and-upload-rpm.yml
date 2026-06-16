@@ -1,8 +1,9 @@
 - job:
-    name: hetzner-ppg-docker-arm
+    name: hetzner-sign-and-upload-rpm
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+        Sign RPM packages on repo.ci.percona.com and push them to a public yum repository.
     pipeline-scm:
       scm:
         - git:
@@ -11,4 +12,4 @@
             - 'PGhetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/ppg-docker-arm.groovy
+      script-path: rel/jenkins/sign-and-upload-rpm.groovy
