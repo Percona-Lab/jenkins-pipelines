@@ -194,7 +194,7 @@ parameters {
          description: 'Cloud infra for build',
          name: 'CLOUD' )
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-9.3.0-1', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'release-9.7.0-1', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
@@ -206,15 +206,15 @@ parameters {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Experimental packages only',
             name: 'EXPERIMENTALMODE')
         choice(
-            choices: 'experimental\ntesting\nlabaratory\nrelease',
+            choices: 'testing\nexperimental\nlabaratory\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
-            choices: '#releases\n#releases-ci',
+            choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
         string(
