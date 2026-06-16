@@ -230,7 +230,10 @@ pipeline {
             error "No PXB tarball matching '${grepPattern}' found in s3://pxb-build-cache/${buildTag}/"
           }
 
-          env.PXB_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pxb-build-cache/${buildTag}/${tarball}"
+          // Use virtual-hosted-style URL (path-style returns HTTP 301) with the bucket's real region.
+          def loc = sh(script: "aws s3api get-bucket-location --bucket pxb-build-cache --query 'LocationConstraint' --output text 2>/dev/null || true", returnStdout: true).trim()
+          def bucketRegion = loc ? (loc == 'None' ? 'us-east-1' : loc) : 'us-east-2'
+          env.PXB_TARBALL_URL = "https://pxb-build-cache.s3.${bucketRegion}.amazonaws.com/${buildTag}/${tarball}"
           echo "Branch-built PXB tarball: ${env.PXB_TARBALL_URL}"
           currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-branch:${params.PXB_BRANCH}-${params.TESTING_BRANCH}"
         }
