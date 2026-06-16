@@ -4,6 +4,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "pbm-functional/replicaset"
+def testsFailed = false
+def testsSucceeded = false
 
 pipeline {
     agent {
@@ -19,7 +21,7 @@ pipeline {
         choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-60','psmdb-50','psmdb-80'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3.large','i3en.large','t2.micro','i3.xlarge','i3en.xlarge','i3en.3xlarge'])
         choice(name: 'BACKUP_TYPE',description: 'Backup type',choices: ['physical','logical'])        
-        choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','aws-minio','gcp','gcp-hmac','azure', 'oss'])
+        choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','aws-minio','gcp','gcp-hmac','azure', 'oss', 'oci'])
         string(name: 'TIMEOUT',description: 'Timeout for backup/restore',defaultValue: '3600')
         string(name: 'SIZE',description: 'Data size for test collection',defaultValue: '1000')
         string(name: 'EXISTING_BACKUP',description: 'If defined, the tests will skip backup process, but backup must exist on the remote storage',defaultValue: 'no')
@@ -31,6 +33,7 @@ pipeline {
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
         password(name: 'PMM_HOST', description: 'PMM host with credentials, format https://user:password@x.x.x.x',defaultValue: 'none')
+        booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically destroys environment upon finishing tests, leave unchecked if you do not want to delete instances.')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -78,7 +81,8 @@ pipeline {
                 file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),
                 file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'),
                 file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML'),
-                file(credentialsId: 'PBM-OSS', variable: 'PBM_OSS_YML')]) {
+                file(credentialsId: 'PBM-OSS', variable: 'PBM_OSS_YML'),
+                file(credentialsId: 'PBM-OCI-WEST', variable: 'PBM_OCI_WEST_YML')]) {
                     script{
                         sh """
                             cp $PBM_AWS_S3_YML /tmp/pbm-agent-storage-aws.yaml
@@ -87,6 +91,7 @@ pipeline {
                             cp $PBM_GCS_HMAC_S3_YML /tmp/pbm-agent-storage-gcp-hmac.conf
                             cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
                             cp $PBM_OSS_YML /tmp/pbm-agent-storage-oss.yaml
+                            cp $PBM_OCI_WEST_YML /tmp/pbm-agent-storage-oci.yaml
                         """
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
                     }
@@ -96,11 +101,21 @@ pipeline {
         stage ('Run tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
+                    try {
+                        moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
+                        testsSucceeded = true
+                    } catch (e) {
+                        echo "Tests stage failed"
+                        testsFailed = true
+                        throw e
+                    }
                 }
             }
         }
         stage ('Cleanup') {
+            when {
+                expression { testsSucceeded && params.DESTROY }
+            }
             steps {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
@@ -110,6 +125,7 @@ pipeline {
     }
     post {
         always {
+            junit testResults: "**/report.xml", keepLongStdio: true
             script {
                 sh """
                     rm -f /tmp/pbm-agent-storage-aws.yaml
@@ -118,10 +134,37 @@ pipeline {
                     rm -f /tmp/pbm-agent-storage-azure.conf
                     rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
                     rm -f /tmp/pbm-agent-storage-oss.yaml
+                    rm -f /tmp/pbm-agent-storage-oci.yaml
                 """
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+                def reachedTests = testsFailed || testsSucceeded
+                def leaveInstances = testsFailed || (testsSucceeded && !params.DESTROY)
+                if (!reachedTests) {
+                    echo "Destroying AWS instances after pre-test stage failure (ignoring DESTROY flag)"
+                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+                } else if (testsSucceeded && params.DESTROY) {
+                    echo "Destroying AWS instances because tests succeeded with DESTROY=true"
+                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+                } else if (leaveInstances) {
+                    def timeoutSeconds = params.TIMEOUT.toInteger()
+                    echo "Keeping AWS instances for debugging (tests failed or tests succeeded with DESTROY=false) - sleeping for ${timeoutSeconds} seconds"
+                    echo "########################################################### NOTE ##########################################################\n" +
+                            "To access the cluster for debugging, find the instance IP in this Jenkins log under the 'TASK [Wait for SSH]' section.\n" +
+                            "Use SSH_USER and SSH_PUBKEY parameters if you need access to the instances.\n" +
+                            "########################################################### NOTE ##########################################################"
+                    try {
+                        timeout(time: timeoutSeconds, unit: 'SECONDS') {
+                            waitUntil { return false }
+                        }
+                    }
+                    catch (e) {
+                        echo "Error during sleep: ${e}"
+                    }
+                    finally {
+                        echo "Destroying AWS instances after timeout or manual abort"
+                        moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+                    }
+                }
             }
-            junit testResults: "**/report.xml", keepLongStdio: true
         }
     }
 }
