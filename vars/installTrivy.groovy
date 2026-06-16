@@ -3,6 +3,10 @@
 // Centralizes Trivy version, checksums, and installation logic.
 // Update ONLY this file when upgrading Trivy across all pipelines.
 //
+// https://github.com/aquasecurity/trivy/releases
+// trivy_0.71.1_Linux-64bit.tar.gz
+// trivy_0.71.1_Linux-ARM64.tar.gz
+//
 // Usage in pipelines:
 //   installTrivy()                          // auto-detect method & arch
 //   installTrivy(method: 'binary')          // force GitHub tar.gz method
@@ -10,9 +14,9 @@
 //   installTrivy(method: 'binary', junitTpl: true)   // also download junit.tpl
 
 def call(Map args = [:]) {
-    def TRIVY_VERSION    = "0.71.0"
-    def CHECKSUM_AMD64   = "30a3d22b23f88c233f1658f562fb477cae3b3e8b4761109d515b7698daf85814"
-    def CHECKSUM_ARM64   = "2561be394a3199c911f82fced606cbc05e1cb23eb6ce1da6935540adb76f4252"
+    def TRIVY_VERSION    = "0.71.1"
+    def CHECKSUM_AMD64   = "3cbae37cd440cd8676e5ce9207fe460b5641c7579a17e9d00f8894928c41a88d"
+    def CHECKSUM_ARM64   = "a7daaee66817d67a4963e8f9ddf15f5238ee021b55d3cd8695b1b7801afd34a7"
 
     def method    = args.get('method', 'auto')
     def junitTpl  = args.get('junitTpl', false)
