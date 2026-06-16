@@ -349,7 +349,7 @@ parameters {
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
-                           if [ ${PS_MAJOR_RELEASE} = "80" ]; then
+                           if [ ${PS_MAJOR_RELEASE} = "8.0" ]; then
                                sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server:latest ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                                sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router:latest ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
                            fi
