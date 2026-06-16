@@ -67,6 +67,9 @@ pipeline {
                     deleteDir()
                     checkout scm
                     getLibraries()
+
+                    CW = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+                    currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH-$PLATFORM_VERSION-$CW"
                 }
             }
         }
