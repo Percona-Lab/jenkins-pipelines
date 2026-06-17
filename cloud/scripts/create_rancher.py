@@ -1007,7 +1007,7 @@ def configure_metallb(cfg):
     )
 
 def configure_default_storage_class(cfg):
-    local = FILES / "configure-default-storage-class.sh"
+    local = FILES / "default-storage-class.sh"
 
     run_command(
         cfg,
