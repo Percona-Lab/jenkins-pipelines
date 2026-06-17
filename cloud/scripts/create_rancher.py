@@ -84,6 +84,27 @@ def template(name, **values):
 def region_from_zone(zone):
     return "-".join(zone.split("-")[:-1])
 
+def install_nfs_client(cfg, node):
+    run_remote_script(
+        cfg,
+        node,
+        "install-nfs-client.sh",
+        f"Install NFS client: {node}",
+    )
+
+def install_nfs_clients(cfg):
+    nodes = [cfg["master"], *cfg["workers"]]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(nodes)) as pool:
+        futures = {
+            pool.submit(install_nfs_client, cfg, node): node
+            for node in nodes
+        }
+
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+            LOGGER.success("OK: NFS client: %s", futures[future])
+
 
 # ── Args & config ─────────────────────────────────────────────────────────────
 
@@ -1038,6 +1059,9 @@ def main():
 
         LOGGER.info("Waiting for all nodes to be Ready")
         wait_nodes(cfg)
+
+        LOGGER.info("Installing NFS client on all nodes")
+        install_nfs_clients(cfg)
 
         LOGGER.info("Configuring firewalld CNI on all nodes")
         configure_cluster_firewalld_cni(cfg)
