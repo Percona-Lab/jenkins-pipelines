@@ -84,6 +84,7 @@ def template(name, **values):
 def region_from_zone(zone):
     return "-".join(zone.split("-")[:-1])
 
+
 def install_nfs_client(cfg, node):
     run_remote_script(
         cfg,
@@ -92,14 +93,12 @@ def install_nfs_client(cfg, node):
         f"Install NFS client: {node}",
     )
 
+
 def install_nfs_clients(cfg):
     nodes = [cfg["master"], *cfg["workers"]]
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(nodes)) as pool:
-        futures = {
-            pool.submit(install_nfs_client, cfg, node): node
-            for node in nodes
-        }
+        futures = {pool.submit(install_nfs_client, cfg, node): node for node in nodes}
 
         for future in concurrent.futures.as_completed(futures):
             future.result()
@@ -111,68 +110,161 @@ def install_nfs_clients(cfg):
 
 def parse_args():
     p = argparse.ArgumentParser(description="Create an RKE2 Rancher cluster on GCE.")
-    p.add_argument("prefix")
+
     p.add_argument(
-        "--project-id", default=os.environ.get("PROJECT_ID") or default_project()
+        "prefix",
+        help="Prefix used to name all created resources, such as VMs, firewall rules, kubeconfig context, and temporary files.",
     )
-    p.add_argument("--zone", default=os.environ.get("ZONE", "us-central1-a"))
+
     p.add_argument(
-        "--worker-count", type=int, default=int(os.environ.get("WORKER_COUNT", "3"))
+        "--project-id",
+        default=os.environ.get("PROJECT_ID") or default_project(),
+        help="GCP project ID where the cluster infrastructure will be created. Defaults to PROJECT_ID or the current gcloud project.",
     )
+
     p.add_argument(
-        "--machine-type", default=os.environ.get("MACHINE_TYPE", "e2-standard-4")
+        "--zone",
+        default=os.environ.get("ZONE", "us-central1-a"),
+        help="GCP zone where the VM instances will be created. Defaults to ZONE or us-central1-a.",
     )
+
     p.add_argument(
-        "--boot-disk-size", default=os.environ.get("BOOT_DISK_SIZE", "200GB")
+        "--worker-count",
+        type=int,
+        default=int(os.environ.get("WORKER_COUNT", "3")),
+        help="Number of RKE2 worker nodes to create. Defaults to WORKER_COUNT or 3.",
     )
+
+    p.add_argument(
+        "--machine-type",
+        default=os.environ.get("MACHINE_TYPE", "e2-standard-4"),
+        help="GCE machine type for the server and worker nodes. Defaults to MACHINE_TYPE or e2-standard-4.",
+    )
+
+    p.add_argument(
+        "--boot-disk-size",
+        default=os.environ.get("BOOT_DISK_SIZE", "200GB"),
+        help="Boot disk size for each VM instance. Defaults to BOOT_DISK_SIZE or 200GB.",
+    )
+
     p.add_argument(
         "--image-family",
         default=os.environ.get("IMAGE_FAMILY", "rocky-linux-9-optimized-gcp"),
+        help="GCE image family used for node creation when --image is not provided. Defaults to IMAGE_FAMILY or rocky-linux-9-optimized-gcp.",
     )
-    p.add_argument("--image", default=os.environ.get("IMAGE"))
+
     p.add_argument(
-        "--image-project", default=os.environ.get("IMAGE_PROJECT", "rocky-linux-cloud")
+        "--image",
+        default=os.environ.get("IMAGE"),
+        help="Specific GCE image to use instead of an image family. Defaults to IMAGE if set.",
     )
+
     p.add_argument(
-        "--source-ranges", default=os.environ.get("SOURCE_RANGES", "0.0.0.0/0")
+        "--image-project",
+        default=os.environ.get("IMAGE_PROJECT", "rocky-linux-cloud"),
+        help="GCP image project containing the selected image or image family. Defaults to IMAGE_PROJECT or rocky-linux-cloud.",
     )
-    p.add_argument("--owner", default=os.environ.get("OWNER") or current_user())
-    p.add_argument("--product", default=os.environ.get("PRODUCT", "psmdb"))
+
+    p.add_argument(
+        "--source-ranges",
+        default=os.environ.get("SOURCE_RANGES", "0.0.0.0/0"),
+        help="CIDR source ranges allowed by firewall rules for SSH, Rancher, and Kubernetes access. Defaults to SOURCE_RANGES or 0.0.0.0/0.",
+    )
+
+    p.add_argument(
+        "--owner",
+        default=os.environ.get("OWNER") or current_user(),
+        help="Owner label applied to created resources. Defaults to OWNER or the current local user.",
+    )
+
+    p.add_argument(
+        "--product",
+        default=os.environ.get("PRODUCT", "psmdb"),
+        help="Product label applied to created resources. Defaults to PRODUCT or psmdb.",
+    )
+
     p.add_argument(
         "--delete-after-hours",
         type=int,
         default=int(os.environ.get("DELETE_AFTER_HOURS", "3")),
+        help="TTL label value, in hours, used by cleanup automation. Defaults to DELETE_AFTER_HOURS or 3.",
     )
+
     p.add_argument(
         "--local-kubeconfig",
         type=Path,
         default=Path(
             os.environ.get("KUBECONFIG", "~/.kube/config").split(os.pathsep)[0]
         ),
+        help="Local kubeconfig file where the generated cluster context will be merged. Defaults to the first KUBECONFIG entry or ~/.kube/config.",
     )
-    p.add_argument("--save-kubeconfig", type=bool_arg, default=True)
+
     p.add_argument(
-        "--ssh-user", default=os.environ.get("SSH_USER") or default_ssh_user()
+        "--save-kubeconfig",
+        type=bool_arg,
+        default=True,
+        help="Whether to merge the generated kubeconfig into the local kubeconfig. Defaults to true.",
     )
+
+    p.add_argument(
+        "--ssh-user",
+        default=os.environ.get("SSH_USER") or default_ssh_user(),
+        help="SSH username used for gcloud compute ssh/scp. Defaults to SSH_USER, or jenkins when running as root, otherwise the current user.",
+    )
+
     p.add_argument(
         "--admin-password",
         default=os.environ.get("RANCHER_ADMIN_PASSWORD") or password(),
+        help="Initial Rancher admin password. Defaults to RANCHER_ADMIN_PASSWORD or a randomly generated password.",
     )
-    p.add_argument("--rancher-version", default=os.environ.get("RANCHER_VERSION"))
+
     p.add_argument(
-        "--cert-manager-version", default=os.environ.get("CERT_MANAGER_VERSION")
+        "--rancher-version",
+        default=os.environ.get("RANCHER_VERSION"),
+        help="Rancher Helm chart version to install. Defaults to RANCHER_VERSION or latest.",
     )
-    p.add_argument("--longhorn-version", default=os.environ.get("LONGHORN_VERSION"))
-    p.add_argument("--metallb-version", default=os.environ.get("METALLB_VERSION"))
-    p.add_argument("--metallb-range", default=os.environ.get("METALLB_RANGE"))
+
     p.add_argument(
-        "--rke2-channel", default=os.environ.get("INSTALL_RKE2_CHANNEL", "stable")
+        "--cert-manager-version",
+        default=os.environ.get("CERT_MANAGER_VERSION"),
+        help="cert-manager Helm chart version to install. Defaults to CERT_MANAGER_VERSION or latest.",
     )
-    p.add_argument("--rke2-version", default=os.environ.get("INSTALL_RKE2_VERSION"))
+
+    p.add_argument(
+        "--longhorn-version",
+        default=os.environ.get("LONGHORN_VERSION"),
+        help="Longhorn Helm chart version to install. Defaults to LONGHORN_VERSION or latest.",
+    )
+
+    p.add_argument(
+        "--metallb-version",
+        default=os.environ.get("METALLB_VERSION"),
+        help="MetalLB Helm chart version to install. Defaults to METALLB_VERSION or latest.",
+    )
+
+    p.add_argument(
+        "--metallb-range",
+        default=os.environ.get("METALLB_RANGE"),
+        help="IP address range used by MetalLB. Defaults to METALLB_RANGE or an automatically discovered range from the subnet.",
+    )
+
+    p.add_argument(
+        "--rke2-channel",
+        default=os.environ.get("INSTALL_RKE2_CHANNEL", "stable"),
+        help="RKE2 release channel used by the installer. Defaults to INSTALL_RKE2_CHANNEL or stable.",
+    )
+
+    p.add_argument(
+        "--rke2-version",
+        default=os.environ.get("INSTALL_RKE2_VERSION"),
+        help="Specific RKE2 version to install. Defaults to INSTALL_RKE2_VERSION, or the latest version from the selected channel.",
+    )
+
     p.add_argument(
         "--log-level",
         default=os.environ.get("LOG_LEVEL", "info"),
         choices=("debug", "info", "warning", "error"),
+        help="Logging verbosity. Defaults to LOG_LEVEL or info.",
     )
     return p.parse_args()
 
