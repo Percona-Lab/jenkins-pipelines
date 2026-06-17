@@ -197,7 +197,7 @@ def call(Map args) {
     if (shouldRun('Oracle Linux 10 ARM')) {
         stagesMap['Oracle Linux 10 ARM'] = {
             stage('Oracle Linux 10 ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
                     cleanUpWS()
                     installCli('rpm')
                     unstash 'properties'
