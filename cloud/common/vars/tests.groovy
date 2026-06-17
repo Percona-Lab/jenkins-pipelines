@@ -51,6 +51,7 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
 
 Map prepareVersions(Map testVariables) {
     def libraries = testVariables.libraries
+    def platformFromReleaseVersions = false
 
     if ("${testVariables.pillar_version}" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
@@ -112,6 +113,7 @@ Map prepareVersions(Map testVariables) {
                 testVariables.release_versions,
                 "PLATFORM_VER"
             )
+            platformFromReleaseVersions = true
         }
 
         testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
@@ -126,7 +128,7 @@ Map prepareVersions(Map testVariables) {
         testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
             testVariables.platform_channel
         )
-    } else {
+    } else if (!platformFromReleaseVersions) {
         testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
             testVariables.platform_version
         )

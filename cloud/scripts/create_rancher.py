@@ -227,7 +227,7 @@ def run_command(cfg, step, cmd, check=True, env=None, timeout=None, log_output=T
             log_lines(
                 LOGGER,
                 exc.stderr,
-                default_level=logging.ERROR if proc.returncode else logging.DEBUG,
+                default_level=logging.ERROR,
             )
         proc = subprocess.CompletedProcess(cmd, 124, exc.stdout, exc.stderr)
         if check:
@@ -426,6 +426,7 @@ def create_firewalls(cfg):
         }
         for f in concurrent.futures.as_completed(futures):
             f.result()
+            LOGGER.success("OK: %s", futures[f])
 
 
 def create_instance(cfg, name):

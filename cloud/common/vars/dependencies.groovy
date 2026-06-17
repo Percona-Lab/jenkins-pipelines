@@ -9,10 +9,9 @@ void install(Map config = [:]) {
             set -euo pipefail
 
             latest() {
-                curl -fsSL "https://api.github.com/repos/$1/releases/latest" |
-                    grep '"tag_name"' |
-                    head -1 |
-                    cut -d '"' -f 4
+                local repo="$1"
+                curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/${repo}/releases/latest" \
+                    | awk -F/ '{print $NF}'
             }
 
             install_if_missing() {
