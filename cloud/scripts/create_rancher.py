@@ -1006,6 +1006,19 @@ def configure_metallb(cfg):
         env=kube_env(cfg),
     )
 
+def configure_default_storage_class(cfg):
+    local = FILES / "configure-default-storage-class.sh"
+
+    run_command(
+        cfg,
+        "Configure default StorageClass",
+        [
+            "bash",
+            str(local),
+            "longhorn",
+        ],
+        env=kube_env(cfg),
+    )
 
 def install_rancher(cfg):
     cert_ver = normalize_helm_version(cfg.get("cert_manager_version"))
@@ -1063,6 +1076,8 @@ def install_rancher(cfg):
         if step["name"] == "metallb":
             wait_metallb_crds(cfg)
             configure_metallb(cfg)
+        if step["name"] == "longhorn":
+            configure_default_storage_class(cfg)
 
     LOGGER.success("OK: Rancher stack installed")
 
