@@ -67,9 +67,6 @@ pipeline {
                     deleteDir()
                     checkout scm
                     getLibraries()
-
-                    CW = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-                    currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH} | ${PLATFORM_VERSION} | ${CW}"
                 }
             }
         }
@@ -143,6 +140,13 @@ pipeline {
                             IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR
                         ]
                     ])
+
+                    currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
+                    def minorPlatformVersion = (testVariables.platform_version =~ /v?(\d+\.\d+)/)[0][1]
+                    def cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+                    currentBuild.description = """
+                        ${minorPlatformVersion} | ${DB_TAG} | ${cw}
+                    """.stripIndent()
                 }
             }
         }
