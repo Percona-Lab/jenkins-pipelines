@@ -48,6 +48,7 @@ pipeline {
   options {
     withCredentials(moleculePdpsJenkinsCreds())
     disableConcurrentBuilds()
+    timeout(time: 6, unit: 'HOURS')
   }
   stages {
     stage('Set build name'){
