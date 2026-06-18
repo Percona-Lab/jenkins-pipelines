@@ -69,7 +69,7 @@ pipeline {
                     getLibraries()
 
                     CW = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-                    currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH-$PLATFORM_VERSION-$CW"
+                    currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH} | ${PLATFORM_VERSION} | ${CW}"
                 }
             }
         }
