@@ -69,492 +69,544 @@ def call(Map args) {
 
     // ── RPM stages ────────────────────────────────────────────────────────────
 
-    if (shouldRun('Oracle Linux 8')) {
-        stagesMap['Oracle Linux 8'] = {
-            stage('Oracle Linux 8') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    if (fipsMode == 'YES') {
-                        echo 'The step is skipped'
-                    } else {
-                        cleanUpWS()
-                        installCli('rpm')
-                        unstash 'properties'
-                        popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                        buildStage('oraclelinux:8', '--build_rpm=1')
-                        if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
-                    }
-                }
+    stagesMap['Oracle Linux 8'] = {
+        stage('Oracle Linux 8') {
+            if (!shouldRun('Oracle Linux 8')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
             }
-        }
-    }
-
-    if (shouldRun('Oracle Linux 8 ARM')) {
-        stagesMap['Oracle Linux 8 ARM'] = {
-            stage('Oracle Linux 8 ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    if (fipsMode == 'YES') {
-                        echo 'The step is skipped'
-                    } else {
-                        cleanUpWS()
-                        installCli('rpm')
-                        unstash 'properties'
-                        popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                        buildStage('oraclelinux:8', '--build_rpm=1')
-                        if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
-                    }
-                }
-            }
-        }
-    }
-
-    if (shouldRun('Oracle Linux 9')) {
-        stagesMap['Oracle Linux 9'] = {
-            stage('Oracle Linux 9') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                if (fipsMode == 'YES') {
+                    echo 'The step is skipped'
+                } else {
                     cleanUpWS()
                     installCli('rpm')
                     unstash 'properties'
                     popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('oraclelinux:9', '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('oraclelinux:9', '--build_rpm=1 --with_zenfs=1')
-                    }
+                    buildStage('oraclelinux:8', '--build_rpm=1')
                     if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
                 }
             }
         }
     }
 
-    if (shouldRun('Oracle Linux 9 ARM')) {
-        stagesMap['Oracle Linux 9 ARM'] = {
-            stage('Oracle Linux 9 ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+    stagesMap['Oracle Linux 8 ARM'] = {
+        stage('Oracle Linux 8 ARM') {
+            if (!shouldRun('Oracle Linux 8 ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                if (fipsMode == 'YES') {
+                    echo 'The step is skipped'
+                } else {
                     cleanUpWS()
                     installCli('rpm')
                     unstash 'properties'
                     popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('oraclelinux:9', '--build_rpm=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('oraclelinux:9', '--build_rpm=1')
-                    }
+                    buildStage('oraclelinux:8', '--build_rpm=1')
                     if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
                 }
             }
         }
     }
 
-    if (shouldRun('Amazon Linux 2023')) {
-        stagesMap['Amazon Linux 2023'] = {
-            stage('Amazon Linux 2023') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                    buildStage('amazonlinux:2023', '--build_rpm=1')
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
+    stagesMap['Oracle Linux 9'] = {
+        stage('Oracle Linux 9') {
+            if (!shouldRun('Oracle Linux 9')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'srpm/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('oraclelinux:9', '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('oraclelinux:9', '--build_rpm=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Amazon Linux 2023 ARM')) {
-        stagesMap['Amazon Linux 2023 ARM'] = {
-            stage('Amazon Linux 2023 ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                    buildStage('amazonlinux:2023', '--build_rpm=1')
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
+    stagesMap['Oracle Linux 9 ARM'] = {
+        stage('Oracle Linux 9 ARM') {
+            if (!shouldRun('Oracle Linux 9 ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'srpm/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('oraclelinux:9', '--build_rpm=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('oraclelinux:9', '--build_rpm=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Oracle Linux 10')) {
-        stagesMap['Oracle Linux 10'] = {
-            stage('Oracle Linux 10') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('oraclelinux:10', '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('oraclelinux:10', '--build_rpm=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
-                }
+    stagesMap['Amazon Linux 2023'] = {
+        stage('Amazon Linux 2023') {
+            if (!shouldRun('Amazon Linux 2023')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'srpm/', awsStashPath)
+                buildStage('amazonlinux:2023', '--build_rpm=1')
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Oracle Linux 10 ARM')) {
-        stagesMap['Oracle Linux 10 ARM'] = {
-            stage('Oracle Linux 10 ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'srpm/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('oraclelinux:10', '--build_rpm=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('oraclelinux:10', '--build_rpm=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
+    stagesMap['Amazon Linux 2023 ARM'] = {
+        stage('Amazon Linux 2023 ARM') {
+            if (!shouldRun('Amazon Linux 2023 ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'srpm/', awsStashPath)
+                buildStage('amazonlinux:2023', '--build_rpm=1')
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
+            }
+        }
+    }
+
+    stagesMap['Oracle Linux 10'] = {
+        stage('Oracle Linux 10') {
+            if (!shouldRun('Oracle Linux 10')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'srpm/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('oraclelinux:10', '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('oraclelinux:10', '--build_rpm=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
+            }
+        }
+    }
+
+    stagesMap['Oracle Linux 10 ARM'] = {
+        stage('Oracle Linux 10 ARM') {
+            if (!shouldRun('Oracle Linux 10 ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'srpm/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('oraclelinux:10', '--build_rpm=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('oraclelinux:10', '--build_rpm=1')
+                }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'rpm/', awsStashPath) }
             }
         }
     }
 
     // ── DEB stages ────────────────────────────────────────────────────────────
 
-    if (shouldRun('Ubuntu Jammy(22.04)')) {
-        stagesMap['Ubuntu Jammy(22.04)'] = {
-            stage('Ubuntu Jammy(22.04)') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
+    stagesMap['Ubuntu Jammy(22.04)'] = {
+        stage('Ubuntu Jammy(22.04)') {
+            if (!shouldRun('Ubuntu Jammy(22.04)')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Ubuntu Noble(24.04)')) {
-        stagesMap['Ubuntu Noble(24.04)'] = {
-            stage('Ubuntu Noble(24.04)') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1')
-                    }
-                    pushArtifactFolder(cloud, 'deb/', awsStashPath)
+    stagesMap['Ubuntu Noble(24.04)'] = {
+        stage('Ubuntu Noble(24.04)') {
+            if (!shouldRun('Ubuntu Noble(24.04)')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1')
                 }
+                pushArtifactFolder(cloud, 'deb/', awsStashPath)
             }
         }
     }
 
-    if (shouldRun('Ubuntu Resolute(26.04)')) {
-        stagesMap['Ubuntu Resolute(26.04)'] = {
-            stage('Ubuntu Resolute(26.04)') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1')
-                    }
-                    pushArtifactFolder(cloud, 'deb/', awsStashPath)
+    stagesMap['Ubuntu Resolute(26.04)'] = {
+        stage('Ubuntu Resolute(26.04)') {
+            if (!shouldRun('Ubuntu Resolute(26.04)')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1')
                 }
+                pushArtifactFolder(cloud, 'deb/', awsStashPath)
             }
         }
     }
 
-    if (shouldRun('Debian Bookworm(12)')) {
-        stagesMap['Debian Bookworm(12)'] = {
-            stage('Debian Bookworm(12)') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
+    stagesMap['Debian Bookworm(12)'] = {
+        stage('Debian Bookworm(12)') {
+            if (!shouldRun('Debian Bookworm(12)')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Debian Trixie(13)')) {
-        stagesMap['Debian Trixie(13)'] = {
-            stage('Debian Trixie(13)') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
+    stagesMap['Debian Trixie(13)'] = {
+        stage('Debian Trixie(13)') {
+            if (!shouldRun('Debian Trixie(13)')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Ubuntu Jammy(22.04) ARM')) {
-        stagesMap['Ubuntu Jammy(22.04) ARM'] = {
-            stage('Ubuntu Jammy(22.04) ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
+    stagesMap['Ubuntu Jammy(22.04) ARM'] = {
+        stage('Ubuntu Jammy(22.04) ARM') {
+            if (!shouldRun('Ubuntu Jammy(22.04) ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:jammy', '--build_deb=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Ubuntu Noble(24.04) ARM')) {
-        stagesMap['Ubuntu Noble(24.04) ARM'] = {
-            stage('Ubuntu Noble(24.04) ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1')
-                    }
-                    pushArtifactFolder(cloud, 'deb/', awsStashPath)
+    stagesMap['Ubuntu Noble(24.04) ARM'] = {
+        stage('Ubuntu Noble(24.04) ARM') {
+            if (!shouldRun('Ubuntu Noble(24.04) ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:noble', '--build_deb=1 --with_zenfs=1')
                 }
+                pushArtifactFolder(cloud, 'deb/', awsStashPath)
             }
         }
     }
 
-    if (shouldRun('Ubuntu Resolute(26.04) ARM')) {
-        stagesMap['Ubuntu Resolute(26.04) ARM'] = {
-            stage('Ubuntu Resolute(26.04) ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1')
-                    }
-                    pushArtifactFolder(cloud, 'deb/', awsStashPath)
+    stagesMap['Ubuntu Resolute(26.04) ARM'] = {
+        stage('Ubuntu Resolute(26.04) ARM') {
+            if (!shouldRun('Ubuntu Resolute(26.04) ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1')
                 }
+                pushArtifactFolder(cloud, 'deb/', awsStashPath)
             }
         }
     }
 
-    if (shouldRun('Debian Bookworm(12) ARM')) {
-        stagesMap['Debian Bookworm(12) ARM'] = {
-            stage('Debian Bookworm(12) ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
+    stagesMap['Debian Bookworm(12) ARM'] = {
+        stage('Debian Bookworm(12) ARM') {
+            if (!shouldRun('Debian Bookworm(12) ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('debian:bookworm', '--build_deb=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
 
-    if (shouldRun('Debian Trixie(13) ARM')) {
-        stagesMap['Debian Trixie(13) ARM'] = {
-            stage('Debian Trixie(13) ARM') {
-                node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_deb/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
+    stagesMap['Debian Trixie(13) ARM'] = {
+        stage('Debian Trixie(13) ARM') {
+            if (!shouldRun('Debian Trixie(13) ARM')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_deb/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('debian:trixie', '--build_deb=1 --with_zenfs=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
 
     // ── Tarball stages ────────────────────────────────────────────────────────
 
-    if (shouldRun('Oracle Linux 8 binary tarball')) {
-        stagesMap['Oracle Linux 8 binary tarball'] = {
-            stage('Oracle Linux 8 binary tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    if (fipsMode == 'YES') {
-                        echo 'The step is skipped'
-                    } else {
-                        cleanUpWS()
-                        installCli('rpm')
-                        unstash 'properties'
-                        popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                        buildStage('oraclelinux:8', '--build_tarball=1')
-                        if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
-                    }
-                }
+    stagesMap['Oracle Linux 8 binary tarball'] = {
+        stage('Oracle Linux 8 binary tarball') {
+            if (!shouldRun('Oracle Linux 8 binary tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
             }
-        }
-    }
-
-    if (shouldRun('Oracle Linux 8 debug tarball')) {
-        stagesMap['Oracle Linux 8 debug tarball'] = {
-            stage('Oracle Linux 8 debug tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    if (fipsMode == 'YES') {
-                        echo 'The step is skipped'
-                    } else {
-                        cleanUpWS()
-                        installCli('rpm')
-                        unstash 'properties'
-                        popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                        buildStage('oraclelinux:8', '--debug=1 --build_tarball=1')
-                        if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
-                    }
-                }
-            }
-        }
-    }
-
-    if (shouldRun('Oracle Linux 9 tarball')) {
-        stagesMap['Oracle Linux 9 tarball'] = {
-            stage('Oracle Linux 9 tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                if (fipsMode == 'YES') {
+                    echo 'The step is skipped'
+                } else {
                     cleanUpWS()
                     installCli('rpm')
                     unstash 'properties'
                     popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('oraclelinux:9', '--build_tarball=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('oraclelinux:9', '--build_tarball=1')
-                    }
+                    buildStage('oraclelinux:8', '--build_tarball=1')
                     if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
                 }
             }
         }
     }
 
-    if (shouldRun('Oracle Linux 9 ZenFS tarball')) {
-        stagesMap['Oracle Linux 9 ZenFS tarball'] = {
-            stage('Oracle Linux 9 ZenFS tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        echo 'The step is skipped'
-                    } else {
-                        buildStage('oraclelinux:9', '--build_tarball=1 --with_zenfs=1')
-                        if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
-                    }
-                }
+    stagesMap['Oracle Linux 8 debug tarball'] = {
+        stage('Oracle Linux 8 debug tarball') {
+            if (!shouldRun('Oracle Linux 8 debug tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
             }
-        }
-    }
-
-    if (shouldRun('Oracle Linux 9 debug tarball')) {
-        stagesMap['Oracle Linux 9 debug tarball'] = {
-            stage('Oracle Linux 9 debug tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                if (fipsMode == 'YES') {
+                    echo 'The step is skipped'
+                } else {
                     cleanUpWS()
                     installCli('rpm')
                     unstash 'properties'
                     popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('oraclelinux:9', '--debug=1 --build_tarball=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('oraclelinux:9', '--debug=1 --build_tarball=1')
-                    }
+                    buildStage('oraclelinux:8', '--debug=1 --build_tarball=1')
                     if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
                 }
             }
         }
     }
 
-    if (shouldRun('Ubuntu Jammy(22.04) tarball')) {
-        stagesMap['Ubuntu Jammy(22.04) tarball'] = {
-            stage('Ubuntu Jammy(22.04) tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:jammy', '--build_tarball=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:jammy', '--build_tarball=1')
-                    }
+    stagesMap['Oracle Linux 9 tarball'] = {
+        stage('Oracle Linux 9 tarball') {
+            if (!shouldRun('Oracle Linux 9 tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('oraclelinux:9', '--build_tarball=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('oraclelinux:9', '--build_tarball=1')
+                }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
+            }
+        }
+    }
+
+    stagesMap['Oracle Linux 9 ZenFS tarball'] = {
+        stage('Oracle Linux 9 ZenFS tarball') {
+            if (!shouldRun('Oracle Linux 9 ZenFS tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    echo 'The step is skipped'
+                } else {
+                    buildStage('oraclelinux:9', '--build_tarball=1 --with_zenfs=1')
                     if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
                 }
             }
         }
     }
 
-    if (shouldRun('Ubuntu Jammy(22.04) ZenFS tarball')) {
-        stagesMap['Ubuntu Jammy(22.04) ZenFS tarball'] = {
-            stage('Ubuntu Jammy(22.04) ZenFS tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        echo 'The step is skipped'
-                    } else {
-                        buildStage('ubuntu:jammy', '--build_tarball=1 --with_zenfs=1')
-                        if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
-                    }
+    stagesMap['Oracle Linux 9 debug tarball'] = {
+        stage('Oracle Linux 9 debug tarball') {
+            if (!shouldRun('Oracle Linux 9 debug tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('oraclelinux:9', '--debug=1 --build_tarball=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('oraclelinux:9', '--debug=1 --build_tarball=1')
+                }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
+            }
+        }
+    }
+
+    stagesMap['Ubuntu Jammy(22.04) tarball'] = {
+        stage('Ubuntu Jammy(22.04) tarball') {
+            if (!shouldRun('Ubuntu Jammy(22.04) tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:jammy', '--build_tarball=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:jammy', '--build_tarball=1')
+                }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
+            }
+        }
+    }
+
+    stagesMap['Ubuntu Jammy(22.04) ZenFS tarball'] = {
+        stage('Ubuntu Jammy(22.04) ZenFS tarball') {
+            if (!shouldRun('Ubuntu Jammy(22.04) ZenFS tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    echo 'The step is skipped'
+                } else {
+                    buildStage('ubuntu:jammy', '--build_tarball=1 --with_zenfs=1')
+                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
                 }
             }
         }
     }
 
-    if (shouldRun('Ubuntu Jammy(22.04) debug tarball')) {
-        stagesMap['Ubuntu Jammy(22.04) debug tarball'] = {
-            stage('Ubuntu Jammy(22.04) debug tarball') {
-                node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
-                    cleanUpWS()
-                    installCli('rpm')
-                    unstash 'properties'
-                    popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
-                    if (fipsMode == 'YES') {
-                        buildStage('ubuntu:jammy', '--debug=1 --build_tarball=1 --enable_fipsmode=1')
-                    } else {
-                        buildStage('ubuntu:jammy', '--debug=1 --build_tarball=1')
-                    }
-                    if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
+    stagesMap['Ubuntu Jammy(22.04) debug tarball'] = {
+        stage('Ubuntu Jammy(22.04) debug tarball') {
+            if (!shouldRun('Ubuntu Jammy(22.04) debug tarball')) {
+                echo 'Skipped: not in BUILD_STAGES filter'
+                return
+            }
+            node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
+                cleanUpWS()
+                installCli('rpm')
+                unstash 'properties'
+                popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
+                if (fipsMode == 'YES') {
+                    buildStage('ubuntu:jammy', '--debug=1 --build_tarball=1 --enable_fipsmode=1')
+                } else {
+                    buildStage('ubuntu:jammy', '--debug=1 --build_tarball=1')
                 }
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
             }
         }
     }
