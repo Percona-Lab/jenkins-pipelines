@@ -59,7 +59,6 @@ pipeline {
                                     git clone https://github.com/Percona-QA/psmdb-testing
                                     cd psmdb-testing
                                     git checkout ${params.TESTING_BRANCH}
-                                    sudo apt install -y docker-compose-plugin
                                     cd pbm-functional/pytest
                                     cp $PBM_AWS_S3_YML ./conf/pbm/aws.yaml
                                     cp $PBM_GCS_S3_YML ./conf/pbm/gcs.yaml

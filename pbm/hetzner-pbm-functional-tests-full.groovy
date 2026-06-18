@@ -59,7 +59,6 @@ pipeline {
                                     docker rmi -f \$(docker images -q | uniq) || true
                                     sudo rm -rf ./*
                                     docker system prune -f
-                                    sudo apt install -y docker-compose-plugin
                                 """ 
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 sh """
