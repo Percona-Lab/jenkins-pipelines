@@ -28,7 +28,7 @@ pipeline {
             aws s3 ls s3://percona-jenkins-artifactory/percona-server/branch_commit_id_trunk.properties || EC=\$?
 
             if [ \${EC} = 1 ]; then
-              LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} trunk | tail -1)
+              LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} 9.7 | tail -1)
               BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
               COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
 
@@ -42,7 +42,7 @@ pipeline {
               source ./branch_commit_id_trunk.properties
               cat ./branch_commit_id_trunk.properties
 
-              LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} trunk | tail -1)
+              LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} 9.7 | tail -1)
               LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
               LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
 
@@ -80,7 +80,7 @@ pipeline {
                     """
                 }
                 slackNotify("#mysql_operators", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'ps9.0-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'experimental'), string(name: 'BUILD_STAGES', value: 'Oracle Linux 9,Oracle Linux 9 ARM')]
+                build job: 'ps9.0-RELEASE', parameters: [string(name: 'CLOUD', value: AWS), string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'experimental'), string(name: 'BUILD_STAGES', value: 'Oracle Linux 9,Oracle Linux 9 ARM')]
 
             }
         }
