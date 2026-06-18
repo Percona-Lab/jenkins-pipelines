@@ -62,46 +62,17 @@ Map prepareVersions(Map testVariables) {
 
         switch (testVariables.platform_provider?.toLowerCase()) {
             case "rancher":
-                if (!testVariables.rancher_version || testVariables.rancher_version == "latest") {
-                    testVariables.rancher_version = getReleaseVersionsParam(
-                        testVariables.release_versions,
-                        "RANCHER_VERSION"
-                    )
-                }
-                if (!testVariables.cert_manager_version || testVariables.cert_manager_version == "latest") {
-                    testVariables.cert_manager_version = getReleaseVersionsParam(
-                        testVariables.release_versions,
-                        "CERT_MANAGER_VERSION"
-                    )
+                ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
+                    if (!testVariables[field] || testVariables[field] == "latest") {
+                        testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
+                    }
                 }
                 break
 
             case "gcloud":
-                testVariables.gke_version = getReleaseVersionsParam(
-                    testVariables.release_versions,
-                    "GKE_VERSION"
-                )
-                break
-
             case "azure":
-                testVariables.aks_version = getReleaseVersionsParam(
-                    testVariables.release_versions,
-                    "AKS_VERSION"
-                )
-                break
-
             case "redhat":
-                testVariables.openshift_version = getReleaseVersionsParam(
-                    testVariables.release_versions,
-                    "OPENSHIFT_VERSION"
-                )
-                break
-
             case "digitalocean":
-                testVariables.doks_version = getReleaseVersionsParam(
-                    testVariables.release_versions,
-                    "DOKS_VERSION"
-                )
                 break
 
             default:
@@ -109,16 +80,21 @@ Map prepareVersions(Map testVariables) {
         }
 
         if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
+            def platformPrefix = [
+                "gcloud"      : "GKE",
+                "azure"       : "AKS",
+                "redhat"      : "OPENSHIFT",
+                "digitalocean": "DOKS",
+                "rancher"     : "RKE2",
+            ][testVariables.platform_provider?.toLowerCase()]
+
             testVariables.platform_version = getReleaseVersionsParam(
                 testVariables.release_versions,
-                "PLATFORM_VER"
+                "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
             )
+
             platformFromReleaseVersions = true
         }
-
-        testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
-            testVariables.platform_version
-        )
 
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
