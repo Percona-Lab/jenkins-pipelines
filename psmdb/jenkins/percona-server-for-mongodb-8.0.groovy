@@ -33,11 +33,12 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 //       rbeEnabled is true it appends `-e PSMDB_RBE_*` to the docker run line
 //       so the four env vars cross the container boundary; with `-e VAR` (no
 //       `=value`) docker inherits the value from the surrounding shell, so
-//       `set -o xtrace` won't leak the Bearer token. install_deps is no
-//       longer invoked from this helper because runner images already have
-//       it baked in — to fall back to a stock distro image, restore the
-//       legacy `--install_deps=1` call and switch runnerImage() to a stock
-//       distro reference (e.g. "ubuntu:noble").
+//       `set -o xtrace` won't leak the Bearer token. An explicit
+//       `--install_deps=1` call runs before every build: the runner
+//       images don't reliably carry a complete/up-to-date dep set, and
+//       missing packages were silently dropping files from the produced
+//       packages (ported from 8.3 / PSMDB-2055). The ~5–10 min apt/dnf
+//       phase is the cost of correctness here.
 // -----------------------------------------------------------------------------
 String runnerImage(String distro) {
     return "docker.io/perconalab/psmdb-rbe:${distro}-8.0"
@@ -113,25 +114,47 @@ def withRBE(Closure body) {
         ]) {
             // Seed the file with the initial token so the first helper
             // invocation is unblocked even before the sidecar produces
-            // a write.
-            writeFile(file: "${tokenFile}.tmp", text: env.PSMDB_RBE_JENKINS_TOKEN, encoding: 'UTF-8')
-            sh "chmod 600 ${tokenFile}.tmp && mv ${tokenFile}.tmp ${tokenFile}"
+            // a write. A single sh (umask 077 + printf + atomic mv)
+            // collapses writeFile+chmod+mv into one Pipeline UI step.
+            sh '''
+                set -e
+                umask 077
+                printf '%s' "$PSMDB_RBE_JENKINS_TOKEN" > "${PSMDB_RBE_JENKINS_TOKEN_FILE}.tmp"
+                mv "${PSMDB_RBE_JENKINS_TOKEN_FILE}.tmp" "${PSMDB_RBE_JENKINS_TOKEN_FILE}"
+            '''
 
             parallel(
                 'token-refresh': {
                     timeout(time: 24, unit: 'HOURS') {
-                        waitUntil(initialRecurrencePeriod: 50 * 60 * 1000, quiet: true) {
-                            if (fileExists(doneFlag)) { return true }
+                        // PSMDB-2057: plain while + sleep instead of waitUntil.
+                        // waitUntil ignores initialRecurrencePeriod on this
+                        // Jenkins and spins with a ≤15s backoff, flooding the
+                        // stage log with writeFile/chmod/fileExists triples for
+                        // the whole multi-hour build. A while loop with an
+                        // explicit sleep(50 MINUTES) emits one sh + one Sleep
+                        // step per cycle (~3 over a 2h build). The exit-42
+                        // sentinel doubles as the done-check, dropping the
+                        // separate fileExists step.
+                        boolean done = false
+                        while (!done) {
                             withCredentials([
                                 string(
                                     credentialsId: params.PSMDB_RBE_OIDC_CREDENTIALS_ID,
                                     variable: 'TOK'
                                 )
                             ]) {
-                                writeFile(file: "${tokenFile}.tmp", text: env.TOK, encoding: 'UTF-8')
-                                sh "chmod 600 ${tokenFile}.tmp && mv ${tokenFile}.tmp ${tokenFile}"
+                                int rc = sh(returnStatus: true, script: """
+                                    set -e
+                                    if [ -f '${doneFlag}' ]; then exit 42; fi
+                                    umask 077
+                                    printf '%s' "\$TOK" > '${tokenFile}.tmp'
+                                    mv '${tokenFile}.tmp' '${tokenFile}'
+                                """)
+                                done = (rc == 42) // )))
                             }
-                            return false
+                            if (!done) {
+                                sleep(time: 50, unit: 'MINUTES')
+                            }
                         }
                     }
                 },
@@ -177,6 +200,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
             set -o xtrace
             cd \${build_dir}
             ls -laR ./
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
     """
 }
