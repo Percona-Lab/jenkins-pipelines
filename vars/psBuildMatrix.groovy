@@ -335,11 +335,6 @@ def call(Map args = [:]) {
         def fipsFl     = s.fipsFlags
         def skip       = s.skipInFips
 
-        // Whitelist filter — skip if onlyStages is set and this stage isn't in it
-        if (onlyStages && !onlyStages.contains(stageName)) {
-            return
-        }
-
         def sourceFolder = artifactFolders[buildType][0]
         def targetFolder = artifactFolders[buildType][1]
         def versionConstraint = s.get('versionConstraint', null)
@@ -354,6 +349,12 @@ def call(Map args = [:]) {
 
         branches[stageName] = {
             stage(stageName) {
+                // Skip stages not in the BUILD_STAGES filter
+                if (onlyStages && !onlyStages.contains(stageName)) {
+                    echo "Skipped: not in BUILD_STAGES filter"
+                    return
+                }
+
                 // Skip stages marked skipInFips when FIPS mode is active
                 if (skip && fipsMode == 'YES') {
                     echo "Skipping '${stageName}' (not supported in FIPS mode)"

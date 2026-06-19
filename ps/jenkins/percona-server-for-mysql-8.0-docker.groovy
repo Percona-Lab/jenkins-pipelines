@@ -245,7 +245,7 @@ parameters {
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
-                            sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" ${Dockerfile}
+                            sed -i "s/ENV PS_REPO .*/ENV PS_REPO ${COMPONENT}/g" ${Dockerfile}
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}.aarch64
@@ -270,6 +270,7 @@ parameters {
                             case ${PS_MAJOR_RELEASE} in
                                 80) echo "no sed command is required" ;;
                                 84) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts ${COMPONENT}/g" Dockerfile ;;
+                                97) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-97-lts ${COMPONENT}/g" Dockerfile ;;
                                 *) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-9x-innovation ${COMPONENT}/g" Dockerfile ;;
                             esac
 
