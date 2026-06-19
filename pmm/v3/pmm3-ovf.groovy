@@ -4,7 +4,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         string(
@@ -38,7 +38,7 @@ pipeline {
                     if (params.RELEASE_CANDIDATE == 'yes') {
                         // release branch should be in the format: pmm-3.x.y
                         env.PMM_VERSION = PMM_BRANCH.split('-')[1]
-                    } else if (params.PMM_BRANCH != 'v3') {
+                    } else if (params.PMM_BRANCH != 'main') {
                         env.PMM_VERSION = '3-dev-' + PMM_BRANCH
                     }
                 }

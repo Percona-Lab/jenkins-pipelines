@@ -272,7 +272,7 @@ pipeline {
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
                         echo "Docker tag is: \$DOCKER_TAG"
 
-                        wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
+                        wget https://raw.githubusercontent.com/percona/pmm/refs/heads/main/get-pmm.sh
                         chmod +x get-pmm.sh
                         ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "\$DOCKER_TAG" --repo "\$DOCKER_REPO"
 
