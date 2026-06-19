@@ -33,12 +33,13 @@ pipeline {
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     def tags = sh(
                         script: '''set -e
-curl -sf "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags?page_size=5" \
-    | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort -V''',
+json=$(curl -sf "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags?page_size=100")
+echo "$json" | jq -e '.results' >/dev/null
+echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort -V || true''',
                         returnStdout: true
                     ).trim().split('\n').findAll { it }
                     if (tags.size() < 2) {
-                        error('Need at least two released PMM 3.x percona/pmm-server tags on Docker Hub')
+                        error('Need at least two released PMM 3.x.y percona/pmm-server tags on Docker Hub after filtering semver tags')
                     }
                     def prevVersion = tags[-2]
                     def latestVersion = tags[-1]
