@@ -128,7 +128,7 @@ pipeline {
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export DOCKERFILE=Dockerfile.el9
                     if [ -n "${DOCKER_RC_TAG}" ]; then
-                        export PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check.percona.com
+                        export PMM_PERCONA_PLATFORM_ADDRESS=https://check.percona.com
                     fi
 
                     ${PATH_TO_SCRIPTS}/build-server-docker
