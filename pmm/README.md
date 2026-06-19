@@ -2,7 +2,6 @@
 
 ## Important directories in repo
 
-- [CloudFormation for PMM Jenkins](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/IaC/pmm.cd)
 - [PMM pipelines](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/pmm)
 - [Jenkins variable (named helpers in this doc)](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/vars)
 
