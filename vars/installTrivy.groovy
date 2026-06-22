@@ -15,7 +15,7 @@
 
 def call(Map args = [:]) {
     def TRIVY_VERSION    = "0.71.2"
-    def CHECKSUM_AMD64   = "0510e71e2fd39bf863856d499c8dc19feb4e7336546394c502a8f5cc7ab27461"
+    def CHECKSUM_AMD64   = "0510e71e2fd39bf863856d499c8dc19feb4e7336546394c502a8f5cc7ab27460"
     def CHECKSUM_ARM64   = "fe1c7106e15a5365d485b098a8c338f91e3b7ba71cb0e4963b98a3a098763cfc"
 
     def method    = args.get('method', 'auto')
