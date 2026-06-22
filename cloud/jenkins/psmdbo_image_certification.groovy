@@ -38,6 +38,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_MONGOD60':
         case 'IMAGE_MONGOD70':
         case 'IMAGE_MONGOD80':
+        case 'IMAGE_MONGOD83':
             return target(image, projectId, "${params.RELEASE}-psmdb-${imageTag(image)}", credentials)
 
         case 'IMAGE_BACKUP':
@@ -77,6 +78,7 @@ pipeline {
         booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Certify IMAGE_MONGOD60')
         booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Certify IMAGE_MONGOD70')
         booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Certify IMAGE_MONGOD80')
+        booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Certify IMAGE_MONGOD83')
         booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Certify IMAGE_BACKUP')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
         booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
