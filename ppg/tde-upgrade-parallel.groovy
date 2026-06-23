@@ -54,8 +54,17 @@ pipeline {
                          'When disabled, pg_tde is built from source using FROM_TDE_BRANCH / TO_TDE_BRANCH.'
         )
         choice(
-            name: 'REPO',
-            description: 'Percona repository channel. Only applicable when INSTALL_FROM_PACKAGES is enabled.',
+            name: 'FROM_REPO',
+            description: 'Percona repository channel for the FROM version. Only applicable when INSTALL_FROM_PACKAGES is enabled.',
+            choices: [
+                'testing',
+                'experimental',
+                'release'
+            ]
+        )
+        choice(
+            name: 'TO_REPO',
+            description: 'Percona repository channel for the TO version. Only applicable when INSTALL_FROM_PACKAGES is enabled.',
             choices: [
                 'testing',
                 'experimental',
