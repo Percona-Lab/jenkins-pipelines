@@ -16,19 +16,19 @@ pipeline {
         )
         string(
             name: 'FROM_VERSION',
-            defaultValue: 'ppg-16.8',
-            description: 'PostgreSQL version to install before the upgrade, e.g. ppg-16.8, ppg-17.4'
+            defaultValue: 'ppg-17.10',
+            description: 'PostgreSQL version to install before the upgrade, e.g. ppg-17.10, ppg-18.3'
         )
         string(
             name: 'TO_VERSION',
-            defaultValue: 'ppg-16.9',
-            description: 'PostgreSQL version to upgrade to, e.g. ppg-16.9 (minor) or ppg-17.4 (major)'
+            defaultValue: 'ppg-18.4',
+            description: 'PostgreSQL version to upgrade to, e.g. ppg-18.4 (minor) or ppg-19.0 (major)'
         )
         choice(
             name: 'UPGRADE_TYPE',
             description: 'Type of upgrade to perform. ' +
-                         'server_minor: PostgreSQL minor-version update within the same major (e.g. ppg-17.4 -> ppg-17.5), via package update + restart. ' +
-                         'server_major: PostgreSQL major-version upgrade (e.g. ppg-16.x -> ppg-17.x), via pg_tde_upgrade --link. ' +
+                         'server_minor: PostgreSQL minor-version update within the same major (e.g. ppg-17.10 -> ppg-17.11), via package update + restart. ' +
+                         'server_major: PostgreSQL major-version upgrade (e.g. ppg-17.x -> ppg-18.x), via pg_tde_upgrade --link. ' +
                          'tde_only: keep FROM_VERSION == TO_VERSION and upgrade only pg_tde. ' +
                          'For server_minor/server_major, whether pg_tde is also upgraded is controlled by TDE_UPGRADE.',
             choices: [
@@ -48,12 +48,13 @@ pipeline {
         booleanParam(
             name: 'INSTALL_FROM_PACKAGES',
             defaultValue: true,
-            description: 'Install pg_tde from Percona packages. ' +
+            description: 'Controls how pg_tde is installed; the PostgreSQL server is always installed from Percona packages regardless of this setting. ' +
+                         'When enabled, pg_tde is installed from Percona packages (FROM_REPO/TO_REPO channel). ' +
                          'When disabled, pg_tde is built from source using FROM_TDE_BRANCH / TO_TDE_BRANCH.'
         )
         choice(
             name: 'FROM_REPO',
-            description: 'Percona repository channel for the FROM version. Only applicable when INSTALL_FROM_PACKAGES is enabled.',
+            description: 'Percona repository channel for the FROM version. Always used for the PostgreSQL server packages; also used for pg_tde packages when INSTALL_FROM_PACKAGES is enabled.',
             choices: [
                 'testing',
                 'experimental',
@@ -62,7 +63,7 @@ pipeline {
         )
         choice(
             name: 'TO_REPO',
-            description: 'Percona repository channel for the TO version. Only applicable when INSTALL_FROM_PACKAGES is enabled.',
+            description: 'Percona repository channel for the TO version. Always used for the PostgreSQL server packages; also used for pg_tde packages when INSTALL_FROM_PACKAGES is enabled.',
             choices: [
                 'testing',
                 'experimental',
