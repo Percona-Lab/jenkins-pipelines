@@ -34,7 +34,7 @@ pipeline {
         )
         booleanParam(
             name: 'TDE_UPGRADE',
-            defaultValue: false,
+            defaultValue: true,
             description: 'Also upgrade pg_tde during the server upgrade. ' +
                          'Packages path: updates pg_tde package to latest. ' +
                          'Source path: rebuilds pg_tde from TO_TDE_BRANCH.'
