@@ -252,7 +252,7 @@ parameters {
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" ${Dockerfile}.aarch64
                             sudo docker --version
 
-                            if [ ${COMPONENT} == "experimental" ]; then
+                            if [ ${COMPONENT} = "experimental" ]; then
                                 FR_BUILD="-fr"
                             else
                                 FR_BUILD=""
@@ -374,8 +374,21 @@ parameters {
                     installTrivy(method: 'apt')
 
                 // 🔹 Define the image tags
-                    def PS_RELEASE = "${BRANCH}".replace('release-', '')
-                    def FR_BUILD = (env.COMPONENT in ['experimental']) ? '-fr' : '' 
+                    def PS_RELEASE = sh(returnStdout: true, script: """
+                        if echo '${BRANCH}' | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+\$'; then
+                            echo '${BRANCH}' | sed 's/release-//g'
+                        else
+                            TMP=\$(mktemp)
+                            curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "\${TMP}"
+                            VER_MAJOR=\$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            VER_MINOR=\$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            VER_PATCH=\$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            VER_EXTRA=\$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            rm -f "\${TMP}"
+                            echo "\${VER_MAJOR}.\${VER_MINOR}.\${VER_PATCH}\${VER_EXTRA}"
+                        fi
+                    """).trim()
+                    def FR_BUILD = (env.COMPONENT in ['experimental']) ? '-fr' : ''
                     def imageList = [
                         "${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64",
                         "${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64",
