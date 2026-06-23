@@ -30,20 +30,6 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runOVFStagingStart(String OVA_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: OVA_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-    ]
-    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP
-    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
-    env.ADMIN_PASSWORD = "admin"
-}
-
 def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD) {
     def clusterName = "nightly-test-${env.BUILD_NUMBER}"
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
@@ -123,17 +109,13 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
+            choices: ['docker', 'ami', 'helm', 'ha'],
             description: 'PMM Server installation type.',
             name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
-        string(
-            defaultValue: 'https://percona-vm.s3.amazonaws.com/PMM3-Server-3.8.0.ova',
-            description: 'ova url',
-            name: 'OVA_VERSION')
         string(
             defaultValue: 'latest-tarball',
             description: 'PMM Client version',
@@ -182,17 +164,6 @@ pipeline {
                     }
                     steps {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('Setup OVF PMM Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ovf" }
-                    }
-                    steps {
-                        runOVFStagingStart(OVA_VERSION, PMM_QA_GIT_BRANCH)
-                        script {
-                            env.ADMIN_PASSWORD = "admin"
-                        }
                     }
                 }
                 stage('Setup AMI PMM Server Instance') {
@@ -304,11 +275,6 @@ pipeline {
             script {
                 // Always tear down the server first — server lifecycle must
                 // match this build's outcome regardless of GH workflow result.
-                if (env.SERVER_TYPE == "ovf" && env.OVF_INSTANCE_NAME) {
-                    build job: 'pmm-ovf-staging-stop', parameters: [
-                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
-                    ]
-                }
                 if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
                     build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),

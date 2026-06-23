@@ -38,17 +38,6 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     env.PMM_UI_URL = "https://${env.VM_IP}/"
 }
 
-void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-    ]
-    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP
-    env.PMM_UI_URL = "https://${env.OVF_INSTANCE_IP}/"
-}
-
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID)
@@ -119,10 +108,9 @@ pipeline {
 
   parameters {
     // --- SERVER CONFIGURATION ---
-    choice(name: 'SERVER_TYPE', choices: ['docker', 'ovf', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type: docker (Basic Setup), ovf (PMM OVA/OVF image), ami (AWS EC2 AMI), helm (OpenShift), ha (High Availability).')
+    choice(name: 'SERVER_TYPE', choices: ['docker', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type: docker (Basic Setup), ami (AWS EC2 AMI), helm (OpenShift), ha (High Availability).')
 
-    string(name: 'DOCKER_VERSION', defaultValue: 'perconalab/pmm-server:3-dev-latest', description: '[Docker/Helm/HA] PMM Server docker image (image-name:version-tag, e.g., perconalab/pmm-server:3-dev-latest). Ignored if OVF/AMI selected.')
-    string(name: 'OVA_VERSION', defaultValue: 'PMM3-Server-OVF-3.0.0-latest.ova', description: '[OVF Only] PMM Server OVA file name (e.g., PMM3-Server-OVF-3.0.0-latest.ova)')
+    string(name: 'DOCKER_VERSION', defaultValue: 'perconalab/pmm-server:3-dev-latest', description: '[Docker/Helm/HA] PMM Server docker image (image-name:version-tag, e.g., perconalab/pmm-server:3-dev-latest). Ignored if AMI selected.')
     string(name: 'AMI_ID', defaultValue: 'ami-0669b163befffb6c3', description: '[AMI Only] AWS AMI ID (e.g., ami-0669b163befffb6c3). Ignored for others.')
 
     // --- GLOBAL SETTINGS & VERSIONS ---
@@ -210,12 +198,6 @@ pipeline {
                   when { expression { params.SERVER_TYPE == "docker" } }
                   steps {
                       runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin', SSH_KEY)
-                  }
-              }
-              stage('Setup OVF Server') {
-                  when { expression { params.SERVER_TYPE == "ovf" } }
-                  steps {
-                      runOVFStagingStart(OVA_VERSION, PMM_QA_GIT_BRANCH)
                   }
               }
               stage('Setup AMI Server') {
@@ -463,10 +445,7 @@ pipeline {
 
 void cleanupResources(String slackStatus = 'aborted/failed/cleaned up') {
     // 1. Clean Server based on Type
-    if (env.SERVER_TYPE == "ovf" && env.OVF_INSTANCE_NAME) {
-         build job: 'pmm-ovf-staging-stop', parameters: [ string(name: 'VM', value: env.OVF_INSTANCE_NAME) ]
-    }
-    else if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
+    if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
          build job: 'pmm3-ami-staging-stop', parameters: [ string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID) ]
     }
     else if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {

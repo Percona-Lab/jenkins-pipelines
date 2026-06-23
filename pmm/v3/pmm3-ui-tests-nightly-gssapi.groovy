@@ -136,7 +136,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami'],
+            choices: ['docker', 'ami'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -278,11 +278,6 @@ pipeline {
                 }
             }
             script {
-                if (env.SERVER_TYPE == "ovf") {
-                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
-                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
-                    ]
-                }
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),

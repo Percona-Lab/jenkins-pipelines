@@ -211,17 +211,6 @@ pipeline {
 
                 stage('Lane 2') {
                     stages {
-                        stage('nightly (OVF)') {
-                            steps {
-                                script {
-                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ovf)', [
-                                        SERVER_TYPE    : 'ovf',
-                                        OVA_VERSION    : "https://percona-vm.s3.amazonaws.com/PMM3-Server-${params.RC_VERSION.trim()}.ova",
-                                        ADMIN_PASSWORD : 'admin1',
-                                    ])
-                                }
-                            }
-                        }
                         stage('nightly (Docker)') {
                             steps {
                                 script {
