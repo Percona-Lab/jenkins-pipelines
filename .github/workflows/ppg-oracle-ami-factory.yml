@@ -1,0 +1,200 @@
+# Oracle Linux package-test AMI factory.
+# Bakes OL8/OL9 (and later OL10) x86_64+arm64 AMIs with Packer over AWS Session
+# Manager (no inbound SSH), authenticated via GitHub OIDC (no static keys), and
+# promotes each via a fresh-boot smoke test. Consumer: pg.cd molecule jobs select
+# the newest role=ppg-package-test AMI by tag (vars/moleculeEnvPPG.groovy).
+#
+# Triggers: recipe change (paths), weekly security rebake (cron), manual.
+# Actions are pinned to commit SHAs; the trailing "# vX.Y.Z" records the tag.
+
+name: ppg-oracle-ami-factory
+run-name: ppg OL AMI factory (${{ inputs.env || 'prod' }}, ${{ github.event_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      combos:
+        description: 'JSON matrix include list, e.g. [{"os_major":"9","arch":"x86_64"}]'
+        required: false
+        default: '[{"os_major":"9","arch":"x86_64"}]'
+      env:
+        description: 'prod (real factory tags) or test (isolated tags, never consumed by pg.cd)'
+        required: false
+        default: 'prod'
+        type: choice
+        options: [prod, test]
+  push:
+    branches: [master]
+    paths:
+      - 'ppg/packer/**'
+      - '.github/workflows/ppg-oracle-ami-factory.yml'
+  schedule:
+    - cron: '0 6 * * 1' # weekly Mon 06:00 UTC - absorb Oracle security errata
+
+permissions:
+  contents: read # workflow-level default: read-only
+
+concurrency:
+  group: ppg-ami-factory-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  FACTORY_ENV: ${{ github.event.inputs.env || 'prod' }}
+
+jobs:
+  # No-AWS gate: a malformed template or bad combo fails HERE, before bake spins
+  # up any EC2. Mirrors the local `just check` (fmt-check + validate every combo +
+  # smoke). No id-token, so this job can never assume the factory role.
+  check:
+    name: Validate templates (no AWS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@3286471d6cc6756d056a0b199fea5e0becdbc189 # v3.3.0
+        with:
+          version: '1.15.4' # exact, matches the bake job
+
+      - name: fmt-check + validate (fail before any EC2 spend)
+        working-directory: ppg/packer
+        run: |
+          set -euo pipefail
+          packer fmt -check -diff .
+          packer fmt -check -diff smoke
+          packer init .
+          for m in 8 9 10; do
+            for a in x86_64 arm64; do
+              echo "validate OL$m $a"
+              packer validate -var "os_major=$m" -var "arch=$a" .
+            done
+          done
+          ( cd smoke && packer init . && packer validate \
+              -var candidate_ami=ami-00000000000000000 \
+              -var os_major=9 -var arch=x86_64 . )
+          echo "check OK"
+
+  bake:
+    name: OL${{ matrix.os_major }} ${{ matrix.arch }}
+    needs: check # no EC2 launches until templates validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write # ONLY this job mints the OIDC token
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(github.event.inputs.combos || '[{"os_major":"8","arch":"x86_64"},{"os_major":"8","arch":"arm64"},{"os_major":"9","arch":"x86_64"},{"os_major":"9","arch":"arm64"},{"os_major":"10","arch":"x86_64"},{"os_major":"10","arch":"arm64"}]') }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          # No repo secret needed: falls back to the prod OIDC role ARN when the secret is unset.
+          # Security is the role's OIDC trust (master-only), not ARN secrecy; a fork may override.
+          role-to-assume: ${{ secrets.PPG_AMI_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-ami-factory' }}
+          role-session-name: ppg-ami-factory-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Session Manager plugin
+        run: |
+          set -euo pipefail
+          if ! command -v session-manager-plugin >/dev/null; then
+            curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/smp.deb
+            sudo dpkg -i /tmp/smp.deb
+          fi
+          session-manager-plugin --version
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@3286471d6cc6756d056a0b199fea5e0becdbc189 # v3.3.0
+        with:
+          # Exact version, never a constraint: setup-packer uses this string verbatim
+          # as the tool-cache path segment, so a space/'>' in a constraint like
+          # ">= 1.12.0" breaks the post-install `packer version` check. Bump deliberately.
+          version: '1.15.4'
+
+      - name: Packer init
+        working-directory: ppg/packer
+        run: packer init .
+
+      - name: Build candidate AMI (OL${{ matrix.os_major }} ${{ matrix.arch }}, env=${{ env.FACTORY_ENV }})
+        id: build
+        working-directory: ppg/packer
+        # Matrix values via env, not inline ${{ }}, so they reach packer as data
+        # (quoted shell vars) and cannot break out of the run shell.
+        env:
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          rm -f manifest.json
+          packer build -color=false \
+            -var "os_major=${OS_MAJOR}" \
+            -var "arch=${ARCH}" \
+            -var "region=${AWS_REGION}" \
+            -var "env=${FACTORY_ENV}" .
+          AMI=$(python3 -c "import json;print(json.load(open('manifest.json'))['builds'][-1]['artifact_id'].split(':')[-1])")
+          echo "ami=$AMI" >> "$GITHUB_OUTPUT"
+          echo "built candidate: $AMI"
+          {
+            echo "### OL${OS_MAJOR} ${ARCH}"
+            echo "- built: $AMI"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test (boot + install)
+        working-directory: ppg/packer
+        env:
+          AMI: ${{ steps.build.outputs.ami }}
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          echo "smoke candidate: $AMI"
+          # Deregister ONLY on a real boot/install failure (never on a later promote-tag failure).
+          ( cd smoke && packer init . && packer build -color=false \
+              -var "candidate_ami=$AMI" -var "os_major=${OS_MAJOR}" \
+              -var "arch=${ARCH}" -var "region=${AWS_REGION}" . ) \
+          || { echo "smoke (boot+install) failed; deregistering $AMI + its snapshots"; aws ec2 deregister-image --delete-associated-snapshots --region "$AWS_REGION" --image-id "$AMI"; echo "- smoke: FAIL (deregistered $AMI)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          echo "- smoke: pass" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote (env=${{ env.FACTORY_ENV }})
+        working-directory: ppg/packer
+        env:
+          AMI: ${{ steps.build.outputs.ami }}
+        run: |
+          set -euo pipefail
+          pr=ppg-package-test; [ "$FACTORY_ENV" = "test" ] && pr=ppg-test-package-test
+          # Promote SEPARATELY with retry: a transient tag failure must NOT delete a smoke-passed AMI.
+          for a in 1 2 3 4 5; do
+            aws ec2 create-tags --region "$AWS_REGION" --resources "$AMI" --tags Key=role,Value="$pr" Key=smoke,Value=passed && { echo "promoted $AMI -> $pr"; break; }
+            [ "$a" = 5 ] && { echo "promotion FAILED after retries for smoke-passed $AMI; left intact for manual promote"; echo "- promote: FAILED ($AMI left for manual promote)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+            echo "promote attempt $a failed; retry in $((a * 5))s"; sleep $((a * 5))
+          done
+          echo "- promote: $pr" >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    needs: bake
+    if: failure()
+    runs-on: ubuntu-latest
+    # Job-level so the step `if` below reads it reliably; a step-scoped env can be
+    # unavailable to its own step's `if`, which would skip the alert silently.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
+    steps:
+      - name: Slack on failure
+        # Skip cleanly when the webhook secret is unset (e.g. fork tests), so a real
+        # bake failure is not masked by a second "missing webhook" failure.
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "PPG-OL-AMI factory FAILED - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
