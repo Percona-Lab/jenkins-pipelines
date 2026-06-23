@@ -34,18 +34,24 @@ pipeline {
         )
         choice(
             name: 'UPGRADE_TYPE',
-            description: 'Type of upgrade to perform.',
+            description: 'Type of upgrade to perform. ' +
+                         'server_minor: PostgreSQL minor-version update within the same major (e.g. ppg-17.4 -> ppg-17.5), via package update + restart. ' +
+                         'server_major: PostgreSQL major-version upgrade (e.g. ppg-16.x -> ppg-17.x), via pg_tde_upgrade --link. ' +
+                         'tde_only: keep FROM_VERSION == TO_VERSION and upgrade only pg_tde. ' +
+                         'For server_minor/server_major, whether pg_tde is also upgraded is controlled by TDE_UPGRADE.',
             choices: [
-                'minor',
-                'major'
+                'server_minor',
+                'server_major',
+                'tde_only'
             ]
         )
         booleanParam(
             name: 'TDE_UPGRADE',
             defaultValue: true,
-            description: 'Also upgrade pg_tde during the server upgrade. ' +
+            description: 'Also upgrade pg_tde during a server_minor/server_major upgrade. ' +
                          'Packages path: updates pg_tde package to latest. ' +
-                         'Source path: rebuilds pg_tde from TO_TDE_BRANCH.'
+                         'Source path: rebuilds pg_tde from TO_TDE_BRANCH. ' +
+                         'Ignored when UPGRADE_TYPE=tde_only (that mode always upgrades pg_tde).'
         )
         booleanParam(
             name: 'INSTALL_FROM_PACKAGES',
