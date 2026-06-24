@@ -3,14 +3,38 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade) {
+def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, installFromPackages, fromRepo, toRepo, fromTdeBranch, toTdeBranch) {
     def status = currentBuild.result == 'SUCCESS' ? '*SUCCESS*' : '*FAILURE*'
     def color  = currentBuild.result == 'SUCCESS' ? 'good'     : 'danger'
+
+    def tdeOn = (tdeUpgrade.toString() == 'true')
+
+    // Derived, human-readable upgrade-type label.
+    // tde_only always upgrades pg_tde, so its label is the same regardless of TDE_UPGRADE.
+    def upgradeTypeLabel
+    if (upgradeType == 'tde_only') {
+        upgradeTypeLabel = 'same_server_with_tde_upgrade_only'
+    } else if (tdeOn) {
+        upgradeTypeLabel = "${upgradeType}_upgrade_with_tde_upgrade"
+    } else {
+        upgradeTypeLabel = "${upgradeType}_upgrade"
+    }
+
+    // Show repo channels when installing pg_tde from packages, otherwise the source branches.
+    def sourceLines
+    if (installFromPackages.toString() == 'true') {
+        sourceLines = """FROM_REPO: ${fromRepo}
+TO_REPO: ${toRepo}"""
+    } else {
+        sourceLines = """FROM_TDE_BRANCH: ${fromTdeBranch}
+TO_TDE_BRANCH: ${toTdeBranch}"""
+    }
+
     def summary = """Job: ${env.JOB_NAME}
 FROM_VERSION: ${fromVersion}
 TO_VERSION: ${toVersion}
-UPGRADE_TYPE: ${upgradeType}
-TDE_UPGRADE: ${tdeUpgrade}
+UPGRADE_TYPE: ${upgradeTypeLabel}
+${sourceLines}
 Status: ${status}
 Build Report: ${env.BUILD_URL}"""
     slackSend color: color, message: summary, channel: '#postgresql-test'
@@ -150,7 +174,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE)
+                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH)
             }
             archiveArtifacts(
                 artifacts: 'pg_tde/upgrade/artifacts/**/*.tar.gz',
