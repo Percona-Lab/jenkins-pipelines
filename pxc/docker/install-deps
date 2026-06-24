@@ -29,17 +29,17 @@ wget_loop() {
     retry wget --progress=dot:giga -O "${DOWNLOAD_ROOT}/${FILE}" "${URL}"
 }
 
-# Distro facts computed once. AL2023 does not define %rhel, so use a sentinel
-# to keep the RHVER arithmetic comparisons in the rest of the script reliable.
+# Distro facts. Empty on apt-based systems; computed inside the yum block below.
 RHVER=""
 DIST=""
-if command -v rpm >/dev/null 2>&1; then
+
+if [ -f /usr/bin/yum ]; then
+  # AL2023 does not define %rhel, so use a sentinel to keep the RHVER
+  # arithmetic comparisons throughout this block reliable.
   RHVER="$(rpm --eval %rhel)"
   DIST="$(rpm --eval %dist)"
   [[ "${DIST}" == ".amzn2023" ]] && RHVER=2023
-fi
 
-if [ -f /usr/bin/yum ]; then
   mkdir -p /etc/yum/vars
   rpm --eval %_arch > /etc/yum/vars/basearch
   
@@ -50,7 +50,10 @@ if [ -f /usr/bin/yum ]; then
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
-  if [[ ${RHVER} -lt 10 ]] || [[ "${DIST}" == ".amzn2023" ]]; then
+  # percona-release supplies the (deprecated) tools repo with qpress for the
+  # OL8/OL9/CentOS7 (8.0) builds below. AL2023 (RHVER sentinel 2023) and OL10
+  # build 8.4+/9.7+, which do not install qpress, so they skip it.
+  if [[ ${RHVER} -lt 10 ]]; then
       yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
       percona-release enable-only tools testing
   fi
@@ -59,13 +62,13 @@ if [ -f /usr/bin/yum ]; then
 
   PKGLIST+=" wget"
 
+  # AL2023 has no EPEL and needs none (packages come from base + Percona repo),
+  # so it intentionally matches no branch here.
   if [[ ${RHVER} -eq 10 ]]; then
       retry yum -y install oracle-epel-release-el10
   elif [[ ${RHVER} -eq 8 ]]; then
       retry yum -y install oracle-epel-release-el8
-  elif [[ "${DIST}" == ".amzn2023" ]]; then
-      : # AL2023 has no EPEL; required packages come from base + Percona repo
-  else
+  elif [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 7 ]]; then
       retry yum -y install epel-release
   fi
 
@@ -102,7 +105,6 @@ if [ -f /usr/bin/yum ]; then
   if [[ "${DIST}" == ".amzn2023" ]]; then
       PKGLIST+=" dnf-plugins-core"
       retry yum -y install ${PKGLIST}
-      # AL2023 has no ol*_codeready_builder; libedit-devel is in base
       PKGLIST+=" libedit-devel procps-ng-devel"
   fi
 
@@ -129,14 +131,19 @@ if [ -f /usr/bin/yum ]; then
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
 
-  # AL2023 does not ship a few of the above packages. Strip them out so the
-  # final yum install does not fail. systemd-devel (added in the PXC-specific
-  # block below) substitutes libudev-devel. perl-Sys-MemInfo and ccache are
-  # not strictly required to build pxb on AL2023; skip them.
+  # AL2023 does not ship a few of the above packages. Drop them word-wise so the
+  # final yum install does not fail (order-independent, unlike a substring strip).
+  # systemd-devel (added in the PXC-specific block below) substitutes
+  # libudev-devel. perl-Sys-MemInfo and ccache are not required to build pxb on
+  # AL2023; skip them.
   if [[ "${DIST}" == ".amzn2023" ]]; then
-      for pkg in perl-Sys-MemInfo ccache libudev-devel; do
-          PKGLIST="${PKGLIST// ${pkg} / }"
+      AL2023_SKIP=" perl-Sys-MemInfo ccache libudev-devel "
+      _filtered=""
+      for pkg in ${PKGLIST}; do
+          [[ "${AL2023_SKIP}" == *" ${pkg} "* ]] && continue
+          _filtered+=" ${pkg}"
       done
+      PKGLIST="${_filtered}"
   fi
 
   # mysql-devel / mariadb-connector-c-devel
@@ -146,16 +153,15 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" mysql-devel"
   fi
 
-  # PXC specific
+  # PXC specific (common list; only scons and the netcat package name differ by distro)
+  PKGLIST+=" libmicrohttpd-devel re2-devel check-devel libgcrypt-devel libev-devel vim-common \
+    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools \
+    "
   if [[ "${DIST}" == ".amzn2023" ]]; then
-      # AL2023: drop scons (not in AL2023 base/percona repos, and modern PXB builds with cmake); netcat is named nmap-ncat
-      PKGLIST+=" libmicrohttpd-devel re2-devel check-devel libgcrypt-devel libev-devel vim-common \
-        perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools nmap-ncat \
-        "
+      # AL2023: scons is not packaged (modern builds use cmake); netcat is nmap-ncat.
+      PKGLIST+=" nmap-ncat"
   else
-      PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
-        perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
-        "
+      PKGLIST+=" scons netcat"
   fi
 
   # qpress comes from Percona repo (disabled on OL10 and AL2023; not needed
@@ -272,8 +278,6 @@ if [ -f /usr/bin/yum ]; then
         retry yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}
     elif [[ ${RHVER} -eq 7 ]]; then
         retry yum -y --enablerepo=centos-sclo-rh-testing install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11}
-    elif [[ "${DIST}" == ".amzn2023" ]]; then
-        : # AL2023 has no gcc-toolset; gcc14 was installed via PKGLIST above
     fi
 
     if [[ ${RHVER} -eq 8 ]]; then
