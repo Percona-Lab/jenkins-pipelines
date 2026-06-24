@@ -3,17 +3,109 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+// new helpers:
+//   runnerImage(distro)  -> docker hub ref for the rbe runner (multi-arch, tag <distro>-8.3)
+//   withRBE { }          -> mints/rotates the oidc jwt, exports PSMDB_RBE_* into the container
+String runnerImage(String distro) {
+    return "docker.io/perconalab/psmdb-rbe:${distro}-8.3"
+}
+
+def withRBE(Closure body) {
+    def baseFlags = (params.PSMDB_RBE_BAZEL_FLAGS ?: '').trim()
+    def ciMetadata = [
+        "--build_metadata=BUILD_URL=${env.BUILD_URL}",
+        "--build_metadata=BUILD_NUMBER=${env.BUILD_NUMBER}",
+        "--build_metadata=JOB_NAME=${env.JOB_NAME}",
+        "--build_metadata=ROLE=CI"
+    ].join(' ')
+    def augmentedFlags = "${baseFlags} ${ciMetadata}".trim()
+
+    // the cred helper in the container can't refresh the jwt past its exp, so
+    // builds longer than the ~2h oidc ttl fail mid-build. re-mint it every 50 min
+    // into a file the helper reads; build signals done via a flag file.
+    // the env token stays as fallback.
+    def tokenDir  = "${env.WORKSPACE}/.psmdb_rbe"
+    def tokenFile = "${tokenDir}/token"
+    def doneFlag  = "${tokenDir}/build.done"
+
+    sh "mkdir -p ${tokenDir} && rm -f ${tokenFile} ${doneFlag}"
+
+    withCredentials([
+        string(
+            credentialsId: params.PSMDB_RBE_OIDC_CREDENTIALS_ID,
+            variable: 'PSMDB_RBE_JENKINS_TOKEN'
+        )
+    ]) {
+        withEnv([
+            "PSMDB_RBE_OIDC_ISSUER=${params.PSMDB_RBE_OIDC_ISSUER}",
+            "PSMDB_RBE_OIDC_CONNECTOR_ID=${params.PSMDB_RBE_OIDC_CONNECTOR_ID}",
+            "PSMDB_RBE_BAZEL_FLAGS=${augmentedFlags}",
+            "PSMDB_RBE_JENKINS_TOKEN_FILE=${tokenFile}"
+        ]) {
+            // seed a token so the first build action has one before the loop writes
+            sh '''
+                set -e
+                umask 077
+                printf '%s' "$PSMDB_RBE_JENKINS_TOKEN" > "${PSMDB_RBE_JENKINS_TOKEN_FILE}.tmp"
+                mv "${PSMDB_RBE_JENKINS_TOKEN_FILE}.tmp" "${PSMDB_RBE_JENKINS_TOKEN_FILE}"
+            '''
+
+            parallel(
+                'token-refresh': {
+                    timeout(time: 24, unit: 'HOURS') {
+                        // while+sleep, not waitUntil — waitUntil ignores the period
+                        // here and spins, flooding the log. exit 42 = done.
+                        boolean done = false
+                        while (!done) {
+                            withCredentials([
+                                string(
+                                    credentialsId: params.PSMDB_RBE_OIDC_CREDENTIALS_ID,
+                                    variable: 'TOK'
+                                )
+                            ]) {
+                                int rc = sh(returnStatus: true, script: """
+                                    set -e
+                                    if [ -f '${doneFlag}' ]; then exit 42; fi
+                                    umask 077
+                                    printf '%s' "\$TOK" > '${tokenFile}.tmp'
+                                    mv '${tokenFile}.tmp' '${tokenFile}'
+                                """)
+                                done = (rc == 42) // )))
+                            }
+                            if (!done) {
+                                sleep(time: 50, unit: 'MINUTES')
+                            }
+                        }
+                    }
+                },
+                'build-task': {
+                    try {
+                        body()
+                    } finally {
+                        sh "touch ${doneFlag}"
+                    }
+                },
+                failFast: true
+            )
+        }
+    }
+}
+
+void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = false) {
+    String dockerEnvFlags = ""
+    if (RBE_ENABLED) {
+        dockerEnvFlags = "-e PSMDB_RBE_JENKINS_TOKEN -e PSMDB_RBE_JENKINS_TOKEN_FILE -e PSMDB_RBE_OIDC_ISSUER -e PSMDB_RBE_OIDC_CONNECTOR_ID -e PSMDB_RBE_BAZEL_FLAGS"
+    }
     sh """
         set -o xtrace
         ls -laR ./
-        # Backup properties file if it exists
+        # save the props file before wiping test/
         if [ -f test/percona-server-mongodb-83.properties ]; then
             cp test/percona-server-mongodb-83.properties percona-server-mongodb-83.properties.backup
         fi
         rm -rf test/*
         mkdir -p test
-        # Restore properties file if it was backed up
+        # put it back after the wipe
         if [ -f percona-server-mongodb-83.properties.backup ]; then
             mv percona-server-mongodb-83.properties.backup test/percona-server-mongodb-83.properties
         fi
@@ -21,12 +113,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+        docker run ${dockerEnvFlags} -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             ls -laR ./
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            ls -la ./test/
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
     """
 }
@@ -53,7 +144,7 @@ pipeline {
             description: 'URL for  percona-server-mongodb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'preview-8.3.0-0',
+            defaultValue: 'v8.3',
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
@@ -65,7 +156,7 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.14.1',
+            defaultValue: '100.15.0',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
@@ -77,13 +168,28 @@ pipeline {
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
-            name: 'BUILD_PACKAGES',
-            choices: ['true', 'false'],
-            description: 'Build packages and tarballs (default: true)')
-        choice(
             name: 'TESTS',
             choices: ['yes', 'no'],
             description: 'Run functional tests on packages and tarballs after building')
+        // rbe params, read by percona-packaging + credential_helper.py.
+        // empty PSMDB_RBE_BAZEL_FLAGS turns rbe off and builds locally.
+        string(
+            defaultValue: 'PSMDB-RBE-OIDC',
+            description: 'Jenkins credentialsId of the OIDC token credential (audience=bazel-jenkins). The credential type must be "OpenID Connect ID token" issued by the OIDC Provider plugin.',
+            name: 'PSMDB_RBE_OIDC_CREDENTIALS_ID')
+        string(
+            defaultValue: '',
+            description: 'Dex issuer URL the credential_helper exchanges the Jenkins OIDC token against (RFC 8693 token-exchange).',
+            name: 'PSMDB_RBE_OIDC_ISSUER')
+        // dex connector_id for the token-exchange grant; must match dex.yaml
+        string(
+            defaultValue: 'jenkins-psmdb-rbe',
+            description: 'Dex connector_id form field for the token-exchange grant. Must match `connectors[].id` in dex.yaml.',
+            name: 'PSMDB_RBE_OIDC_CONNECTOR_ID')
+        string(
+            defaultValue: '',
+            description: 'Bazel flags injected by percona-packaging into the bazel build command line. Leave empty to disable RBE.',
+            name: 'PSMDB_RBE_BAZEL_FLAGS')
     }
     options {
         skipDefaultCheckout()
@@ -93,9 +199,6 @@ pipeline {
     }
     stages {
         stage('Create PSMDB source tarball') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             agent {
                 label params.CLOUD == 'AWS' ? 'docker' : 'docker-x64'
             }
@@ -103,10 +206,11 @@ pipeline {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 script {
-                    buildStage("oraclelinux:8", "--get_sources=1")
+                    // source tarball doesn't run bazel, so no rbe needed
+                    buildStage(runnerImage('oraclelinux-8'), "--get_sources=1")
                 }
                 sh '''
-                   # Use 83 properties file; if build script created 80 (or other), copy to 83 for pipeline
+                   # use the 83 props file; if the build wrote a different name, copy it to 83
                    if [ ! -f test/percona-server-mongodb-83.properties ]; then
                        OTHER=$(ls test/percona-server-mongodb-*.properties 2>/dev/null | head -1)
                        if [ -n "$OTHER" ]; then
@@ -135,9 +239,6 @@ pipeline {
             }
         }
         stage('Build PSMDB generic source packages') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             parallel {
                 stage('Build PSMDB generic source rpm') {
                     agent {
@@ -148,7 +249,8 @@ pipeline {
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            buildStage("oraclelinux:8", "--build_src_rpm=1")
+                            // src_rpm is just rpmbuild, no bazel -> no rbe needed
+                            buildStage(runnerImage('oraclelinux-8'), "--build_src_rpm=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -164,7 +266,9 @@ pipeline {
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            buildStage("ubuntu:jammy", "--build_src_deb=1")
+                            // src_deb is just dpkg-buildpackage -S, no bazel -> no rbe needed.
+                            // needs a debian runner for dch/dpkg-dev; ubuntu-jammy by default
+                            buildStage(runnerImage('ubuntu-jammy'), "--build_src_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -173,10 +277,8 @@ pipeline {
             }  //parallel
         } // stage
         stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             parallel {
+                // everything below runs bazel, so wrap in withRBE and pass rbe=true
                 stage('Oracle Linux 8(x86_64)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -185,8 +287,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            buildStage("oraclelinux:8", "--build_rpm=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-8'), "--build_rpm=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -199,8 +303,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            buildStage("oraclelinux:8", "--build_rpm=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-8'), "--build_rpm=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -213,8 +319,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            buildStage("oraclelinux:9", "--build_rpm=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-9'), "--build_rpm=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -227,8 +335,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            buildStage("oraclelinux:9", "--build_rpm=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-9'), "--build_rpm=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -241,8 +351,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            buildStage("amazonlinux:2023", "--build_rpm=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('amazonlinux-2023'), "--build_rpm=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -255,8 +367,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            buildStage("amazonlinux:2023", "--build_rpm=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('amazonlinux-2023'), "--build_rpm=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -269,8 +383,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        script {
-                            buildStage("ubuntu:jammy", "--build_deb=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('ubuntu-jammy'), "--build_deb=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -283,8 +399,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        script {
-                            buildStage("ubuntu:jammy", "--build_deb=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('ubuntu-jammy'), "--build_deb=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -297,8 +415,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        script {
-                            buildStage("ubuntu:noble", "--build_deb=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('ubuntu-noble'), "--build_deb=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -311,8 +431,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        script {
-                            buildStage("ubuntu:noble", "--build_deb=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('ubuntu-noble'), "--build_deb=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -325,8 +447,10 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        script {
-                            buildStage("debian:bookworm", "--build_deb=1")
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-bookworm'), "--build_deb=1", true)
+                            }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -339,9 +463,11 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("oraclelinux:8", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-8'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -353,9 +479,11 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("oraclelinux:9", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-9'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -367,9 +495,11 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("amazonlinux:2023", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('amazonlinux-2023'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -381,9 +511,11 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("ubuntu:jammy", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('ubuntu-jammy'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -395,9 +527,11 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("ubuntu:noble", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('ubuntu-noble'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -409,9 +543,11 @@ pipeline {
                         cleanUpWS()
                         unstash 'psmdb-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("debian:bookworm", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-bookworm'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -419,9 +555,6 @@ pipeline {
         }
 
         stage('Upload packages and tarballs from S3') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             agent {
                 label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
             }
@@ -435,29 +568,19 @@ pipeline {
         }
 
         stage('Sign packages') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             steps {
                 signRPM()
                 signDEB()
             }
         }
         stage('Push to public repository') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             steps {
-                // sync packages
                 script {
                     sync2ProdAutoBuild(params.CLOUD, PSMDB_REPO, COMPONENT)
                 }
             }
         }
         stage('Push Tarballs to TESTING download area') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
             steps {
                 script {
                     try {
@@ -472,16 +595,11 @@ pipeline {
         }
         stage('Run testing job') {
             when {
-                allOf {
-                    expression { return params.BUILD_PACKAGES == 'true' }
-                    expression { return params.TESTS == 'yes' }
-                }
+                expression { return params.TESTS == 'yes' }
             }
             steps {
                 script {
-                    def version = "${PSMDB_VERSION}-${PSMDB_RELEASE}"
-                    build job: 'psmdb-tarball-functional', propagate: false, wait: true, parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'TESTING_BRANCH', value: 'main')]
-                    build job: 'psmdb-parallel', propagate: false, wait: false, parameters: [string(name: 'REPO', value: 'testing'), string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'ENABLE_TOOLKIT', value: 'false'), string(name: 'TESTING_BRANCH', value: 'main')]
+                    build job: 'hetzner-psmdb-multijob-testing', propagate: false, wait: false, quietPeriod: 1800, parameters: [string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'PSMDB_RELEASE', value: PSMDB_RELEASE)]
                 }
             }
         }
@@ -491,6 +609,33 @@ pipeline {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+
+                // record this commit as built so get-psmdb-branches-8.3 skips it next tick.
+                // kept separate from .properties, which can get corrupted.
+                String S3_STASH = (params.CLOUD == 'AWS') ? 'AWS_STASH' : 'HTZ_STASH'
+                String S3_ENDPOINT = (params.CLOUD == 'AWS') ? '--endpoint-url https://s3.amazonaws.com' : '--endpoint-url https://fsn1.your-objectstorage.com'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    int rc = sh(returnStatus: true, script: """
+                        set -euo pipefail
+                        BUILT_COMMIT=\$(git ls-remote --heads ${GIT_REPO} ${GIT_BRANCH} | awk '{print \$1}')
+                        if [ -z "\${BUILT_COMMIT}" ]; then
+                            echo "ERROR: could not resolve commit for ${GIT_BRANCH}; last_successful NOT updated"
+                            exit 1
+                        fi
+                        cat > branch_commit_id_83.last_successful <<EOF
+BRANCH_NAME=${GIT_BRANCH}
+COMMIT_ID=\${BUILT_COMMIT}
+MONGO_TOOLS_TAG=${MONGO_TOOLS_TAG}
+EOF
+                        AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_83.last_successful s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                        echo "Recorded last_successful: ${GIT_BRANCH}@\${BUILT_COMMIT}"
+                    """)
+                    // build's fine, only the bookkeeping failed; don't go green and hide it
+                    if (rc != 0) {
+                        echo "WARN: last_successful bookkeeping failed (rc=${rc}); marking build UNSTABLE"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
             deleteDir()
         }
