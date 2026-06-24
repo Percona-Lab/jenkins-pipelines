@@ -33,34 +33,28 @@ pipeline {
                     sh """
                         set -euo pipefail
 
-                        # PSMDB-2055: detect latest release-8.3.x branch first; abort if none
-                        # found (prevents the previous bug where an empty BRANCH_NAME produced
-                        # a curl against \${LINK}//MONGO_TOOLS_TAG_VERSION and stored a 307
-                        # redirect HTML body into the properties file).
+                        # pick the newest release-8.3.x branch; stop if there's none.
+                        # otherwise the branch name is empty, the MONGO_TOOLS_TAG url
+                        # breaks, and the redirect page gets saved into .properties
                         LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.3\\* | tail -1)
                         if [ -z "\${LATEST_RELEASE_BRANCH}" ]; then
                             echo "WARN: no release-8.3.* branch found on ${GIT_REPO}; skipping build trigger"
                             echo "START_NEW_BUILD=NO" > startBuild
-                            # Touch an empty .properties so downstream sh(returnStdout) calls
-                            # in the groovy block don't fail with "No such file" — they'll
-                            # just return empty strings, which is fine because the "Build needed"
-                            # stage is gated on START_NEW_BUILD=YES.
+                            # empty .properties so the sh(returnStdout) calls below don't
+                            # fail; build only on START_NEW_BUILD=YES
                             : > branch_commit_id_83.properties
                             exit 0
                         fi
                         LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
                         LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
                         MONGO_TOOLS_TAG_LINK=\$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')
-                        # -fsSL: fail on HTTP errors, silent, show errors, follow redirects.
-                        # Bare `curl` previously stored 307 HTML bodies into the properties file.
+                        # use -fsSL flags, so curl fails on http errors + follows redirects,
+                        # otherwise curl writes 307 html into .properties
                         MONGO_TOOLS_TAG=\$(curl -fsSL \${MONGO_TOOLS_TAG_LINK}/\${LATEST_BRANCH_NAME}/MONGO_TOOLS_TAG_VERSION)
 
-                        # PSMDB-2055: defense-in-depth via branch_commit_id_83.last_successful.
-                        # Written by hetzner-psmdb83-autobuild-RELEASE's post.success block on
-                        # every green run. If detected == last_successful, we KNOW we already
-                        # built that branch/commit and SKIP regardless of branch_commit_id_83.properties
-                        # state. This makes a corrupt or manually nulled .properties file (e.g. operator
-                        # recovery scenario) harmless: no spurious rebuilds.
+                        # last_successful holds the branch+commit of the last green build.
+                        # if it equals the latest release branch+commit found above, we
+                        # already built this commit, so skip (even if .properties is broken).
                         LAST_SUCCESSFUL_BRANCH=""
                         LAST_SUCCESSFUL_COMMIT_ID=""
                         LS_EC=0
@@ -75,14 +69,12 @@ pipeline {
                             echo "INFO: last_successful matches detected (\${LATEST_BRANCH_NAME}@\${LATEST_COMMIT_ID}); skipping"
                             echo "START_NEW_BUILD=NO" > startBuild
                         else
-                            # No last_successful baseline yet, or detected differs.
-                            # Fall through to legacy .properties compare for backward compat —
-                            # gives operators a single-source-of-truth view via the cached
-                            # detected state even before the first green build.
+                            # no last_successful match — fall back to comparing .properties
+                            # (back-compat / before the first green build)
                             EC=0
                             AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_83.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
                             if [ \${EC} = 1 ]; then
-                                # First-time bootstrap: write fresh detected state, skip build.
+                                # first run: just record state, don't build
                                 echo "START_NEW_BUILD=NO" > startBuild
                             else
                                 AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_83.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
@@ -96,7 +88,7 @@ pipeline {
                             fi
                         fi
 
-                        # Always refresh the detected-state file for observability.
+                        # refresh the detected-state file every run
                         echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_83.properties
                         echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_83.properties
                         echo "MONGO_TOOLS_TAG=\${MONGO_TOOLS_TAG}" >> branch_commit_id_83.properties
