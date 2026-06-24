@@ -618,6 +618,9 @@ parameters {
             }
         }
         stage('Push Tarballs to TESTING download area') {
+            when {
+                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
+            }
             steps {
                 script {
                     try {
