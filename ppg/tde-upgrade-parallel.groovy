@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, installFromPackages, fromRepo, toRepo, fromTdeBranch, toTdeBranch) {
+def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, installFromPackages, fromRepo, toRepo, fromTdeBranch, toTdeBranch, fromPkgRelease, toPkgRelease, fromTdePkgVersion, toTdePkgVersion) {
     def status = currentBuild.result == 'SUCCESS' ? '*SUCCESS*' : '*FAILURE*'
     def color  = currentBuild.result == 'SUCCESS' ? 'good'     : 'danger'
 
@@ -30,11 +30,18 @@ TO_REPO: ${toRepo}"""
 TO_TDE_BRANCH: ${toTdeBranch}"""
     }
 
+    // Surface any package pins (patched-release upgrades) so the run is self-describing.
+    def pinLines = ""
+    if (fromPkgRelease)      { pinLines += "\nFROM_PKG_RELEASE: ${fromPkgRelease}" }
+    if (toPkgRelease)        { pinLines += "\nTO_PKG_RELEASE: ${toPkgRelease}" }
+    if (fromTdePkgVersion)   { pinLines += "\nFROM_TDE_PKG_VERSION: ${fromTdePkgVersion}" }
+    if (toTdePkgVersion)     { pinLines += "\nTO_TDE_PKG_VERSION: ${toTdePkgVersion}" }
+
     def summary = """Job: ${env.JOB_NAME}
 FROM_VERSION: ${fromVersion}
 TO_VERSION: ${toVersion}
 UPGRADE_TYPE: ${upgradeTypeLabel}
-${sourceLines}
+${sourceLines}${pinLines}
 Status: ${status}
 Build Report: ${env.BUILD_URL}"""
     slackSend color: color, message: summary, channel: '#postgresql-test'
@@ -120,6 +127,31 @@ pipeline {
                          'Only applicable when INSTALL_FROM_PACKAGES is disabled and TDE_UPGRADE is enabled.'
         )
         string(
+            name: 'FROM_PKG_RELEASE',
+            defaultValue: '',
+            description: 'Optional Percona server build increment to pin for the FROM install ' +
+                         '(e.g. "1" -> 18.4-1, "2" -> 18.4-2). Empty installs the latest build in FROM_REPO. ' +
+                         'Use to model patched-release upgrades (18.4.1 -> 18.4.2). Packages path only.'
+        )
+        string(
+            name: 'TO_PKG_RELEASE',
+            defaultValue: '',
+            description: 'Optional Percona server build increment to pin for the TO install ' +
+                         '(e.g. "2" -> 18.4-2). Empty installs the latest build in TO_REPO. Packages path only.'
+        )
+        string(
+            name: 'FROM_TDE_PKG_VERSION',
+            defaultValue: '',
+            description: 'Optional pg_tde package version to pin for the FROM install (e.g. "2.2.0"). ' +
+                         'Empty installs the latest pg_tde in FROM_REPO. Packages path only (source path uses FROM_TDE_BRANCH).'
+        )
+        string(
+            name: 'TO_TDE_PKG_VERSION',
+            defaultValue: '',
+            description: 'Optional pg_tde package version to pin for the TO install (e.g. "2.2.1"). ' +
+                         'Empty installs the latest pg_tde in TO_REPO. Packages path only (source path uses TO_TDE_BRANCH).'
+        )
+        string(
             name: 'TESTING_BRANCH',
             defaultValue: 'main',
             description: 'Branch of ppg-testing to check out.'
@@ -174,7 +206,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH)
+                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH, env.FROM_PKG_RELEASE, env.TO_PKG_RELEASE, env.FROM_TDE_PKG_VERSION, env.TO_TDE_PKG_VERSION)
             }
             archiveArtifacts(
                 artifacts: 'pg_tde/upgrade/artifacts/**/*.tar.gz',

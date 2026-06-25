@@ -88,6 +88,31 @@ pipeline {
                          'Only applicable when INSTALL_FROM_PACKAGES is disabled and TDE_UPGRADE is enabled.'
         )
         string(
+            name: 'FROM_PKG_RELEASE',
+            defaultValue: '',
+            description: 'Optional Percona server build increment to pin for the FROM install ' +
+                         '(e.g. "1" -> 18.4-1, "2" -> 18.4-2). Empty installs the latest build in FROM_REPO. ' +
+                         'Use to model patched-release upgrades (18.4.1 -> 18.4.2). Packages path only.'
+        )
+        string(
+            name: 'TO_PKG_RELEASE',
+            defaultValue: '',
+            description: 'Optional Percona server build increment to pin for the TO install ' +
+                         '(e.g. "2" -> 18.4-2). Empty installs the latest build in TO_REPO. Packages path only.'
+        )
+        string(
+            name: 'FROM_TDE_PKG_VERSION',
+            defaultValue: '',
+            description: 'Optional pg_tde package version to pin for the FROM install (e.g. "2.2.0"). ' +
+                         'Empty installs the latest pg_tde in FROM_REPO. Packages path only (source path uses FROM_TDE_BRANCH).'
+        )
+        string(
+            name: 'TO_TDE_PKG_VERSION',
+            defaultValue: '',
+            description: 'Optional pg_tde package version to pin for the TO install (e.g. "2.2.1"). ' +
+                         'Empty installs the latest pg_tde in TO_REPO. Packages path only (source path uses TO_TDE_BRANCH).'
+        )
+        string(
             name: 'TESTING_BRANCH',
             defaultValue: 'main',
             description: 'Branch of ppg-testing to check out.'
