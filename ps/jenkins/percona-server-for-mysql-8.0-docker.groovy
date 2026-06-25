@@ -388,6 +388,7 @@ parameters {
                            if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
                                PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                                PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                               PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
                                if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                                else
@@ -403,6 +404,7 @@ parameters {
                                rm -f "${TMP}"
                                PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
                                PS_MAJOR_RELEASE="${VER_MAJOR}.${VER_MINOR}"
+                               PS_MAJOR_FULL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATVH}"
                                MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                            fi
                            MYSQL_ROUTER_RELEASE=${PS_RELEASE}
