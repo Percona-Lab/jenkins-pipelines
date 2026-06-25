@@ -302,6 +302,11 @@ parameters {
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                             MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                            if [ ${COMPONENT} = "experimental" ]; then
+                                FR_BUILD="-fr"
+                            else
+                                FR_BUILD=""
+                            fi
                             sudo docker tag ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-server:${PS_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}-amd64
