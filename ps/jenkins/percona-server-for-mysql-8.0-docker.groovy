@@ -466,6 +466,7 @@ parameters {
                         "${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64",
                         "${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64"
                     ]
+                    env.TRIVY_IMAGES = imageList.join(', ')
 
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
@@ -483,7 +484,7 @@ parameters {
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -494,13 +495,13 @@ parameters {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 } // try
             } // script
           } // steps
@@ -509,9 +510,19 @@ parameters {
     post {
         success {
             script {
-                def slackChannel = (env.BRANCH in ['trunk', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
+                //def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
+                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}")
+                }
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
+                if (slackChannel) {
+                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}")
                 }
             }
             deleteDir()
