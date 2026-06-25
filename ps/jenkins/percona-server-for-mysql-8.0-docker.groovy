@@ -325,16 +325,16 @@ parameters {
                             else
                                 FR_BUILD=""
                             fi
-                            sudo docker tag ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-server:${PS_RELEASE}-amd64
+                            sudo docker tag ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-server:${PS_RELEASE}-arm64
+                            sudo docker tag ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}-arm64
-                            sudo docker tag ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
+                            sudo docker tag ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
+                            sudo docker tag ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}-arm64
                        '''
