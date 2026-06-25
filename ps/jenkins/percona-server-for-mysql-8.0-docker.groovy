@@ -369,14 +369,14 @@ parameters {
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
                                ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 \
                                ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}
                        '''
                        withCredentials([
