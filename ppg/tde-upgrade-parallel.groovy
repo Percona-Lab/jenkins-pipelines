@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, installFromPackages, fromRepo, toRepo, fromTdeBranch, toTdeBranch, fromPkgRelease, toPkgRelease, fromTdePkgVersion, toTdePkgVersion) {
+def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, installFromPackages, fromRepo, toRepo, fromTdeBranch, toTdeBranch, fromPkgRelease, toPkgRelease, fromTdePkgVersion, toTdePkgVersion, fromPerconaServerVersion, toPerconaServerVersion) {
     def status = currentBuild.result == 'SUCCESS' ? '*SUCCESS*' : '*FAILURE*'
     def color  = currentBuild.result == 'SUCCESS' ? 'good'     : 'danger'
 
@@ -32,10 +32,12 @@ TO_TDE_BRANCH: ${toTdeBranch}"""
 
     // Surface any package pins (patched-release upgrades) so the run is self-describing.
     def pinLines = ""
-    if (fromPkgRelease)      { pinLines += "\nFROM_PKG_RELEASE: ${fromPkgRelease}" }
-    if (toPkgRelease)        { pinLines += "\nTO_PKG_RELEASE: ${toPkgRelease}" }
-    if (fromTdePkgVersion)   { pinLines += "\nFROM_TDE_PKG_VERSION: ${fromTdePkgVersion}" }
-    if (toTdePkgVersion)     { pinLines += "\nTO_TDE_PKG_VERSION: ${toTdePkgVersion}" }
+    if (fromPkgRelease)            { pinLines += "\nFROM_PKG_RELEASE: ${fromPkgRelease}" }
+    if (toPkgRelease)              { pinLines += "\nTO_PKG_RELEASE: ${toPkgRelease}" }
+    if (fromTdePkgVersion)         { pinLines += "\nFROM_TDE_PKG_VERSION: ${fromTdePkgVersion}" }
+    if (toTdePkgVersion)           { pinLines += "\nTO_TDE_PKG_VERSION: ${toTdePkgVersion}" }
+    if (fromPerconaServerVersion)  { pinLines += "\nFROM_PERCONA_SERVER_VERSION: ${fromPerconaServerVersion}" }
+    if (toPerconaServerVersion)    { pinLines += "\nTO_PERCONA_SERVER_VERSION: ${toPerconaServerVersion}" }
 
     def summary = """Job: ${env.JOB_NAME}
 FROM_VERSION: ${fromVersion}
@@ -110,6 +112,11 @@ pipeline {
             ]
         )
         string(
+            name: 'TESTING_BRANCH',
+            defaultValue: 'main',
+            description: 'Branch of ppg-testing to check out.'
+        )
+        string(
             name: 'TDE_REPO',
             defaultValue: 'https://github.com/percona/pg_tde.git',
             description: 'pg_tde git repository. Only applicable when INSTALL_FROM_PACKAGES is disabled.'
@@ -152,9 +159,16 @@ pipeline {
                          'Empty installs the latest pg_tde in TO_REPO. Packages path only (source path uses TO_TDE_BRANCH).'
         )
         string(
-            name: 'TESTING_BRANCH',
-            defaultValue: 'main',
-            description: 'Branch of ppg-testing to check out.'
+            name: 'FROM_PERCONA_SERVER_VERSION',
+            defaultValue: '',
+            description: 'Optional expected Percona Server patch version for the FROM cluster (e.g. "18.4.1"). ' +
+                         'When set, the test asserts SELECT version() reports it before the upgrade and fails otherwise.'
+        )
+        string(
+            name: 'TO_PERCONA_SERVER_VERSION',
+            defaultValue: '',
+            description: 'Optional expected Percona Server patch version for the TO cluster (e.g. "18.4.2"). ' +
+                         'When set, the test asserts SELECT version() reports it after the upgrade and fails otherwise.'
         )
     }
 
@@ -206,7 +220,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH, env.FROM_PKG_RELEASE, env.TO_PKG_RELEASE, env.FROM_TDE_PKG_VERSION, env.TO_TDE_PKG_VERSION)
+                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH, env.FROM_PKG_RELEASE, env.TO_PKG_RELEASE, env.FROM_TDE_PKG_VERSION, env.TO_TDE_PKG_VERSION, env.FROM_PERCONA_SERVER_VERSION, env.TO_PERCONA_SERVER_VERSION)
             }
             archiveArtifacts(
                 artifacts: 'pg_tde/upgrade/artifacts/**/*.tar.gz',

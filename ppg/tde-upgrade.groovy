@@ -71,6 +71,11 @@ pipeline {
             ]
         )
         string(
+            name: 'TESTING_BRANCH',
+            defaultValue: 'main',
+            description: 'Branch of ppg-testing to check out.'
+        )
+        string(
             name: 'TDE_REPO',
             defaultValue: 'https://github.com/percona/pg_tde.git',
             description: 'pg_tde git repository. Only applicable when INSTALL_FROM_PACKAGES is disabled.'
@@ -113,9 +118,16 @@ pipeline {
                          'Empty installs the latest pg_tde in TO_REPO. Packages path only (source path uses TO_TDE_BRANCH).'
         )
         string(
-            name: 'TESTING_BRANCH',
-            defaultValue: 'main',
-            description: 'Branch of ppg-testing to check out.'
+            name: 'FROM_PERCONA_SERVER_VERSION',
+            defaultValue: '',
+            description: 'Optional expected Percona Server patch version for the FROM cluster (e.g. "18.4.1"). ' +
+                         'When set, the test asserts SELECT version() reports it before the upgrade and fails otherwise.'
+        )
+        string(
+            name: 'TO_PERCONA_SERVER_VERSION',
+            defaultValue: '',
+            description: 'Optional expected Percona Server patch version for the TO cluster (e.g. "18.4.2"). ' +
+                         'When set, the test asserts SELECT version() reports it after the upgrade and fails otherwise.'
         )
         booleanParam(
             name: 'DESTROY_ENV',
