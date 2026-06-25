@@ -299,9 +299,27 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
-                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                            if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
+                                PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                                PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                                if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                else
+                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                fi
+                            else
+                                TMP=$(mktemp)
+                                curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "${TMP}"
+                                VER_MAJOR=$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_MINOR=$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_PATCH=$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                VER_EXTRA=$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                                rm -f "${TMP}"
+                                PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
+                                PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                                MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
+                            fi
+                            MYSQL_ROUTER_RELEASE=${PS_RELEASE}
                             if [ ${COMPONENT} = "experimental" ]; then
                                 FR_BUILD="-fr"
                             else
@@ -322,14 +340,38 @@ parameters {
                        '''
                        }
                        sh '''
-                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
+                               PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                               PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                               if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                   MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                               else
+                                   MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                               fi
+                           else
+                               TMP=$(mktemp)
+                               curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "${TMP}"
+                               VER_MAJOR=$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               VER_MINOR=$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               VER_PATCH=$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               VER_EXTRA=$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               rm -f "${TMP}"
+                               PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
+                               PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                               MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
+                           fi
+                           MYSQL_ROUTER_RELEASE=${PS_RELEASE}
+                           if [ ${COMPONENT} = "experimental" ]; then
+                               FR_BUILD="-fr"
+                           else
+                               FR_BUILD=""
+                           fi
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
                                ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-arm64
                            sudo docker manifest annotate ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                            sudo docker manifest annotate ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
-                           MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 \
                                ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
@@ -343,9 +385,32 @@ parameters {
                        usernameVariable: 'USER'
                        )]) {
                        sh '''
-                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
-                           PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
+                           if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
+                               PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                               PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                               if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                   MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                               else
+                                   MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                               fi
+                           else
+                               TMP=$(mktemp)
+                               curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "${TMP}"
+                               VER_MAJOR=$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               VER_MINOR=$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               VER_PATCH=$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               VER_EXTRA=$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
+                               rm -f "${TMP}"
+                               PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
+                               PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                               MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
+                           fi
+                           MYSQL_ROUTER_RELEASE=${PS_RELEASE}
+                           if [ ${COMPONENT} = "experimental" ]; then
+                               FR_BUILD="-fr"
+                           else
+                               FR_BUILD=""
+                           fi
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            sudo docker manifest push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
