@@ -459,6 +459,13 @@ parameters {
                             echo "\${VER_MAJOR}.\${VER_MINOR}.\${VER_PATCH}\${VER_EXTRA}"
                         fi
                     """).trim()
+                    env.GIT_COMMIT_ID = sh(returnStdout: true, script: """
+                        if echo '${BRANCH}' | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+\$'; then
+                            echo ''
+                        else
+                            git ls-remote https://github.com/percona/percona-server.git "refs/heads/${BRANCH}" | cut -f1
+                        fi
+                    """).trim()
                     def FR_BUILD = (env.COMPONENT in ['experimental']) ? '-fr' : ''
                     def imageList = [
                         "${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}-amd64",
@@ -513,7 +520,7 @@ parameters {
                 //def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}")
+                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
             }
             deleteDir()
@@ -522,7 +529,7 @@ parameters {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}")
+                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
             }
             deleteDir()
