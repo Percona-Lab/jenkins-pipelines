@@ -402,7 +402,7 @@ parameters {
                                VER_EXTRA=$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",$2); print $2}' "${TMP}")
                                rm -f "${TMP}"
                                PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
-                               PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
+                               PS_MAJOR_RELEASE="${VER_MAJOR}.${VER_MINOR}"
                                MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                            fi
                            MYSQL_ROUTER_RELEASE=${PS_RELEASE}
@@ -413,14 +413,13 @@ parameters {
                            fi
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            sudo docker manifest push ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE} ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker manifest push ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}
-                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE} ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_MAJOR_RELEASE} ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
                            if [ ${PS_MAJOR_RELEASE} = "8.0" ]; then
                                sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server${FR_BUILD}:latest ${ORGANIZATION}/percona-server${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
                                sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:latest ${ORGANIZATION}/percona-mysql-router${FR_BUILD}:${PS_RELEASE}.${RPM_RELEASE}
