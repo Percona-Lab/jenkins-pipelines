@@ -51,14 +51,10 @@ def deleteBuildInstances(){
             --output table || echo "No instances found with job-name tag: ${jobName}"
             """
 
-            // DEBUG: teardown is disabled for oracle-9 so the instance can be
-            // inspected after a failure. The extra Name filter terminates only the
-            // debian12-* instance and leaves ol9-* running. Remove this filter
-            // (revert to terminating all job instances) once debugging is done.
             def instanceIds = sh(
                 script: """
                 aws ec2 describe-instances --region us-west-1 \\
-                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=tag:Name,Values=debian12-*" "Name=instance-state-name,Values=running" \\
+                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
                 --query "Reservations[].Instances[].InstanceId" \\
                 --output text
                 """,
@@ -312,26 +308,7 @@ pipeline {
           ]
           withEnv(envMap) {
             withCredentials(testCredentials) {
-                // DEBUG: oracle-9 is run with --destroy=never so the instance is kept
-                // for inspection after a failure; debian-12 runs and tears down normally.
-                // Restore moleculeParallelTestSkip(pxbTestOSes(), env.MOLECULE_DIR, [])
-                // once debugging is done.
-                parallel(
-                  'debian-12': {
-                    sh """
-                        . virtenv/bin/activate
-                        cd ${env.MOLECULE_DIR}
-                        molecule test -s debian-12
-                    """
-                  },
-                  'oracle-9': {
-                    sh """
-                        . virtenv/bin/activate
-                        cd ${env.MOLECULE_DIR}
-                        molecule test --destroy=never -s oracle-9
-                    """
-                  }
-                )
+                moleculeParallelTestSkip(pxbTestOSes(), env.MOLECULE_DIR, [])
             }
           }
         }
@@ -344,9 +321,7 @@ pipeline {
       script {
         archiveArtifacts artifacts: "*.tar.gz", followSymlinks: false, allowEmptyArchive: true
         junit allowEmptyResults: true, testResults: "**/pytest-junit*.xml"
-        // DEBUG: only debian-12 is destroyed here; oracle-9 is intentionally kept
-        // for inspection. Restore pxbTestOSes() once debugging is done.
-        moleculeParallelPostDestroy(['debian-12'], env.MOLECULE_DIR)
+        moleculeParallelPostDestroy(pxbTestOSes(), env.MOLECULE_DIR)
       }
       deleteBuildInstances()
     }
