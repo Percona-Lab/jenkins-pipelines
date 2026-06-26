@@ -212,6 +212,15 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
+                stage('Ubuntu 26.04 Resolute - AMD64') {
+                    agent {
+                        label 'min-resolute-x64'
+                    }
+                    steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                }
                 stage('Debian 11 Bullseye - AMD64') {
                     agent {
                         label 'min-bullseye-x64'
