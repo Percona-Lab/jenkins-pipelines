@@ -1,6 +1,4 @@
 PIPELINE_TIMEOUT = 24
-JENKINS_SCRIPTS_BRANCH = 'innovative'
-JENKINS_SCRIPTS_REPO = 'https://github.com/kamil-holubicki/jenkins-pipelines'
 AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
 MAX_S3_RETRIES = 12
 S3_ROOT_DIR = 's3://pxc-build-cache'
@@ -277,11 +275,11 @@ void analyzeMtrLog(String logFile) {
 void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
     timeout(time: PIPELINE_TIMEOUT, unit: 'HOURS')  {
         script {
-            echo "JENKINS_SCRIPTS_BRANCH: ${JENKINS_SCRIPTS_BRANCH}"
-            echo "JENKINS_SCRIPTS_REPO: ${JENKINS_SCRIPTS_REPO}"
+            echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
+            echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
             sh "which git"
         }
-        git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
+        git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
         script {
             prepareWorkspace()
             downloadFilesForTests()
@@ -613,11 +611,11 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    echo "JENKINS_SCRIPTS_BRANCH: $JENKINS_SCRIPTS_BRANCH"
-                    echo "JENKINS_SCRIPTS_REPO: $JENKINS_SCRIPTS_REPO"
+                    echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
+                    echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
                     echo "Using instances from cloud ${CLOUD} with LABEL ${LABEL} for build and test stages"
                 }
-                git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
+                git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
 
                 script {
                     BUILD_TRIGGER_BY = " (${currentBuild.getBuildCauses()[0].userId})"
@@ -649,10 +647,10 @@ pipeline {
                     agent { label LABEL }
                     steps {
                         script {
-	                        echo "JENKINS_SCRIPTS_BRANCH: $JENKINS_SCRIPTS_BRANCH"
-	                        echo "JENKINS_SCRIPTS_REPO: $JENKINS_SCRIPTS_REPO"
+	                        echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
+	                        echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
                         }
-                        git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
+                        git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
 
                         checkoutSources("PXC80")
                         build("./pxc/docker/run-build-pxc-parallel-mtr")

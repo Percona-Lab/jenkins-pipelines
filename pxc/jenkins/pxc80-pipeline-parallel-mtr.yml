@@ -8,9 +8,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
+            url: "${JENKINS_SCRIPTS_REPO}"
             branches:
-            - 'innovative'
+            - "${JENKINS_SCRIPTS_BRANCH}"
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy
@@ -179,3 +179,11 @@
         name: ALLOW_ABORTED_WORKERS_RERUN
         default: false
         description: "Rerun aborted workers"
+    - string:
+        name: JENKINS_SCRIPTS_REPO
+        default: "https://github.com/kamil-holubicki/jenkins-pipelines.git"
+        description: "Repo for the pipeline Groovy and the build/test scripts under pxc/docker and pxc/local. Override to test changes from a fork."
+    - string:
+        name: JENKINS_SCRIPTS_BRANCH
+        default: "innovative"
+        description: "Branch/tag of JENKINS_SCRIPTS_REPO to use"
