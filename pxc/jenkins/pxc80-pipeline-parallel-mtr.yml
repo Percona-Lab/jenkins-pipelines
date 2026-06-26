@@ -159,7 +159,7 @@
         description: "Repo for the pipeline Groovy and the build/test scripts under pxc/docker and pxc/local. Override to test changes from a fork."
     - string:
         name: JENKINS_SCRIPTS_BRANCH
-        default: "innovative"
+        default: "pxc-8.x"
         description: "Branch/tag of JENKINS_SCRIPTS_REPO to use"
 
 
