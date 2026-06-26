@@ -517,8 +517,7 @@ parameters {
     post {
         success {
             script {
-                //def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
-                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
+                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
                     slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
@@ -527,7 +526,7 @@ parameters {
         }
         unstable {
             script {
-                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
+                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
                     slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
