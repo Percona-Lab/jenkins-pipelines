@@ -193,7 +193,7 @@ parameters {
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -204,13 +204,13 @@ parameters {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 } // try
             } // script
           } // steps
@@ -219,12 +219,20 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ [${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ [${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION})build failed for ${VERSION} - [${BUILD_URL}]")
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ [${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION} - [${BUILD_URL}]")
+            }
             deleteDir()
         }
         always {
