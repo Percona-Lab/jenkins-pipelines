@@ -1,16 +1,15 @@
-- job:
-    name: pxc-8.x-pipeline-parallel-mtr
+- job-template:
+    name: pxc-8.x-pipeline-{variant_name}
     project-type: pipeline
     description: |
-        Do not edit this job through the web!<br>
-        Use this job to build and test versions > 8.0
+        Do not edit this job through the web!
     concurrent: true
     pipeline-scm:
       scm:
         - git:
-            url: "${JENKINS_SCRIPTS_REPO}"
+            url: "${{JENKINS_SCRIPTS_REPO}}"
             branches:
-            - "${JENKINS_SCRIPTS_BRANCH}"
+            - "${{JENKINS_SCRIPTS_BRANCH}}"
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy
@@ -62,7 +61,7 @@
         description: path to cmake binary
     - string:
         name: CMAKE_OPTS
-        default: "-DWITH_PERCONA_TELEMETRY=ON"
+        default: '{cmake_opts_default}'
         description: cmake options
     - string:
         name: MAKE_OPTS
@@ -76,56 +75,31 @@
         description: Run case-insensetive MTR tests
     - choice:
         name: DOCKER_OS
-        choices:
-          - oraclelinux:8
-          - oraclelinux:9
-          - oraclelinux:10
-          - ubuntu:jammy
-          - ubuntu:noble
-          - debian:bullseye
-          - debian:bookworm
-          - debian:trixie
+        choices: '{docker_os_choices}'
         description: OS version for compilation
     - string:
         name: DOCKER_SHM_SIZE
-        default: "32G"
+        default: '{docker_shm_size_default}'
         description: "Shared memory size dedicated for Docker container"
     - choice:
         name: CLOUD
-        choices: 
-          - "Hetzner"
-          - "AWS"
-          - "Valgrind_docker_host"
+        choices: '{cloud_choices}'
         description: "Host provider for Jenkins workers"
     - choice:
         name: CMAKE_BUILD_TYPE
-        choices:
-        - Debug
-        - RelWithDebInfo
+        choices: '{cmake_build_type_choices}'
         description: Type of build to produce
     - choice:
         name: ANALYZER_OPTS
-        choices:
-        -
-        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
-        - -DWITH_ASAN=ON
-        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
-        - -DWITH_ASAN=ON -DWITH_UBSAN=ON
-        - -DWITH_UBSAN=ON
-        - -DWITH_MSAN=ON
-        - -DWITH_VALGRIND=ON
+        choices: '{analyzer_opts_choices}'
         description: Enable code checking
     - string:
         name: GALERA_PARALLEL_RUN
-        default: "4"
-        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
+        default: '{galera_parallel_run_default}'
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera, rpl, and group_replication specific test suites."
     - choice:
         name: FULL_MTR
-        choices:
-        - "yes"
-        - "no"
-        - "galera_only"
-        - "skip_mtr"
+        choices: '{full_mtr_choices}'
         description: |
             yes - full MTR<br>
             no - run mtr suites based on variables WORKER_N_MTR_SUITES<br>
@@ -133,7 +107,7 @@
             skip_mtr - skip testing phase. Only build.
     - string:
         name: WORKER_1_MTR_SUITES
-        default: ""
+        default: '{worker_1_mtr_suites_default}'
         description: "Suites to be ran on worker 1 when FULL_MTR is no. Unit tests, if requested, can be ran here only!"
     - string:
         name: WORKER_2_MTR_SUITES
@@ -165,7 +139,7 @@
         description: "Suites to be ran on worker 8 when FULL_MTR is no"
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report --big-test --mem
+        default: '{mtr_args_default}'
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_STANDALONE_TESTS
@@ -187,3 +161,135 @@
         name: JENKINS_SCRIPTS_BRANCH
         default: "innovative"
         description: "Branch/tag of JENKINS_SCRIPTS_REPO to use"
+
+
+# ----------------------- Regular build --------------------------------
+
+- project:
+    name: pxc-8.x-pipeline-parallel-mtr
+    variant_name: parallel-mtr
+    cmake_opts_default: "-DWITH_PERCONA_TELEMETRY=ON"
+    docker_os_choices:
+      - oraclelinux:8
+      - oraclelinux:9
+      - oraclelinux:10
+      - ubuntu:jammy
+      - ubuntu:noble
+      - debian:bullseye
+      - debian:bookworm
+      - debian:trixie
+    docker_shm_size_default: "32G"
+    cloud_choices:
+      - "Hetzner"
+      - "AWS"
+      - "Valgrind_docker_host"
+    cmake_build_type_choices:
+      - Debug
+      - RelWithDebInfo
+    analyzer_opts_choices:
+      -
+      - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+      - -DWITH_ASAN=ON
+      - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+      - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+      - -DWITH_UBSAN=ON
+      - -DWITH_MSAN=ON
+      - -DWITH_VALGRIND=ON
+    galera_parallel_run_default: "4"
+    full_mtr_choices:
+      - "yes"
+      - "no"
+      - "galera_only"
+      - "skip_mtr"
+    worker_1_mtr_suites_default: ""
+    mtr_args_default: "--unit-tests-report --big-test --mem"
+    jobs:
+      - pxc-8.x-pipeline-{variant_name}
+
+
+# ----------------------- ASAN --------------------------------
+
+- project:
+    name: pxc-8.x-pipeline-asan
+    variant_name: asan
+    cmake_opts_default: "-DWITH_PERCONA_TELEMETRY=ON"
+    docker_os_choices:
+      - ubuntu:noble
+      - centos:7
+      - oraclelinux:8
+      - oraclelinux:9
+      - ubuntu:focal
+      - ubuntu:jammy
+      - debian:bullseye
+      - debian:bookworm
+    docker_shm_size_default: "150G"
+    cloud_choices:
+      - "Valgrind_docker_host"
+      - "AWS"
+      - "Hetzner"
+    cmake_build_type_choices:
+      - RelWithDebInfo
+      - Debug
+    analyzer_opts_choices:
+      - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+      - -DWITH_VALGRIND=ON
+      - -DWITH_ASAN=ON
+      - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+      - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+      - -DWITH_UBSAN=ON
+      - -DWITH_MSAN=ON
+      -
+    galera_parallel_run_default: "20"
+    full_mtr_choices:
+      - "no"
+      - "yes"
+      - "galera_only"
+      - "skip_mtr"
+    worker_1_mtr_suites_default: "innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql,galera_3nodes,galera_nbo,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,wsrep,galera-x,engines/funcs,innodb,galera_sr,main,rpl,rpl_nogtid,rpl_gtid,galera,parts,group_replication,clone,innodb_gis,stress,perfschema,component_keyring_file,binlog,innodb_fts,sys_vars,innodb_zip,x,gcol,engines/iuds,encryption,federated,funcs_1,auth_sec,binlog_nogtid,binlog_gtid,funcs_2,jp,information_schema,rpl_encryption,sysschema,json,opt_trace,collations,gis,query_rewrite_plugins,test_service_sql_api,secondary_engine,component_audit_log_filter,component_encryption_udf,percona,percona_innodb,component_masking_functions"
+    mtr_args_default: "--mysqld=--innodb_use_native_aio=0 --suite-timeout=600000 --retry-failure=0 --parallel=64"
+    jobs:
+      - pxc-8.x-pipeline-{variant_name}
+
+
+# ----------------------- Valgrind --------------------------------
+
+- project:
+    name: pxc-8.x-pipeline-valgrind
+    variant_name: valgrind
+    cmake_opts_default: '-DWITH_PERCONA_TELEMETRY=ON -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g"'
+    docker_os_choices:
+      - ubuntu:noble
+      - centos:7
+      - oraclelinux:8
+      - oraclelinux:9
+      - ubuntu:focal
+      - ubuntu:jammy
+      - debian:bullseye
+      - debian:bookworm
+    docker_shm_size_default: "150G"
+    cloud_choices:
+      - "Valgrind_docker_host"
+      - "AWS"
+      - "Hetzner"
+    cmake_build_type_choices:
+      - RelWithDebInfo
+      - Debug
+    analyzer_opts_choices:
+      - -DWITH_VALGRIND=ON
+      - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+      - -DWITH_ASAN=ON
+      - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+      - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+      - -DWITH_UBSAN=ON
+      - -DWITH_MSAN=ON
+      -
+    galera_parallel_run_default: "25"
+    full_mtr_choices:
+      - "no"
+      - "yes"
+      - "galera_only"
+      - "skip_mtr"
+    worker_1_mtr_suites_default: "innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql,galera_3nodes,galera_nbo,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,wsrep,galera-x,engines/funcs,innodb,galera_sr,main,rpl,rpl_nogtid,rpl_gtid,galera,parts,group_replication,clone,innodb_gis,stress,perfschema,component_keyring_file,binlog,innodb_fts,sys_vars,innodb_zip,x,gcol,engines/iuds,encryption,federated,funcs_1,auth_sec,binlog_nogtid,binlog_gtid,funcs_2,jp,information_schema,rpl_encryption,sysschema,json,opt_trace,collations,gis,query_rewrite_plugins,test_service_sql_api,secondary_engine,component_audit_log_filter,component_encryption_udf,percona,percona_innodb,component_masking_functions"
+    mtr_args_default: "--mysqld=--innodb_use_native_aio=0 --suite-timeout=600000 --retry-failure=0 --parallel=64"
+    jobs:
+      - pxc-8.x-pipeline-{variant_name}
