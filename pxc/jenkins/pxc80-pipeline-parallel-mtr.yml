@@ -155,7 +155,7 @@
         description: "Rerun aborted workers"
     - string:
         name: JENKINS_SCRIPTS_REPO
-        default: "https://github.com/kamil-holubicki/jenkins-pipelines.git"
+        default: "https://github.com/Percona-Lab/jenkins-pipelines.git"
         description: "Repo for the pipeline Groovy and the build/test scripts under pxc/docker and pxc/local. Override to test changes from a fork."
     - string:
         name: JENKINS_SCRIPTS_BRANCH
