@@ -618,6 +618,9 @@ parameters {
             }
         }
         stage('Push Tarballs to TESTING download area') {
+            when {
+                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
+            }
             steps {
                 script {
                     try {
@@ -642,6 +645,7 @@ parameters {
                 label 'launcher-x64'
             }
             steps {
+                sleep time: 10, unit: 'MINUTES'
                 script {
                     build job: 'hetzner-ps8.0-docker-build',
                           parameters: [
