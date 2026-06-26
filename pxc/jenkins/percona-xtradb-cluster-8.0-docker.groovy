@@ -281,19 +281,19 @@ stage('Check by trivy') {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ [${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ [${JOB_NAME}]: build finished with warnings (Trivy) for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build finished with warnings (Trivy) for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ [${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
             }
             deleteDir()
         }

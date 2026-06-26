@@ -519,7 +519,7 @@ parameters {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
             }
             deleteDir()
@@ -528,13 +528,13 @@ parameters {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build finished with warnings (Trivy) for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
