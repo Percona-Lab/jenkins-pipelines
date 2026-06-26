@@ -8,7 +8,7 @@ import groovy.transform.Field
 @Field boolean[] WORKER_ABORTED = new boolean[9]
 @Field String BUILD_NUMBER_BINARIES_FOR_RERUN = ''
 @Field String BUILD_TRIGGER_BY = ''
-@Field String JOB_TO_REBUILD = env.JOB_NAME
+@Field String JOB_TO_REBUILD = ''
 @Field String PXB24_PACKAGE_TO_DOWNLOAD = ''
 @Field String PXB80_PACKAGE_TO_DOWNLOAD = ''
 @Field String LABEL = 'docker-32gb'
@@ -440,6 +440,11 @@ if (
 
 if (params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON'))
     { PIPELINE_TIMEOUT = 144 }
+
+// Default: each job reruns itself. The Valgrind cloud branch below
+// overrides this to target pxc-8.0-pipeline-valgrind (the only PXC job
+// reachable on the as-1015cs-tnr/PS Jenkins).
+JOB_TO_REBUILD = env.JOB_NAME
 
 if (params.CLOUD == 'Hetzner') {
     LABEL = 'docker-x64'
