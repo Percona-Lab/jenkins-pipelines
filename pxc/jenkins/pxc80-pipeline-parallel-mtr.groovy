@@ -6,7 +6,7 @@ S3_ROOT_DIR = 's3://pxc-build-cache'
 WORKER_ABORTED = new boolean[9]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
-JOB_TO_REBUILD = 'pxc-8.0-pipeline-parallel-mtr'
+JOB_TO_REBUILD = env.JOB_NAME
 PXB24_PACKAGE_TO_DOWNLOAD = ''
 PXB80_PACKAGE_TO_DOWNLOAD = ''
 LABEL = 'docker-32gb'
@@ -22,6 +22,11 @@ OsToGlibcMap = [
     "ubuntu:noble" : "2.35",
     "debian:bullseye" : "2.31",
     "debian:bookworm" : "2.35" ]
+
+void checkoutScripts() {
+    echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}@${params.JENKINS_SCRIPTS_BRANCH}"
+    git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+}
 
 void uploadFileToS3(String SRC_FILE_PATH, String DST_DIRECTORY, String DST_FILE_NAME) {
     echo "Upload ${SRC_FILE_PATH} file to S3 ${S3_ROOT_DIR}/${DST_DIRECTORY}/${DST_FILE_NAME}. Max retries: ${MAX_S3_RETRIES}"
@@ -52,7 +57,7 @@ void downloadFileFromS3(String SRC_DIRECTORY, String SRC_FILE_NAME, String DST_P
 }
 
 String getLatestPxbPackageName(String PXB_VER, String GLIBC_VER) {
-    pxbLatestTag = sh (
+    def pxbLatestTag = sh (
     script: """
         echo \$(git -c 'versionsort.suffix=-' ls-remote --exit-code --refs --sort='v:refname' https://github.com/percona/percona-xtrabackup | grep percona-xtrabackup-${PXB_VER}.* | tail -1 | cut --delimiter='/' --fields=3)
         """,
@@ -61,7 +66,7 @@ String getLatestPxbPackageName(String PXB_VER, String GLIBC_VER) {
     echo "====> PXB${PXB_VER} latest tag: ${pxbLatestTag}"
 
     // Try do download
-    pxbDownloadable = sh (
+    def pxbDownloadable = sh (
     script: """
         echo \$(curl -Is https://downloads.percona.com/downloads/Percona-XtraBackup-${PXB_VER}/Percona-XtraBackup-\$(echo ${pxbLatestTag} | cut -d '-' -f 3,4)/binary/tarball/${pxbLatestTag}-Linux-x86_64.glibc${GLIBC_VER}.tar.gz | head -1 | awk {'print \$2'})
         """,
@@ -121,15 +126,13 @@ void downloadFilesForTests() {
 }
 
 void prepareWorkspace() {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            sudo git reset --hard
-            sudo git clean -xdf
-            rm -rf pxc/sources/* || :
-            sudo git -C sources reset --hard || :
-            sudo git -C sources clean -xdf   || :
-        """
-    }
+    sh """
+        sudo git reset --hard
+        sudo git clean -xdf
+        rm -rf pxc/sources/* || :
+        sudo git -C sources reset --hard || :
+        sudo git -C sources clean -xdf   || :
+    """
 }
 
 void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
@@ -175,7 +178,7 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
 
 void analyzeMtrLog(String logFile) {
     script {
-        res = sh (
+        def res = sh (
         script: """
             echo \$(cat ${logFile} | grep -c 'Not all tests completed')
             """,
@@ -184,7 +187,7 @@ void analyzeMtrLog(String logFile) {
 
         if (res != "0") {
             catchError(stageResult: 'FAILURE', buildResult: null) {
-                error 'Not all tests executed.'
+                error 'MTR reported "Not all tests completed".'
             }
         }
 
@@ -197,7 +200,7 @@ void analyzeMtrLog(String logFile) {
 
         if (res != "0") {
             catchError(stageResult: 'FAILURE', buildResult: null) {
-                error 'Not all tests executed.'
+                error 'MTR runner emitted "*** ERROR".'
             }
         }
     }
@@ -205,12 +208,7 @@ void analyzeMtrLog(String logFile) {
 
 void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
     timeout(time: PIPELINE_TIMEOUT, unit: 'HOURS')  {
-        script {
-            echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
-            echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
-            sh "which git"
-        }
-        git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+        checkoutScripts()
         script {
             prepareWorkspace()
             downloadFilesForTests()
@@ -262,7 +260,7 @@ void build(String SCRIPT) {
                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                     docker ps -q | xargs docker stop --time 1 || :
                 fi
-                eval ${SCRIPT} ${DOCKER_OS}
+                ${SCRIPT} ${DOCKER_OS}
             " 2>&1 | tee build.log
         """
     }
@@ -306,14 +304,16 @@ void setupTestSuitesSplit() {
                 set_suites ${CMAKE_BUILD_TYPE}
             fi
 
-            echo \${WORKER_1_MTR_SUITES} > ${WORKSPACE}/worker_1.suites
-            echo \${WORKER_2_MTR_SUITES} > ${WORKSPACE}/worker_2.suites
-            echo \${WORKER_3_MTR_SUITES} > ${WORKSPACE}/worker_3.suites
-            echo \${WORKER_4_MTR_SUITES} > ${WORKSPACE}/worker_4.suites
-            echo \${WORKER_5_MTR_SUITES} > ${WORKSPACE}/worker_5.suites
-            echo \${WORKER_6_MTR_SUITES} > ${WORKSPACE}/worker_6.suites
-            echo \${WORKER_7_MTR_SUITES} > ${WORKSPACE}/worker_7.suites
-            echo \${WORKER_8_MTR_SUITES} > ${WORKSPACE}/worker_8.suites
+            cat > ${WORKSPACE}/worker.suites.properties <<EOF
+WORKER_1_MTR_SUITES=\${WORKER_1_MTR_SUITES}
+WORKER_2_MTR_SUITES=\${WORKER_2_MTR_SUITES}
+WORKER_3_MTR_SUITES=\${WORKER_3_MTR_SUITES}
+WORKER_4_MTR_SUITES=\${WORKER_4_MTR_SUITES}
+WORKER_5_MTR_SUITES=\${WORKER_5_MTR_SUITES}
+WORKER_6_MTR_SUITES=\${WORKER_6_MTR_SUITES}
+WORKER_7_MTR_SUITES=\${WORKER_7_MTR_SUITES}
+WORKER_8_MTR_SUITES=\${WORKER_8_MTR_SUITES}
+EOF
         fi
     """
     def split_script_output = sh(script: split_script, returnStdout: true)
@@ -321,45 +321,32 @@ void setupTestSuitesSplit() {
 
     script {
         if (env.FULL_MTR == 'yes') {
-            env.WORKER_1_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_1.suites").trim()
-            env.WORKER_2_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_2.suites").trim()
-            env.WORKER_3_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_3.suites").trim()
-            env.WORKER_4_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_4.suites").trim()
-            env.WORKER_5_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_5.suites").trim()
-            env.WORKER_6_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_6.suites").trim()
-            env.WORKER_7_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_7.suites").trim()
-            env.WORKER_8_MTR_SUITES = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_8.suites").trim()
+            def props = readProperties file: "${WORKSPACE}/worker.suites.properties"
+            (1..8).each { i ->
+                env."WORKER_${i}_MTR_SUITES" = props."WORKER_${i}_MTR_SUITES" ?: ""
+            }
         } else if (env.FULL_MTR == 'galera_only') {
-            env.WORKER_1_MTR_SUITES = "wsrep,sys_vars,galera_encryption"
-            env.WORKER_2_MTR_SUITES = "galera_nbo"
-            env.WORKER_3_MTR_SUITES = "galera_3nodes"
-            env.WORKER_4_MTR_SUITES = "galera_sr"
-            env.WORKER_5_MTR_SUITES = "galera_3nodes_nbo"
-            env.WORKER_6_MTR_SUITES = "galera_3nodes_sr"
-            env.WORKER_7_MTR_SUITES = "galera|nobig"
-            env.WORKER_8_MTR_SUITES = "galera|big"
+            def galeraSuites = [
+                "wsrep,sys_vars,galera_encryption",
+                "galera_nbo",
+                "galera_3nodes",
+                "galera_sr",
+                "galera_3nodes_nbo",
+                "galera_3nodes_sr",
+                "galera|nobig",
+                "galera|big",
+            ]
+            (1..8).each { i -> env."WORKER_${i}_MTR_SUITES" = galeraSuites[i - 1] }
         } else if (env.FULL_MTR == 'skip_mtr') {
             // It is possible that values are fetched from
             // suites-groups.sh file. Clean them.
             echo "MTR execution skip requested!"
-            env.WORKER_1_MTR_SUITES = ""
-            env.WORKER_2_MTR_SUITES = ""
-            env.WORKER_3_MTR_SUITES = ""
-            env.WORKER_4_MTR_SUITES = ""
-            env.WORKER_5_MTR_SUITES = ""
-            env.WORKER_6_MTR_SUITES = ""
-            env.WORKER_7_MTR_SUITES = ""
-            env.WORKER_8_MTR_SUITES = ""
+            (1..8).each { i -> env."WORKER_${i}_MTR_SUITES" = "" }
         }
 
-        echo "WORKER_1_MTR_SUITES: ${env.WORKER_1_MTR_SUITES}"
-        echo "WORKER_2_MTR_SUITES: ${env.WORKER_2_MTR_SUITES}"
-        echo "WORKER_3_MTR_SUITES: ${env.WORKER_3_MTR_SUITES}"
-        echo "WORKER_4_MTR_SUITES: ${env.WORKER_4_MTR_SUITES}"
-        echo "WORKER_5_MTR_SUITES: ${env.WORKER_5_MTR_SUITES}"
-        echo "WORKER_6_MTR_SUITES: ${env.WORKER_6_MTR_SUITES}"
-        echo "WORKER_7_MTR_SUITES: ${env.WORKER_7_MTR_SUITES}"
-        echo "WORKER_8_MTR_SUITES: ${env.WORKER_8_MTR_SUITES}"
+        (1..8).each { i ->
+            echo "WORKER_${i}_MTR_SUITES: ${env."WORKER_${i}_MTR_SUITES"}"
+        }
     }
 }
 
@@ -393,106 +380,61 @@ void validatePxcBranch() {
 
 void triggerAbortedTestWorkersRerun() {
     script {
-        if (env.ALLOW_ABORTED_WORKERS_RERUN == 'true') {
-            echo "allow aborted reruns ${env.ALLOW_ABORTED_WORKERS_RERUN}"
-            echo "WORKER_1_ABORTED: ${WORKER_ABORTED[1]}"
-            echo "WORKER_2_ABORTED: ${WORKER_ABORTED[2]}"
-            echo "WORKER_3_ABORTED: ${WORKER_ABORTED[3]}"
-            echo "WORKER_4_ABORTED: ${WORKER_ABORTED[4]}"
-            echo "WORKER_5_ABORTED: ${WORKER_ABORTED[5]}"
-            echo "WORKER_6_ABORTED: ${WORKER_ABORTED[6]}"
-            echo "WORKER_7_ABORTED: ${WORKER_ABORTED[7]}"
-            echo "WORKER_8_ABORTED: ${WORKER_ABORTED[8]}"
-            def rerunNeeded = false
-            def WORKER_1_RERUN_SUITES = ""
-            def WORKER_2_RERUN_SUITES = ""
-            def WORKER_3_RERUN_SUITES = ""
-            def WORKER_4_RERUN_SUITES = ""
-            def WORKER_5_RERUN_SUITES = ""
-            def WORKER_6_RERUN_SUITES = ""
-            def WORKER_7_RERUN_SUITES = ""
-            def WORKER_8_RERUN_SUITES = ""
+        if (env.ALLOW_ABORTED_WORKERS_RERUN != 'true') {
+            return
+        }
+        echo "allow aborted reruns ${env.ALLOW_ABORTED_WORKERS_RERUN}"
+        (1..8).each { i -> echo "WORKER_${i}_ABORTED: ${WORKER_ABORTED[i]}" }
 
-            if (WORKER_ABORTED[1]) {
-                echo "rerun worker 1"
-                WORKER_1_RERUN_SUITES = env.WORKER_1_MTR_SUITES
-                rerunNeeded = true
-            } else {
-                // Prevent CI_FS re-trigger
-                env.CI_FS_MTR = 'no'
+        def rerunSuites = (1..8).collect { i ->
+            if (WORKER_ABORTED[i]) {
+                echo "rerun worker ${i}"
+                return env."WORKER_${i}_MTR_SUITES"
             }
-            if (WORKER_ABORTED[2]) {
-                echo "rerun worker 2"
-                WORKER_2_RERUN_SUITES = env.WORKER_2_MTR_SUITES
-                rerunNeeded = true
-            }
-            if (WORKER_ABORTED[3]) {
-                echo "rerun worker 3"
-                WORKER_3_RERUN_SUITES = env.WORKER_3_MTR_SUITES
-                rerunNeeded = true
-            }
-            if (WORKER_ABORTED[4]) {
-                echo "rerun worker 4"
-                WORKER_4_RERUN_SUITES = env.WORKER_4_MTR_SUITES
-                rerunNeeded = true
-            }
-            if (WORKER_ABORTED[5]) {
-                echo "rerun worker 5"
-                WORKER_5_RERUN_SUITES = env.WORKER_5_MTR_SUITES
-                rerunNeeded = true
-            }
-            if (WORKER_ABORTED[6]) {
-                echo "rerun worker 6"
-                WORKER_6_RERUN_SUITES = env.WORKER_6_MTR_SUITES
-                rerunNeeded = true
-            }
-            if (WORKER_ABORTED[7]) {
-                echo "rerun worker 7"
-                WORKER_7_RERUN_SUITES = env.WORKER_7_MTR_SUITES
-                rerunNeeded = true
-            }
-            if (WORKER_ABORTED[8]) {
-                echo "rerun worker 8"
-                WORKER_8_RERUN_SUITES = env.WORKER_8_MTR_SUITES
-                rerunNeeded = true
-            }
+            return ""
+        }
+        // Prevent CI_FS re-trigger if worker 1 isn't being rerun
+        if (!WORKER_ABORTED[1]) {
+            env.CI_FS_MTR = 'no'
+        }
 
-            echo "rerun needed: $rerunNeeded"
-            if (rerunNeeded) {
-                echo "restarting aborted workers"
-                build job: JOB_TO_REBUILD,
-                wait: false,
-                parameters: [
-                    string(name:'BUILD_NUMBER_BINARIES', value: BUILD_NUMBER_BINARIES_FOR_RERUN),
-                    string(name:'GIT_REPO', value: env.GIT_REPO),
-                    string(name:'BRANCH', value: env.BRANCH),
-                    string(name:'DOCKER_OS', value: env.DOCKER_OS),
-                    string(name:'JOB_CMAKE', value: env.JOB_CMAKE),
-                    string(name:'CMAKE_BUILD_TYPE', value: env.CMAKE_BUILD_TYPE),
-                    string(name:'DOCKER_SHM_SIZE', value: env.DOCKER_SHM_SIZE),
-                    string(name:'CLOUD', value: env.CLOUD),
-                    string(name:'ANALYZER_OPTS', value: env.ANALYZER_OPTS),
-                    string(name:'CMAKE_OPTS', value: env.CMAKE_OPTS),
-                    string(name:'MAKE_OPTS', value: env.MAKE_OPTS),
-                    string(name:'MTR_ARGS', value: env.MTR_ARGS),
-                    string(name:'CI_FS_MTR', value: env.CI_FS_MTR),
-                    string(name:'GALERA_PARALLEL_RUN', value: env.GALERA_PARALLEL_RUN),
-                    string(name:'FULL_MTR', value:'no'),
-                    string(name:'WORKER_1_MTR_SUITES', value: WORKER_1_RERUN_SUITES),
-                    string(name:'WORKER_2_MTR_SUITES', value: WORKER_2_RERUN_SUITES),
-                    string(name:'WORKER_3_MTR_SUITES', value: WORKER_3_RERUN_SUITES),
-                    string(name:'WORKER_4_MTR_SUITES', value: WORKER_4_RERUN_SUITES),
-                    string(name:'WORKER_5_MTR_SUITES', value: WORKER_5_RERUN_SUITES),
-                    string(name:'WORKER_6_MTR_SUITES', value: WORKER_6_RERUN_SUITES),
-                    string(name:'WORKER_7_MTR_SUITES', value: WORKER_7_RERUN_SUITES),
-                    string(name:'WORKER_8_MTR_SUITES', value: WORKER_8_RERUN_SUITES),
-                    string(name:'MTR_STANDALONE_TESTS', value: MTR_STANDALONE_TESTS),
-                    string(name:'MTR_STANDALONE_TESTS_PARALLEL', value: MTR_STANDALONE_TESTS_PARALLEL),
-                    booleanParam(name: 'ALLOW_ABORTED_WORKERS_RERUN', value: false),
-                    string(name:'CUSTOM_BUILD_NAME', value: "${BUILD_TRIGGER_BY} ${env.CUSTOM_BUILD_NAME} (${BUILD_NUMBER} retry)")
-                ]
-            }
-        }  // env.ALLOW_ABORTED_WORKERS_RERUN
+        def rerunNeeded = rerunSuites.any { it }
+        echo "rerun needed: ${rerunNeeded}"
+        if (!rerunNeeded) {
+            return
+        }
+        echo "restarting aborted workers"
+
+        def rerunParameters = [
+            string(name:'BUILD_NUMBER_BINARIES', value: BUILD_NUMBER_BINARIES_FOR_RERUN),
+            string(name:'GIT_REPO', value: env.GIT_REPO),
+            string(name:'BRANCH', value: env.BRANCH),
+            string(name:'DOCKER_OS', value: env.DOCKER_OS),
+            string(name:'JOB_CMAKE', value: env.JOB_CMAKE),
+            string(name:'CMAKE_BUILD_TYPE', value: env.CMAKE_BUILD_TYPE),
+            string(name:'DOCKER_SHM_SIZE', value: env.DOCKER_SHM_SIZE),
+            string(name:'CLOUD', value: env.CLOUD),
+            string(name:'ANALYZER_OPTS', value: env.ANALYZER_OPTS),
+            string(name:'CMAKE_OPTS', value: env.CMAKE_OPTS),
+            string(name:'MAKE_OPTS', value: env.MAKE_OPTS),
+            string(name:'MTR_ARGS', value: env.MTR_ARGS),
+            string(name:'CI_FS_MTR', value: env.CI_FS_MTR),
+            string(name:'GALERA_PARALLEL_RUN', value: env.GALERA_PARALLEL_RUN),
+            string(name:'FULL_MTR', value:'no'),
+            string(name:'MTR_STANDALONE_TESTS', value: MTR_STANDALONE_TESTS),
+            string(name:'MTR_STANDALONE_TESTS_PARALLEL', value: MTR_STANDALONE_TESTS_PARALLEL),
+            booleanParam(name: 'ALLOW_ABORTED_WORKERS_RERUN', value: false),
+            string(name:'CUSTOM_BUILD_NAME', value: "${BUILD_TRIGGER_BY} ${env.CUSTOM_BUILD_NAME} (${BUILD_NUMBER} retry)"),
+            string(name:'JENKINS_SCRIPTS_REPO', value: params.JENKINS_SCRIPTS_REPO),
+            string(name:'JENKINS_SCRIPTS_BRANCH', value: params.JENKINS_SCRIPTS_BRANCH),
+        ]
+        (1..8).each { i ->
+            rerunParameters << string(name: "WORKER_${i}_MTR_SUITES", value: rerunSuites[i - 1])
+        }
+
+        build job: JOB_TO_REBUILD,
+              wait: false,
+              parameters: rerunParameters
     }
 }
 
@@ -528,19 +470,15 @@ pipeline {
     options {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
-        timeout(time: 6, unit: 'DAYS')
+        timeout(time: 8, unit: 'DAYS')
         buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '20'))
         copyArtifactPermission(JOB_TO_REBUILD);
     }
     stages {
         stage('Prepare') {
             steps {
-                script {
-                    echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
-                    echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
-                    echo "Using instances from cloud ${CLOUD} with LABEL ${LABEL} for build and test stages"
-                }
-                git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+                echo "Using instances from cloud ${CLOUD} with LABEL ${LABEL} for build and test stages"
+                checkoutScripts()
 
                 script {
                     BUILD_TRIGGER_BY = " (${currentBuild.getBuildCauses()[0].userId})"
@@ -550,7 +488,7 @@ pipeline {
                     currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}${BUILD_TRIGGER_BY} ${CUSTOM_BUILD_NAME}"
                 }
 
-                sh 'echo Prepare: \$(date -u "+%s")'
+                sh 'echo Prepare: $(date -u "+%s")'
 
                 validatePxcBranch()
                 setupTestSuitesSplit()
@@ -572,11 +510,7 @@ pipeline {
                 stage('Build PXC80') {
                     agent { label LABEL }
                     steps {
-                        script {
-	                        echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
-	                        echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
-                        }
-                        git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+                        checkoutScripts()
 
                         checkoutSources("PXC80")
                         build("./pxc/docker/run-build-pxc-parallel-mtr")
@@ -586,12 +520,10 @@ pipeline {
                                 script: 'ls pxc/sources/pxc/results/*.tar.gz | head -1',
                                 returnStdout: true
                             ).trim()
-                            if (FILE_NAME != "") {
-                                uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxc80.tar.gz")
-                            } else {
-                                echo 'Cannot find compiled archive'
-                                currentBuild.result = 'FAILURE'
+                            if (FILE_NAME == "") {
+                                error 'PXC80 tarball not produced'
                             }
+                            uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxc80.tar.gz")
                             env.BUILD_TAG_BINARIES = env.BUILD_TAG
                             BUILD_NUMBER_BINARIES_FOR_RERUN = env.BUILD_NUMBER
                         }
@@ -604,12 +536,7 @@ pipeline {
                     }
                     agent { label 'docker' }
                     steps {
-                        script {
-	                        echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
-	                        echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
-       	                    sh "which git"
-                        }
-                        git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+                        checkoutScripts()
 
                         checkoutSources("PXB24")
                         build("./pxc/docker/run-build-pxb24")
@@ -620,12 +547,10 @@ pipeline {
                                 returnStdout: true
                             ).trim()
 
-                            if (FILE_NAME != "") {
-                                uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxb24.tar.gz")
-                            } else {
-                                echo 'Cannot find compiled archive'
-                                currentBuild.result = 'FAILURE'
+                            if (FILE_NAME == "") {
+                                error 'PXB24 tarball not produced'
                             }
+                            uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxb24.tar.gz")
                         }
                     }
                 }
@@ -636,12 +561,7 @@ pipeline {
                     }
                     agent { label LABEL }
                     steps {
-                        script {
-	                        echo "JENKINS_SCRIPTS_BRANCH: ${params.JENKINS_SCRIPTS_BRANCH}"
-	                        echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}"
-       	                    sh "which git"
-                        }
-                        git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+                        checkoutScripts()
 
                         checkoutSources("PXB80")
                         build("./pxc/docker/run-build-pxb80")
@@ -652,12 +572,10 @@ pipeline {
                                 returnStdout: true
                             ).trim()
 
-                            if (FILE_NAME != "") {
-                                uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxb80.tar.gz")
-                            } else {
-                                echo 'Cannot find compiled archive'
-                                currentBuild.result = 'FAILURE'
+                            if (FILE_NAME == "") {
+                                error 'PXB80 tarball not produced'
                             }
+                            uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxb80.tar.gz")
                         }
                     }
                 }
@@ -751,7 +669,7 @@ pipeline {
     post {
         always {
             triggerAbortedTestWorkersRerun()
-            sh 'echo Finish: \$(date -u "+%s")'
+            sh 'echo Finish: $(date -u "+%s")'
         }
     }
 }
