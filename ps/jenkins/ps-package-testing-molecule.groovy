@@ -109,7 +109,13 @@ def ps97PackageTesting() {
         'rhel-10',
         'rhel-10-arm',
         'ubuntu-resolute',
-       'ubuntu-resolute-arm'
+        'ubuntu-resolute-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -296,7 +302,7 @@ properties([
                         if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -350,6 +356,9 @@ properties([
                             }
                             else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
+                            }
+                            else if (product_to_test == "ps_97") {
+                                return ["ps_84"]
                             }
                             else {
                                 return ["NA"]
@@ -405,6 +414,9 @@ properties([
                             }
                             else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
+                            }
+                            else if (product_to_test == "ps_97") {
+                                return ["ps_97"]
                             }
                             else {
                                 return ["NA"]
