@@ -14,36 +14,68 @@
 # absent. --include-deprecated so AMIs past deprecate_at are still seen and pruned.
 set -euo pipefail
 
-ROLE="${1:?ROLE}"; OS_MAJOR="${2:?OS_MAJOR}"; ARCH="${3:?ARCH}"
-KEEP_N="${4:?KEEP_N}"; APPLY="${5:?APPLY (1=delete, else list)}"; REGION="${6:?REGION}"
-PROFILE_ARGS=(); [ -n "${7:-}" ] && PROFILE_ARGS=(--profile "$7")
+ROLE="${1:?ROLE}"
+OS_MAJOR="${2:?OS_MAJOR}"
+ARCH="${3:?ARCH}"
+KEEP_N="${4:?KEEP_N}"
+APPLY="${5:?APPLY (1=delete, else list)}"
+REGION="${6:?REGION}"
 OS_NAME="${OS_NAME:-oraclelinux}"
 
-# Newest-first list of this combo's promoted AMIs (id + creation date for logging).
-ids=$(aws ec2 describe-images "${PROFILE_ARGS[@]}" --region "$REGION" --owners self --include-deprecated \
-  --filters Name=tag:role,Values="$ROLE" Name=tag:os,Values="$OS_NAME" \
-            Name=tag:os_major,Values="$OS_MAJOR" Name=tag:arch,Values="$ARCH" Name=state,Values=available \
-  --query 'reverse(sort_by(Images,&CreationDate))[].ImageId' --output text) \
-  || { echo "FATAL: describe-images failed for OL$OS_MAJOR $ARCH (refusing to prune blind)" >&2; exit 1; }
+PROFILE_ARGS=()
+[[ -n "${7:-}" ]] && PROFILE_ARGS=(--profile "$7")
 
-# `read -a` splits on IFS; aws text output is tab/space separated, "None" when empty.
-read -r -a arr <<< "$ids"
-[ "${#arr[@]}" -eq 0 ] || [ "${arr[0]}" = None ] && { echo "  OL$OS_MAJOR $ARCH: no $ROLE AMIs"; exit 0; }
-if [ "${#arr[@]}" -le "$KEEP_N" ]; then
-  echo "  OL$OS_MAJOR $ARCH: ${#arr[@]} AMI(s) <= keep $KEEP_N, nothing to prune"; exit 0
+# Refuse a non-positive keep count: KEEP_N=0 would deregister the live base too.
+if ! [[ "${KEEP_N}" =~ ^[0-9]+$ ]] || (( KEEP_N < 1 )); then
+  echo "KEEP_N must be a positive integer, got '${KEEP_N}'" >&2
+  exit 1
 fi
 
-echo "  OL$OS_MAJOR $ARCH: ${#arr[@]} $ROLE AMIs, keep newest $KEEP_N:"
-for i in "${!arr[@]}"; do
-  ami="${arr[$i]}"
-  if [ "$i" -lt "$KEEP_N" ]; then echo "    KEEP $ami"; continue; fi
-  if [ "$APPLY" = 1 ]; then
-    echo "    deregister $ami (superseded)"
-    snaps=$(aws ec2 describe-images "${PROFILE_ARGS[@]}" --region "$REGION" --image-ids "$ami" \
-      --query 'Images[0].BlockDeviceMappings[].Ebs.SnapshotId' --output text) || { echo "    WARN describe $ami failed, skip" >&2; continue; }
-    aws ec2 deregister-image "${PROFILE_ARGS[@]}" --region "$REGION" --image-id "$ami"
-    for s in $snaps; do [ "$s" = None ] && continue; aws ec2 delete-snapshot "${PROFILE_ARGS[@]}" --region "$REGION" --snapshot-id "$s"; done
-  else
-    echo "    would deregister $ami (superseded)"
+# Newest-first list of this combo's promoted AMI ids.
+ids=$(aws ec2 describe-images "${PROFILE_ARGS[@]}" --region "${REGION}" --owners self --include-deprecated \
+  --filters Name=tag:role,Values="${ROLE}" Name=tag:os,Values="${OS_NAME}" \
+            Name=tag:os_major,Values="${OS_MAJOR}" Name=tag:arch,Values="${ARCH}" Name=state,Values=available \
+  --query 'reverse(sort_by(Images,&CreationDate))[].ImageId' --output text) \
+  || { echo "FATAL: describe-images failed for OL${OS_MAJOR} ${ARCH} (refusing to prune blind)" >&2; exit 1; }
+
+# `read -a` splits on IFS; aws text output is tab/space separated, "None" when empty.
+read -r -a ami_ids <<< "${ids}"
+
+if [[ "${#ami_ids[@]}" -eq 0 ]] || [[ "${ami_ids[0]}" == None ]]; then
+  echo "  OL${OS_MAJOR} ${ARCH}: no ${ROLE} AMIs"
+  exit 0
+fi
+
+if [[ "${#ami_ids[@]}" -le "${KEEP_N}" ]]; then
+  echo "  OL${OS_MAJOR} ${ARCH}: ${#ami_ids[@]} AMI(s) <= keep ${KEEP_N}, nothing to prune"
+  exit 0
+fi
+
+echo "  OL${OS_MAJOR} ${ARCH}: ${#ami_ids[@]} ${ROLE} AMIs, keep newest ${KEEP_N}:"
+
+for index in "${!ami_ids[@]}"; do
+  ami="${ami_ids[${index}]}"
+
+  if [[ "${index}" -lt "${KEEP_N}" ]]; then
+    echo "    KEEP ${ami}"
+    continue
   fi
+
+  if [[ "${APPLY}" != 1 ]]; then
+    echo "    would deregister ${ami} (superseded)"
+    continue
+  fi
+
+  echo "    deregister ${ami} (superseded)"
+
+  snaps=$(aws ec2 describe-images "${PROFILE_ARGS[@]}" --region "${REGION}" --image-ids "${ami}" \
+    --query 'Images[0].BlockDeviceMappings[].Ebs.SnapshotId' --output text) \
+    || { echo "    WARN describe ${ami} failed, skip" >&2; continue; }
+
+  aws ec2 deregister-image "${PROFILE_ARGS[@]}" --region "${REGION}" --image-id "${ami}"
+
+  for snapshot in ${snaps}; do
+    [[ "${snapshot}" == None ]] && continue
+    aws ec2 delete-snapshot "${PROFILE_ARGS[@]}" --region "${REGION}" --snapshot-id "${snapshot}"
+  done
 done
