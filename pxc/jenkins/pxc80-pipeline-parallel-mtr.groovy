@@ -1,19 +1,21 @@
-PIPELINE_TIMEOUT = 24
-AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
-MAX_S3_RETRIES = 12
-S3_ROOT_DIR = 's3://pxc-build-cache'
+import groovy.transform.Field
+
+@Field int PIPELINE_TIMEOUT = 24
+@Field String AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
+@Field int MAX_S3_RETRIES = 12
+@Field String S3_ROOT_DIR = 's3://pxc-build-cache'
 // boolean default is false, 1st item unused.
-WORKER_ABORTED = new boolean[9]
-BUILD_NUMBER_BINARIES_FOR_RERUN = 0
-BUILD_TRIGGER_BY = ''
-JOB_TO_REBUILD = env.JOB_NAME
-PXB24_PACKAGE_TO_DOWNLOAD = ''
-PXB80_PACKAGE_TO_DOWNLOAD = ''
-LABEL = 'docker-32gb'
-MICRO_LABEL = 'micro-amazon'
+@Field boolean[] WORKER_ABORTED = new boolean[9]
+@Field String BUILD_NUMBER_BINARIES_FOR_RERUN = ''
+@Field String BUILD_TRIGGER_BY = ''
+@Field String JOB_TO_REBUILD = env.JOB_NAME
+@Field String PXB24_PACKAGE_TO_DOWNLOAD = ''
+@Field String PXB80_PACKAGE_TO_DOWNLOAD = ''
+@Field String LABEL = 'docker-32gb'
+@Field String MICRO_LABEL = 'micro-amazon'
 
 // We need this map to construct proper pxb tarball name
-OsToGlibcMap = [
+@Field Map OsToGlibcMap = [
     "centos:7" : "2.17",
     "centos:8" : "2.28",
     "oraclelinux:9": "2.34",
@@ -304,16 +306,10 @@ void setupTestSuitesSplit() {
                 set_suites ${CMAKE_BUILD_TYPE}
             fi
 
-            cat > ${WORKSPACE}/worker.suites.properties <<EOF
-WORKER_1_MTR_SUITES=\${WORKER_1_MTR_SUITES}
-WORKER_2_MTR_SUITES=\${WORKER_2_MTR_SUITES}
-WORKER_3_MTR_SUITES=\${WORKER_3_MTR_SUITES}
-WORKER_4_MTR_SUITES=\${WORKER_4_MTR_SUITES}
-WORKER_5_MTR_SUITES=\${WORKER_5_MTR_SUITES}
-WORKER_6_MTR_SUITES=\${WORKER_6_MTR_SUITES}
-WORKER_7_MTR_SUITES=\${WORKER_7_MTR_SUITES}
-WORKER_8_MTR_SUITES=\${WORKER_8_MTR_SUITES}
-EOF
+            for i in 1 2 3 4 5 6 7 8; do
+                suites_var="WORKER_\${i}_MTR_SUITES"
+                echo "\${!suites_var}" > ${WORKSPACE}/worker_\${i}.suites
+            done
         fi
     """
     def split_script_output = sh(script: split_script, returnStdout: true)
@@ -321,9 +317,8 @@ EOF
 
     script {
         if (env.FULL_MTR == 'yes') {
-            def props = readProperties file: "${WORKSPACE}/worker.suites.properties"
             (1..8).each { i ->
-                env."WORKER_${i}_MTR_SUITES" = props."WORKER_${i}_MTR_SUITES" ?: ""
+                env."WORKER_${i}_MTR_SUITES" = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_${i}.suites").trim()
             }
         } else if (env.FULL_MTR == 'galera_only') {
             def galeraSuites = [
@@ -516,7 +511,7 @@ pipeline {
                         build("./pxc/docker/run-build-pxc-parallel-mtr")
 
                         script {
-                            FILE_NAME = sh(
+                            def FILE_NAME = sh(
                                 script: 'ls pxc/sources/pxc/results/*.tar.gz | head -1',
                                 returnStdout: true
                             ).trim()
@@ -542,7 +537,7 @@ pipeline {
                         build("./pxc/docker/run-build-pxb24")
 
                         script {
-                            FILE_NAME = sh(
+                            def FILE_NAME = sh(
                                 script: 'ls pxc/sources/pxb24/results/*.tar.gz | head -1',
                                 returnStdout: true
                             ).trim()
@@ -567,7 +562,7 @@ pipeline {
                         build("./pxc/docker/run-build-pxb80")
 
                         script {
-                            FILE_NAME = sh(
+                            def FILE_NAME = sh(
                                 script: 'ls pxc/sources/pxb80/results/*.tar.gz | head -1',
                                 returnStdout: true
                             ).trim()
