@@ -151,7 +151,7 @@
         description: "MTR workers count for standalone tests"
     - bool:
         name: ALLOW_ABORTED_WORKERS_RERUN
-        default: true
+        default: false
         description: "Rerun aborted workers"
     - choice:
         name: CLOUD
