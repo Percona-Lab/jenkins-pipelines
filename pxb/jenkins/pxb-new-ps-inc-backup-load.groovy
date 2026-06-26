@@ -3,10 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def PXBskipOSPRO() {
-  return ['debian-11', 'debian-12', 'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023']
-}
-
 // This job tests the two representative families against per-family branch builds:
 // oracle-9 (RedHat, OL9 build) and debian-12 (Debian, bookworm build).
 def pxbTestOSes() {
@@ -117,17 +113,17 @@ pipeline {
   parameters {
     string(
       name: 'PXB_VERSION',
-      defaultValue: '8.4.0-5',
+      defaultValue: '8.4.0-6',
       description: 'PXB full version'
     )
     string(
       name: 'PXB_RHEL_GCLIBC_VERSION',
-      defaultValue: '2.39',
+      defaultValue: '2.34',
       description: 'PXB glibc version for RHEL'
     )
     string(
       name: 'PXB_DEBIAN_GCLIBC_VERSION',
-      defaultValue: '2.36',
+      defaultValue: '2.35',
       description: 'PXB glibc version for Debian'
     )
     string(
@@ -162,7 +158,7 @@ pipeline {
     )
     string(
       name: 'PS_RHEL_GCLIBC_VERSION',
-      defaultValue: '2.35',
+      defaultValue: '2.34',
       description: 'PS glibc version for RHEL'
     )
     string(
