@@ -302,6 +302,13 @@ if [[ $MTR_ARGS == *"--unit-tests-report"* ]]; then
 fi
 MTR_ARGS=${MTR_ARGS//"--unit-tests-report"/""}
 
+# Skip tests known to time out / be too slow under valgrind, if the list is
+# present in the extracted tree (mysql-test-run.pl errors if the file is missing).
+if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]] && \
+   [[ -f "${WORKDIR_ABS}/PXC/mysql-test/collections/valgrind-skip.list" ]]; then
+    MTR_ARGS="${MTR_ARGS} --skip-test-list=${WORKDIR_ABS}/PXC/mysql-test/collections/valgrind-skip.list"
+fi
+
 
 status=0
 
