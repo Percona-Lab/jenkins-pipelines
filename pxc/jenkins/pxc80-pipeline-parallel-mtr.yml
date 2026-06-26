@@ -11,7 +11,7 @@
             branches:
             - "${{JENKINS_SCRIPTS_BRANCH}}"
             wipe-workspace: false
-      lightweight-checkout: true
+      lightweight-checkout: false
       script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy
     parameters:
     - string:
