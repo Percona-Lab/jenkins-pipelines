@@ -3,8 +3,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def PXBskipOSPRO() {
-  return ['debian-11', 'debian-12', 'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023']
+// This job tests the two representative families against per-family branch builds:
+// oracle-9 (RedHat, OL9 build) and debian-12 (Debian, bookworm build).
+def pxbTestOSes() {
+  return ['debian-12', 'oracle-9']
 }
 
 def deleteBuildInstances(){
@@ -111,17 +113,17 @@ pipeline {
   parameters {
     string(
       name: 'PXB_VERSION',
-      defaultValue: '8.4.0-5',
+      defaultValue: '8.4.0-6',
       description: 'PXB full version'
     )
     string(
       name: 'PXB_RHEL_GCLIBC_VERSION',
-      defaultValue: '2.39',
+      defaultValue: '2.34',
       description: 'PXB glibc version for RHEL'
     )
     string(
       name: 'PXB_DEBIAN_GCLIBC_VERSION',
-      defaultValue: '2.36',
+      defaultValue: '2.35',
       description: 'PXB glibc version for Debian'
     )
     string(
@@ -135,9 +137,14 @@ pipeline {
       description: 'PXB git branch/tag to build. Leave EMPTY to download the released PXB_VERSION (default behavior). When set, an unreleased PXB is built from this branch via the percona-xtrabackup compile pipeline and tested against the released PS_VERSION.'
     )
     string(
-      name: 'PXB_BUILD_DOCKER_OS',
+      name: 'PXB_BUILD_DOCKER_OS_RHEL',
       defaultValue: 'oraclelinux:9',
-      description: 'Must be a valid DOCKER_OS choice of the target compile pipeline. Default oraclelinux:9 (glibc 2.34) is valid for both the 8.0 and 9.x compile pipelines and is old enough to run on all currently tested OSes. Valid 8.0 choices: centos:8, oraclelinux:9, ubuntu:focal, ubuntu:jammy, ubuntu:noble, debian:bullseye, debian:bookworm. Valid 9.x choices: oraclelinux:9, ubuntu:jammy, ubuntu:noble, debian:bookworm, debian:trixie.'
+      description: 'DOCKER_OS used to build the PXB binary for the RedHat-family test host (oracle-9). Must be a valid DOCKER_OS choice of the target compile pipeline. Valid 8.0 choices: centos:8, oraclelinux:9, ubuntu:focal, ubuntu:jammy, ubuntu:noble, debian:bullseye, debian:bookworm. Valid 9.x choices: oraclelinux:9, ubuntu:jammy, ubuntu:noble, debian:bookworm, debian:trixie.'
+    )
+    string(
+      name: 'PXB_BUILD_DOCKER_OS_DEB',
+      defaultValue: 'debian:bookworm',
+      description: 'DOCKER_OS used to build the PXB binary for the Debian-family test host (debian-12). Must be a valid DOCKER_OS choice of the target compile pipeline (see PXB_BUILD_DOCKER_OS_RHEL for valid values).'
     )
     choice(
       name: 'PXB_BUILD_TYPE',
@@ -151,7 +158,7 @@ pipeline {
     )
     string(
       name: 'PS_RHEL_GCLIBC_VERSION',
-      defaultValue: '2.35',
+      defaultValue: '2.34',
       description: 'PS glibc version for RHEL'
     )
     string(
@@ -198,39 +205,57 @@ pipeline {
         script {
           def pxbMajor = params.PXB_VERSION.tokenize('.')[0]
           def compileJob = (pxbMajor == '9') ? 'percona-xtrabackup-9.x-compile-pipeline' : 'percona-xtrabackup-8.0-compile-pipeline'
-          echo "Building unreleased PXB from ${params.PXB_GIT_REPO} branch '${params.PXB_BRANCH}' via ${compileJob} (${params.PXB_BUILD_DOCKER_OS}, ${params.PXB_BUILD_TYPE})"
 
-          def compileBuild = build job: compileJob, wait: true, propagate: true, parameters: [
-            string(name: 'GIT_REPO', value: params.PXB_GIT_REPO),
-            string(name: 'BRANCH', value: params.PXB_BRANCH),
-            string(name: 'DOCKER_OS', value: params.PXB_BUILD_DOCKER_OS),
-            string(name: 'CMAKE_BUILD_TYPE', value: params.PXB_BUILD_TYPE)
-          ]
+          // Build one PXB binary on the given DOCKER_OS via the compile pipeline and
+          // resolve the public S3 URL of the resulting tarball.
+          def buildOne = { dockerOS ->
+            echo "Building unreleased PXB from ${params.PXB_GIT_REPO} branch '${params.PXB_BRANCH}' via ${compileJob} (${dockerOS}, ${params.PXB_BUILD_TYPE})"
 
-          copyArtifacts(
-            projectName: compileJob,
-            selector: specific("${compileBuild.number}"),
-            filter: 'COMPILE_BUILD_TAG'
-          )
+            def b = build job: compileJob, wait: true, propagate: true, parameters: [
+              string(name: 'GIT_REPO', value: params.PXB_GIT_REPO),
+              string(name: 'BRANCH', value: params.PXB_BRANCH),
+              string(name: 'DOCKER_OS', value: dockerOS),
+              string(name: 'CMAKE_BUILD_TYPE', value: params.PXB_BUILD_TYPE)
+            ]
 
-          def buildTag = readFile('COMPILE_BUILD_TAG').trim()
-          def dockerOsDashed = params.PXB_BUILD_DOCKER_OS.replaceAll(':', '-')
-          def grepPattern = (params.PXB_BUILD_TYPE == 'Debug') ? "x86_64-${dockerOsDashed}-debug.tar.gz" : "x86_64-${dockerOsDashed}.tar.gz"
+            def dockerOsDashed = dockerOS.replaceAll(':', '-')
+            // copyArtifacts writes COMPILE_BUILD_TAG to a fixed name; give each parallel
+            // branch its own target dir so the two runs don't clobber each other.
+            copyArtifacts(
+              projectName: compileJob,
+              selector: specific("${b.number}"),
+              filter: 'COMPILE_BUILD_TAG',
+              target: dockerOsDashed
+            )
 
-          def tarball = sh(
-            script: "aws s3 ls pxb-build-cache/${buildTag}/ | grep '${grepPattern}' | awk '{print \$4}' | head -1",
-            returnStdout: true
-          ).trim()
+            def buildTag = readFile("${dockerOsDashed}/COMPILE_BUILD_TAG").trim()
+            def grepPattern = (params.PXB_BUILD_TYPE == 'Debug') ? "x86_64-${dockerOsDashed}-debug.tar.gz" : "x86_64-${dockerOsDashed}.tar.gz"
 
-          if (!tarball) {
-            error "No PXB tarball matching '${grepPattern}' found in s3://pxb-build-cache/${buildTag}/"
+            def tarball = sh(
+              script: "aws s3 ls pxb-build-cache/${buildTag}/ | grep '${grepPattern}' | awk '{print \$4}' | head -1",
+              returnStdout: true
+            ).trim()
+
+            if (!tarball) {
+              error "No PXB tarball matching '${grepPattern}' found in s3://pxb-build-cache/${buildTag}/"
+            }
+
+            // Use virtual-hosted-style URL (path-style returns HTTP 301) with the bucket's real region.
+            def loc = sh(script: "aws s3api get-bucket-location --bucket pxb-build-cache --query 'LocationConstraint' --output text 2>/dev/null || true", returnStdout: true).trim()
+            def bucketRegion = loc ? (loc == 'None' ? 'us-east-1' : loc) : 'us-east-2'
+            return "https://pxb-build-cache.s3.${bucketRegion}.amazonaws.com/${buildTag}/${tarball}"
           }
 
-          // Use virtual-hosted-style URL (path-style returns HTTP 301) with the bucket's real region.
-          def loc = sh(script: "aws s3api get-bucket-location --bucket pxb-build-cache --query 'LocationConstraint' --output text 2>/dev/null || true", returnStdout: true).trim()
-          def bucketRegion = loc ? (loc == 'None' ? 'us-east-1' : loc) : 'us-east-2'
-          env.PXB_TARBALL_URL = "https://pxb-build-cache.s3.${bucketRegion}.amazonaws.com/${buildTag}/${tarball}"
-          echo "Branch-built PXB tarball: ${env.PXB_TARBALL_URL}"
+          // Build the RedHat (oracle-9) and Debian (debian-12) binaries in parallel.
+          def urls = [:]
+          parallel(
+            rhel: { urls.rhel = buildOne(params.PXB_BUILD_DOCKER_OS_RHEL) },
+            deb:  { urls.deb  = buildOne(params.PXB_BUILD_DOCKER_OS_DEB) }
+          )
+          env.PXB_TARBALL_URL_RHEL = urls.rhel
+          env.PXB_TARBALL_URL_DEB  = urls.deb
+          echo "Branch-built PXB tarball (RedHat/oracle-9): ${env.PXB_TARBALL_URL_RHEL}"
+          echo "Branch-built PXB tarball (Debian/debian-12): ${env.PXB_TARBALL_URL_DEB}"
           currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-branch:${params.PXB_BRANCH}-${params.TESTING_BRANCH}"
         }
       }
@@ -281,7 +306,7 @@ pipeline {
           ]
           withEnv(envMap) {
             withCredentials(testCredentials) {
-                moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
+                moleculeParallelTestSkip(pxbTestOSes(), env.MOLECULE_DIR, [])
             }
           }
         }
@@ -294,7 +319,7 @@ pipeline {
       script {
         archiveArtifacts artifacts: "*.tar.gz", followSymlinks: false, allowEmptyArchive: true
         junit allowEmptyResults: true, testResults: "**/pytest-junit*.xml"
-        moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
+        moleculeParallelPostDestroy(pxbTestOSes(), env.MOLECULE_DIR)
       }
       deleteBuildInstances()
     }
