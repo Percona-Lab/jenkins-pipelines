@@ -22,12 +22,13 @@ same Packer templates + scripts run whether driven locally (`justfile`) or by th
 GitHub Actions workflow. Builds connect over AWS Session Manager (no inbound SSH)
 and authenticate via GitHub OIDC (no static keys).
 
-## Two build paths
+## Three build paths
 
 | Path | Covers | Mechanism |
 |------|--------|-----------|
 | **Refresh** (`oracle-linux.pkr.hcl`) | OL8, OL9, OL10 (x86_64 + arm64) | `amazon-ebs`: launch the latest self-owned base of the same major+arch, `dnf update`, validate (fail-closed), snapshot. Each build's output is the next build's source. |
-| **Bootstrap** (`scripts/bootstrap-ol10.sh`) | OL10 lineage root, one-time per arch | Import Oracle's official OL10 cloud image (arm64 `*-kvm-cloud-*.qcow2`, x86_64 `*-aws-*.vmdk`) via `aws ec2 import-snapshot`, register the raw base, then `packer build bootstrap/finalize-ol10.pkr.hcl` (adds `ec2-user` + `amazon-ssm-agent` + `dnf update`). Needed because Oracle ships no OL10 AWS AMI. Idempotent: a re-run detects an already-promoted base and skips, and never re-downloads. |
+| **Bootstrap** (`scripts/bootstrap-ol10.sh`) | OL10 lineage root, one-time per arch | Import Oracle's official OL10 cloud image (arm64 `*-kvm-cloud-*.qcow2`, x86_64 `*-aws-*.vmdk`) via `aws ec2 import-snapshot`, register the raw base, then `packer build bootstrap/finalize-ol10.pkr.hcl` (adds `ec2-user` + `amazon-ssm-agent` + `dnf update`). Needed because Oracle ships no OL10 AWS AMI. Promotes to a `prebase` role: Oracle's full-size root cannot launch on `var.volume_size`, so `reimage-ol10` shrinks it before it becomes the consumed base. Idempotent. |
+| **Re-image** (`scripts/reimage-ol10.sh`) | OL10 root shrink, one-time per arch | Copy the current base's root onto a fresh `var.volume_size` GiB volume on a builder, snapshot + register, then `reimage-ol10-verify` boot-tests two sizes + smoke + size-gate + promote. Needed because EBS cannot restore a volume below its source snapshot and XFS cannot shrink in place. Full internals (`dd` /boot, LVM-to-plain, the gates): [docs/reimage.md](docs/reimage.md). |
 
 ## Usage
 
@@ -38,7 +39,9 @@ just bake 9 x86_64                      # build + smoke + promote one combo
 just all                                # build + promote every OL major x arch
 just bootstrap-ol10-prep                # one-time: import bucket + vmimport role + boot-test SG/key
 just bootstrap-ol10 x86_64              # one-time OL10 lineage root for an arch
-just bootstrap-ol10-verify <ami> x86_64 # boot-validate a candidate then promote it
+just bootstrap-ol10-verify <ami> x86_64 # boot-validate a candidate then promote it (prebase)
+just reimage-ol10 x86_64                # shrink the OL10 base root to var.volume_size (lineage shrink)
+just reimage-ol10-verify <ami> x86_64   # boot-test two sizes + smoke + size-gate + promote
 ```
 
 Each build registers `OL<major>-<arch>-<UTCstamp>` tagged `os=oraclelinux`,
@@ -113,8 +116,11 @@ a real boot/install failure (never on a transient promote-tag failure).
 
 OL10 is live: both lineage-root bases (x86_64 + arm64) are built and promoted
 `role=ppg-package-test`, and the refresh template's `os_major` validation
-includes `10`, so OL10 refreshes on the same schedule as OL8/OL9. The one-time
-bootstrap imported Oracle's official cloud images via `import-snapshot` (arm64 is
+includes `10`, so OL10 refreshes on the same schedule as OL8/OL9. The bases are
+re-imaged to `var.volume_size` so they launch on the same root size as OL8/OL9
+instead of Oracle's larger imported root ([docs/reimage.md](docs/reimage.md)); the
+refresh sustains that size. The one-time bootstrap imported Oracle's official cloud
+images via `import-snapshot` (arm64 is
 not eligible for `import-image`, so the VMDK is imported as a snapshot and
 registered with `--boot-mode uefi`; x86_64 uses Oracle's `-aws-` VMDK with
 `--boot-mode legacy-bios`). x86_64 OL10 requires the `x86-64-v3` microarch, which
