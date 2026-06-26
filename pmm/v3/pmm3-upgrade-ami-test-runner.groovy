@@ -118,7 +118,7 @@ pipeline {
             name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: upgradeAmiVersion,
-            description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
+            description: 'PMM Server Version to test for Upgrade (Docker Tag or AMI ID)',
             name: 'AMI_TAG')
         string(
             defaultValue: '',
