@@ -317,7 +317,7 @@ void setupTestSuitesSplit() {
 
     script {
         if (env.FULL_MTR == 'yes') {
-            (1..8).each { i ->
+            [1, 2, 3, 4, 5, 6, 7, 8].each { i ->
                 env."WORKER_${i}_MTR_SUITES" = sh(returnStdout: true, script: "cat ${WORKSPACE}/worker_${i}.suites").trim()
             }
         } else if (env.FULL_MTR == 'galera_only') {
@@ -331,15 +331,15 @@ void setupTestSuitesSplit() {
                 "galera|nobig",
                 "galera|big",
             ]
-            (1..8).each { i -> env."WORKER_${i}_MTR_SUITES" = galeraSuites[i - 1] }
+            [1, 2, 3, 4, 5, 6, 7, 8].each { i -> env."WORKER_${i}_MTR_SUITES" = galeraSuites[i - 1] }
         } else if (env.FULL_MTR == 'skip_mtr') {
             // It is possible that values are fetched from
             // suites-groups.sh file. Clean them.
             echo "MTR execution skip requested!"
-            (1..8).each { i -> env."WORKER_${i}_MTR_SUITES" = "" }
+            [1, 2, 3, 4, 5, 6, 7, 8].each { i -> env."WORKER_${i}_MTR_SUITES" = "" }
         }
 
-        (1..8).each { i ->
+        [1, 2, 3, 4, 5, 6, 7, 8].each { i ->
             echo "WORKER_${i}_MTR_SUITES: ${env."WORKER_${i}_MTR_SUITES"}"
         }
     }
@@ -379,9 +379,9 @@ void triggerAbortedTestWorkersRerun() {
             return
         }
         echo "allow aborted reruns ${env.ALLOW_ABORTED_WORKERS_RERUN}"
-        (1..8).each { i -> echo "WORKER_${i}_ABORTED: ${WORKER_ABORTED[i]}" }
+        [1, 2, 3, 4, 5, 6, 7, 8].each { i -> echo "WORKER_${i}_ABORTED: ${WORKER_ABORTED[i]}" }
 
-        def rerunSuites = (1..8).collect { i ->
+        def rerunSuites = [1, 2, 3, 4, 5, 6, 7, 8].collect { i ->
             if (WORKER_ABORTED[i]) {
                 echo "rerun worker ${i}"
                 return env."WORKER_${i}_MTR_SUITES"
@@ -423,7 +423,7 @@ void triggerAbortedTestWorkersRerun() {
             string(name:'JENKINS_SCRIPTS_REPO', value: params.JENKINS_SCRIPTS_REPO),
             string(name:'JENKINS_SCRIPTS_BRANCH', value: params.JENKINS_SCRIPTS_BRANCH),
         ]
-        (1..8).each { i ->
+        [1, 2, 3, 4, 5, 6, 7, 8].each { i ->
             rerunParameters << string(name: "WORKER_${i}_MTR_SUITES", value: rerunSuites[i - 1])
         }
 
