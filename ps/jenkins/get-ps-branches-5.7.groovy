@@ -82,7 +82,11 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                script {
+                    def emojis = ['🚀', '🌟', '💫', '🔥', '⚡', '🎯', '🏆', '✨', '🎲', '🌈', '🦄', '🍀', '🎉', '🔮']
+                    def randomEmoji = emojis[new Random().nextInt(emojis.size())]
+                    slackNotify("#releases-ci", "#00FF00", "${randomEmoji} [${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                }
                 build job: 'ps5.7-autobuild-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'PERCONAFT_BRANCH', value: PERCONAFT_BRANCH), string(name: 'TOKUBACKUP_BRANCH', value: TOKUBACKUP_BRANCH), string(name: 'COMPONENT', value: 'testing')]
 
             }

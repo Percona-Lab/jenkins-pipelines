@@ -80,7 +80,11 @@ pipeline {
                         echo ${START_NEW_BUILD}: build required
                     """
                 }
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                script {
+                    def emojis = ['🚀', '🌟', '💫', '🔥', '⚡', '🎯', '🏆', '✨', '🎲', '🌈', '🦄', '🍀', '🎉', '🔮']
+                    def randomEmoji = emojis[new Random().nextInt(emojis.size())]
+                    slackNotify("#releases-ci", "#00FF00", "${randomEmoji} [${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
+                }
                 build job: 'ps9.0-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'experimental')]
 
             }
