@@ -490,7 +490,7 @@ Resources:
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
       Encrypted: false
-      Size: 100
+      Size: 500
       Tags:
       - Key: iit-billing-tag
         Value: !Ref JShortName
