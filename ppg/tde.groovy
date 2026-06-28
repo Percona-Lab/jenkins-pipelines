@@ -68,6 +68,11 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -129,6 +134,10 @@ pipeline {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
+            archiveArtifacts(
+                artifacts: 'pg_tde/tde/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }

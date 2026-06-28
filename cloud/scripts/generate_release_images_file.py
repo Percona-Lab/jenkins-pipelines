@@ -6,6 +6,7 @@ import requests
 from datetime import datetime
 from packaging.version import parse as parse_version
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from xml.etree import ElementTree as ET
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
@@ -25,6 +26,8 @@ MONTH_MAP = {
     "nov": 11,
     "dec": 12,
 }
+
+GKE_VERSION_RE = r"\d+\.\d+\.\d+-gke\.\d+"
 
 _session = requests.Session()
 
@@ -143,12 +146,12 @@ def get_image_tasks(op):
 
     return {
         "psmdb": {
-            "8.0": (P, "percona-server-mongodb-8.0"),
-            "7.0": (P, "percona-server-mongodb-7.0"),
-            "6.0": (P, "percona-server-mongodb-6.0"),
-            "backup": (P, "percona-backup-mongodb"),
+            "8.0": (D, "percona/percona-server-mongodb", "8.0"),
+            "7.0": (D, "percona/percona-server-mongodb", "7.0"),
+            "6.0": (D, "percona/percona-server-mongodb", "6.0"),
+            "backup": (D, "percona/percona-backup-mongodb", "2"),
             "logcollector": (D, "percona/fluentbit"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
         "pxc": {
             "8.4": (D, "percona/percona-xtradb-cluster", "8.4"),
@@ -159,8 +162,9 @@ def get_image_tasks(op):
             "backup57": (D, "percona/percona-xtrabackup", "2.4"),
             "haproxy": (D, "percona/haproxy"),
             "proxysql": (D, "percona/proxysql2"),
+            "proxysql3": (D, "percona/proxysql3"),
             "logcollector": (D, "percona/fluentbit"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
         "pg": {
             "18": (D, "percona/percona-distribution-postgresql", "18"),
@@ -195,7 +199,7 @@ def get_image_tasks(op):
             ),
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
         "ps": {
             "8.4": (D, "percona/percona-server", "8.4"),
@@ -205,7 +209,7 @@ def get_image_tasks(op):
             "orchestrator": (D, "percona/percona-orchestrator"),
             "haproxy": (D, "percona/haproxy"),
             "toolkit": (D, "percona/percona-toolkit"),
-            "pmm3": (P, "pmm3"),
+            "pmm3": (D, "percona/pmm-client", "3"),
         },
     }.get(op, {})
 
@@ -233,6 +237,7 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("BACKUP80", "percona-xtrabackup", versions.get("backup80")),
             ("BACKUP57", "percona-xtrabackup", versions.get("backup57")),
             ("PROXY", "proxysql2", versions.get("proxysql")),
+            ("PROXY3", "proxysql3", versions.get("proxysql3")),
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
@@ -294,21 +299,51 @@ def get_eks():
     return sort_vers(filter_active(resp.json(), datetime.now().date()))
 
 
+def gke_release_entries(xml_text):
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return re.findall(r"<!\[CDATA\[(.*?)\]\]>", xml_text, re.DOTALL)
+
+    entries = []
+    for entry in root.iter():
+        if entry.tag.rsplit("}", 1)[-1] not in {"entry", "item"}:
+            continue
+        for child in entry:
+            if child.tag.rsplit("}", 1)[-1] in {"content", "description", "summary"}:
+                content = "".join(child.itertext()).strip()
+                if content:
+                    entries.append(content)
+                break
+    return entries
+
+
+def gke_removed_versions(html):
+    removed = set()
+    for block in re.findall(
+        r"no longer available in the Stable channel:.*?</ul>",
+        html,
+        re.DOTALL | re.IGNORECASE,
+    ):
+        removed.update(re.findall(GKE_VERSION_RE, block))
+    return removed
+
+
 def get_gke():
     resp = _session.get(
         "https://docs.cloud.google.com/feeds/kubernetes-engine-stable-channel-release-notes.xml",
         timeout=10,
     )
     resp.raise_for_status()
-    if m := re.search(
-        r"now available in the Stable channel.*?<ul>(.*?)</ul>",
-        resp.text,
-        re.DOTALL | re.IGNORECASE,
-    ):
-        minor_map = {}
-        for v in re.findall(r"(\d+\.\d+\.\d+-gke\.\d+)", m.group(1)):
-            minor_map[".".join(v.split(".")[:2])] = v
-        return sort_vers(list(minor_map.keys()))
+    available = set()
+    for entry in reversed(gke_release_entries(resp.text)):
+        removed = gke_removed_versions(entry)
+        available.update(set(re.findall(GKE_VERSION_RE, entry)) - removed)
+        available.difference_update(removed)
+
+    if available:
+        minors = sort_vers(list({".".join(v.split(".")[:2]) for v in available}))
+        return [minors[0], minors[-1]]
     return None
 
 
