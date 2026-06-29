@@ -34,6 +34,25 @@ void buildPerArch(String dockerfile, String archTag) {
     """
 }
 
+void scanPerArch(String archTag) {
+    installTrivy(method: 'binary', junitTpl: true)
+    sh """
+        set -e
+        curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
+        if [ "${params.MONGOT_REPO_CH}" = "release" ]; then
+            /usr/local/bin/trivy -q image --format template --template @junit.tpl \\
+                -o trivy-high-junit-${archTag}.xml \\
+                --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL \\
+                percona-server-mongodb-mongot:${archTag}
+        else
+            /usr/local/bin/trivy -q image --format template --template @junit.tpl \\
+                -o trivy-high-junit-${archTag}.xml \\
+                --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \\
+                percona-server-mongodb-mongot:${archTag}
+        fi
+    """
+}
+
 void pushPerArch(String registry, String archTag) {
     sh """
         set -ex
@@ -147,6 +166,7 @@ pipeline {
                     }
                     steps {
                         buildPerArch('Dockerfile', 'amd64')
+                        scanPerArch('amd64')
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com',
                                 passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh 'echo "$PASS" | docker login -u "$USER" --password-stdin'
@@ -155,6 +175,8 @@ pipeline {
                     }
                     post {
                         always {
+                            junit testResults: "trivy-high-junit-amd64.xml", keepLongStdio: true,
+                                  allowEmptyResults: true, skipPublishingChecks: true
                             sh "sudo docker rmi -f \$(sudo docker images -q | uniq) || true"
                             deleteDir()
                         }
@@ -166,6 +188,7 @@ pipeline {
                     }
                     steps {
                         buildPerArch('Dockerfile.aarch64', 'arm64')
+                        scanPerArch('arm64')
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com',
                                 passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh 'echo "$PASS" | docker login -u "$USER" --password-stdin'
@@ -174,6 +197,8 @@ pipeline {
                     }
                     post {
                         always {
+                            junit testResults: "trivy-high-junit-arm64.xml", keepLongStdio: true,
+                                  allowEmptyResults: true, skipPublishingChecks: true
                             sh "sudo docker rmi -f \$(sudo docker images -q | uniq) || true"
                             deleteDir()
                         }
