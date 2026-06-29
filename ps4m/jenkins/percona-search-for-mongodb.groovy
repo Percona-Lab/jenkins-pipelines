@@ -91,7 +91,7 @@ pipeline {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 script {
-                    buildStage("oraclelinux:8", "--get_sources=1")
+                    buildStage("oraclelinux:9", "--get_sources=1")
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-mongot.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -128,7 +128,7 @@ pipeline {
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            buildStage("oraclelinux:8", "--build_mongot=1 --build_variant=linux-x64")
+                            buildStage("oraclelinux:9", "--build_mongot=1 --build_variant=linux-x64")
                         }
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
@@ -142,7 +142,7 @@ pipeline {
                         unstash 'mongot-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            buildStage("oraclelinux:8", "--build_mongot=1 --build_variant=linux-aarch64")
+                            buildStage("oraclelinux:9", "--build_mongot=1 --build_variant=linux-aarch64")
                         }
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
