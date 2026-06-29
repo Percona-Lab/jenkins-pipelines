@@ -77,7 +77,7 @@ pipeline {
                         cd percona-docker
                         git checkout ${REPO_DOCKER_BRANCH}
                         cd percona-toolkit
-                        sed -i "s/ENV PT_VERSION.*/ENV PT_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
+                        sed -i "s/ENV PT_VERSION.*/ENV PT_VERSION ${VERSION}-${RPM_RELEASE}.el9/g" Dockerfile
                         sed -i "s/pt release/pt ${COMPONENT}/g" Dockerfile
                         sudo docker --version
                         if [ ${ORGANIZATION} != "percona" ]; then
