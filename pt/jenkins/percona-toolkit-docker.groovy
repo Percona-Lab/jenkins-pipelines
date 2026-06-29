@@ -27,8 +27,8 @@ pipeline {
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
-        string(defaultValue: '3.7.0', description: 'Percona Toolkit version', name: 'VERSION')
-        string(defaultValue: '1.1', description: 'RPM release value', name: 'RPM_RELEASE')
+        string(defaultValue: '3.7.1', description: 'Percona Toolkit version', name: 'VERSION')
+        string(defaultValue: '4', description: 'RPM release value', name: 'RPM_RELEASE')
         choice(
             choices: 'testing\nexperimental\nrelease',
             description: 'Repository component used to retrieve packages',
