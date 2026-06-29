@@ -121,7 +121,7 @@ String DEFAULT_BRANCH = 'v3'
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9-ondemand'
+        label 'agent-amd64-ondemand'
     }
     parameters {
         string(
@@ -300,36 +300,20 @@ pipeline {
                 }
             }
         }
-        stage('Run OVF & AMI RC builds') {
+        stage('Start AMI RC Build') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
-            parallel {
-                stage('Start AMI RC Build') {
-                    steps {
-                        script {
-                            def pmmAMI = build job: 'pmm3-ami', parameters: [
-                                string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
-                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
-                                string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
-                                string(name: 'RELEASE_CANDIDATE', value: "yes"),
-                                booleanParam(name: 'USE_ONDEMAND', value: true)
-                            ]
-                            env.AMI_ID = pmmAMI.buildVariables.AMI_ID
-                        }
-                    }
-                }
-                stage('Start OVF RC Build') {
-                    steps {
-                        script {
-                            def pmmOVF = build job: 'pmm3-ovf', parameters: [
-                                string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
-                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
-                                string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
-                                string(name: 'RELEASE_CANDIDATE', value: 'yes')
-                            ]
-                        }
-                    }
+            steps {
+                script {
+                    def pmmAMI = build job: 'pmm3-ami', parameters: [
+                        string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                        string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
+                        string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
+                        string(name: 'RELEASE_CANDIDATE', value: "yes"),
+                        booleanParam(name: 'USE_ONDEMAND', value: true)
+                    ]
+                    env.AMI_ID = pmmAMI.buildVariables.AMI_ID
                 }
             }
         }
@@ -393,7 +377,6 @@ pipeline {
                       message: """[${JOB_NAME}]: New PMM ${VERSION} RC build is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
-OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball AMD64: ${env.TARBALL_AMD64_URL}
 Tarball ARM64: ${env.TARBALL_ARM64_URL}

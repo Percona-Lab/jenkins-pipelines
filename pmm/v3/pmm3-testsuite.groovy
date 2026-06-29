@@ -115,7 +115,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -131,7 +131,7 @@ pipeline {
             description: 'PMM Client Docker tag',
             name: 'CLIENT_DOCKER_VERSION')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

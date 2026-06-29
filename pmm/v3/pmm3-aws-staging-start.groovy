@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -174,7 +174,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.large')
+                runSpotInstance('t3.xlarge')
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -216,6 +216,7 @@ pipeline {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         node(env.VM_NAME){
                             withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                              try {
                                 sh '''
                                     set -o errexit
                                     set -o xtrace
@@ -245,16 +246,30 @@ pipeline {
                                         --volume pmm-data:/srv \
                                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                                         -e PMM_WATCHTOWER_TOKEN=testToken \
+                                        -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    sleep 30
-                                    docker logs pmm-server
-
-                                    if [ ${ADMIN_PASSWORD} != admin ]; then
-                                        docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                                    if ! timeout 100 bash -c 'until [ "$(curl -ks -o /dev/null -w "%{http_code}" https://127.0.0.1/v1/server/readyz)" = "200" ]; do sleep 5; done'; then
+                                        echo "PMM Server did not become ready within the timeout, dumping logs" >&2
+                                        docker logs pmm-server || true
+                                        mkdir -p "${WORKSPACE}/logs"
+                                        docker cp pmm-server:/srv/logs/. "${WORKSPACE}/logs/" || true
+                                        exit 1
                                     fi
+                                    pmm_tag="${DOCKER_VERSION##*:}"
+                                    minor_version=${pmm_tag#3.}
+                                    minor_version=${minor_version%%.*}
+                                    if [ "${pmm_tag}" != "${pmm_tag#3.}" ] && [ "${minor_version}" -lt 8 ]; then
+                                        docker exec pmm-server change-admin-password "${ADMIN_PASSWORD}"
+                                    fi
+                                    docker logs pmm-server
                                 '''
+                              } finally {
+                                  if (fileExists('logs')) {
+                                      archiveArtifacts artifacts: 'logs/**', allowEmptyArchive: true
+                                  }
+                              }
                             }
                         }
                     }

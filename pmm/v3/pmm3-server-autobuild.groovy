@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'agent-amd64-ol9-ondemand' : 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -166,12 +166,12 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                     sh '''
-                        # 'ref' is a required parameter, it should always equal 'v3' (or 'main' for v2)
+                        # 'ref' is a required parameter, it should always equal 'main' (the default branch of percona/pmm)
                         curl -L -X POST \
                             -H "Accept: application/vnd.github+json" \
                             -H "Authorization: token ${GITHUB_API_TOKEN}" \
                             "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
-                            -d '{"ref":"v3"}'
+                            -d '{"ref":"main"}'
                     '''
                 }
             }

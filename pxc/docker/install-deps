@@ -177,6 +177,9 @@ if [ -f /usr/bin/yum ]; then
 
     if [[ ${RHVER} -eq 10 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
+        if [[ "$(rpm --eval %{_arch})" == "x86_64" ]]; then
+            PKGLIST+=" libquadmath-devel"
+        fi
 
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ gcc-toolset-15-binutils"
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-gcc-plugin-annobin"

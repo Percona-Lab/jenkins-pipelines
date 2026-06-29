@@ -30,20 +30,6 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-    ]
-    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP
-    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
-    env.ADMIN_PASSWORD = "admin"
-}
-
 def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD) {
     def clusterName = "nightly-test-${env.BUILD_NUMBER}"
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
@@ -179,7 +165,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
                 sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa || true
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
@@ -244,7 +230,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
+            choices: ['docker', 'ami', 'helm', 'ha'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -252,7 +238,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         choice(
@@ -319,7 +305,6 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -357,14 +342,6 @@ pipeline {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
-                stage('Setup OVF PMM Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ovf" }
-                    }
-                    steps {
-                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
-                    }
-                }
                 stage('Setup AMI PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ami" }
@@ -394,7 +371,7 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)"; done' || false
                 '''
             }
         }
@@ -458,7 +435,7 @@ pipeline {
             steps {
                 dir('codeceptjs-e2e') {
                     sh '''
-                        curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                        curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
                         sudo apt-get install -y gettext
@@ -523,7 +500,7 @@ pipeline {
         }
         stage('Prepare Launchable') {
             when {
-                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
+                expression { env.SERVER_TYPE != 'ami' }
             }
             steps {
                 dir('codeceptjs-e2e') {
@@ -582,11 +559,6 @@ pipeline {
                     '''
                 }
                 // stop staging
-                if (env.SERVER_TYPE == "ovf") {
-                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
-                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
-                    ]
-                }
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),

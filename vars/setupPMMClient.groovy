@@ -24,27 +24,26 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export ADMIN_PASSWORD=admin
             fi
 
+            sudo dnf clean expire-cache
             if [ "${PMM_VERSION}" = pmm2 ]; then
-              echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+              echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/dnf/pluginconf.d/fastestmirror.conf
             fi
             if ! command -v percona-release > /dev/null; then
-                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                sudo yum clean all
-                sudo yum makecache
+                sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
             fi
 
             if [[ "$CLIENT_VERSION" =~ dev-latest|3-dev-latest ]]; then
                 sudo percona-release enable-only pmm2-client experimental
-                sudo yum -y install pmm2-client
+                sudo dnf -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-rc ]]; then
                 sudo percona-release enable-only pmm2-client testing
-                sudo yum -y install pmm2-client
+                sudo dnf -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-latest ]]; then
-                sudo yum -y install pmm2-client
-                sudo yum -y update
+                sudo percona-release enable-only pmm2-client release
+                sudo dnf -y install pmm2-client
+                sudo dnf -y update
                 sudo percona-release enable-only pmm2-client experimental
             elif [[ "$CLIENT_VERSION" = 2* ]]; then
-                sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el9.x86_64"
                 if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
                     sudo percona-release enable-only pmm2-client testing
                 elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = yes ]]; then
@@ -52,6 +51,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 else
                     sudo percona-release enable-only pmm2-client release
                 fi
+                sudo dnf -y install "pmm2-client-$CLIENT_VERSION-6.el9.x86_64"
                 sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then

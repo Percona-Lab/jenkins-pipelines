@@ -136,7 +136,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami'],
+            choices: ['docker', 'ami'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -188,7 +188,7 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/v1/server/readyz)"; done' || false
                 '''
             }
         }
@@ -278,11 +278,6 @@ pipeline {
                 }
             }
             script {
-                if (env.SERVER_TYPE == "ovf") {
-                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
-                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
-                    ]
-                }
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),

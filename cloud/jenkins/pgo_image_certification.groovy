@@ -1,5 +1,30 @@
 def certificationTests = []
 def certification
+def certifiableImages = [
+    'IMAGE_OPERATOR',
+    'IMAGE_PMM3_CLIENT',
+    'IMAGE_UPGRADE',
+    'IMAGE_POSTGRESQL14',
+    'IMAGE_POSTGRESQL15',
+    'IMAGE_POSTGRESQL16',
+    'IMAGE_POSTGRESQL17',
+    'IMAGE_POSTGRESQL18',
+    'IMAGE_POSTGIS14',
+    'IMAGE_POSTGIS15',
+    'IMAGE_POSTGIS16',
+    'IMAGE_POSTGIS17',
+    'IMAGE_POSTGIS18',
+    'IMAGE_PGBOUNCER14',
+    'IMAGE_PGBOUNCER15',
+    'IMAGE_PGBOUNCER16',
+    'IMAGE_PGBOUNCER17',
+    'IMAGE_PGBOUNCER18',
+    'IMAGE_BACKREST14',
+    'IMAGE_BACKREST15',
+    'IMAGE_BACKREST16',
+    'IMAGE_BACKREST17',
+    'IMAGE_BACKREST18'
+]
 
 def imageTag(image) {
     def parts = image.tokenize(":")
@@ -22,7 +47,7 @@ def buildTargetImage(key, image, params) {
 
     switch (key) {
         case 'IMAGE_OPERATOR':
-            return target(image, operatorProjectId, "${params.RELEASE}-postgres-operator", operatorCredentials)
+            return target(image, operatorProjectId, params.RELEASE, operatorCredentials)
 
         case 'IMAGE_PMM3_CLIENT':
             return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
@@ -35,7 +60,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_POSTGRESQL16':
         case 'IMAGE_POSTGRESQL17':
         case 'IMAGE_POSTGRESQL18':
-            return target(image, containersProjectId, "${params.RELEASE}-postgres-${imageTag(image)}", containersCredentials)
+            return target(image, containersProjectId, "${params.RELEASE}-pg-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_POSTGIS14':
         case 'IMAGE_POSTGIS15':
@@ -79,36 +104,29 @@ pipeline {
             description: 'Target platform'
         )
 
-        choice(
-            name: 'IMAGE',
-            choices: [
-                'ALL',
-                'IMAGE_OPERATOR',
-                'IMAGE_PMM3_CLIENT',
-                'IMAGE_UPGRADE',
-                'IMAGE_POSTGRESQL14',
-                'IMAGE_POSTGRESQL15',
-                'IMAGE_POSTGRESQL16',
-                'IMAGE_POSTGRESQL17',
-                'IMAGE_POSTGRESQL18',
-                'IMAGE_POSTGIS14',
-                'IMAGE_POSTGIS15',
-                'IMAGE_POSTGIS16',
-                'IMAGE_POSTGIS17',
-                'IMAGE_POSTGIS18',
-                'IMAGE_PGBOUNCER14',
-                'IMAGE_PGBOUNCER15',
-                'IMAGE_PGBOUNCER16',
-                'IMAGE_PGBOUNCER17',
-                'IMAGE_PGBOUNCER18',
-                'IMAGE_BACKREST14',
-                'IMAGE_BACKREST15',
-                'IMAGE_BACKREST16',
-                'IMAGE_BACKREST17',
-                'IMAGE_BACKREST18'
-            ],
-            description: 'Select image to certify'
-        )
+        booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
+        booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
+        booleanParam(name: 'IMAGE_UPGRADE', defaultValue: true, description: 'Certify IMAGE_UPGRADE')
+        booleanParam(name: 'IMAGE_POSTGRESQL14', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL14')
+        booleanParam(name: 'IMAGE_POSTGRESQL15', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL15')
+        booleanParam(name: 'IMAGE_POSTGRESQL16', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL16')
+        booleanParam(name: 'IMAGE_POSTGRESQL17', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL17')
+        booleanParam(name: 'IMAGE_POSTGRESQL18', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL18')
+        booleanParam(name: 'IMAGE_POSTGIS14', defaultValue: true, description: 'Certify IMAGE_POSTGIS14')
+        booleanParam(name: 'IMAGE_POSTGIS15', defaultValue: true, description: 'Certify IMAGE_POSTGIS15')
+        booleanParam(name: 'IMAGE_POSTGIS16', defaultValue: true, description: 'Certify IMAGE_POSTGIS16')
+        booleanParam(name: 'IMAGE_POSTGIS17', defaultValue: true, description: 'Certify IMAGE_POSTGIS17')
+        booleanParam(name: 'IMAGE_POSTGIS18', defaultValue: true, description: 'Certify IMAGE_POSTGIS18')
+        booleanParam(name: 'IMAGE_PGBOUNCER14', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER14')
+        booleanParam(name: 'IMAGE_PGBOUNCER15', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER15')
+        booleanParam(name: 'IMAGE_PGBOUNCER16', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER16')
+        booleanParam(name: 'IMAGE_PGBOUNCER17', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER17')
+        booleanParam(name: 'IMAGE_PGBOUNCER18', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER18')
+        booleanParam(name: 'IMAGE_BACKREST14', defaultValue: true, description: 'Certify IMAGE_BACKREST14')
+        booleanParam(name: 'IMAGE_BACKREST15', defaultValue: true, description: 'Certify IMAGE_BACKREST15')
+        booleanParam(name: 'IMAGE_BACKREST16', defaultValue: true, description: 'Certify IMAGE_BACKREST16')
+        booleanParam(name: 'IMAGE_BACKREST17', defaultValue: true, description: 'Certify IMAGE_BACKREST17')
+        booleanParam(name: 'IMAGE_BACKREST18', defaultValue: true, description: 'Certify IMAGE_BACKREST18')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
@@ -143,21 +161,23 @@ pipeline {
                     echo "Release: ${params.RELEASE}"
                     echo "Branch: ${branch}"
                     echo "Platform: ${params.PLATFORM}"
-                    echo "Selection: ${params.IMAGE}"
+                    def selectedImageKeys = certifiableImages.findAll { params[it] }
+
+                    echo "Selection: ${selectedImageKeys.join(', ')}"
 
                     def failedImages = []
                     def skippedImages = []
-                    def imagesToCertify = images
-
-                    if (params.IMAGE == 'ALL') {
-                        echo "Running certification for ALL images"
-                    } else {
-                        def selectedImage = images[params.IMAGE]
+                    def imagesToCertify = selectedImageKeys.collectEntries { key ->
+                        def selectedImage = images[key]
                         if (!selectedImage) {
-                            error("Image not found in release_versions: ${params.IMAGE}")
+                            error("Image not found in release_versions: ${key}")
                         }
 
-                        imagesToCertify = [(params.IMAGE): selectedImage]
+                        [(key): selectedImage]
+                    }
+
+                    if (!imagesToCertify) {
+                        error("Select at least one image to certify")
                     }
 
                     imagesToCertify.each { key, image ->

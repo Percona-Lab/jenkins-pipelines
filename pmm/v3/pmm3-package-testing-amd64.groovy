@@ -96,7 +96,7 @@ def latestVersion = pmmVersion('v3').last()
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -206,6 +206,15 @@ pipeline {
                 stage('Ubuntu 24.04 Noble - AMD64') {
                     agent {
                         label 'min-noble-x64'
+                    }
+                    steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                }
+                stage('Ubuntu 26.04 Resolute - AMD64') {
+                    agent {
+                        label 'min-resolute-x64'
                     }
                     steps {
                         setup_ubuntu_package_tests()

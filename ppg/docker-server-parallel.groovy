@@ -19,12 +19,12 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '18.3',
+            defaultValue: '18.4',
             description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: '18.3',
+            defaultValue: '18.4',
             description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
@@ -57,15 +57,17 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
             steps {
                 script {
                     if (params.WITH_POSTGIS) {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}-${env.REPOSITORY}"
                     } else {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.REPOSITORY}"
                     }
                 }
             }

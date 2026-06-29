@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'agent-amd64-ol9-ondemand' : 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -242,6 +242,11 @@ pipeline {
                         stage('Build client binary deb Noble') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                            }
+                        }
+                        stage('Build client binary deb Resolute') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:resolute"
                             }
                         }
                     }

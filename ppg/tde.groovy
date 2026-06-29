@@ -29,12 +29,12 @@ pipeline {
             name: 'TDE_REPO'
         )
         string(
-            defaultValue: 'release-2.1.2',
+            defaultValue: 'release-2.2.0',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
             name: 'TDE_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.3',
+            defaultValue: 'ppg-18.4',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
@@ -42,8 +42,8 @@ pipeline {
             name: 'IO_METHOD',
             description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
             choices: [
-                'worker',
                 'sync',
+                'worker',
                 'io_uring'
             ]
         )
@@ -68,6 +68,11 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            numToKeepStr: '30',
+            artifactNumToKeepStr: '30'
+        ))
+        retry(conditions: [agent()], count: 2)
     }
     stages {
         stage('Set build name') {
@@ -129,6 +134,10 @@ pipeline {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
+            archiveArtifacts(
+                artifacts: 'pg_tde/tde/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
         }
     }
 }
