@@ -320,32 +320,11 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Bullseye(11)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_search_deb")
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Bullseye(11) ARM') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_search_deb")
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
+                // NOTE: Debian Bullseye (11) is intentionally NOT built for
+                // valkey-search. The module requires a C++20 compiler (g++ >= 12),
+                // and bullseye has no g++ >= 12 in base or backports (newest is
+                // g++-11) and its clang is < 16. json/bloom/server still build on
+                // bullseye; only search needs >= 12, so it starts at bookworm.
                 stage('Debian Bookworm(12)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
