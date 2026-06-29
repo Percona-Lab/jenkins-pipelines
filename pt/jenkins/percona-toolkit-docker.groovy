@@ -81,8 +81,8 @@ pipeline {
                         sed -i "s/pt release/pt ${COMPONENT}/g" Dockerfile
                         sudo docker --version
                         if [ ${ORGANIZATION} != "percona" ]; then
-                            sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-amd64 .
-                            sudo docker build --no-cache -t perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile .
+                            sudo docker build --no-cache --platform "linux/amd64" --provenance=false -t perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-amd64 .
+                            sudo docker build --no-cache --platform="linux/arm64" --provenance=false -t perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-arm64 -f Dockerfile .
                         else
                             sudo docker pull perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-amd64
                             sudo docker tag perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-amd64 percona/percona-toolkit:${VERSION}-${RPM_RELEASE}-amd64
