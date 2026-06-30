@@ -80,8 +80,8 @@ pipeline {
         withCredentials(moleculeDistributionJenkinsCreds())
         disableConcurrentBuilds()
         buildDiscarder(logRotator(
-            numToKeepStr: '30',
-            artifactNumToKeepStr: '30'
+            numToKeepStr: '10',
+            artifactNumToKeepStr: '10'
         ))
         retry(conditions: [agent()], count: 2)
     }
