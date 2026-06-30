@@ -21,8 +21,20 @@ packer {
 }
 
 variable "candidate_ami" { type = string }
-variable "os_major" { type = string }
-variable "arch" { type = string } # x86_64 | arm64
+variable "os_major" {
+  type = string
+  validation {
+    condition     = contains(["8", "9", "10"], var.os_major)
+    error_message = "Value of os_major must be 8, 9, or 10."
+  }
+}
+variable "arch" {
+  type = string # x86_64 | arm64
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.arch)
+    error_message = "Value of arch must be x86_64 or arm64."
+  }
+}
 variable "region" {
   type    = string
   default = "eu-central-1"

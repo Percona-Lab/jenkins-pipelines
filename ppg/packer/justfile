@@ -259,25 +259,18 @@ prune-all apply="0":
     @just prune-test "{{apply}}"
     @just prune-stale "{{apply}}"
 
-# deregister SUPERSEDED prod bases: per (os_major, arch) KEEP the newest role={{role_prod}}
-# AMI (the one the consumer selects) and remove older duplicates left by refreshes
-# (deprecate_at only marks, never deletes -> inventory grows). Lists by default; pass `1`
-# to deregister. NEVER deletes the newest-per-combo, and skips any AMI missing maj/arch.
+# deregister SUPERSEDED prod bases: per (os_major, arch) KEEP the newest `keep` role={{role_prod}}
+# AMIs (the consumer + refresh select the newest) and remove older duplicates left by refreshes
+# (deprecate_at only marks, never deletes -> inventory grows). Shares scripts/prune-superseded.sh
+# with the GHA workflow, which auto-prunes keep=2 after each promote. Lists by default; pass `1`.
 [doc("deregister superseded prod bases, keeping newest per combo; lists unless apply=1")]
-prune-superseded apply="0":
+prune-superseded apply="0" keep="1":
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "prune-superseded (apply={{apply}}; lists unless apply=1):"
-    aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
-      --filters Name=tag:role,Values={{role_prod}} Name=tag:os,Values={{os_name}} Name=state,Values=available \
-      --query 'reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key==`os_major`]|[0].Value, Tags[?Key==`arch`]|[0].Value]' --output text \
-      | { declare -A keep; while read -r id maj arch; do
-            [ -z "$id" ] && continue
-            { [ "$maj" = None ] || [ "$arch" = None ]; } && { echo "  SKIP $id (untagged maj/arch)"; continue; }
-            k="$maj/$arch"
-            if [ -z "${keep[$k]:-}" ]; then keep[$k]=$id; echo "  KEEP $id (OL$maj $arch, newest)"; continue; fi
-            if [ "{{apply}}" = "1" ]; then echo "  deregister $id (OL$maj $arch, superseded)"; just _deregister "$id"; else echo "  would deregister $id (OL$maj $arch, superseded)"; fi
-          done; }
+    echo "prune-superseded (apply={{apply}}, keep={{keep}}; lists unless apply=1):"
+    for m in {{os_majors}}; do for a in {{arches}}; do
+      OS_NAME={{os_name}} bash scripts/prune-superseded.sh {{role_prod}} "$m" "$a" {{keep}} "{{apply}}" {{region}} {{profile}}
+    done; done
 
 # create the SSM builder instance profile locally (one-time, for local builds).
 # PRODUCTION is terraform-managed: percona-cd-platform terraform/ppg-ami-factory.tf.
