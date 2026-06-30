@@ -458,24 +458,6 @@ ENDSSH
                 deleteDir()
             }
         }
-        stage('Publish OVF image') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        aws s3 cp --only-show-errors s3://percona-vm/PMM3-Server-${VERSION}.ova pmm-server-${VERSION}.ova
-                    '''
-                }
-                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh '''
-                        sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
-                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm3/${VERSION}/ova"
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/ova/
-                    '''
-                }
-                deleteDir()
-            }
-        }
         stage('Refresh website') {
             steps {
                 sh """

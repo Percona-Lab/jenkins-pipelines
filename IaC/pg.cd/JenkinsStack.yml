@@ -334,6 +334,7 @@ Resources:
             - ec2:CreateTags
             - ec2:DeleteTags
             - ec2:DescribeInstances
+            - ec2:DescribeImages
             - ec2:DescribeSpotInstanceRequests
           - Effect: Allow
             Action:
