@@ -1,18 +1,25 @@
-// Default to Hetzner
-String LABEL = 'docker-x64'
-String MICRO_LABEL = 'launcher-x64'
-
+// Worker labels: x86_64 on Hetzner = docker-x64; aarch64 on Hetzner = docker-aarch64.
+// AWS uses docker-32gb / docker-32gb-aarch64. MICRO_LABEL (small orchestrator
+// worker) is always x86_64; it just drives the build, the actual docker run
+// happens on LABEL.
+String LABEL
 if (params.CLOUD == 'AWS') {
-    LABEL = 'docker-32gb'
-    MICRO_LABEL = 'micro-amazon'
+    LABEL = (params.ARCH == 'aarch64') ? 'docker-32gb-aarch64' : 'docker-32gb'
+} else {
+    LABEL = (params.ARCH == 'aarch64') ? 'docker-aarch64' : 'docker-x64'
 }
+String MICRO_LABEL = (params.CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
 
 pipeline {
     parameters {
         choice(
-            choices: 'oraclelinux:9\nubuntu:jammy\nubuntu:noble\ndebian:bookworm\ndebian:trixie\nasan',
+            choices: 'oraclelinux:9\nubuntu:jammy\nubuntu:noble\ndebian:bookworm\ndebian:trixie\namazonlinux:2023\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
+        choice(
+            choices: 'x86_64\naarch64',
+            description: 'CPU architecture; selects the pxc-build image variant and the worker label.',
+            name: 'ARCH')
         choice(
             choices: 'RelWithDebInfo\nDebug',
             description: 'Type of build to produce',
@@ -132,7 +139,7 @@ pipeline {
                                     docker rm --force azurite || :
                                 fi
                                 ulimit -a
-                                ./docker/run-test ${DOCKER_OS}
+                                ./docker/run-test ${DOCKER_OS} ${ARCH}
                             "
                             echo Archive test: \$(date -u "+%s")
                             gzip sources/results/* || true
