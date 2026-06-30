@@ -1,0 +1,158 @@
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
+// percona-valkey-bundle is a dependency-only meta-package (server + json/bloom/
+// search/ldap). It has no upstream source to compile and produces a single
+// noarch RPM + a single arch:all DEB, so there is no per-distro matrix: build
+// once on one RPM host and one DEB host. --bundle_deps installs only the
+// packaging tools (rpm-build / debhelper).
+void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    sh """
+        set -o xtrace
+        mkdir test
+        git clone ${PACKAGING_REPO} valkey-packaging
+        cd valkey-packaging
+        git checkout ${PACKAGING_BRANCH}
+        cd ..
+        pwd -P
+        ls -laR
+        export build_dir=\$(pwd -P)
+        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+            set -o xtrace
+            cd \${build_dir}
+            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bundle_deps
+            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bundle_version=${VALKEY_BUNDLE_VERSION} ${STAGE_PARAM}"
+    """
+}
+
+void cleanUpWS() {
+    sh """
+        sudo rm -rf ./*
+    """
+}
+
+def AWS_STASH_PATH
+
+pipeline {
+    agent {
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
+    }
+    parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
+        string(
+            defaultValue: '9.1.0',
+            description: 'percona-valkey-bundle version value',
+            name: 'VALKEY_BUNDLE_VERSION')
+        string(
+            defaultValue: '1',
+            description: 'percona-valkey-bundle release value',
+            name: 'VALKEY_BUNDLE_RELEASE')
+        string(
+            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            description: 'URL for valkey-packaging repository (holds the bundle/ packaging + builder)',
+            name: 'PACKAGING_REPO')
+        string(
+            defaultValue: '9.1.0',
+            description: 'Branch/Tag for valkey-packaging repository',
+            name: 'PACKAGING_BRANCH')
+        string(
+            defaultValue: 'valkey-bundle',
+            description: 'valkey-bundle repo name (target product repo for sync)',
+            name: 'VALKEY_BUNDLE_REPO')
+        choice(
+            choices: 'laboratory\ntesting\nexperimental',
+            description: 'Repo component to push packages to',
+            name: 'COMPONENT')
+    }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        timestamps ()
+    }
+    stages {
+        stage('Create valkey-bundle source tarball') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+            }
+            steps {
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${VALKEY_BUNDLE_VERSION} - [${BUILD_URL}]")
+                cleanUpWS()
+                buildStage("oraclelinux:8", "--get_bundle_sources")
+                sh '''
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/valkey-bundle.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
+                   echo ${REPO_UPLOAD_PATH} > uploadPath
+                   echo ${AWS_STASH_PATH} > awsUploadPath
+                   cat test/valkey-bundle.properties
+                   cat uploadPath
+                   cat awsUploadPath
+                '''
+                script {
+                    AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                }
+                stash includes: 'uploadPath', name: 'uploadPath'
+                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
+            }
+        }
+        stage('Build valkey-bundle packages') {
+            parallel {
+                stage('Build valkey-bundle RPM (noarch)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:8", "--build_bundle_src_rpm --build_bundle_rpm")
+
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Build valkey-bundle DEB (arch:all)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_bundle_src_deb --build_bundle_deb")
+
+                        pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+            }  //parallel
+        }
+    }
+    post {
+        success {
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build finished for ${VALKEY_BUNDLE_VERSION} - [${BUILD_URL}]")
+            script {
+                    currentBuild.description = "Built percona-valkey-bundle ${VALKEY_BUNDLE_VERSION}. Path to packages: experimental/${AWS_STASH_PATH}"
+            }
+            deleteDir()
+        }
+        failure {
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${VALKEY_BUNDLE_VERSION} - [${BUILD_URL}]")
+            deleteDir()
+        }
+        always {
+            sh '''
+                sudo rm -rf ./*
+            '''
+            deleteDir()
+        }
+    }
+}
