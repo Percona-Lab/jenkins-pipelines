@@ -373,6 +373,18 @@ pipeline {
                 }
             }  //parallel
         }
+        stage('Sign packages') {
+            steps {
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
+            }
+        }
+        stage('Push to public repository') {
+            steps {
+                // sync packages
+                sync2ProdAutoBuild(params.CLOUD, VALKEY_BUNDLE_REPO, COMPONENT)
+            }
+        }
     }
     post {
         success {
