@@ -213,7 +213,10 @@ pipeline {
             product_to_test = "pxb_80"
         } else if (PXB_RELEASE == "84") {
             product_to_test = "pxb_84"
-        } else {
+        } else if (PXB_RELEASE == "97") {
+            product_to_test = "pxb_97"
+        }
+        else {
             product_to_test = "pxb_innovation"
         }
 
