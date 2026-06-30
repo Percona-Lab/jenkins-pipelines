@@ -387,9 +387,9 @@ parameters {
                        sh '''
                            if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
                                PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                               PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                               PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk -F'.' '{print $1"."$2}')
                                PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
-                               if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                               if [ ${PS_MAJOR_RELEASE} != "8.0" ]; then
                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                                else
                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
