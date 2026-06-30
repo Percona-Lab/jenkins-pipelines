@@ -49,10 +49,10 @@ RUN systemctl mask systemd-networkd-wait-online.service console-setup.service ke
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
 DEOF
-            docker build -t ${TEST_IMAGE} -f Dockerfile.test-${BUILD_NUMBER} .
+            sudo docker build -t ${TEST_IMAGE} -f Dockerfile.test-${BUILD_NUMBER} .
 
             # Start privileged container with systemd
-            docker run -d --privileged --name ${CONTAINER_NAME} \
+            sudo docker run -d --privileged --name ${CONTAINER_NAME} \
                 --cgroupns=host \
                 --tmpfs /tmp \
                 --tmpfs /run \
@@ -63,7 +63,7 @@ DEOF
             # Wait for systemd to become ready (up to 60s)
             SYSTEMD_READY=0
             for i in \$(seq 1 60); do
-                status=\$(docker exec ${CONTAINER_NAME} systemctl is-system-running 2>/dev/null || true)
+                status=\$(sudo docker exec ${CONTAINER_NAME} systemctl is-system-running 2>/dev/null || true)
                 if echo "\${status}" | grep -qE '^(running|degraded)\$'; then
                     echo "systemd ready after \${i}s (status: \${status})"
                     SYSTEMD_READY=1
@@ -77,21 +77,21 @@ DEOF
             if [ "\${SYSTEMD_READY}" -ne 1 ]; then
                 echo "ERROR: systemd did not become ready in 60s"
                 echo "=== Container logs ==="
-                docker logs ${CONTAINER_NAME} 2>&1 || true
+                sudo docker logs ${CONTAINER_NAME} 2>&1 || true
                 exit 1
             fi
 
             # Copy and execute the test script
-            docker cp valkey-packaging/scripts/test_packages.sh ${CONTAINER_NAME}:/test_packages.sh
-            docker exec ${CONTAINER_NAME} bash -x /test_packages.sh \
+            sudo docker cp valkey-packaging/scripts/test_packages.sh ${CONTAINER_NAME}:/test_packages.sh
+            sudo docker exec ${CONTAINER_NAME} bash -x /test_packages.sh \
                 --repo \
                 --repo-channel=${COMPONENT} \
                 --version=${VALKEY_VERSION}
         """
     } finally {
         sh """
-            docker rm -f ${CONTAINER_NAME} || true
-            docker rmi -f ${TEST_IMAGE} || true
+            sudo docker rm -f ${CONTAINER_NAME} || true
+            sudo docker rmi -f ${TEST_IMAGE} || true
             rm -f Dockerfile.test-${BUILD_NUMBER} || true
         """
     }
