@@ -48,7 +48,7 @@ pipeline {
             description: 'Tag/Branch for valkey-ldap repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1.1.0',
+            defaultValue: '1.1.1',
             description: 'valkey-ldap version value',
             name: 'VALKEY_LDAP_VERSION')
         string(
