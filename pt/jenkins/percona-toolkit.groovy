@@ -11,11 +11,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sed -i 's|if \\[ "x\$DEBIAN_VERSION" = "xjammy" -o "x\$DEBIAN_VERSION" = "xnoble" \\]; then|if \\[ "x\$DEBIAN_VERSION" = "xjammy" -o "x\$DEBIAN_VERSION" = "xnoble" -o "x\$DEBIAN_VERSION" = "xresolute" \\]; then|' pt_builder.sh
         sed -i "s|RPM_RELEASE=.*|RPM_RELEASE=${RPM_RELEASE}|" pt_builder.sh
         sed -i "s|DEB_RELEASE=.*|DEB_RELEASE=${DEB_RELEASE}|" pt_builder.sh
-        sed -i "s|GO_VERSION=.*|GO_VERSION=1.26.4|" pt_builder.sh
-        printf '    sed -i "s|VERSION   => '"'"'.*'"'"'|VERSION   => '"'"'${VERSION}-${RPM_RELEASE}'"'"'|" Makefile.PL\\n' > /tmp/pt_insert.txt
-        sed -i '/git checkout \\\${BRANCH_NAME}/{n;r /tmp/pt_insert.txt
-        }' pt_builder.sh
-        pwd -P
+//        sed -i "s|GO_VERSION=.*|GO_VERSION=1.26.4|" pt_builder.sh
+//        printf '    sed -i "s|VERSION   => '"'"'.*'"'"'|VERSION   => '"'"'${VERSION}-${RPM_RELEASE}'"'"'|" Makefile.PL\\n' > /tmp/pt_insert.txt
+//        sed -i '/git checkout \\\${BRANCH_NAME}/{n;r /tmp/pt_insert.txt
+//        }' pt_builder.sh
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
