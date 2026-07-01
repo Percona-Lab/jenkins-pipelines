@@ -89,13 +89,10 @@ variable "env" {
 }
 
 locals {
-  instance_type = var.arch == "arm64" ? "t4g.large" : "t3.large"
-  uname_arch    = var.arch == "arm64" ? "aarch64" : "x86_64"
-  ssm_arch      = var.arch == "arm64" ? "arm64" : "amd64"
-  # OL10's lineage base comes from Oracle's official cloud image with a 37GB root,
-  # so the build volume must be >= that, with headroom; OL8/9 self-built bases stay
-  # at var.volume_size (20). 60 leaves ~23GB free above the 37GB base.
-  root_volume_size = var.os_major == "10" ? 60 : var.volume_size
+  instance_type    = var.arch == "arm64" ? "t4g.large" : "t3.large"
+  uname_arch       = var.arch == "arm64" ? "aarch64" : "x86_64"
+  ssm_arch         = var.arch == "arm64" ? "arm64" : "amd64"
+  root_volume_size = var.volume_size
   ts               = formatdate("YYYYMMDD-hhmmss", timestamp())
   # Test bakes carry isolated tags so the production pg.cd consumer (which selects
   # role=ppg-package-test, source=factory) never picks them up.

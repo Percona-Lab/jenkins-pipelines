@@ -76,6 +76,11 @@ jobs:
           ( cd smoke && packer init . && packer validate \
               -var candidate_ami=ami-00000000000000000 \
               -var os_major=9 -var arch=x86_64 . )
+          # drift guard (mirrors `just check`): justfile root_gib must equal var.volume_size,
+          # else a reimaged base would be the wrong root size for the refresh to launch.
+          rg=$(awk -F'"' '/^root_gib[[:space:]]*:=/{print $2; exit}' justfile)
+          vs=$(awk '/variable "volume_size"/{f=1} f&&/default/{gsub(/[^0-9]/,"");print;exit}' oracle-linux.pkr.hcl)
+          [[ -n "$rg" && "$rg" == "$vs" ]] || { echo "DRIFT: justfile root_gib=$rg != var.volume_size=$vs"; exit 1; }
           echo "check OK"
 
   bake:
