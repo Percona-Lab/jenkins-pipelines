@@ -207,7 +207,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PXC RPMs/DEBs/Binary tarballs') {
+        stage('Build PXC RPMs') {
             parallel {
                 stage('Centos 8') {
                     when {
@@ -381,6 +381,10 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+        stage('Build PXC DEBs') {
+            parallel {
                 stage('Ubuntu Jammy(22.04)') {
                     when {
                         expression { shouldRunStage('Ubuntu Jammy(22.04)') }
@@ -661,6 +665,10 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+            }
+        }
+        stage('Build PXC Tarballs') {
+            parallel {
                 stage('Centos 8 tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' && (shouldRunStage('Centos 8 tarball')) }
@@ -767,7 +775,7 @@ pipeline {
                         uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-            }
+                        }
         }
 
         stage('Sign packages') {

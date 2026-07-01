@@ -195,7 +195,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PXC RPMs/DEBs/Binary tarballs') {
+        stage('Build PXC RPMs') {
             parallel {
                 stage('Centos 8') {
                     when {
@@ -393,6 +393,10 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+        stage('Build PXC DEBs') {
+            parallel {
                 stage('Ubuntu Jammy(22.04)') {
                     when {
                         expression { shouldRunStage('Ubuntu Jammy(22.04)') }
@@ -641,6 +645,10 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+        stage('Build PXC Tarballs') {
+            parallel {
                 stage('Centos 8 tarball') {
                     when {
                         expression { shouldRunStage('Centos 8 tarball') }
@@ -742,6 +750,7 @@ pipeline {
                     }
                 }
             }
+                    }
         }
 
         stage('Sign packages') {
