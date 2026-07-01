@@ -14,6 +14,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         printf '    sed -i "s|'"'"'${VERSION}-${RPM_RELEASE}'"'"' => '"'"''"'"'|'"'"''"'"' => '"'"''"'"'|" Makefile.PL\\n' > /tmp/pt_insert.txt
         sed -i '/git checkout \\\${BRANCH_NAME}/{n;r /tmp/pt_insert.txt
         }' pt_builder.sh
+        cat pt_builder.sh
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
