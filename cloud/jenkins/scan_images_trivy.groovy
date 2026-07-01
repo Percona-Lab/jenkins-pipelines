@@ -1,3 +1,10 @@
+def operatorMap = [
+    'percona-server-mongodb-operator': 'psmdb',
+    'percona-xtradb-cluster-operator': 'pxc',
+    'percona-server-mysql-operator': 'ps',
+    'percona-postgresql-operator': 'pg'
+]
+
 List<String> parseImages(String rawInput) {
     def images = []
     rawInput.split("\n").each { line ->
@@ -6,7 +13,14 @@ List<String> parseImages(String rawInput) {
             return
         }
         // accept both "KEY=image:tag" and plain "image:tag" lines
-        def image = line.contains('=') ? line.substring(line.indexOf('=') + 1).trim() : line
+        def image = line
+        if (line.contains('=')) {
+            def parts = line.split('=', 2)
+            if (!parts[0].startsWith('IMAGE_')) {
+                return
+            }
+            image = parts[1].trim()
+        }
         if (image) {
             images << image
         }
@@ -84,6 +98,11 @@ String getTrivyCveSummary(String reportGlob) {
 
 pipeline {
     parameters {
+        choice(
+            name: 'OPERATOR',
+            choices: ['percona-server-mysql-operator', 'percona-server-mongodb-operator', 'percona-xtradb-cluster-operator', 'percona-postgresql-operator'],
+            description: 'Operator to use when IMAGES is empty. The latest image versions will be detected automatically.'
+        )
         text(
             defaultValue: '',
             description: '''List of images to scan, one per line. Accepts "KEY=image:tag" or plain "image:tag" lines, e.g.:
@@ -105,6 +124,7 @@ IMAGE_MYSQL84=percona/percona-server:8.4.10-10.1''',
     stages {
         stage('Prepare') {
             steps {
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
                     TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
@@ -115,6 +135,10 @@ IMAGE_MYSQL84=percona/percona-server:8.4.10-10.1''',
                     if [ ! -f /tmp/junit.tpl ]; then
                         wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     fi
+
+                    if ! command -v uv >/dev/null 2>&1; then
+                        curl -LsSf https://astral.sh/uv/install.sh | sh
+                    fi
                 """
             }
         }
@@ -124,7 +148,31 @@ IMAGE_MYSQL84=percona/percona-server:8.4.10-10.1''',
                 script {
                     def images = parseImages(params.IMAGES)
                     if (images.isEmpty()) {
-                        error('No images provided in the IMAGES parameter')
+                        sh """
+                            export PATH="\$HOME/.local/bin:\$PATH"
+                            OPERATOR_REPO='percona/${params.OPERATOR}'
+                            OPERATOR_KEY='${operatorMap[params.OPERATOR]}'
+                            OPERATOR_VERSION=\$(uv run --with requests --with packaging python3 - "\$OPERATOR_REPO" <<'PY'
+import importlib.util
+import sys
+
+spec = importlib.util.spec_from_file_location("generate_release_images_file", "cloud/scripts/generate_release_images_file.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+version = module.fetch_dockerhub_tag(sys.argv[1])
+if not version:
+    raise SystemExit(f"Could not find latest tag for {sys.argv[1]}")
+print(version)
+PY
+                            )
+                            uv run --with requests --with packaging cloud/scripts/generate_release_images_file.py "\$OPERATOR_KEY" "\$OPERATOR_VERSION"
+                        """
+                        archiveArtifacts artifacts: 'release_versions.txt', allowEmptyArchive: false, fingerprint: true
+                        images = parseImages(readFile('release_versions.txt'))
+                    }
+                    if (images.isEmpty()) {
+                        error('No images found in IMAGES or generated release_versions.txt')
                     }
                     writeFile(file: 'list-of-images.txt', text: images.join("\n") + "\n")
                     images.each { image ->
