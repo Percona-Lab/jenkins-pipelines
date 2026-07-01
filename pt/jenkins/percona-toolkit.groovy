@@ -446,85 +446,15 @@ pipeline {
             }
         }
         stage('Build docker containers') {
-            agent {
-                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-            }
             steps {
                 script {
-                    echo "====> Build docker containers"
-                    cleanUpWS()
-                    sh '''
-                        sleep 1200
-                    '''
-                    unstash 'uploadPath'
-                    sh '''
-                        sudo apt-get -y install apparmor
-                        sudo aa-status
-                        sudo systemctl stop apparmor
-                        sudo systemctl disable apparmor
-                        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                        sudo apt-get -y install apparmor
-                        sudo aa-status
-                        sudo systemctl stop apparmor
-                        sudo systemctl disable apparmor
-                        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-                        export DOCKER_CLI_EXPERIMENTAL=enabled
-                        sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
-                        sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
-                        sudo systemctl restart docker
-                        sudo apt-get install -y qemu-system binfmt-support qemu-user-static
-                        sudo qemu-system-x86_64 --version
-                        sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                        git clone https://github.com/percona/percona-docker
-                        cd percona-docker/percona-toolkit
-                        sed -i "s/ENV PT_VERSION.*/ENV PT_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
-                        sed -i "s/pt release/pt ${COMPONENT}/g" Dockerfile
-                        sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} .
-
-                        sudo docker build --no-cache -t perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile .
-
-                        sudo docker images
-                    '''
-                    withCredentials([
-                        usernamePassword(credentialsId: 'hub.docker.com',
-                        passwordVariable: 'PASS',
-                        usernameVariable: 'USER'
-                        )]) {
-                        sh '''
-                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker push perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}
-                            sudo docker push perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64
-
-                            PT_MAJOR_VERSION=$(echo $VERSION | cut -d'.' -f1)
-                            PT_MINOR_VERSION=$(echo $VERSION | cut -d'.' -f2)
-                            PT_PATCH_VERSION=$(echo $VERSION | cut -d'.' -f3)
-                            sudo docker manifest create perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}.${PT_PATCH_VERSION} \
-                                perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} \
-                                perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64
-                            sudo docker manifest annotate perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}.${PT_PATCH_VERSION} perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                            sudo docker manifest annotate perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}.${PT_PATCH_VERSION} perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} --os linux --arch amd64
-                            sudo docker manifest inspect perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}.${PT_PATCH_VERSION}
-
-                           sudo docker manifest create perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION} \
-                                perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} \
-                                perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64
-                            sudo docker manifest annotate perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION} perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                            sudo docker manifest annotate perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION} perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} --os linux --arch amd64
-                            sudo docker manifest inspect perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}
-
-                            sudo docker manifest create perconalab/percona-toolkit:${PT_MAJOR_VERSION} \
-                                perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} \
-                                perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64
-                            sudo docker manifest annotate perconalab/percona-toolkit:${PT_MAJOR_VERSION} perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                            sudo docker manifest annotate perconalab/percona-toolkit:${PT_MAJOR_VERSION} perconalab/percona-toolkit:${VERSION}-${RPM_RELEASE} --os linux --arch amd64
-                            sudo docker manifest inspect perconalab/percona-toolkit:${PT_MAJOR_VERSION}
-
-                            sudo docker manifest push perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}.${PT_PATCH_VERSION}
-                            sudo docker manifest push perconalab/percona-toolkit:${PT_MAJOR_VERSION}.${PT_MINOR_VERSION}
-                            sudo docker manifest push perconalab/percona-toolkit:${PT_MAJOR_VERSION}
-                        '''
-                    }
+                    sleep(time: 20, unit: 'MINUTES')
+                    build job: 'hetzner-pt-docker-build/', parameters: [
+                        string(name: 'CLOUD',       value: params.CLOUD),
+                        string(name: 'VERSION',     value: params.VERSION),
+                        string(name: 'RPM_RELEASE', value: params.RPM_RELEASE),
+                        string(name: 'COMPONENT',   value: params.COMPONENT),
+                    ]
                 }
             }
         }
