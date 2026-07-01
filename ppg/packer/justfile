@@ -25,6 +25,7 @@ os_name         := "oraclelinux"
 billing_tag     := "ppg-ami-factory"            # iit-billing-tag value (cost attribution + IAM fence)
 role_prod       := "ppg-package-test"           # promoted role the pg.cd consumer selects
 role_test       := "ppg-test-package-test"      # isolated promoted role for env=test bakes
+role_prebase    := "ppg-ol10-prebase"           # greenfield bootstrap output; reimage shrinks it before promotion
 subnet          := "subnet-068170595951ab3a9"   # eu-central-1 default-VPC public subnet
 bucket_prefix   := "ppg-ami-factory-import"     # import bucket = "{{bucket_prefix}}-<account-id>"
 import_role     := "ppg-ol10-vmimport"          # vmimport role for the OL10 import-snapshot
@@ -35,6 +36,7 @@ boottest_sg     := "ppg-ol10-boottest-sg"       # OL10 boot-test SSH security gr
 # --- build matrix dimensions ---
 os_majors       := "8 9 10"
 arches          := "x86_64 arm64"
+root_gib        := "20"                          # reimage target root GiB; MUST match var.volume_size in oracle-linux.pkr.hcl
 
 # common create-tags / role-tags set (billing only), reused everywhere
 common_tags     := "Key=iit-billing-tag,Value=" + billing_tag
@@ -94,7 +96,7 @@ _prune-by-filter apply +filters:
     [ -z "$ids" ] && { echo "  (nothing matches)"; exit 0; }
     for ami in $ids; do
       role=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
-        --query 'Images[0].Tags[?Key==`role`]|[0].Value' --output text)
+        --query "Images[0].Tags[?Key=='role']|[0].Value" --output text)
       # fail-closed: never delete the prod base, nor anything we cannot positively
       # classify (missing/None role) -- "don't delete what you can't identify".
       if [ "$role" = "{{role_prod}}" ] || [ -z "$role" ] || [ "$role" = None ]; then echo "  SKIP $ami (protected: role=${role:-<none>})"; continue; fi
@@ -111,10 +113,12 @@ _prune-by-filter apply +filters:
 init:
     packer init .
 
-# format the HCL (main + smoke templates)
+# format the HCL (main + smoke + reimage + bootstrap templates)
 fmt:
     packer fmt .
     packer fmt smoke
+    packer fmt reimage
+    packer fmt bootstrap
 
 # validate one combo  (maj=8|9|10  arch=x86_64|arm64)
 validate maj="9" arch="x86_64":
@@ -129,14 +133,27 @@ validate-all:
       echo "validate OL$m $a"; packer validate -var os_major=$m -var arch=$a .
     done; done
     ( cd smoke && packer init . >/dev/null && packer validate -var candidate_ami=ami-00000000000000000 -var os_major=9 -var arch=x86_64 . )
+    ( cd reimage && packer init . >/dev/null && packer validate -var arch=x86_64 . )
+    ( cd bootstrap && packer init . >/dev/null && packer validate -var raw_ami=ami-00000000000000000 -var arch=x86_64 . )
 
 # fmt-check + validate everything + actionlint the GHA workflow (CI gate, no AWS)
 check:
     #!/usr/bin/env bash
     set -euo pipefail
-    packer fmt -check -diff . && packer fmt -check -diff smoke
+    packer fmt -check -diff . && packer fmt -check -diff smoke && packer fmt -check -diff reimage && packer fmt -check -diff bootstrap
     just validate-all
     command -v actionlint >/dev/null && actionlint ../../.github/workflows/ppg-oracle-ami-factory.yml || echo "actionlint not installed; skipping workflow lint"
+    # drift guard: {{root_gib}} must equal var.volume_size in BOTH the refresh + reimage templates
+    # (reimage-surgery partitions root to {{root_gib}}; a mismatch sizes the AMI wrong for the refresh).
+    vs=$(awk '/variable "volume_size"/{f=1} f&&/default/{gsub(/[^0-9]/,"");print;exit}' oracle-linux.pkr.hcl)
+    rvs=$(awk '/variable "volume_size"/{f=1} f&&/default/{gsub(/[^0-9]/,"");print;exit}' reimage/reimage-ol10.pkr.hcl)
+    { [ "$vs" = "{{root_gib}}" ] && [ "$rvs" = "{{root_gib}}" ]; } || { echo "DRIFT: root_gib={{root_gib}} != refresh=$vs / reimage=$rvs"; exit 1; }
+    # plugin-pin parity: the amazon plugin must be pinned to ONE version across every template, so a
+    # supply-chain bump is all-or-nothing instead of drifting silently per-file.
+    amazon_pin() { awk '/hashicorp\/amazon/{f=1} f&&/version =/{gsub(/[^0-9.]/,"");print;exit}' "$1"; }
+    pins=$(for f in oracle-linux.pkr.hcl smoke/smoke.pkr.hcl reimage/reimage-ol10.pkr.hcl bootstrap/finalize-ol10.pkr.hcl; do amazon_pin "$f"; done)
+    n=$(printf '%s\n' "$pins" | grep -c .); u=$(printf '%s\n' "$pins" | sort -u | grep -c .)
+    { [ "$n" -eq 4 ] && [ "$u" -eq 1 ]; } || { echo "DRIFT: amazon plugin pin not uniform across the 4 templates:"; printf '%s\n' "$pins"; exit 1; }
     echo "check OK"
 
 # trigger the GHA factory workflow for the full matrix (drive CI from just). Targets the
@@ -211,7 +228,7 @@ all env="prod":
 list env="prod":
     aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
       --filters Name=tag:factory_env,Values={{env}} \
-      --query 'reverse(sort_by(Images,&CreationDate))[].{Name:Name,AMI:ImageId,role:Tags[?Key==`role`]|[0].Value,arch:Architecture,created:CreationDate}' \
+      --query "reverse(sort_by(Images,&CreationDate))[].{Name:Name,AMI:ImageId,role:Tags[?Key=='role']|[0].Value,arch:Architecture,created:CreationDate}" \
       --output table
 
 # resolve the newest promoted AMI for a combo (exactly what moleculeEnvPPG does)
@@ -245,9 +262,9 @@ prune-stale apply="0":
       # two scalar command-subs (not a process-sub `read`): a describe failure propagates
       # under set -e instead of being silently swallowed, and no IFS field-shift on tag values.
       role=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
-        --query 'Images[0].Tags[?Key==`role`]|[0].Value' --output text)
+        --query "Images[0].Tags[?Key=='role']|[0].Value" --output text)
       env=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
-        --query 'Images[0].Tags[?Key==`factory_env`]|[0].Value' --output text)
+        --query "Images[0].Tags[?Key=='factory_env']|[0].Value" --output text)
       # fail-closed: never delete the prod base, nor anything we cannot positively classify.
       if [ "$role" = "{{role_prod}}" ] || [ -z "$role" ] || [ "$role" = None ]; then echo "  SKIP $ami (protected: role=${role:-<none>})"; continue; fi
       if [ "$env" = "test" ]; then echo "  SKIP $ami (test AMI -> use prune-test)"; continue; fi
@@ -270,7 +287,7 @@ prune-superseded apply="0":
     echo "prune-superseded (apply={{apply}}; lists unless apply=1):"
     aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
       --filters Name=tag:role,Values={{role_prod}} Name=tag:os,Values={{os_name}} Name=state,Values=available \
-      --query 'reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key==`os_major`]|[0].Value, Tags[?Key==`arch`]|[0].Value]' --output text \
+      --query "reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key=='os_major']|[0].Value, Tags[?Key=='arch']|[0].Value]" --output text \
       | { declare -A keep; while read -r id maj arch; do
             [ -z "$id" ] && continue
             { [ "$maj" = None ] || [ "$arch" = None ]; } && { echo "  SKIP $id (untagged maj/arch)"; continue; }
@@ -365,17 +382,19 @@ bootstrap-ol10-prep:
 # one-time bootstrap of the OL10 candidate base for an arch (import Oracle's official
 # image -> register raw -> Packer finalize). Both arches have built-in source URLs.
 # Idempotent: re-running detects an already-promoted base and exits without re-downloading.
-[doc("one-time per arch: import + finalize an OL10 candidate base (idempotent; no 37GB re-download)")]
+[doc("one-time per arch: import + finalize an OL10 candidate base (idempotent; no image re-download)")]
 bootstrap-ol10 arch="arm64":
     #!/usr/bin/env bash
     set -euo pipefail
     eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
     aws iam get-role --role-name {{import_role}} >/dev/null 2>&1 || { echo "run 'just bootstrap-ol10-prep' first"; exit 1; }
     ARCH={{arch}} REGION={{region}} BUCKET=$(just _bucket) VMIMPORT_ROLE={{import_role}} \
-      BILLING_TAG={{billing_tag}} OS_NAME={{os_name}} ROLE_PROMOTED={{role_prod}} \
+      BILLING_TAG={{billing_tag}} OS_NAME={{os_name}} ROLE_PROMOTED={{role_prod}} ROLE_PREBASE={{role_prebase}} \
       bash scripts/bootstrap-ol10.sh
 
-# boot-validate a candidate OL10 base then promote it to role={{role_prod}} (the refresh lineage root)
+# boot-validate a greenfield OL10 candidate then promote it to a PREBASE role (role={{role_prebase}}).
+# Bootstrap yields Oracle's full-size base, which the refresh (var.volume_size) cannot launch, so it
+# is NOT promoted straight to the consumed role; reimage-ol10 shrinks it and promotes to {{role_prod}}.
 bootstrap-ol10-verify ami arch="arm64":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -392,6 +411,79 @@ bootstrap-ol10-verify ami arch="arm64":
     so="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25"
     ssh -i ol10-import/{{boottest_key}}.pem $so ec2-user@"$ip" 'echo "ssm: $(systemctl is-active amazon-ssm-agent)"; id -un'
     ssh -i ol10-import/{{boottest_key}}.pem $so ec2-user@"$ip" "sudo OS_MAJOR=10 UNAME_ARCH=$uarch bash -s" < scripts/validate.sh
-    echo "promote {{ami}} -> role={{role_prod}}"
-    just _promote {{ami}} {{role_prod}}
-    echo "OL10 {{arch}} base {{ami}} verified + promoted (role={{role_prod}})"
+    echo "promote {{ami}} -> role={{role_prebase}} (greenfield prebase; reimage-ol10 shrinks + promotes to {{role_prod}})"
+    just _promote {{ami}} {{role_prebase}}
+    echo "OL10 {{arch}} base {{ami}} verified + promoted (role={{role_prebase}}); NEXT: just reimage-ol10 {{arch}}"
+
+# ---------------------------------------------------------------------------
+# OL10 re-image (one-time lineage shrink, amazon-ebssurrogate): shrink the booted prebase onto a
+# {{root_gib}} GiB surrogate. AWS cannot restore a volume below its source snapshot and XFS cannot
+# shrink in place, so the refresh template alone cannot; the refresh then sustains the smaller size.
+# Packer owns the launch/attach/snapshot/register/cleanup lifecycle (reimage/reimage-ol10.pkr.hcl);
+# the prebase already booted (bootstrap-ol10-verify), so its /boot is complete and no dnf runs here.
+# Flow:  just reimage-ol10 <arch> [env]  ->  just reimage-ol10-verify <ami> <arch> [env]
+# ---------------------------------------------------------------------------
+
+# shrink the prebase root to {{root_gib}} GiB via ebssurrogate (registers a candidate; does not promote).
+[doc("one-time per arch: shrink the prebase root to {{root_gib}} GiB via ebssurrogate (env=test isolates the candidate)")]
+reimage-ol10 arch="arm64" env="prod":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    rm -f reimage/manifest.json
+    ( cd reimage && packer init . >/dev/null && AWS_REGION={{region}} packer build -color=false \
+        -var arch={{arch}} -var env={{env}} -var region={{region}} . )
+    ami=$(python3 -c "import json;print(json.load(open('reimage/manifest.json'))['builds'][-1]['artifact_id'].split(':')[-1])")
+    echo "REIMAGED: $ami (role=ppg-reimage-candidate); NEXT: just reimage-ol10-verify $ami {{arch}} {{env}}"
+
+# boot-validate a re-imaged candidate on TWO root sizes ({{root_gib}} + 30) + smoke, then promote.
+# Fail-closed SIZE GATE: never promote a base whose root snapshot exceeds {{root_gib}}
+# (= var.volume_size), or the refresh could not launch it (EBS won't restore below the snapshot).
+reimage-ol10-verify ami arch="arm64" env="prod":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
+    gib=$(aws ec2 describe-images --region {{region}} --image-ids {{ami}} \
+      --query 'Images[0].BlockDeviceMappings[0].Ebs.VolumeSize' --output text)
+    [ "$gib" -le "{{root_gib}}" ] || { echo "REFUSE promote: {{ami}} root is ${gib} GiB > {{root_gib}} GiB target"; exit 1; }
+    # cross-env guard: never promote a candidate whose factory_env tag does not match {{env}}, so a
+    # test candidate can never be promoted to the production role by an omitted/wrong env arg.
+    fenv=$(aws ec2 describe-images --region {{region}} --image-ids {{ami}} --query "Images[0].Tags[?Key=='factory_env']|[0].Value" --output text)
+    [ "$fenv" = "{{env}}" ] || { echo "REFUSE promote: {{ami}} factory_env=$fenv != env={{env}} (cross-env promotion blocked)"; exit 1; }
+    read -r uarch inst < <(just _arch-meta {{arch}})
+    sg=$(aws ec2 describe-security-groups --region {{region}} --filters Name=group-name,Values={{boottest_sg}} --query 'SecurityGroups[0].GroupId' --output text)
+    iids=""; so="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=25"
+    runtag=ppg-reimage-verify-run; runval="{{ami}}-$$"   # unique-per-run recovery tag (value carries the run id)
+    # cleanup also recovers an instance created even if the CLI died before run-instances returned its
+    # id (the orphan still carries $runtag), not just the ids captured in $iids.
+    cleanup() {
+      set +e
+      local rec
+      rec=$(aws ec2 describe-instances --region {{region}} \
+        --filters "Name=tag:$runtag,Values=$runval" "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+        --query 'Reservations[].Instances[].InstanceId' --output text 2>/dev/null)
+      for i in $iids $rec; do aws ec2 terminate-instances --region {{region}} --instance-ids "$i" >/dev/null 2>&1; done
+    }
+    trap cleanup EXIT
+    # growpart floor: derive the non-root overhead (ESP/bios + boot + swap) from the surgery partition
+    # table so this never drifts if that layout changes. Largest root-partition start across arches,
+    # rounded up to whole GiB = the space unavailable to the root fs.
+    ovh_mib=$(grep -oE 'mkpart root xfs +[0-9]+MiB' scripts/reimage-surgery.sh | grep -oE '[0-9]+' | sort -rn | head -1)
+    [[ "$ovh_mib" =~ ^[0-9]+$ ]] || { echo "FATAL: could not derive the root-partition offset from reimage-surgery.sh; the growpart floor would be wrong"; exit 1; }
+    ovh_gib=$(( (ovh_mib + 1023) / 1024 ))
+    for sz in {{root_gib}} 30; do
+      iid=$(aws ec2 run-instances --region {{region}} --image-id {{ami}} --instance-type "$inst" \
+        --key-name {{boottest_key}} --security-group-ids "$sg" --subnet-id {{subnet}} --associate-public-ip-address \
+        --block-device-mappings "DeviceName=/dev/sda1,Ebs={VolumeSize=$sz,VolumeType=gp3,DeleteOnTermination=true}" \
+        --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=ol10-reimage-verify},{Key=$runtag,Value=$runval},{Key=iit-billing-tag,Value={{billing_tag}}}]" \
+        --query 'Instances[0].InstanceId' --output text)
+      iids="$iids $iid"
+      echo "launched $iid (root=${sz}GiB); waiting 2/2..."; aws ec2 wait instance-status-ok --region {{region}} --instance-ids "$iid"
+      ip=$(aws ec2 describe-instances --region {{region}} --instance-ids "$iid" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+      min=$(( sz - ovh_gib ))   # after growpart the root fs >= launch size minus the derived overhead
+      ssh -i ol10-import/{{boottest_key}}.pem $so ec2-user@"$ip" "rg=\$(findmnt -bno SIZE /); rg=\$((rg/1073741824)); echo root=\${rg}G; [ \$rg -ge $min ] || { echo \"FAIL growpart: root \${rg}G < ${min}G on a ${sz}G launch\"; exit 1; }; sudo OS_MAJOR=10 UNAME_ARCH=$uarch bash -s" < scripts/validate.sh
+    done
+    pr={{role_prod}}; [ "{{env}}" = "test" ] && pr={{role_test}}
+    echo "smoke (boot+install) {{ami}} -> promote role=$pr"
+    just smoke {{ami}} 10 {{arch}} $pr
+    echo "OL10 {{arch}} re-imaged base {{ami}} verified (${gib} GiB; {{root_gib}}+30 boot + smoke) + promoted (role=$pr)"

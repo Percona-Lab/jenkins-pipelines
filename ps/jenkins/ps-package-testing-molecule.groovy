@@ -61,8 +61,6 @@ def ps80PackageTesting() {
 
 def ps84PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'debian-13',
@@ -108,6 +106,10 @@ def ps97PackageTesting() {
         'rhel-9-arm',
         'rhel-10',
         'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'ubuntu-resolute',
         'ubuntu-resolute-arm',
         'rocky-8',

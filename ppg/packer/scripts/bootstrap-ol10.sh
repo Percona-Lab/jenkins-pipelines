@@ -21,7 +21,7 @@
 #
 # Idempotent + resumable: a re-run detects an already-promoted base (or a reusable raw/
 # candidate AMI, or the in-S3 source / a completed import) and skips the finished steps; it
-# will NOT re-download the 37GB image. FORCE=1 rebuilds the AMI lineage from the existing S3
+# will NOT re-download the image. FORCE=1 rebuilds the AMI lineage from the existing S3
 # source (still no re-download; delete the S3 object first to refresh the Oracle source).
 set -euo pipefail
 
@@ -49,13 +49,16 @@ esac
 SRC="$(basename "$SRC_URL")"; VMDK="ol10-${ARCH}.vmdk"
 
 FORCE="${FORCE:-0}"   # FORCE=1 rebuilds the AMI lineage (raw -> candidate) from the EXISTING
-                      # S3 source + snapshot; it never re-downloads the 37GB image. To refresh
-                      # the Oracle source, delete s3://$BUCKET/$VMDK (and bump bNNN) first.
+                      # S3 source + snapshot; it never re-downloads the image. To refresh the
+                      # Oracle source, delete s3://$BUCKET/$VMDK (and bump bNNN) first. The
+                      # result is Oracle's full-size base (x86_64 is LVM); shrink it with
+                      # reimage-ol10 before promotion. The refresh launches the newest promoted
+                      # base on var.volume_size and a base larger than that cannot launch.
 
 # Idempotency helpers: newest self-owned, available OL10 image for THIS arch.
 # Return an ImageId or empty string. A describe FAILURE (throttle, expired creds) is
-# NOT silently treated as "absent" -- that would bypass the guards below and re-trigger
-# the 37GB download/import. It retries, then returns non-zero so the callers' `|| exit 1`
+# NOT silently treated as "absent", which would bypass the guards below and re-trigger
+# the image download/import. It retries, then returns non-zero so the callers' `|| exit 1`
 # aborts (fail-closed). An empty result means the image is genuinely absent.
 _describe_newest() {  # $@ = --filters ...
   local out a
@@ -76,14 +79,15 @@ img_by_name() { _describe_newest --filters Name=name,Values="$1" Name=architectu
 RAW=""; BASE=""
 
 # 0. Strongest guard: a promoted prod base already exists -> nothing to do. This protects a
-#    small-disk host from a re-run that would otherwise attempt the 37GB download below.
+#    small-disk host from a re-run that would otherwise attempt the image download below.
 PROMOTED=$(img_by_tag "$ROLE_PROMOTED") || exit 1
-if [ -n "$PROMOTED" ] && [ "$FORCE" != 1 ]; then
+PREBASE=$(img_by_tag "${ROLE_PREBASE:-ppg-ol10-prebase}") || exit 1
+if { [ -n "$PROMOTED" ] || [ -n "$PREBASE" ]; } && [ "$FORCE" != 1 ]; then
   cat <<EOF
 
-OL10 $ARCH base already built + promoted: $PROMOTED (role=$ROLE_PROMOTED). Nothing to do.
-The refresh path (oracle-linux.pkr.hcl, os_major already includes 10) takes over from here.
-Re-run with FORCE=1 to rebuild the AMIs from the existing S3 source (no 37GB re-download).
+OL10 $ARCH base already built (${PROMOTED:+promoted $PROMOTED}${PREBASE:+ prebase $PREBASE}). Nothing to do.
+The reimage + refresh paths take over from here.
+Re-run with FORCE=1 to rebuild the AMIs from the existing S3 source (no re-download).
 EOF
   exit 0
 fi
@@ -99,7 +103,7 @@ else
   if [ -n "$RAW" ] && [ "$FORCE" != 1 ]; then
     log_step "reuse existing raw base $RAW (skip download/convert/upload/import/register)"
   else
-    # 2a. Ensure the streamOptimized VMDK is in S3 (NEVER re-download 37GB if it already is).
+    # 2a. Ensure the streamOptimized VMDK is in S3 (NEVER re-download the image if it already is).
     if aws s3 ls "s3://$BUCKET/$VMDK" --region "$REGION" >/dev/null 2>&1; then
       log_step "S3 source present: s3://$BUCKET/$VMDK (skip download/convert/upload)"
     else
@@ -157,6 +161,6 @@ cat <<EOF
 BOOTSTRAP-OL10 ($ARCH) COMPLETE.
   raw base (intermediate): ${RAW:-<reused candidate; no new raw>}
   candidate base:          ${BASE:-<see packer output above>}  (role=$ROLE_CANDIDATE, Packer-tagged)
-NEXT: just bootstrap-ol10-verify ${BASE:-<candidate-ami>} $ARCH   # boot-validate + promote to role=$ROLE_PROMOTED
-Then OL10 refreshes here like OL8/9 (oracle-linux.pkr.hcl os_major already includes 10).
+NEXT: just bootstrap-ol10-verify ${BASE:-<candidate-ami>} $ARCH   # boot-validate + promote to the prebase role
+Then: just reimage-ol10 $ARCH                                     # shrink to var.volume_size + promote to the consumed role
 EOF
