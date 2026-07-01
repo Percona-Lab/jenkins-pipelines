@@ -97,6 +97,10 @@ pipeline {
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
+        string(
+            defaultValue: '',
+            description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
+            name: 'BUILD_STAGES')
     }
     options {
         skipDefaultCheckout()
@@ -184,6 +188,9 @@ pipeline {
         stage('Build PXC RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Centos 8') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Centos 8' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -207,6 +214,9 @@ pipeline {
                     }
                 }
                 stage('Centos 8 ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Centos 8 ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -230,6 +240,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 9') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Oracle Linux 9' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -252,6 +265,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Oracle Linux 9 ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -274,6 +290,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Oracle Linux 10' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -296,6 +315,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Oracle Linux 10 ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -318,6 +340,9 @@ pipeline {
                     }
                 }
                 stage('Amazon Linux 2023') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Amazon Linux 2023' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -337,6 +362,9 @@ pipeline {
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Amazon Linux 2023 ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -356,6 +384,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Jammy(22.04)' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -377,6 +408,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Jammy(22.04) ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -398,6 +432,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Noble(24.04)' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -419,6 +456,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Noble(24.04) ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -440,6 +480,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute(26.04)') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Resolute(26.04)' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -461,6 +504,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Resolute(26.04) ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -482,6 +528,9 @@ pipeline {
                     }
                 }
                 stage('Debian Bookworm(12)') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Debian Bookworm(12)' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -505,6 +554,9 @@ pipeline {
                     }
                 }
                 stage('Debian Bookworm(12) ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Debian Bookworm(12) ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -528,6 +580,9 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13)') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Debian Trixie(13)' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -551,6 +606,9 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Debian Trixie(13) ARM' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -574,6 +632,9 @@ pipeline {
                     }
                 }
                 stage('Centos 8 tarball') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Centos 8 tarball' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -597,6 +658,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Oracle Linux 9 tarball' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -620,6 +684,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Jammy(22.04) tarball' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -641,6 +708,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Noble(24.04) tarball') {
+                    when {
+                        expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim() == 'Ubuntu Noble(24.04) tarball' } }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -667,11 +737,27 @@ pipeline {
         stage('Sign packages') {
             steps {
                 script {
-                    if (env.EXPERIMENTALMODE == 'NO') {
+                    def rpmStages = [
+                        'Centos 8', 'Centos 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM',
+                        'Centos 8 tarball', 'Oracle Linux 9 tarball'
+                    ]
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Jammy(22.04) ARM',
+                        'Ubuntu Noble(24.04)', 'Ubuntu Noble(24.04) ARM',
+                        'Ubuntu Resolute(26.04)', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bookworm(12)', 'Debian Bookworm(12) ARM',
+                        'Debian Trixie(13)', 'Debian Trixie(13) ARM',
+                        'Ubuntu Jammy(22.04) tarball', 'Ubuntu Noble(24.04) tarball'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (env.EXPERIMENTALMODE == 'NO' && (!requestedStages || requestedStages.any { rpmStages.contains(it) })) {
                         signRPM()
                     }
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        signDEB()
+                    }
                 }
-                signDEB()
             }
         }
         stage('Push to public repository') {
@@ -704,6 +790,9 @@ pipeline {
             }
         }
         stage('Push Tarballs to TESTING download area') {
+            when {
+                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
+            }
             steps {
                 script {
                     try {
