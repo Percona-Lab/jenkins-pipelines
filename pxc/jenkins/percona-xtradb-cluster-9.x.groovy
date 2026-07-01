@@ -151,6 +151,37 @@ pipeline {
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
+        stage('Compute build flags') {
+            steps {
+                script {
+                    def req = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : null
+                    def s = { String n -> !req || req.contains(n) }
+                    env.RUN_CENTOS8       = s('Centos 8').toString()
+                    env.RUN_CENTOS8_ARM   = s('Centos 8 ARM').toString()
+                    env.RUN_OL9           = s('Oracle Linux 9').toString()
+                    env.RUN_OL9_ARM       = s('Oracle Linux 9 ARM').toString()
+                    env.RUN_OL10          = (!env.SKIP_OL10.toBoolean() && s('Oracle Linux 10')).toString()
+                    env.RUN_OL10_ARM      = (!env.SKIP_OL10.toBoolean() && s('Oracle Linux 10 ARM')).toString()
+                    env.RUN_AL2023        = s('Amazon Linux 2023').toString()
+                    env.RUN_AL2023_ARM    = s('Amazon Linux 2023 ARM').toString()
+                    env.RUN_JAMMY         = s('Ubuntu Jammy(22.04)').toString()
+                    env.RUN_JAMMY_ARM     = s('Ubuntu Jammy(22.04) ARM').toString()
+                    env.RUN_NOBLE         = s('Ubuntu Noble(24.04)').toString()
+                    env.RUN_NOBLE_ARM     = s('Ubuntu Noble(24.04) ARM').toString()
+                    env.RUN_RESOLUTE      = s('Ubuntu Resolute(26.04)').toString()
+                    env.RUN_RESOLUTE_ARM  = s('Ubuntu Resolute(26.04) ARM').toString()
+                    env.RUN_BOOKWORM      = s('Debian Bookworm(12)').toString()
+                    env.RUN_BOOKWORM_ARM  = s('Debian Bookworm(12) ARM').toString()
+                    env.RUN_TRIXIE        = (!env.SKIP_TRIXIE.toBoolean() && s('Debian Trixie(13)')).toString()
+                    env.RUN_TRIXIE_ARM    = (!env.SKIP_TRIXIE.toBoolean() && s('Debian Trixie(13) ARM')).toString()
+                    env.RUN_CENTOS8_TAR   = s('Centos 8 tarball').toString()
+                    env.RUN_OL9_TAR       = s('Oracle Linux 9 tarball').toString()
+                    env.RUN_JAMMY_TAR     = s('Ubuntu Jammy(22.04) tarball').toString()
+                    env.RUN_NOBLE_TAR     = s('Ubuntu Noble(24.04) tarball').toString()
+                    env.RUN_TARBALLS      = (!req || req.any { it.toLowerCase().contains('tarball') }).toString()
+                }
+            }
+        }
         stage('Build PXC generic source packages') {
             parallel {
                 stage('Build PXC generic source rpm') {
@@ -199,7 +230,7 @@ pipeline {
             parallel {
                 stage('Centos 8') {
                     when {
-                        expression { shouldRunStage('Centos 8') }
+                        environment name: 'RUN_CENTOS8', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -225,7 +256,7 @@ pipeline {
                 }
                 stage('Centos 8 ARM') {
                     when {
-                        expression { shouldRunStage('Centos 8 ARM') }
+                        environment name: 'RUN_CENTOS8_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -251,7 +282,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9') {
                     when {
-                        expression { shouldRunStage('Oracle Linux 9') }
+                        environment name: 'RUN_OL9', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -276,7 +307,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9 ARM') {
                     when {
-                        expression { shouldRunStage('Oracle Linux 9 ARM') }
+                        environment name: 'RUN_OL9_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -301,7 +332,7 @@ pipeline {
                 }
                 stage('Oracle Linux 10') {
                     when {
-                        expression { shouldRunStage('Oracle Linux 10') }
+                        environment name: 'RUN_OL10', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -326,7 +357,7 @@ pipeline {
                 }
                 stage('Oracle Linux 10 ARM') {
                     when {
-                        expression { shouldRunStage('Oracle Linux 10 ARM') }
+                        environment name: 'RUN_OL10_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -351,7 +382,7 @@ pipeline {
                 }
                 stage('Amazon Linux 2023') {
                     when {
-                        expression { shouldRunStage('Amazon Linux 2023') }
+                        environment name: 'RUN_AL2023', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -373,7 +404,7 @@ pipeline {
                 }
                 stage('Amazon Linux 2023 ARM') {
                     when {
-                        expression { shouldRunStage('Amazon Linux 2023 ARM') }
+                        environment name: 'RUN_AL2023_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -399,7 +430,7 @@ pipeline {
             parallel {
                 stage('Ubuntu Jammy(22.04)') {
                     when {
-                        expression { shouldRunStage('Ubuntu Jammy(22.04)') }
+                        environment name: 'RUN_JAMMY', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -423,7 +454,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
                     when {
-                        expression { shouldRunStage('Ubuntu Jammy(22.04) ARM') }
+                        environment name: 'RUN_JAMMY_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -447,7 +478,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04)') {
                     when {
-                        expression { shouldRunStage('Ubuntu Noble(24.04)') }
+                        environment name: 'RUN_NOBLE', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -471,7 +502,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
                     when {
-                        expression { shouldRunStage('Ubuntu Noble(24.04) ARM') }
+                        environment name: 'RUN_NOBLE_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -495,7 +526,7 @@ pipeline {
                 }
                 stage('Ubuntu Resolute(26.04)') {
                     when {
-                        expression { shouldRunStage('Ubuntu Resolute(26.04)') }
+                        environment name: 'RUN_RESOLUTE', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -519,7 +550,7 @@ pipeline {
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
                     when {
-                        expression { shouldRunStage('Ubuntu Resolute(26.04) ARM') }
+                        environment name: 'RUN_RESOLUTE_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -543,7 +574,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12)') {
                     when {
-                        expression { shouldRunStage('Debian Bookworm(12)') }
+                        environment name: 'RUN_BOOKWORM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -569,7 +600,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12) ARM') {
                     when {
-                        expression { shouldRunStage('Debian Bookworm(12) ARM') }
+                        environment name: 'RUN_BOOKWORM_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -595,7 +626,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13)') {
                     when {
-                        expression { shouldRunStage('Debian Trixie(13)') }
+                        environment name: 'RUN_TRIXIE', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -621,7 +652,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13) ARM') {
                     when {
-                        expression { shouldRunStage('Debian Trixie(13) ARM') }
+                        environment name: 'RUN_TRIXIE_ARM', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -651,7 +682,7 @@ pipeline {
             parallel {
                 stage('Centos 8 tarball') {
                     when {
-                        expression { shouldRunStage('Centos 8 tarball') }
+                        environment name: 'RUN_CENTOS8_TAR', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -677,7 +708,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9 tarball') {
                     when {
-                        expression { shouldRunStage('Oracle Linux 9 tarball') }
+                        environment name: 'RUN_OL9_TAR', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -703,7 +734,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
                     when {
-                        expression { shouldRunStage('Ubuntu Jammy(22.04) tarball') }
+                        environment name: 'RUN_JAMMY_TAR', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -727,7 +758,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04) tarball') {
                     when {
-                        expression { shouldRunStage('Ubuntu Noble(24.04) tarball') }
+                        environment name: 'RUN_NOBLE_TAR', value: 'true'
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -810,7 +841,7 @@ pipeline {
         }
         stage('Push Tarballs to TESTING download area') {
             when {
-                expression { shouldRunTarball() }
+                environment name: 'RUN_TARBALLS', value: 'true'
             }
             steps {
                 script {
