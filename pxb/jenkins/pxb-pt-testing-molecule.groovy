@@ -37,13 +37,13 @@
                                 return ["ps-80", "ms-80"]
                             }
                             else if (product_to_test == "pxb_84") {
-                                return ["ps-84", "ms-84"]
+                                return ["ps-84", "ms-84", "ps-97", "ms-97"]
                             }
                             else if (product_to_test == "pxb_innovation") {
                                 return ["ps_innovation", "ms_innovation"]
                             }
                             else {
-                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84"]
+                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84", "ps-97", "ms-97"]
                             }
                         '''
                     ]
@@ -66,7 +66,7 @@
                 name: 'TESTING_BRANCH'
             ),
             choice(
-                choices: ['install', 'upgrade', 'kms'],
+                choices: ['install', 'upgrade', 'kms', 'kmip'],
                 description: 'Scenario To Test',
                 name: 'scenario_to_test'
             ),
