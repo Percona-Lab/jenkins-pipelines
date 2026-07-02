@@ -676,7 +676,7 @@ parameters {
                 } else {
                     error "Properties file not found: test/percona-server-8.0.properties"
                 }
-                MinitestPostSucess(
+                if (params.BRANCH.startsWith('release-')) MinitestPostSucess(
                     product_to_test: product_to_test,
                     PS_RELEASE: PS_RELEASE,
                     PS_VERSION_SHORT: PS_VERSION_SHORT,
