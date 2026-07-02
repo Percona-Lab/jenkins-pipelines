@@ -189,29 +189,22 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = 0
+    def clusterCreated=0
 
-    try {
-        for (int i=0; i<tests.size(); i++) {
-            if (tests[i]["result"] == "skipped") {
-                tests[i]["result"] = "failure"
-                tests[i]["cluster"] = cluster
-                if (clusterCreated == 0) {
-                    clusterCreated = 1
-                    createCluster(cluster)
-                }
-                runTest(i)
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
             }
+            runTest(i)
         }
-    } finally {
-        if (clusterCreated >= 1) {
-            try {
-                shutdownCluster(cluster)
-                clusters.remove(cluster)
-            } catch (Exception e) {
-                echo "Warning: Error shutting down cluster $cluster: ${e.getMessage()}"
-            }
-        }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
     }
 }
 
@@ -357,28 +350,23 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
-            sh """
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-                if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                    kubectl get ns -o json --request-timeout=5s 2>/dev/null \
-                    | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
-                    | while read ns; do
-                        kubectl delete deployment --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete statefulset --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete replicaset --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete pod --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete pvc --all -n "\$ns" --request-timeout=10s || true
-                        kubectl delete svc --all -n "\$ns" --request-timeout=10s || true
-                    done
-                else
-                    echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
-                fi
+      withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            namespaces=\$(kubectl get ns -o json 2>/dev/null || echo '{}')
+            echo "\$namespaces" \
+            | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
+            | while read ns; do
+                kubectl delete deployment --all -n "\$ns" --grace-period=0 || true
+                kubectl delete statefulset --all -n "\$ns" --grace-period=0 || true
+                kubectl delete replicaset --all -n "\$ns" --grace-period=0 || true
+                kubectl delete pod --all -n "\$ns" --grace-period=0 || true
+                kubectl delete pvc --all -n "\$ns" || true
+                kubectl delete svc --all -n "\$ns" || true
+            done
 
-                doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
-            """
-        }
+            doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
+        """
     }
 }
 
