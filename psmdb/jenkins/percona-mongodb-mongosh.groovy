@@ -54,7 +54,7 @@ pipeline {
             description: 'Tag/Branch for build script repository',
             name: 'BUILD_GIT_BRANCH')
         string(
-            defaultValue: '2.2.10',
+            defaultValue: '2.8.3',
             description: 'VERSION value',
             name: 'VERSION')
         string(
@@ -263,6 +263,18 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_mongosh=1 --build_variant=deb-x64")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie (13)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_mongosh=1 --build_variant=deb-x64")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
