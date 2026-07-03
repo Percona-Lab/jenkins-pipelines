@@ -534,8 +534,6 @@ pipeline {
                     }
                 }
                 stage('Debian Bookworm(12)(x86_64)') {
-                    // Note: only x86_64 — no debian-bookworm-aarch64 runner image
-                    // exists in IaC/buildbarn/runners/ (see README.md matrix).
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
                     }
@@ -546,6 +544,22 @@ pipeline {
                         withRBE {
                             script {
                                 buildStage(runnerImage('debian-bookworm'), "--build_deb=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie(13)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_deb=1", true)
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -642,6 +656,22 @@ pipeline {
                         withRBE {
                             script {
                                 buildStage(runnerImage('debian-bookworm'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Debian Trixie(13) binary tarball(glibc2.41)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
