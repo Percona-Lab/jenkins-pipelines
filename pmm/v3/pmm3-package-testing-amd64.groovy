@@ -213,6 +213,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu 26.04 Resolute - AMD64') {
+                    when {
+                        expression { !env.TESTS?.contains("upgrade") }
+                    }
                     agent {
                         label 'min-resolute-x64'
                     }

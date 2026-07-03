@@ -216,6 +216,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu 26.04 Resolute - ARM64') {
+                    when {
+                        expression { !env.TESTS?.contains("upgrade") }
+                    }
                     agent {
                         label 'min-resolute-arm64'
                     }
