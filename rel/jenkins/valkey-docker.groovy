@@ -71,10 +71,17 @@ pipeline {
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common || true
                     sudo apt-get install -y docker-ce docker-ce-cli containerd.io || true
                     export DOCKER_CLI_EXPERIMENTAL=enabled
-                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
-                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
-                    sudo systemctl restart docker
+                    # Install docker-buildx only if it is not already usable.
+                    # Downloading straight onto the live plugin path fails with
+                    # "Text file busy" when a buildx process already has it open,
+                    # so fetch to a temp file and install() it atomically.
+                    if ! docker buildx version >/dev/null 2>&1; then
+                        sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                        curl -fL https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /tmp/docker-buildx
+                        sudo install -m 0755 /tmp/docker-buildx /usr/libexec/docker/cli-plugins/docker-buildx
+                        rm -f /tmp/docker-buildx
+                        sudo systemctl restart docker || true
+                    fi
                     sudo apt-get install -y qemu-system binfmt-support qemu-user-static || true
                     sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
