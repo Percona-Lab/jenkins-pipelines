@@ -79,11 +79,11 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        echo ${START_NEW_BUILD}: build required
+                        echo "✅ ${START_NEW_BUILD}: build required"
                     """
                 }
                 script {
-                    def emojis = ['🚀', '🌟', '💫', '🔥', '⚡', '🎯', '🏆', '✨', '🎲', '🌈', '🦄', '🍀', '🎉', '🔮']
+                    def emojis = ['🚀', '🌟', '💫', '🔥', '⚡', '🎯', '🏆', '✨', '🎲', '🌈', '🦄', '🍀', '🎉', '🔮', '🎸', '🦋', '🌊', '🎪', '🏄', '🎭', '🌺', '🦁', '🐉', '🎨', '🌙', '⭐']
                     def randomEmoji = emojis[new Random().nextInt(emojis.size())]
                     slackNotify("#releases-ci", "#00FF00", "${randomEmoji} [${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
                 }
@@ -98,7 +98,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        echo ${START_NEW_BUILD} build required
+                        echo "💤 no build required"
                     """
                 }
             }
