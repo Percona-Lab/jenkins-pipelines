@@ -29,7 +29,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 fi
                 pwd -P
                 export build_dir=\$(pwd -P)
-                docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                docker run --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                     set -o xtrace
                     cd \${build_dir}
                     bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --install_deps=1
@@ -120,7 +120,7 @@ pipeline {
     stages {
         stage('Create PXC source tarball') {
             agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+               label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
@@ -143,6 +143,13 @@ pipeline {
                 '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                }
+                script {
+                    sh """
+                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                    """
+                    env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
+                    echo "Detected PXC version minor: ${env.MYSQL_VERSION_MINOR}"
                 }
                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                 stash includes: 'uploadPath', name: 'uploadPath'
@@ -440,6 +447,54 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute(26.04)') {
+                    when {
+                        expression { env.MYSQL_VERSION_MINOR == '4' }
+                    }
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:resolute", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:resolute", "--build_deb=1")
+                            }
+                        }
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04) ARM') {
+                    when {
+                        expression { env.MYSQL_VERSION_MINOR == '4' }
+                    }
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:resolute", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:resolute", "--build_deb=1")
+                            }
+                        }
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bullseye(11)') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
@@ -646,6 +701,24 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
                         }
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Trixie(13) tarball') {
+                    when {
+                        expression { !env.SKIP_TRIXIE.toBoolean() }
+                    }
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_tarball=1")
 
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
