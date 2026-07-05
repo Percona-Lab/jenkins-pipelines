@@ -348,7 +348,7 @@ def check_warnings = 'yes'
 def install_mysql_shell = 'no'
 def BRANCH_NAME = env.BRANCH ?: "release-8.0.43-34"
 def PS_RELEASE = BRANCH_NAME.replaceAll("release-", "")
-def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.')[0..1].join('.')
+def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.').take(2).join('.')
 def PS_VERSION_SHORT = "PS${PS_VERSION_SHORT_KEY.replace('.', '')}"
 def DOCKER_ACC = "perconalab"
 product_to_test = (PS_VERSION_SHORT == 'PS84') ? 'ps_84' : 'ps_80'
