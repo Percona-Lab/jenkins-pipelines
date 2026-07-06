@@ -10,14 +10,14 @@
             [
                 $class: 'ChoiceParameter',
                 choiceType: 'PT_SINGLE_SELECT',
-                description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation',
+                description: 'Choose the product version to test: PXB8.0, PXB8.4, PXB9.7 OR pxb_innovation',
                 name: 'product_to_test',
                 script: [
                     $class: 'GroovyScript',
                     script: [
                         classpath: [],
                         sandbox: true,
-                        script: 'return ["pxb_80", "pxb_innovation", "pxb_84"]'
+                        script: 'return ["pxb_80", "pxb_innovation", "pxb_84", "pxb_97"]'
                     ]
                 ]
             ],
@@ -39,11 +39,14 @@
                             else if (product_to_test == "pxb_84") {
                                 return ["ps-84", "ms-84"]
                             }
+                            else if (product_to_test == "pxb_97") {
+                                return ["ps-97", "ms-97"]
+                            }
                             else if (product_to_test == "pxb_innovation") {
                                 return ["ps_innovation", "ms_innovation"]
                             }
                             else {
-                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84"]
+                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84", "ps-97", "ms-97"]
                             }
                         '''
                     ]
@@ -66,7 +69,7 @@
                 name: 'TESTING_BRANCH'
             ),
             choice(
-                choices: ['install', 'upgrade', 'kms'],
+                choices: ['install', 'upgrade', 'kms', 'kmip'],
                 description: 'Scenario To Test',
                 name: 'scenario_to_test'
             ),
