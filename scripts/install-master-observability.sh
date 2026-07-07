@@ -8,8 +8,8 @@
 # Secrets Manager at every Alloy restart via systemd ExecStartPre.
 #
 # Caller must export JENKINS_HOST (FQDN, e.g. ps3.cd.percona.com).
-# Loaded at master boot from the CFN userData install_observability()
-# bootstrap on all 10 Percona Jenkins masters.
+# Loaded at master boot from the Terraform user-data install_observability()
+# bootstrap on the 9 EC2 Percona Jenkins masters.
 #
 # Idempotent: dnf install, file writes, systemctl enable --now all
 # re-run safely.
