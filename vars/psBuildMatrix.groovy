@@ -111,10 +111,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 }
 
 def call(Map args = [:]) {
-    def cloud        = args.get('cloud', '')
-    def awsStashPath = args.get('awsStashPath', '')
-    def fipsMode     = args.get('fipsMode', 'NO')
-    def onlyStages   = args.get('onlyStages', [])
+    def cloud         = args.get('cloud', '')
+    def awsStashPath  = args.get('awsStashPath', '')
+    def fipsMode      = args.get('fipsMode', 'NO')
+    def onlyStages    = args.get('onlyStages', [])
 
     // Build type -> [sourceFolder, targetFolder]
     def artifactFolders = [
