@@ -157,12 +157,14 @@ def call(Map args = [:]) {
             image: 'oraclelinux:10', arch: 'x64', buildType: 'rpm',
             flags: '--build_rpm=1 --with_zenfs=1',
             fipsFlags: '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
         ],
         [
             name: 'Oracle Linux 10 ARM',
             image: 'oraclelinux:10', arch: 'aarch64', buildType: 'rpm',
             flags: '--build_rpm=1',
             fipsFlags: '--build_rpm=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
         ],
         [
             name: 'Amazon Linux 2023',
@@ -213,6 +215,7 @@ def call(Map args = [:]) {
             image: 'debian:trixie', arch: 'x64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
         ],
 
         // ---- DEB stages (ARM) ----
@@ -258,6 +261,7 @@ def call(Map args = [:]) {
             image: 'debian:trixie', arch: 'aarch64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
         ],
 
         // ---- Tarball stages ----

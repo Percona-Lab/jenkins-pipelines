@@ -378,24 +378,16 @@ parameters {
          choices: [ 'Hetzner','AWS' ],
          description: 'Cloud infra for build',
          name: 'CLOUD' )
-        string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
+        string(defaultValue: 'https://github.com/percona/percona-server-private.git', description: 'github repository for build', name: 'GIT_REPO')
         string(defaultValue: 'release-8.0.46-38', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
-        choice(
-            choices: 'OFF\nON',
-            description: 'The TokuDB storage is no longer supported since 8.0.28',
-            name: 'BUILD_TOKUDB_TOKUBACKUP')
-        string(defaultValue: '0', description: 'PerconaFT repository', name: 'PERCONAFT_REPO')
-        string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for PerconaFT repository', name: 'PERCONAFT_BRANCH')
-        string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
-        string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
@@ -410,18 +402,6 @@ parameters {
             defaultValue: '',
             description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
             name: 'BUILD_STAGES')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Skip Oracle Linux 10 stages',
-            name: 'SKIP_OL10')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Skip Debian Trixie(13) stages',
-            name: 'SKIP_TRIXIE')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Skip Ubuntu Resolute(26.04) stages',
-            name: 'SKIP_RESOLUTE')
     }
     options {
         skipDefaultCheckout()
@@ -439,11 +419,7 @@ parameters {
                 cleanUpWS()
                 installCli("rpm")
                 script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:focal", "--get_sources=1")
-                            }
+                            buildStage("ubuntu:focal", "--get_sources=1")
                        }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -483,11 +459,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1")
-                            }
+                            buildStage("oraclelinux:8", "--build_src_rpm=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -504,11 +476,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:focal", "--build_source_deb=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:focal", "--build_source_deb=1")
-                            }
+                            buildStage("ubuntu:focal", "--build_source_deb=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -524,9 +492,6 @@ parameters {
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE,
-                        skipOL10: params.SKIP_OL10 == 'YES',
-                        skipTrixie: params.SKIP_TRIXIE == 'YES',
-                        skipResolute: params.SKIP_RESOLUTE == 'YES',
                         onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
                     )
                 }
@@ -605,30 +570,7 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
-                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
-                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                    // sync packages
-                    if ("${MYSQL_VERSION_MINOR}" == "0") {
-                        if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild(params.CLOUD, "ps-80-pro", COMPONENT)
-                        } else {
-                            sync2ProdAutoBuild(params.CLOUD, "ps-80", COMPONENT)
-                        }
-                    } else {
-                        if (env.FIPSMODE == 'YES') {
-                            if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild(params.CLOUD, "ps-84-pro", COMPONENT)
-                            } else {
-                                sync2PrivateProdAutoBuild(params.CLOUD, "ps-8x-innovation-pro", COMPONENT)
-                            }
-                        } else {
-                            if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2ProdAutoBuild(params.CLOUD, "ps-84-lts", COMPONENT)
-                            } else {
-                                sync2ProdAutoBuild(params.CLOUD, "ps-8x-innovation", COMPONENT)
-                            }
-                        }
-                    }
+                    sync2PrivateProdAutoBuild(params.CLOUD, "ps-80-eol", COMPONENT)
                 }
             }
         }
@@ -639,11 +581,7 @@ parameters {
             steps {
                 script {
                     try {
-                        if (env.FIPSMODE == 'YES') {
-                            uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
-                        } else {
-                            uploadTarballToDownloadsTesting(params.CLOUD, "ps", "${BRANCH}")
-                        }
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"
@@ -731,11 +669,7 @@ parameters {
         always {
             sh 'sudo rm -rf ./*'
             script {
-                if (env.FIPSMODE == 'YES') {
-                    currentBuild.description = "Pro -> Build on ${BRANCH}"
-                } else {
-                    currentBuild.description = "Build on ${BRANCH}"
-                }
+                currentBuild.description = "Build on ${BRANCH}"
             }
             deleteDir()
         }
