@@ -6,7 +6,7 @@ pipeline {
         choice(name: 'PXB_DOCKER_ACC', choices: ['percona','perconalab'], description: 'Docker Hub account for the PXB image')
         choice(name: 'PS_DOCKER_ACC',  choices: ['percona','perconalab'], description: 'Docker Hub account for the PS image')
         choice(
-            choices: ['PXB24', 'PXB80', 'PXB84', 'PXB_INN_LTS'],
+            choices: ['PXB24', 'PXB80', 'PXB84', 'PXB97', 'PXB_INN_LTS'],
             description: 'Choose the PXB version to test',
             name: 'PRODUCT_TO_TEST'
         )
@@ -64,24 +64,26 @@ pipeline {
                         'PXB24': 'PS57',
                         'PXB80': 'PS80',
                         'PXB84': 'PS84',
+                        'PXB97': 'PS97',
                         'PXB_INN_LTS': 'PS_INN_LTS'
                     ]
                     def PS_PRODUCT = PS_VERSION_MAP[PRODUCT_TO_TEST]
                     def PS_VER = grepVar("${PS_PRODUCT}_VER")
                     def PS_REV = grepVar("${PS_PRODUCT}_REV")
 
-                    // PXB_INN_LTS_VER already contains the pkg suffix (e.g. "9.6.0-1");
-                    // PXB24/80/84 _VER is upstream-only, needs _PKG_VER appended.
-                    if (PRODUCT_TO_TEST == 'PXB_INN_LTS') {
+                    // The 9.x LTS lines (PXB_INN_LTS, PXB97) already contain the pkg
+                    // suffix in _VER (e.g. "9.6.0-1" / "9.7.1-1"); PXB24/80/84 _VER is
+                    // upstream-only, needs _PKG_VER appended.
+                    if (PRODUCT_TO_TEST == 'PXB_INN_LTS' || PRODUCT_TO_TEST == 'PXB97') {
                         env.PXB_VERSION = "${PXB_VER}"
                     } else {
                         env.PXB_VERSION = "${PXB_VER}-${PXB_PKG_VER}"
                     }
 
-                    // Only PXB_INN_LTS has a _REV in VERSIONS today; fail loudly if it's
+                    // The 9.x LTS lines carry a _REV in VERSIONS; fail loudly if it's
                     // missing so the docker test doesn't silently skip the revision check.
-                    if (PRODUCT_TO_TEST == 'PXB_INN_LTS' && !PXB_REV) {
-                        error("PXB_INN_LTS_REV not found in package-testing/VERSIONS — add PXB_INN_LTS_REV=\"<sha>\" so the docker test can assert it.")
+                    if ((PRODUCT_TO_TEST == 'PXB_INN_LTS' || PRODUCT_TO_TEST == 'PXB97') && !PXB_REV) {
+                        error("${PRODUCT_TO_TEST}_REV not found in package-testing/VERSIONS — add ${PRODUCT_TO_TEST}_REV=\"<sha>\" so the docker test can assert it.")
                     }
                     env.PXB_REVISION = "${PXB_REV}"
 
@@ -105,6 +107,7 @@ pipeline {
                         'PXB24': 'pxb-24',
                         'PXB80': 'pxb-80',
                         'PXB84': 'pxb-84-lts',
+                        'PXB97': 'pxb-97-lts',
                         'PXB_INN_LTS': 'pxb-9x-innovation'
                     ]
                     env.REPO_NAME = REPO_NAME_MAP[PRODUCT_TO_TEST]
