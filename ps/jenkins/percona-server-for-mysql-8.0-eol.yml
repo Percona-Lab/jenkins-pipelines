@@ -11,4 +11,4 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ps/jenkins/hetzner-ps8.0-eol-RELEASE.groovy
+      script-path: ps/jenkins/percona-server-for-mysql-8.0-eol.groovy
