@@ -466,7 +466,7 @@ parameters {
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             steps {
                 script {
-                    psBuildMatrix(
+                    ps80BuildMatrix(
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE,
