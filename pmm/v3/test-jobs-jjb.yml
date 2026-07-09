@@ -6,10 +6,10 @@
 #   jenkins-jobs test pmm/v3/test-jobs-jjb.yml
 # Remove everything when testing is finished:
 #   jenkins-jobs --conf jenkins_jobs.ini delete \
-#     pmm3-server-autobuild-test pmm3-server-autobuild-amd-test pmm3-server-autobuild-arm-test \
-#     pmm3-watchtower-autobuild-test pmm3-api-tests-test pmm3-image-scanning-test \
-#     pmm3-aws-staging-start-test pmm3-package-testing-test pmm3-package-testing-arm-test \
-#     pmm3-package-testing-matrix-test pmm3-package-testing-arm-matrix-test
+#     arm64-pmm3-server-autobuild-test arm64-pmm3-server-autobuild-amd-test arm64-pmm3-server-autobuild-arm-test \
+#     arm64-pmm3-watchtower-autobuild-test arm64-pmm3-api-tests-test arm64-pmm3-image-scanning-test \
+#     arm64-pmm3-aws-staging-start-test arm64-pmm3-package-testing-test arm64-pmm3-package-testing-arm-test \
+#     arm64-pmm3-package-testing-matrix-test arm64-pmm3-package-testing-arm-matrix-test
 #
 # Notes:
 # - Parameters are defined inside the pipeline scripts (parameters {} blocks), so the
@@ -19,7 +19,7 @@
 # - No triggers/cron are defined anywhere: these jobs only run when started manually.
 
 - job:
-    name: pmm3-server-autobuild-test
+    name: arm64-pmm3-server-autobuild-test
     project-type: pipeline
     description: 'ARM64 TEST: multi-arch fan-out parent (amd64+arm64 -> manifest). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -36,7 +36,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-server-autobuild-amd-test
+    name: arm64-pmm3-server-autobuild-amd-test
     project-type: pipeline
     description: 'ARM64 TEST: amd64 server build child. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -53,7 +53,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-server-autobuild-arm-test
+    name: arm64-pmm3-server-autobuild-arm-test
     project-type: pipeline
     description: 'ARM64 TEST: native arm64 server build child. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -70,7 +70,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-watchtower-autobuild-test
+    name: arm64-pmm3-watchtower-autobuild-test
     project-type: pipeline
     description: 'ARM64 TEST: multi-arch watchtower build. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -87,7 +87,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-api-tests-test
+    name: arm64-pmm3-api-tests-test
     project-type: pipeline
     description: 'ARM64 TEST: API tests with AGENT_ARCH (amd64/arm64). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: true
@@ -104,7 +104,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-image-scanning-test
+    name: arm64-pmm3-image-scanning-test
     project-type: pipeline
     description: 'ARM64 TEST: trivy scan of both platforms. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -121,7 +121,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-aws-staging-start-test
+    name: arm64-pmm3-aws-staging-start-test
     project-type: pipeline
     description: 'ARM64 TEST: staging VM with SERVER_ARCH (t3/t4g.xlarge). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: true
@@ -138,7 +138,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-package-testing-test
+    name: arm64-pmm3-package-testing-test
     project-type: pipeline
     description: 'ARM64 TEST: package tests (amd64 OS agents) with SERVER_ARCH. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: true
@@ -155,7 +155,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-package-testing-arm-test
+    name: arm64-pmm3-package-testing-arm-test
     project-type: pipeline
     description: 'ARM64 TEST: package tests (arm64 OS agents) with SERVER_ARCH. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: true
@@ -172,7 +172,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-package-testing-matrix-test
+    name: arm64-pmm3-package-testing-matrix-test
     project-type: pipeline
     description: 'ARM64 TEST: package test matrix (amd64). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -189,7 +189,7 @@
       lightweight-checkout: true
 
 - job:
-    name: pmm3-package-testing-arm-matrix-test
+    name: arm64-pmm3-package-testing-arm-matrix-test
     project-type: pipeline
     description: 'ARM64 TEST: package test matrix (arm64). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
     concurrent: false
@@ -204,3 +204,18 @@
               - 'pmm-arm64-test'
       script-path: pmm/v3/pmm3-package-tests-matrix-arm64.groovy
       lightweight-checkout: true
+
+# A dedicated view grouping all the arm64 test jobs on the Jenkins dashboard.
+- view:
+    name: PMM-ARM64-TEST
+    view-type: list
+    description: 'ARM64 pmm-server test jobs (branch pmm-arm64-test). Managed by JJB.'
+    regex: 'arm64-pmm3-.*'
+    columns:
+      - status
+      - weather
+      - job
+      - last-success
+      - last-failure
+      - last-duration
+      - build-button

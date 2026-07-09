@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
-    stagingJob = build job: 'pmm3-aws-staging-start-test', parameters: [
+    stagingJob = build job: 'arm64-pmm3-aws-staging-start-test', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'SERVER_ARCH', value: params.SERVER_ARCH),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),

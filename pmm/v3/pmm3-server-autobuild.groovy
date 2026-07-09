@@ -53,7 +53,7 @@ pipeline {
                 stage('Build pmm3 server for amd64') {
                     steps {
                         script {
-                            def pmmServerAmd64 = build job: 'pmm3-server-autobuild-amd-test', parameters: [
+                            def pmmServerAmd64 = build job: 'arm64-pmm3-server-autobuild-amd-test', parameters: [
                                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                                 string(name: 'DESTINATION', value: params.DESTINATION),
                                 booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
@@ -65,7 +65,7 @@ pipeline {
                 stage('Build pmm3 server for arm64') {
                     steps {
                         script {
-                            def pmmServerArm64 = build job: 'pmm3-server-autobuild-arm-test', parameters: [
+                            def pmmServerArm64 = build job: 'arm64-pmm3-server-autobuild-arm-test', parameters: [
                                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                                 string(name: 'DESTINATION', value: params.DESTINATION),
                                 booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
@@ -112,7 +112,7 @@ pipeline {
             parallel {
                 stage('API tests on amd64') {
                     steps {
-                        build job: 'pmm3-api-tests-test', propagate: false, parameters: [
+                        build job: 'arm64-pmm3-api-tests-test', propagate: false, parameters: [
                             string(name: 'AGENT_ARCH', value: 'amd64'),
                             string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${env.IMAGE}")
                         ]
@@ -120,7 +120,7 @@ pipeline {
                 }
                 stage('API tests on arm64') {
                     steps {
-                        build job: 'pmm3-api-tests-test', propagate: false, parameters: [
+                        build job: 'arm64-pmm3-api-tests-test', propagate: false, parameters: [
                             string(name: 'AGENT_ARCH', value: 'arm64'),
                             string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${env.IMAGE}")
                         ]
