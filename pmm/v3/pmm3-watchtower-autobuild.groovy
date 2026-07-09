@@ -30,9 +30,6 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    }
     environment {
         PATH_TO_WATCHTOWER = 'sources/watchtower/src/github.com/percona/watchtower'
     }
@@ -60,26 +57,29 @@ pipeline {
                 '''
 
                 script {
-                    env.TIMESTAMP_TAG = "perconalab/watchtower:" + sh(script: "date -u '+%Y%m%d%H%M'", returnStdout: true).trim()
+                    env.TIMESTAMP_TAG = "perconalab/watchtower:" + sh(script: "date -u '+%Y%m%d%H%M'", returnStdout: true).trim() + "-test"
                     if (params.TAG_TYPE == "rc") {
-                        env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:${VERSION}-rc${BUILD_NUMBER}"
-                        env.WATCHTOWER_RC_TAG       = "perconalab/watchtower:${VERSION}-rc"
+                        env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:${VERSION}-rc${BUILD_NUMBER}-test"
+                        env.WATCHTOWER_RC_TAG       = "perconalab/watchtower:${VERSION}-rc-test"
                     } else if (params.TAG_TYPE.contains('pmm-watchtower-fb')) {
                         env.WATCHTOWER_LATEST_TAG   = params.TAG_TYPE
                     } else {
-                        env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:dev-latest"
+                        env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:dev-latest-test"
                     }
                 }
             }
         }
-        stage('Build watchtower binary') {
+        stage('Build watchtower binaries') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        docker run --rm \
-                            -v ${WORKSPACE}/${PATH_TO_WATCHTOWER}:/watchtower \
-                            public.ecr.aws/e7j3v3n0/rpmbuild:3 \
-                            make -C /watchtower build
+                        for arch in amd64 arm64; do
+                            docker run --rm \
+                                -v ${WORKSPACE}/${PATH_TO_WATCHTOWER}:/watchtower \
+                                -e GOARCH=${arch} \
+                                public.ecr.aws/e7j3v3n0/rpmbuild:3 \
+                                bash -c "make -C /watchtower build && mv /watchtower/watchtower /watchtower/watchtower-${arch}"
+                        done
                     '''
                 }
             }
@@ -95,17 +95,32 @@ pipeline {
                 }
                 sh '''
                     set -o xtrace
+                    set -o errexit
 
                     cd ${PATH_TO_WATCHTOWER}
-                    docker build -t ${TIMESTAMP_TAG} -f dockerfiles/Dockerfile .
-                    docker push ${TIMESTAMP_TAG}
 
+                    docker buildx create --name multiarch-wt --driver docker-container --use || docker buildx use multiarch-wt
+
+                    for arch in amd64 arm64; do
+                        rm -rf ctx-${arch}
+                        mkdir -p ctx-${arch}/dockerfiles
+                        cp watchtower-${arch} ctx-${arch}/watchtower
+                        cp dockerfiles/Dockerfile ctx-${arch}/dockerfiles/Dockerfile
+                        docker buildx build \
+                            --platform linux/${arch} \
+                            -t ${TIMESTAMP_TAG}-${arch} \
+                            -f ctx-${arch}/dockerfiles/Dockerfile \
+                            --push ctx-${arch}
+                    done
+
+                    docker buildx imagetools create -t ${TIMESTAMP_TAG} \
+                        ${TIMESTAMP_TAG}-amd64 ${TIMESTAMP_TAG}-arm64
                     if [ -n "${WATCHTOWER_RC_TAG}" ]; then
-                        docker tag ${TIMESTAMP_TAG} ${WATCHTOWER_RC_TAG}
-                        docker push ${WATCHTOWER_RC_TAG}
+                        docker buildx imagetools create -t ${WATCHTOWER_RC_TAG} \
+                            ${TIMESTAMP_TAG}-amd64 ${TIMESTAMP_TAG}-arm64
                     fi
-                    docker tag ${TIMESTAMP_TAG} ${WATCHTOWER_LATEST_TAG}
-                    docker push ${WATCHTOWER_LATEST_TAG}
+                    docker buildx imagetools create -t ${WATCHTOWER_LATEST_TAG} \
+                        ${TIMESTAMP_TAG}-amd64 ${TIMESTAMP_TAG}-arm64
                     echo "${WATCHTOWER_LATEST_TAG}" > WATCHTOWER_LATEST_TAG
                 '''
                 script {
@@ -114,21 +129,18 @@ pipeline {
             }
         }
     }
-    post {        
+    post {
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
+                echo "Multi-arch watchtower build finished: ${IMAGE}"
                 if (params.TAG_TYPE == "rc") {
                     currentBuild.description = "RC Watchtower Build, Image:" + env.IMAGE
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC Watchtower build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
-                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }

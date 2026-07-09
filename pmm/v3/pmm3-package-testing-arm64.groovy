@@ -4,8 +4,9 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
-    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+    stagingJob = build job: 'pmm3-aws-staging-start-test', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'SERVER_ARCH', value: params.SERVER_ARCH),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -114,6 +115,10 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION',
             trim: true)
+        choice(
+            choices: ['arm64', 'amd64'],
+            description: 'Architecture of the PMM server staging VM',
+            name: 'SERVER_ARCH')
         string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
@@ -148,9 +153,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
-    }
-    triggers {
-        cron('0 2 * * *')
     }
     stages {
         stage('Setup Server Instance') {
@@ -264,11 +266,6 @@ pipeline {
                 {
                     archiveArtifacts artifacts: 'logs.zip'
                     destroyStaging(VM_NAME)
-                }
-                if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                } else {
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }

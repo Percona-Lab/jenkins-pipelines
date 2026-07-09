@@ -3,7 +3,7 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
-library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@pmm-arm64-test', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
@@ -22,6 +22,11 @@ pipeline {
             defaultValue: 'perconalab/watchtower:dev-latest',
             description: 'WatchTower docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
             name: 'WATCHTOWER_VERSION'
+        )
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton t4g.xlarge)',
+            name: 'SERVER_ARCH'
         )
         string(
             defaultValue: '3-dev-latest',
@@ -113,7 +118,7 @@ pipeline {
             name: 'CLIENTS'
         )
         choice(
-            choices: ['true', 'false'],
+            choices: ['false', 'true'],
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY'
         )
@@ -174,7 +179,13 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.xlarge')
+                script {
+                    if (params.SERVER_ARCH == 'arm64') {
+                        runSpotInstance('t4g.xlarge', 'arm64')
+                    } else {
+                        runSpotInstance('t3.xlarge')
+                    }
+                }
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''

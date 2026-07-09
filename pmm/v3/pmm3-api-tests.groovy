@@ -5,9 +5,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.AGENT_ARCH == 'arm64' ? 'agent-arm64' : 'agent-amd64'
     }
     parameters {
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'CPU architecture of the agent that runs the server container and tests',
+            name: 'AGENT_ARCH'
+        )
         string(
             defaultValue: 'https://github.com/percona/pmm',
             description: 'Url for pmm repository',
@@ -38,10 +43,6 @@ pipeline {
                 // fetch API tests from pmm repository
                 git poll: false, changelog: false, branch: GIT_BRANCH, url: GIT_URL
 
-                slackSend botUser: true,
-                          channel: '#pmm-notifications',
-                          color: '#0000FF',
-                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 script {
                     // Set envvars OWNER, OWNER_SLACK
                     getPMMBuildParams('pmm-')
@@ -120,19 +121,12 @@ pipeline {
         }
         failure {
             script {
-                slackSend botUser: true,
-                          channel: '#pmm-notifications',
-                          color: '#FF0000',
-                          message: "[${JOB_NAME}]: build failed, URL: ${BUILD_URL}, owner: @${OWNER}"
+                echo "Build failed, owner: @${OWNER}"
             }
         }
         success {
             script {
-                slackSend botUser: true,
-                          channel: '#pmm-notifications',
-                          color: '#00FF00',
-                          message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, owner: @${OWNER}"
-
+                echo "Build finished, owner: @${OWNER}"
             }
         }
     }
