@@ -6,6 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
     stagingJob = build job: 'arm64-pmm3-aws-staging-start-test', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'WATCHTOWER_VERSION', value: 'perconalab/watchtower:dev-latest-test'),
         string(name: 'SERVER_ARCH', value: params.SERVER_ARCH),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),

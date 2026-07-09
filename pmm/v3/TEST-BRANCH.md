@@ -93,4 +93,8 @@ Build the final PR by re-applying this branch's diff on top of master
   devcontainer dispatch stage in the server fan-out parent;
 - change `v3lib@pmm-arm64-test` back to `v3lib@master` in `pmm3-aws-staging-start.groovy`
   and restore its `NOTIFY` choices order to `['true', 'false']`;
+- drop the hardcoded `WATCHTOWER_VERSION=perconalab/watchtower:dev-latest-test` pass-through
+  in both package-testing leaves' `runStaging` — it exists only because the test-namespace
+  `dev-latest` tag is amd64-only; after promotion the real `dev-latest` is multi-arch and
+  the staging job default is correct;
 - delete this file.
