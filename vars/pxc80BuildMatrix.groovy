@@ -2,17 +2,13 @@
  * pxc80BuildMatrix.groovy - PXC 8.0 build matrix shared library
  *
  * Runs parallel build stages for Percona XtraDB Cluster 8.0 packages.
- * Handles agent label selection, FIPS mode, OL10/Trixie skipping,
- * and Resolute (8.4-only) version constraints.
+ * Handles agent label selection, FIPS mode, and version constraints.
  *
  * Usage:
  *   pxc80BuildMatrix(
  *       cloud:        params.CLOUD,
  *       awsStashPath: AWS_STASH_PATH,
  *       fipsMode:     env.FIPSMODE,
- *       skipOL10:     env.SKIP_OL10.toBoolean(),
- *       skipTrixie:   env.SKIP_TRIXIE.toBoolean(),
- *       versionMinor: env.MYSQL_VERSION_MINOR,
  *       onlyStages:   params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
  *   )
  */
@@ -67,93 +63,96 @@ def call(Map args = [:]) {
     def cloud        = args.get('cloud', '')
     def awsStashPath = args.get('awsStashPath', '')
     def fipsMode     = args.get('fipsMode', 'NO')
-    def skipOL10     = args.get('skipOL10', false)
-    def skipTrixie   = args.get('skipTrixie', false)
-    def skipResolute = args.get('skipResolute', false)
-    def versionMinor = args.get('versionMinor', '')
     def onlyStages   = args.get('onlyStages', [])
 
     // Each entry: name, image, arch, buildType, flags, fipsFlags (null = no FIPS variant),
-    //             skipInFips, needsSkipOL10, needsSkipTrixie, resolute84Only
+    //             skipInFips, versionConstraint
     def stages = [
         // ---- RPM stages ----
         [name: 'Centos 8',                 image: 'centos:8',         arch: 'x64',     buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: null,
-         skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: true],
         [name: 'Centos 8 ARM',             image: 'centos:8',         arch: 'aarch64', buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: null,
-         skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: true],
         [name: 'Oracle Linux 9',           image: 'oraclelinux:9',    arch: 'x64',     buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Oracle Linux 9 ARM',       image: 'oraclelinux:9',    arch: 'aarch64', buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Oracle Linux 10',          image: 'oraclelinux:10',   arch: 'x64',     buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: true,  needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
         [name: 'Oracle Linux 10 ARM',      image: 'oraclelinux:10',   arch: 'aarch64', buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: true,  needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
         [name: 'Amazon Linux 2023',        image: 'amazonlinux:2023', arch: 'x64',     buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: null,
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Amazon Linux 2023 ARM',    image: 'amazonlinux:2023', arch: 'aarch64', buildType: 'rpm',
          flags: '--build_rpm=1',           fipsFlags: null,
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         // ---- DEB stages ----
         [name: 'Ubuntu Jammy(22.04)',      image: 'ubuntu:jammy',     arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Ubuntu Jammy(22.04) ARM',  image: 'ubuntu:jammy',     arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Ubuntu Noble(24.04)',      image: 'ubuntu:noble',     arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Ubuntu Noble(24.04) ARM',  image: 'ubuntu:noble',     arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Ubuntu Resolute(26.04)',   image: 'ubuntu:resolute',  arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, needsSkipResolute: true, resolute84Only: true],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
         [name: 'Ubuntu Resolute(26.04) ARM', image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, needsSkipResolute: true, resolute84Only: true],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
         [name: 'Debian Bullseye(11)',      image: 'debian:bullseye',  arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: null,
-         skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: true],
         [name: 'Debian Bullseye(11) ARM',  image: 'debian:bullseye',  arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: null,
-         skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: true],
         [name: 'Debian Bookworm(12)',      image: 'debian:bookworm',  arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Debian Bookworm(12) ARM',  image: 'debian:bookworm',  arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Debian Trixie(13)',        image: 'debian:trixie',    arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: true,  resolute84Only: false],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
         [name: 'Debian Trixie(13) ARM',    image: 'debian:trixie',    arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: true,  resolute84Only: false],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
         // ---- Tarball stages ----
         [name: 'Centos 8 tarball',         image: 'centos:8',         arch: 'x64',     buildType: 'tarball',
          flags: '--build_tarball=1',       fipsFlags: null,
-         skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: true],
         [name: 'Oracle Linux 9 tarball',   image: 'oraclelinux:9',    arch: 'x64',     buildType: 'tarball',
          flags: '--build_tarball=1',       fipsFlags: '--build_tarball=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Debian Bullseye(11) tarball', image: 'debian:bullseye', arch: 'x64',   buildType: 'tarball',
          flags: '--build_tarball=1',       fipsFlags: null,
-         skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: true],
         [name: 'Ubuntu Jammy(22.04) tarball', image: 'ubuntu:jammy',  arch: 'x64',     buildType: 'tarball',
          flags: '--build_tarball=1',       fipsFlags: '--build_tarball=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
+         skipInFips: false],
         [name: 'Debian Trixie(13) tarball', image: 'debian:trixie',   arch: 'x64',     buildType: 'tarball',
          flags: '--build_tarball=1',       fipsFlags: null,
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: true,  resolute84Only: false],
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
     ]
 
     def sourceFolders = [rpm: 'srpm/', deb: 'source_deb/', tarball: 'source_tarball/']
@@ -168,11 +167,8 @@ def call(Map args = [:]) {
         def buildType    = s.buildType
         def flags        = s.flags
         def fipsFl       = s.fipsFlags
-        def _skipInFips  = s.skipInFips
-        def _needsOL10   = s.needsSkipOL10
-        def _needsTrixie   = s.needsSkipTrixie
-        def _needsResolute = s.get('needsSkipResolute', false)
-        def _resolute84    = s.resolute84Only
+        def _skipInFips       = s.skipInFips
+        def versionConstraint = s.get('versionConstraint', null)
 
         def agentLabel = arch == 'aarch64'
             ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64')
@@ -191,21 +187,14 @@ def call(Map args = [:]) {
                     echo "Skipping '${stageName}' (not supported in FIPS mode)"
                     return
                 }
-                if (_needsOL10 && skipOL10) {
-                    echo "Skipping '${stageName}' (SKIP_OL10 is set)"
-                    return
-                }
-                if (_needsTrixie && skipTrixie) {
-                    echo "Skipping '${stageName}' (SKIP_TRIXIE is set)"
-                    return
-                }
-                if (_needsResolute && skipResolute) {
-                    echo "Skipping '${stageName}' (SKIP_RESOLUTE is set)"
-                    return
-                }
-                if (_resolute84 && versionMinor != '4') {
-                    echo "Skipping '${stageName}' (requires PXC 8.4, detected minor ${versionMinor})"
-                    return
+                if (versionConstraint) {
+                    def major = env.MYSQL_VERSION_MAJOR
+                    def minor = env.MYSQL_VERSION_MINOR
+                    def allowed = versionConstraint.any { vc -> vc.major == major && vc.minor == minor }
+                    if (!allowed) {
+                        echo "Skipping '${stageName}' (version constraint not met, detected ${major}.${minor})"
+                        return
+                    }
                 }
                 node(agentLabel) {
                     cleanUpWS()
