@@ -90,6 +90,11 @@ pipeline {
             description: "Skips packages for Debian 13",
             name: 'SKIP_TRIXIE'
         )
+        booleanParam(
+            defaultValue: false,
+            description: "Skips packages for Ubuntu Resolute(26.04)",
+            name: 'SKIP_RESOLUTE'
+        )
         choice(
             choices: 'NO\nYES',
             description: 'Enable fipsmode',
@@ -206,6 +211,7 @@ pipeline {
                         fipsMode:     env.FIPSMODE,
                         skipOL10:     env.SKIP_OL10.toBoolean(),
                         skipTrixie:   env.SKIP_TRIXIE.toBoolean(),
+                        skipResolute: env.SKIP_RESOLUTE.toBoolean(),
                         versionMinor: env.MYSQL_VERSION_MINOR,
                         onlyStages:   params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
                     )

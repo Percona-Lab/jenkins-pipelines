@@ -69,6 +69,7 @@ def call(Map args = [:]) {
     def fipsMode     = args.get('fipsMode', 'NO')
     def skipOL10     = args.get('skipOL10', false)
     def skipTrixie   = args.get('skipTrixie', false)
+    def skipResolute = args.get('skipResolute', false)
     def versionMinor = args.get('versionMinor', '')
     def onlyStages   = args.get('onlyStages', [])
 
@@ -115,10 +116,10 @@ def call(Map args = [:]) {
          skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
         [name: 'Ubuntu Resolute(26.04)',   image: 'ubuntu:resolute',  arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: true],
+         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, needsSkipResolute: true, resolute84Only: true],
         [name: 'Ubuntu Resolute(26.04) ARM', image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
-         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: true],
+         skipInFips: false, needsSkipOL10: false, needsSkipTrixie: false, needsSkipResolute: true, resolute84Only: true],
         [name: 'Debian Bullseye(11)',      image: 'debian:bullseye',  arch: 'x64',     buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: null,
          skipInFips: true,  needsSkipOL10: false, needsSkipTrixie: false, resolute84Only: false],
@@ -169,8 +170,9 @@ def call(Map args = [:]) {
         def fipsFl       = s.fipsFlags
         def _skipInFips  = s.skipInFips
         def _needsOL10   = s.needsSkipOL10
-        def _needsTrixie = s.needsSkipTrixie
-        def _resolute84  = s.resolute84Only
+        def _needsTrixie   = s.needsSkipTrixie
+        def _needsResolute = s.get('needsSkipResolute', false)
+        def _resolute84    = s.resolute84Only
 
         def agentLabel = arch == 'aarch64'
             ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64')
@@ -195,6 +197,10 @@ def call(Map args = [:]) {
                 }
                 if (_needsTrixie && skipTrixie) {
                     echo "Skipping '${stageName}' (SKIP_TRIXIE is set)"
+                    return
+                }
+                if (_needsResolute && skipResolute) {
+                    echo "Skipping '${stageName}' (SKIP_RESOLUTE is set)"
                     return
                 }
                 if (_resolute84 && versionMinor != '4') {
