@@ -17,7 +17,25 @@ name passed to it).
 
 ## Jenkins job registration
 
-Create Pipeline-from-SCM jobs pointing at
+**Option A — Jenkins Job Builder (recommended, one command):**
+
+```bash
+pip install jenkins-job-builder
+cat > jenkins_jobs.ini <<EOF
+[jenkins]
+url=https://pmm.cd.percona.com
+user=<your-jenkins-user>
+password=<your-jenkins-API-token>
+EOF
+jenkins-jobs test pmm/v3/test-jobs-jjb.yml            # dry-run: renders XML locally
+jenkins-jobs --conf jenkins_jobs.ini update pmm/v3/test-jobs-jjb.yml
+```
+
+`pmm/v3/test-jobs-jjb.yml` defines all 11 jobs (and contains the delete command for
+cleanup). First run of each job executes with default parameters (pipelines define
+their own `parameters {}`); the parameter form appears from the second run.
+
+**Option B — manually.** Create Pipeline-from-SCM jobs pointing at
 `https://github.com/Percona-Lab/jenkins-pipelines.git`, branch `pmm-arm64-test`:
 
 | Jenkins job name (register exactly this) | Script path |

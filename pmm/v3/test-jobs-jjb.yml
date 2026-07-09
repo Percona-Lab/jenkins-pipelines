@@ -1,0 +1,206 @@
+# Jenkins Job Builder definitions for the ARM64 test tree (branch: pmm-arm64-test).
+#
+# Registers all 11 test jobs in one shot:
+#   jenkins-jobs --conf jenkins_jobs.ini update pmm/v3/test-jobs-jjb.yml
+# Render locally without touching Jenkins:
+#   jenkins-jobs test pmm/v3/test-jobs-jjb.yml
+# Remove everything when testing is finished:
+#   jenkins-jobs --conf jenkins_jobs.ini delete \
+#     pmm3-server-autobuild-test pmm3-server-autobuild-amd-test pmm3-server-autobuild-arm-test \
+#     pmm3-watchtower-autobuild-test pmm3-api-tests-test pmm3-image-scanning-test \
+#     pmm3-aws-staging-start-test pmm3-package-testing-test pmm3-package-testing-arm-test \
+#     pmm3-package-testing-matrix-test pmm3-package-testing-arm-matrix-test
+#
+# Notes:
+# - Parameters are defined inside the pipeline scripts (parameters {} blocks), so the
+#   very first run of each job executes with defaults; the parameter form appears
+#   from the second run on. Trigger leaf jobs via the parent/matrix jobs, or run
+#   each once to materialize the parameters.
+# - No triggers/cron are defined anywhere: these jobs only run when started manually.
+
+- job:
+    name: pmm3-server-autobuild-test
+    project-type: pipeline
+    description: 'ARM64 TEST: multi-arch fan-out parent (amd64+arm64 -> manifest). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-server-autobuild.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-server-autobuild-amd-test
+    project-type: pipeline
+    description: 'ARM64 TEST: amd64 server build child. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-server-autobuild-amd.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-server-autobuild-arm-test
+    project-type: pipeline
+    description: 'ARM64 TEST: native arm64 server build child. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-server-autobuild-arm.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-watchtower-autobuild-test
+    project-type: pipeline
+    description: 'ARM64 TEST: multi-arch watchtower build. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-watchtower-autobuild.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-api-tests-test
+    project-type: pipeline
+    description: 'ARM64 TEST: API tests with AGENT_ARCH (amd64/arm64). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: true
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-api-tests.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-image-scanning-test
+    project-type: pipeline
+    description: 'ARM64 TEST: trivy scan of both platforms. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-image-scanning.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-aws-staging-start-test
+    project-type: pipeline
+    description: 'ARM64 TEST: staging VM with SERVER_ARCH (t3/t4g.xlarge). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: true
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-aws-staging-start.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-package-testing-test
+    project-type: pipeline
+    description: 'ARM64 TEST: package tests (amd64 OS agents) with SERVER_ARCH. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: true
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-package-testing-amd64.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-package-testing-arm-test
+    project-type: pipeline
+    description: 'ARM64 TEST: package tests (arm64 OS agents) with SERVER_ARCH. Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: true
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-package-testing-arm64.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-package-testing-matrix-test
+    project-type: pipeline
+    description: 'ARM64 TEST: package test matrix (amd64). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-package-tests-matrix-amd64.groovy
+      lightweight-checkout: true
+
+- job:
+    name: pmm3-package-testing-arm-matrix-test
+    project-type: pipeline
+    description: 'ARM64 TEST: package test matrix (arm64). Managed by JJB, branch pmm-arm64-test. Do not edit through the web!'
+    concurrent: false
+    properties:
+      - build-discarder:
+          num-to-keep: 30
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'pmm-arm64-test'
+      script-path: pmm/v3/pmm3-package-tests-matrix-arm64.groovy
+      lightweight-checkout: true
