@@ -580,11 +580,14 @@ parameters {
                     def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/x86_64/*.rpm /tmp
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/aarch64/*.rpm /tmp
                             ls -la /tmp
                         """
                     }
                     sh '''
+                        REPO_DOCKER="https://github.com/adivinho/percona-docker"
+                        REPO_DOCKER_BRANCH="PXB-3744-Packaging-tasks-for-release-PXB-9.7.1-rc1"
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                         PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
                         PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
@@ -605,28 +608,41 @@ parameters {
                         sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-                        git clone https://github.com/percona/percona-docker
+                        git clone https://github.com/${REPO_DOCKER}/percona-docker
                         cd percona-docker/percona-server-8.0
+                        git checkout ${REPO_DOCKER_BRANCH}
                         mv /tmp/*.rpm .
                         sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
                         sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
-                        sudo docker build -t percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} --progress plain -f Dockerfile-pro .
-                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE}
-                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE}
-                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo docker builder prune -af
+                        sudo docker build --provenance=false -t percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f Dockerfile-pro .
+                        sudo docker buildx build --provenance=false --platform linux/arm64 -t percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --load -f Dockerfile.aarch64-pro .
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_MAJOR_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                         sudo docker images
-                        sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_MAJOR_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo docker images
+                        sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+
                         sudo addgroup admin
                         sudo useradd -m -s /bin/bash -g admin -G admin admin
-                        sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
-                        sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
+                        sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar
+                        sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar
+                        sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar
+                        sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar
                         ls -la
                     '''
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             cd percona-docker/percona-server-8.0
                             export PS_RELEASE=`echo ${BRANCH} | sed 's/release-//g'`
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
                         """
                     }
                }
