@@ -23,6 +23,11 @@ pipeline {
             description: 'WatchTower docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
             name: 'WATCHTOWER_VERSION'
         )
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton t4g.xlarge)',
+            name: 'SERVER_ARCH'
+        )
         string(
             defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
@@ -174,7 +179,13 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.xlarge')
+                script {
+                    if (params.SERVER_ARCH == 'arm64') {
+                        runSpotInstance('t4g.xlarge', 'arm64')
+                    } else {
+                        runSpotInstance('t3.xlarge')
+                    }
+                }
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
