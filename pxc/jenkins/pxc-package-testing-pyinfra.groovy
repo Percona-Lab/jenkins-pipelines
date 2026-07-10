@@ -53,6 +53,7 @@ def runPyinfraDeploy(String deployFile, String limitGroup, Boolean serial) {
     def serialFlag = serial ? '--serial' : ''
     withCredentials(getAwsCredentials()) {
         sh """
+            # TODO: revert check_version to yes after testing
             . \${WORKSPACE}/virtenv/bin/activate
             install -m 600 "\${MOLECULE_AWS_PRIVATE_KEY}" "\${WORKSPACE}/.pxc_ssh_key"
             export PXC_SSH_KEY_PATH="\${WORKSPACE}/.pxc_ssh_key"
@@ -60,7 +61,7 @@ def runPyinfraDeploy(String deployFile, String limitGroup, Boolean serial) {
             pyinfra -y -v --limit ${limitGroup} ${serialFlag} inventory.py ${deployFile} \
                 --data product=${params.product_to_test} \
                 --data install_repo=${params.test_repo} \
-                --data check_version=yes \
+                --data check_version=no \
                 --data git_account=${gitAccount} \
                 --data testing_branch=${params.BRANCH}
         """
