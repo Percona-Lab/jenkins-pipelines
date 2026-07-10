@@ -570,7 +570,7 @@ parameters {
         }
         stage('Build docker container') {
             agent {
-                label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'min-buster-x64'
+                label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'min-jammy-x64'
             }
             steps {
                 script {
