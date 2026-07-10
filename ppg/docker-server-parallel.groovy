@@ -65,9 +65,9 @@ pipeline {
             steps {
                 script {
                     if (params.WITH_POSTGIS) {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}-${env.REPOSITORY}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}-${env.REPOSITORY}-${env.DOCKER_TAG}"
                     } else {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.REPOSITORY}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.REPOSITORY}-${env.DOCKER_TAG}"
                     }
                 }
             }

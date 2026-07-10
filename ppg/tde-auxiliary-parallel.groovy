@@ -83,10 +83,9 @@ pipeline {
         )
         string(
             name: 'TESTCASE_TO_SKIP',
-            defaultValue: 'pg_receivewal.sh',
+            defaultValue: '',
             description: '''If SKIP_TESTCASE option is enabled, then testcase given here will be ignored. 
-            Values should be comma separated. For example:
-            pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh'''
+            Values should be comma separated.'''
         )
     }
     environment {
@@ -96,8 +95,8 @@ pipeline {
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
         buildDiscarder(logRotator(
-            numToKeepStr: '30',
-            artifactNumToKeepStr: '30'
+            numToKeepStr: '10',
+            artifactNumToKeepStr: '10'
         ))
         retry(conditions: [agent()], count: 2)
     }
