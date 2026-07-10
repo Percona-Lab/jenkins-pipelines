@@ -48,9 +48,14 @@ def provisionInstances() {
     archiveArtifacts artifacts: 'pxc-state.json', allowEmptyArchive: true
 }
 
-def runPyinfraDeploy(String deployFile, String limitGroup, Boolean serial) {
+def runPyinfraDeploy(String deployFile, String limitGroup, Boolean oneHostAtATime) {
     def gitAccount = params.git_repo.tokenize('/')[0]
-    def serialFlag = serial ? '--serial' : ''
+    // --parallel 1 (not --serial): keep the per-operation barrier across
+    // hosts so the wsrep_cluster_size==3 check runs only after every joiner
+    // has started mysql, while still executing each operation one host at a
+    // time (no concurrent SST joins / no concurrent restarts losing quorum).
+    // This mirrors ansible's linear strategy + throttle:1 in the molecule job.
+    def parallelFlag = oneHostAtATime ? '--parallel 1' : ''
     withCredentials(getAwsCredentials()) {
         sh """
             # TODO: revert check_version to yes after testing
@@ -58,7 +63,7 @@ def runPyinfraDeploy(String deployFile, String limitGroup, Boolean serial) {
             install -m 600 "\${MOLECULE_AWS_PRIVATE_KEY}" "\${WORKSPACE}/.pxc_ssh_key"
             export PXC_SSH_KEY_PATH="\${WORKSPACE}/.pxc_ssh_key"
             cd package-testing/pyinfra/pxc
-            pyinfra -y -v --limit ${limitGroup} ${serialFlag} inventory.py ${deployFile} \
+            pyinfra -y -v --limit ${limitGroup} ${parallelFlag} inventory.py ${deployFile} \
                 --data product=${params.product_to_test} \
                 --data install_repo=${params.test_repo} \
                 --data check_version=no \
