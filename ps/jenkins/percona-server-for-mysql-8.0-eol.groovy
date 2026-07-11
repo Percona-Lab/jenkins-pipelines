@@ -611,7 +611,7 @@ parameters {
                         sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-                        git clone https://github.com/${REPO_DOCKER}/percona-docker
+                        git clone ${REPO_DOCKER}
                         cd percona-docker/percona-server-8.0
                         git checkout ${REPO_DOCKER_BRANCH}
                         mv /tmp/*.rpm .
