@@ -102,7 +102,7 @@ parameters {
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             cd proxysql
-                            sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}.el9/g" ${Dockerfile}
+                            sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" ${Dockerfile}
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
