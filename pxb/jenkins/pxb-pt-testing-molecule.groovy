@@ -52,6 +52,8 @@ def pxb84PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
         'al-2023',
         'al-2023-arm'
     ]
@@ -79,6 +81,8 @@ def pxb97PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
         'al-2023',
         'al-2023-arm'
     ]
@@ -106,6 +110,8 @@ def pxbInnovationPackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
         'al-2023',
         'al-2023-arm'
     ]
