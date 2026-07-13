@@ -55,7 +55,7 @@ parameters {
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
-        string(defaultValue: '2.8.18', description: 'HAProxy Version', name: 'VERSION')
+        string(defaultValue: '2.8.26', description: 'HAProxy Version', name: 'VERSION')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
             choices: 'testing\nexperimental\nrelease',
