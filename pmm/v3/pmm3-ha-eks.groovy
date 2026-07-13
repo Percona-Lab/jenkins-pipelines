@@ -260,7 +260,9 @@ EOF
         stage('Install PMM HA') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    git poll: false, branch: HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
+                    dir('helm-charts') {
+                        git poll: false, branch: params.HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
+                    }
 
                     sh '''
                         helm repo add percona https://percona.github.io/percona-helm-charts/
@@ -268,8 +270,8 @@ EOF
                         helm repo add altinity https://docs.altinity.com/helm-charts/
                         helm repo update
 
-                        helm dependency update charts/pmm-ha-dependencies
-                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --create-namespace --wait --timeout 10m
+                        helm dependency update helm-charts/charts/pmm-ha-dependencies
+                        helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm --create-namespace --wait --timeout 10m
 
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
@@ -296,11 +298,11 @@ EOF
                             --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
                             --dry-run=client -o yaml | kubectl apply -f -
 
-                        helm dependency update charts/pmm-ha
+                        helm dependency update helm-charts/charts/pmm-ha
 
                         set +e
 
-                        helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
+                        helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             --wait --timeout 15m \
