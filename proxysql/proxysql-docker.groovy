@@ -56,7 +56,7 @@ parameters {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: '2.7.3', description: 'Proxysql Version', name: 'VERSION')
-        string(defaultValue: '1.3', description: 'RPM version', name: 'RPM_RELEASE')
+        string(defaultValue: '1.5', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
             choices: 'testing\nexperimental\nrelease',
             description: 'Repository component used to get packages',
@@ -102,7 +102,7 @@ parameters {
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             cd proxysql
-                            sed -i "s/ENV PBS_VERSION.*/ENV PBS_VERSION ${VERSION}-${RPM_RELEASE}.el9/g" ${Dockerfile}
+                            sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}.el9/g" ${Dockerfile}
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
