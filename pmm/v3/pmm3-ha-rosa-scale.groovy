@@ -96,10 +96,12 @@ pipeline {
                             --replicas="${WORKER_NODE_COUNT}" \
                             "${MACHINEPOOL}"
 
+                        set +x
                         oc login "$(cat api-url.txt)" \
                             --username=cluster-admin \
                             --password="$(cat cluster-admin-password.txt)" \
                             --insecure-skip-tls-verify=true
+                        set -x
 
                         echo "Waiting for exactly ${WORKER_NODE_COUNT} Ready worker nodes (timeout: 20m)..."
                         for i in $(seq 1 40); do
