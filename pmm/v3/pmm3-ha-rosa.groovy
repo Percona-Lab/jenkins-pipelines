@@ -623,7 +623,9 @@ EOF
         stage('Install PMM HA') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    git poll: false, branch: HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
+                    dir('helm-charts') {
+                        git poll: false, branch: params.HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
+                    }
 
                     sh '''
                         oc create namespace pmm
@@ -632,15 +634,15 @@ EOF
                         oc adm policy add-scc-to-group anyuid system:serviceaccounts:pmm
 
                         # OpenShift uses dns-default.openshift-dns instead of kube-dns.kube-system
-                        sed -i 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' charts/pmm-ha/templates/haproxy-configmap.yaml
+                        sed -i 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' helm-charts/charts/pmm-ha/templates/haproxy-configmap.yaml
 
                         helm repo add percona https://percona.github.io/percona-helm-charts/
                         helm repo add vm https://victoriametrics.github.io/helm-charts/
                         helm repo add altinity https://helm.altinity.com || true
                         helm repo update
 
-                        helm dependency update charts/pmm-ha-dependencies
-                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
+                        helm dependency update helm-charts/charts/pmm-ha-dependencies
+                        helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
 
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
@@ -672,13 +674,13 @@ EOF
                             --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
                             --dry-run=client -o yaml | oc apply -f -
 
-                        helm dependency update charts/pmm-ha
+                        helm dependency update helm-charts/charts/pmm-ha
 
                         set +e
 
                         # Install pmm-ha chart (creates component service accounts)
                         # Resource requests reduced for test clusters (defaults are higher for production)
-                        helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
+                        helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
