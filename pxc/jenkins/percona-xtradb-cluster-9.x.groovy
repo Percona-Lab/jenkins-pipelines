@@ -121,9 +121,9 @@ pipeline {
                 cleanUpWS()
                 script {
                     if (env.FIPSMODE == 'YES') {
-                        buildStage("centos:7", "--get_sources=1 --enable_fipsmode=1")
+                        buildStage("ubuntu:jammy", "--get_sources=1 --enable_fipsmode=1")
                     } else {
-                        buildStage("centos:7", "--get_sources=1")
+                        buildStage("ubuntu:jammy", "--get_sources=1")
                     }
                 }
                 sh '''
@@ -176,9 +176,9 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:xenial", "--build_source_deb=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:jammy", "--build_source_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("ubuntu:xenial", "--build_source_deb=1")
+                                buildStage("ubuntu:jammy", "--build_source_deb=1")
                             }
                         }
                         stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
