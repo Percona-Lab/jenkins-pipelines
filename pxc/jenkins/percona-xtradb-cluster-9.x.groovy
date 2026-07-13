@@ -35,7 +35,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-xtradb-cluster-private-build.git percona-xtradb-cluster-private-build
                   mv -f \${build_dir}/percona-xtradb-cluster-private-build/build-ps \${build_dir}/test/.
               fi
-              bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --bin_release=${BIN_RELEASE} ${STAGE_PARAM}"
+              bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --bin_release=${BIN_RELEASE} --enable_pgo=${ENABLE_PGO_INT} ${STAGE_PARAM}"
       """
     }
 }
@@ -85,6 +85,10 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
+        booleanParam(
+            defaultValue: true,
+            description: 'Enable Profile-Guided Optimization (PGO) 3-pass build. Uncheck to skip PGO for faster iteration builds.',
+            name: 'ENABLE_PGO')
         choice(
             choices: 'NO\nYES',
             description: 'Experimental packages only',
@@ -103,6 +107,9 @@ pipeline {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
+    }
+    environment {
+        ENABLE_PGO_INT = "${params.ENABLE_PGO ? '1' : '0'}"
     }
     stages {
         stage('Create PXC source tarball') {
