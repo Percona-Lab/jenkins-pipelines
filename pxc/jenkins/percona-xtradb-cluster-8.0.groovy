@@ -134,8 +134,9 @@ pipeline {
                     sh """
                         curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
                     """
+                    env.MYSQL_VERSION_MAJOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MAJOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
-                    echo "Detected PXC version minor: ${env.MYSQL_VERSION_MINOR}"
+                    echo "Detected PXC version minor: ${env.MYSQL_VERSION_MAJOR}.${env.MYSQL_VERSION_MINOR}"
                 }
                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                 stash includes: 'uploadPath', name: 'uploadPath'
