@@ -25,6 +25,8 @@ void build(String IMAGE_SUFFIX){
 
             if [ ${IMAGE_SUFFIX} = backup ]; then
                 build_multiarch "\$BASE_TAG" percona-backup-mongodb Dockerfile Dockerfile.aarch64
+            elif [ ${IMAGE_SUFFIX} = mongot ]; then
+                build_multiarch "\$BASE_TAG" percona-server-mongodb-mongot Dockerfile Dockerfile.aarch64
             else
                 DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
                 CONTEXT=percona-server-mongodb-\$DOCKER_FILE_PREFIX
@@ -247,6 +249,10 @@ pipeline {
                 retry(3) {
                     build('mongod8.3')
                 }
+                echo 'Build mongot docker image'
+                retry(3) {
+                    build('mongot')
+                }
             }
         }
 
@@ -257,6 +263,7 @@ pipeline {
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod7.0")
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.0")
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.3")
+                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongot")
                 verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-backup")
             }
         }
