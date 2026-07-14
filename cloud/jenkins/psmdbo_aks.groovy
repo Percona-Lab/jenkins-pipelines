@@ -225,7 +225,6 @@ void createCluster(String CLUSTER_SUFFIX) {
                 --node-count 3 \
                 --node-vm-size Standard_B4ms \
                 --node-osdisk-size 30 \
-                --network-plugin kubenet \
                 --generate-ssh-keys \
                 --outbound-type loadbalancer \
                 --kubernetes-version $PLATFORM_VER \
