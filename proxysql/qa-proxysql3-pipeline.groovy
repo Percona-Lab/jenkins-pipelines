@@ -8,7 +8,7 @@ pipeline_timeout = 10
 pipeline {
     parameters {
         choice(
-            choices: [ 'AWS','Hetzner' ],
+            choices: [ 'Hetzner','AWS' ],
             description: 'Cloud infra for build',
             name: 'CLOUD' )
         string(
@@ -42,7 +42,7 @@ pipeline {
             name: 'PAT_TAG',
             trim: true)
        choice(
-            choices: 'PXC84\nPXC80\nPXC57',
+            choices: 'PXC96\nPXC84\nPXC80\nPXC57',
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
