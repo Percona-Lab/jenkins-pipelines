@@ -47,6 +47,7 @@ void popArtifactFile(String FILE_NAME) {
 def GitHubURL='https://github.com'
 ReposPathMap = [
     'MongoDB':              "${GitHubURL}/mongodb/mongo",
+    'MongoT':               "${GitHubURL}/mongodb/mongot",
     'MySQL':                "${GitHubURL}/mysql/mysql-server",
     'MySQLShell':           "${GitHubURL}/mysql/mysql-shell",
     'ProxySQL':             "${GitHubURL}/sysown/proxysql",
@@ -101,6 +102,7 @@ ReposPathMap = [
 
 ReposSlackMap = [
     'MongoDB':              "#mongodb_autofeed",
+    'MongoT':               "#mongodb_autofeed",
     'MySQL':                "#mysql",
     'MySQLShell':           "#mysql",
     'ProxySQL':             "#mysql",
