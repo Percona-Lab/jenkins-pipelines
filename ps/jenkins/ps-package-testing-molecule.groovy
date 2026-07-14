@@ -1,7 +1,7 @@
 
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@add-eol-80", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
@@ -550,7 +550,9 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
-                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
