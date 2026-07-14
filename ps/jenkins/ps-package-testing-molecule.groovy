@@ -36,8 +36,6 @@ def ps90PackageTesting() {
 
 def ps80PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'oracle-8',
@@ -54,8 +52,6 @@ def ps80PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
-        'amazon-linux-2023',
-        'amazon-linux-2023-arm'
     ]
 }
 
