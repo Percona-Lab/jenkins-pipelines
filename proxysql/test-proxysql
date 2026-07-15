@@ -177,7 +177,7 @@ if [[ "${PXC_VERSION}" == "PXC96" ]]; then
 
   # Downloading PXC-9.6 tarball package
   sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_${LATEST_VERSION_96}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz\
-      http://downloads.percona.com/downloads/TESTING/pxc-9.6.0/Percona-XtraDB-Cluster_9.6.0-1.1_Linux.x86_64.glibc2.35-minimal.tar.gz
+      http://downloads.percona.com/downloads/TESTING/pxc-9.6.0/Percona-XtraDB-Cluster_9.6.0-1.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
 
   # Installing PXC-9.6 client package
   enable_repo pxc-9x-innovation testing
