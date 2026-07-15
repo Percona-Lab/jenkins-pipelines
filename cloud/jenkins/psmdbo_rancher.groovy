@@ -40,6 +40,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: '')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: '')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: '')
+        string(name: 'IMAGE_SEARCH', defaultValue: '', description: '')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: '')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: '')
     }
@@ -137,7 +138,8 @@ pipeline {
                             IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
                             IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
                             IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
-                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR
+                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+                            IMAGE_SEARCH      : IMAGE_SEARCH
                         ]
                     ])
 
