@@ -209,6 +209,7 @@ parameters {
                         "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${env.TAG_POSTFIX ?: ''}",
                         "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${env.TAG_POSTFIX ?: ''}"
                     ]
+                    env.IMAGE_LIST = imageList.join(', ')
 
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
@@ -252,19 +253,19 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'} - [${BUILD_URL}]")
             }
             deleteDir()
         }
