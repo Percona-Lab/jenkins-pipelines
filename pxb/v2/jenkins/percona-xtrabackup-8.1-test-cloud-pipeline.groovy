@@ -68,6 +68,13 @@ pipeline {
             steps {
                 timeout(time: 240, unit: 'MINUTES')  {
                     script {
+                        boolean archIsAarch64 = params.ARCH == 'aarch64'
+                        boolean labelIsAarch64 = params.LABEL.contains('aarch64')
+
+                        if (archIsAarch64 != labelIsAarch64) {
+                            error("ARCH=${params.ARCH} does not match LABEL=${params.LABEL}, pick the matching worker label")
+                        }
+
                         currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                     }
                     sh 'echo Prepare: \$(date -u "+%s")'
@@ -92,22 +99,22 @@ pipeline {
 
                             for tarball in $(echo $COMPILE_BUILD_TAG_VAR); do
                                 if [[ $CMAKE_BUILD_TYPE == "Debug" ]] && [[ ${DOCKER_OS} != "asan" ]]; then
-                                    TARBALL=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}-debug | awk {'print $4'})
+                                    TARBALL=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}-debug | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi
                                 elif [[ $CMAKE_BUILD_TYPE == "RelWithDebInfo" ]] && [[ ${DOCKER_OS} != "asan" ]]; then
-                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}.tar.gz | awk {'print $4'})
+                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}.tar.gz | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi
                                 elif [[ $CMAKE_BUILD_TYPE == "Debug" ]] && [[ ${DOCKER_OS} == "asan" ]]; then
-                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}-asan-debug | awk {'print $4'})
+                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}-asan-debug | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi
                                 elif [[ $CMAKE_BUILD_TYPE == "RelWithDebInfo" ]] && [[ ${DOCKER_OS} == "asan" ]]; then
-                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}-asan | awk {'print $4'})
+                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}-asan | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi

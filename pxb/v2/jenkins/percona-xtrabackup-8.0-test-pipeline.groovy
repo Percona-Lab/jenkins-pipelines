@@ -104,22 +104,22 @@ pipeline {
 
                             for tarball in $(echo $COMPILE_BUILD_TAG_VAR); do
                                 if [[ $CMAKE_BUILD_TYPE == "Debug" ]] && [[ ${DOCKER_OS} != "asan" ]]; then
-                                    TARBALL=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}-debug | awk {'print $4'})
+                                    TARBALL=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}-debug | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi
                                 elif [[ $CMAKE_BUILD_TYPE == "RelWithDebInfo" ]] && [[ ${DOCKER_OS} != "asan" ]]; then
-                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}.tar.gz | awk {'print $4'})
+                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}.tar.gz | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi
                                 elif [[ $CMAKE_BUILD_TYPE == "Debug" ]] && [[ ${DOCKER_OS} == "asan" ]]; then
-                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}-asan-debug | awk {'print $4'})
+                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}-asan-debug | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi
                                 elif [[ $CMAKE_BUILD_TYPE == "RelWithDebInfo" ]] && [[ ${DOCKER_OS} == "asan" ]]; then
-                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep x86_64-${DOCKER_OS//:/-}-asan | awk {'print $4'})
+                                    TARBALL+=$(aws s3 ls pxb-build-cache/$tarball/ | grep ${ARCH}-${DOCKER_OS//:/-}-asan | awk {'print $4'})
                                     if [[ ! -z $TARBALL ]]; then
                                         break
                                     fi

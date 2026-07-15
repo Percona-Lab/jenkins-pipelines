@@ -67,6 +67,8 @@
          values:
          - x86_64
          - aarch64
+    execution-strategy:
+      combination-filter: '!(DOCKER_OS == "centos:8" && ARCH == "aarch64")'
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.0-compile-pipeline
