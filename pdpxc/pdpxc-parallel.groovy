@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 def pdpxcOperatingSystems84() {
     return [
-        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-11', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023'
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023'
     ]
 }
 
