@@ -5,7 +5,6 @@ import groovy.transform.Field
 
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
-@Field String clusterType = "rancher"
 
 def getLibraries() {
     def loader = load('cloud/common/libraries.groovy')
@@ -95,7 +94,8 @@ pipeline {
                 script {
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: 'perconalab/percona-server-mongodb-operator',
-                        branch: GIT_BRANCH
+                        branch: GIT_BRANCH,
+                        platforms: 'linux/amd64,linux/arm64'
                     )
                 }
             }

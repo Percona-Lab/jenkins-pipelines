@@ -71,8 +71,10 @@ Map prepareVersions(Map testVariables) {
 
             case "gcloud":
             case "azure":
-            case "redhat":
+            case "openshift":
             case "digitalocean":
+            case "eks":
+            case "minikube":
                 break
 
             default:
@@ -83,9 +85,10 @@ Map prepareVersions(Map testVariables) {
             def platformPrefix = [
                 "gcloud"      : "GKE",
                 "azure"       : "AKS",
-                "redhat"      : "OPENSHIFT",
+                "openshift"   : "OPENSHIFT",
                 "digitalocean": "DOKS",
                 "rancher"     : "RKE2",
+                "eks"         : "EKS",
             ][testVariables.platform_provider?.toLowerCase()]
 
             testVariables.platform_version = getReleaseVersionsParam(
@@ -102,11 +105,11 @@ Map prepareVersions(Map testVariables) {
 
     if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
         testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
-            testVariables.platform_channel
+            testVariables.platform_channel, testVariables
         )
     } else if (!platformFromReleaseVersions) {
         testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
-            testVariables.platform_version
+            testVariables.platform_version, testVariables
         )
     }
 
@@ -308,7 +311,8 @@ String defineTestCommand(Map testVariables, String testName) {
         return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
     }
 
-    return "e2e-tests/${testName}/run"
+    def cleanup = testVariables.platform_provider == "minikube" ? "sudo rm -rf /tmp/hostpath-provisioner/*\n" : ""
+    return "${cleanup}e2e-tests/${testName}/run"
 }
 
 void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {

@@ -71,6 +71,7 @@ void dockerBuildAndPush(Map cfg) {
                     docker buildx create --use || true
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
+                    ${cfg.platforms ? "export DOCKER_DEFAULT_PLATFORM=${cfg.platforms}" : ''}
                     e2e-tests/build
                     docker logout
                 '
