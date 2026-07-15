@@ -308,13 +308,26 @@ pipeline {
             }
         }
 
-        stage('Deploy joiner nodes (pxc2, pxc3)') {
+        stage('Install PXC on joiner nodes (pxc2, pxc3)') {
             when {
                 expression { currentBuild.currentResult == 'SUCCESS' }
             }
             steps {
+                // cluster-independent: run on both joiners concurrently
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    runPyinfraDeploy('deploy_common.py', 'joiners', true)
+                    runPyinfraDeploy('deploy_common_install.py', 'joiners', false)
+                }
+            }
+        }
+
+        stage('Form cluster on joiner nodes (pxc2, pxc3)') {
+            when {
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
+            steps {
+                // cluster-forming: one host at a time (--parallel 1)
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    runPyinfraDeploy('deploy_common_cluster.py', 'joiners', true)
                 }
             }
         }
