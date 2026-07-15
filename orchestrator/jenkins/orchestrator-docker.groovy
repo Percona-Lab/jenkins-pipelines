@@ -65,6 +65,14 @@ parameters {
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
+        booleanParam(
+            defaultValue: false,
+            description: 'Add a date-based postfix to image tags (dayWeekInMonthMonthYear, e.g. -15020726)',
+            name: 'WEEKLY_UPDATE')
+        string(
+            defaultValue: '',
+            description: 'Custom tag postfix. If provided, overrides the WEEKLY_UPDATE generated postfix (e.g. "15020726")',
+            name: 'TAG')
     }
     options {
         skipDefaultCheckout()
@@ -80,6 +88,31 @@ parameters {
             }
             steps {
                 script {
+                        if (params.WEEKLY_UPDATE) {
+                            def versionInfo = sh(script: '''
+                                LATEST_TAG=$(curl -s https://api.github.com/repos/percona/orchestrator/tags | grep '"name"' | grep -E '"v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+"' | head -1 | sed 's/.*"name": "//; s/".*//')
+                                VERSION=$(echo "${LATEST_TAG}" | sed 's/^v//' | cut -d'-' -f1)
+                                RPM_RELEASE=$(echo "${LATEST_TAG}" | cut -d'-' -f2)
+                                echo "${VERSION} ${RPM_RELEASE}"
+                            ''', returnStdout: true).trim()
+                            def parts = versionInfo.split(' ')
+                            env.VERSION = parts[0]
+                            env.RPM_RELEASE = parts[1]
+                        }
+                        if (params.TAG) {
+                            env.TAG_POSTFIX = "-${params.TAG}"
+                        } else if (params.WEEKLY_UPDATE) {
+                            def postfix = sh(script: '''
+                                DAY=$(date +%d)
+                                WEEK=$(printf "%02d" $(( ($(date +%d) - 1) / 7 )))
+                                MONTH=$(date +%m)
+                                YEAR=$(date +%y)
+                                printf "%s%s%s%s" "$DAY" "$WEEK" "$MONTH" "$YEAR"
+                            ''', returnStdout: true).trim()
+                            env.TAG_POSTFIX = "-${postfix}"
+                        } else {
+                            env.TAG_POSTFIX = ""
+                        }
                         sh '''
                             Dockerfile="Dockerfile"
                             sudo dpkg --configure -a
@@ -106,13 +139,13 @@ parameters {
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
+                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
+                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
+                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
                             fi
                             sudo docker images
                         '''
@@ -123,20 +156,20 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
                             sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
+                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
                             sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
                        '''
                        }
                        sh '''
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} \
+                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
@@ -173,8 +206,8 @@ parameters {
 
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${env.TAG_POSTFIX ?: ''}",
+                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${env.TAG_POSTFIX ?: ''}"
                     ]
 
                 // 🔹 Scan images and store logs
@@ -219,19 +252,19 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} - [${BUILD_URL}]")
             }
             deleteDir()
         }
@@ -240,7 +273,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }
