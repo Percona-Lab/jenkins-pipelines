@@ -20,6 +20,7 @@ pipeline {
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
         booleanParam(name: 'BUILD_UBI9', defaultValue: true, description: 'Build UBI9 image')
         booleanParam(name: 'BUILD_UBI8', defaultValue: true, description: 'Build UBI8 image')
+        booleanParam(name: 'BUILD_PSP', defaultValue: false, description: 'Build PSP image (PG 16 only): replaces ppg repo with psp repo and adds -psp tag suffix')
     }
     options {
         disableConcurrentBuilds()
@@ -50,13 +51,14 @@ pipeline {
                     export DOCKER_BUILDKIT=1
                 """
                 script {
+                    def pspSuffix = (params.BUILD_PSP && params.PPG_VERSION.split('-')[0].split('\\.')[0] == '16') ? '-psp' : ''
                     if (params.BUILD_UBI9) {
                         sh """
                             MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                             echo \$MAJ_VER
                             MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                             echo \$MIN_VER
-                            git clone https://github.com/surbhat1595/percona-docker
+                            git clone https://github.com/percona/percona-docker
                             cd percona-docker/percona-distribution-postgresql-\$MAJ_VER
                             sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile
                             sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
@@ -66,8 +68,12 @@ pipeline {
                             sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile-postgis
                             sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis
                             sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis
-                            docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql:\$MAJ_VER .
-                            docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-with-postgis:\$MAJ_VER -f Dockerfile-postgis .
+                            if [ "${params.BUILD_PSP}" = "true" ] && [ "\$MAJ_VER" = "16" ]; then
+                                sed -i 's|percona-release enable ppg-\${PPG_REPO_VERSION} \${PPG_REPO};|percona-release enable psp-\${PPG_MAJOR_VERSION} \${PPG_REPO};|g' Dockerfile
+                                sed -i 's|percona-release enable ppg-\${PPG_REPO_VERSION} \${PPG_REPO};|percona-release enable psp-\${PPG_MAJOR_VERSION} \${PPG_REPO};|g' Dockerfile-postgis
+                            fi
+                            docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql:\$MAJ_VER${pspSuffix} .
+                            docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix} -f Dockerfile-postgis .
                         """
                     }
                     if (params.BUILD_UBI8) {
@@ -76,7 +82,7 @@ pipeline {
                             echo \$MAJ_VER
                             MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                             echo \$MIN_VER
-                            git clone https://github.com/surbhat1595/percona-docker percona-docker-ubi8
+                            git clone https://github.com/percona/percona-docker percona-docker-ubi8
                             cd percona-docker-ubi8/percona-distribution-postgresql-\$MAJ_VER
                             sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile-ubi8
                             sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-ubi8
@@ -84,12 +90,16 @@ pipeline {
                             sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile-postgis-ubi8
                             sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis-ubi8
                             sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis-ubi8
+                            if [ "${params.BUILD_PSP}" = "true" ] && [ "\$MAJ_VER" = "16" ]; then
+                                sed -i 's|percona-release enable ppg-\${PPG_REPO_VERSION} \${PPG_REPO};|percona-release enable psp-\${PPG_MAJOR_VERSION} \${PPG_REPO};|g' Dockerfile-ubi8
+                                sed -i 's|percona-release enable ppg-\${PPG_REPO_VERSION} \${PPG_REPO};|percona-release enable psp-\${PPG_MAJOR_VERSION} \${PPG_REPO};|g' Dockerfile-postgis-ubi8
+                            fi
                             docker build --platform=linux/amd64 --no-cache --provenance=false \
                                 --build-arg PPG_REPO=${params.PPG_REPO} \
-                                -t percona-distribution-postgresql:\$MAJ_VER-ubi8 -f Dockerfile-ubi8 .
+                                -t percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix} -f Dockerfile-ubi8 .
                             docker build --platform=linux/amd64 --no-cache --provenance=false \
                                 --build-arg PPG_REPO=${params.PPG_REPO} \
-                                -t percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 -f Dockerfile-postgis-ubi8 .
+                                -t percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix} -f Dockerfile-postgis-ubi8 .
                         """
                     }
                 }
@@ -102,20 +112,21 @@ pipeline {
             steps {
                 installTrivy(method: 'binary', junitTpl: true)
                 script {
+                    def pspSuffix = (params.BUILD_PSP && params.PPG_VERSION.split('-')[0].split('\\.')[0] == '16') ? '-psp' : ''
                     if (params.BUILD_UBI9) {
                         sh """
                             MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                             MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                             if [ ${params.PPG_REPO} = "release" ]; then
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER${pspSuffix}
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}
                             else
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER${pspSuffix}
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}
                             fi
                         """
                     }
@@ -124,14 +135,14 @@ pipeline {
                             MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                             if [ ${params.PPG_REPO} = "release" ]; then
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER-ubi8
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix}
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix}
                             else
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER-ubi8
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix}
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix}
                             fi
                         """
                     }
@@ -198,28 +209,29 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     script {
+                        def pspSuffix = (params.BUILD_PSP && params.PPG_VERSION.split('-')[0].split('\\.')[0] == '16') ? '-psp' : ''
                         sh "docker login -u '${USER}' -p '${PASS}'"
                         if (params.BUILD_UBI9) {
                             sh """
                                 MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                                 MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                                docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-amd64
-                                docker push perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-amd64
-                                docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
-                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
-                                docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
-                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
-                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64
-                                docker push perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64
-                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
-                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
-                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
-                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
+                                docker tag percona-distribution-postgresql:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-amd64
+                                docker push perconalab/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-amd64
+                                docker tag percona-distribution-postgresql:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64
+                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64
+                                docker tag percona-distribution-postgresql:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-amd64
+                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-amd64
+                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-amd64
+                                docker push perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-amd64
+                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64
+                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64
+                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-amd64
+                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-amd64
                                 if [ ${params.LATEST} = "yes" ]; then
-                                   docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:latest
-                                   docker push perconalab/percona-distribution-postgresql:latest
-                                   docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:latest
-                                   docker push perconalab/percona-distribution-postgresql-with-postgis:latest
+                                   docker tag percona-distribution-postgresql:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql:latest${pspSuffix}
+                                   docker push perconalab/percona-distribution-postgresql:latest${pspSuffix}
+                                   docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:latest${pspSuffix}
+                                   docker push perconalab/percona-distribution-postgresql-with-postgis:latest${pspSuffix}
                                 fi
                             """
                         }
@@ -227,23 +239,23 @@ pipeline {
                             sh """
                                 MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                                 MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                                docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-amd64
-                                docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-amd64
-                                docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64
-                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-amd64
-                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-amd64
-                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64
+                                docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64
+                                docker push perconalab/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64
+                                docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64
+                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64
+                                docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-ubi8-amd64
+                                docker push perconalab/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-ubi8-amd64
+                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64
+                                docker push perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64
+                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64
+                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64
+                                docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-ubi8-amd64
+                                docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-ubi8-amd64
                                 if [ ${params.LATEST} = "yes" ]; then
-                                   docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql:latest-ubi8
-                                   docker push perconalab/percona-distribution-postgresql:latest-ubi8
-                                   docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8 perconalab/percona-distribution-postgresql-with-postgis:latest-ubi8
-                                   docker push perconalab/percona-distribution-postgresql-with-postgis:latest-ubi8
+                                   docker tag percona-distribution-postgresql:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql:latest${pspSuffix}-ubi8
+                                   docker push perconalab/percona-distribution-postgresql:latest${pspSuffix}-ubi8
+                                   docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:latest${pspSuffix}-ubi8
+                                   docker push perconalab/percona-distribution-postgresql-with-postgis:latest${pspSuffix}-ubi8
                                 fi
                             """
                         }
@@ -258,6 +270,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     script {
+                        def pspSuffix = (params.BUILD_PSP && params.PPG_VERSION.split('-')[0].split('\\.')[0] == '16') ? '-psp' : ''
                         sh """
                             export DOCKER_CLI_EXPERIMENTAL=enabled
                             sudo mkdir -p /usr/libexec/docker/cli-plugins/
@@ -270,15 +283,15 @@ pipeline {
                             sh """
                                 MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                                 MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-amd64 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-amd64 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-amd64
                                 if [ ${params.LATEST} = "yes" ]; then
-                                   docker buildx imagetools create -t percona/percona-distribution-postgresql:latest perconalab/percona-distribution-postgresql:latest
-                                   docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:latest perconalab/percona-distribution-postgresql-with-postgis:latest
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql:latest${pspSuffix} perconalab/percona-distribution-postgresql:latest${pspSuffix}
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:latest${pspSuffix} perconalab/percona-distribution-postgresql-with-postgis:latest${pspSuffix}
                                 fi
                             """
                         }
@@ -286,15 +299,15 @@ pipeline {
                             sh """
                                 MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                                 MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-amd64 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-ubi8-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-ubi8-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER-ubi8-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-amd64 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-ubi8-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-ubi8-amd64
-                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-ubi8-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64 perconalab/percona-distribution-postgresql:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-ubi8-amd64 perconalab/percona-distribution-postgresql:\$MAJ_VER${pspSuffix}-ubi8-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64 perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}${pspSuffix}-ubi8-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER${pspSuffix}-ubi8-amd64
+                                docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-ubi8-amd64 perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER${pspSuffix}-ubi8-amd64
                                 if [ ${params.LATEST} = "yes" ]; then
-                                   docker buildx imagetools create -t percona/percona-distribution-postgresql:latest-ubi8 perconalab/percona-distribution-postgresql:latest-ubi8
-                                   docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:latest-ubi8 perconalab/percona-distribution-postgresql-with-postgis:latest-ubi8
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql:latest${pspSuffix}-ubi8 perconalab/percona-distribution-postgresql:latest${pspSuffix}-ubi8
+                                   docker buildx imagetools create -t percona/percona-distribution-postgresql-with-postgis:latest${pspSuffix}-ubi8 perconalab/percona-distribution-postgresql-with-postgis:latest${pspSuffix}-ubi8
                                 fi
                             """
                         }
