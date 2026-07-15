@@ -16,7 +16,7 @@ void build(String IMAGE_PREFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
             cd ./source/
-            docker login -u '${USER}' -p '${PASS}'
+            echo '$PASS' | docker login -u '$USER' --password-stdin
             docker buildx create --use
             docker buildx build --platform linux/amd64,linux/arm64 --progress plain -t perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX} --push -f fluentbit/Dockerfile fluentbit
             docker logout

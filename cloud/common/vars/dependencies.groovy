@@ -80,6 +80,27 @@ void installGoogleCLI() {
     '''
 }
 
+void installEksctl() {
+    sh '''
+        curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" \
+            | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+    '''
+}
+
+void installMinikube() {
+    sh '''
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo chmod +x /usr/local/bin/minikube
+    '''
+}
+
+void installOpenshiftCLI(String version) {
+    sh """
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${version}/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${version}/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+    """
+}
+
 void installAzureCLI() {
     sh '''
         if ! command -v az &>/dev/null; then
