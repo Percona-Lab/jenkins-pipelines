@@ -192,6 +192,38 @@ void clusterRunner(String cluster) {
     }
 }
 
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
+
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            export KUBECONFIG=/tmp/${clusterName}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+
+            wait_for_deployment() {
+                local deployment_name="\$1"
+
+                for i in \$(seq 1 60); do
+                    if kubectl get deployment "\$deployment_name" -n kube-system >/dev/null 2>&1; then
+                        kubectl wait --for=condition=Available deployment/"\$deployment_name" -n kube-system --timeout=10m
+                        return 0
+                    fi
+                    sleep 10
+                done
+
+                kubectl get deployment -n kube-system
+                return 1
+            }
+
+            wait_for_deployment ebs-csi-controller
+            wait_for_deployment snapshot-controller
+
+            kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+            kubectl api-resources --api-group=snapshot.storage.k8s.io
+        """
+    }
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
@@ -218,6 +250,8 @@ addons:
 - name: aws-ebs-csi-driver
   wellKnownPolicies:
     ebsCSIController: true
+
+- name: snapshot-controller
 
 nodeGroups:
     - name: ng-1
@@ -248,6 +282,8 @@ EOF
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
+
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {
