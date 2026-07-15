@@ -90,7 +90,7 @@ parameters {
                 script {
                         if (params.WEEKLY_UPDATE) {
                             def versionInfo = sh(script: '''
-                                LATEST_TAG=$(curl -s https://api.github.com/repos/percona/orchestrator/tags | grep '"name"' | grep -E '"v[0-9]+\.[0-9]+\.[0-9]+-[0-9]+"' | head -1 | sed 's/.*"name": "//; s/".*//')
+                                LATEST_TAG=$(curl -s https://api.github.com/repos/percona/orchestrator/tags | grep '"name"' | grep -E '"v[0-9]+[.][0-9]+[.][0-9]+-[0-9]+"' | head -1 | sed 's/.*"name": "//; s/".*//')
                                 VERSION=$(echo "${LATEST_TAG}" | sed 's/^v//' | cut -d'-' -f1)
                                 RPM_RELEASE=$(echo "${LATEST_TAG}" | cut -d'-' -f2)
                                 echo "${VERSION} ${RPM_RELEASE}"
