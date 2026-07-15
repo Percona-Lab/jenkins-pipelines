@@ -156,12 +156,12 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
+                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64${TAG_POSTFIX}
                             sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64${TAG_POSTFIX}
+                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64${TAG_POSTFIX}
                             sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64${TAG_POSTFIX}
                        '''
                        }
                        sh '''
