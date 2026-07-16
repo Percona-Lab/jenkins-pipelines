@@ -141,6 +141,7 @@ pipeline {
                                     triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ami)', [
                                         SERVER_TYPE    : 'ami',
                                         AMI_ID         : params.AMI_ID.trim(),
+                                        DOCKER_VERSION : env.PMM_SERVER_IMAGE,
                                     ])
                                 }
                             }
