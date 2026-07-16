@@ -57,9 +57,18 @@ is the newest `role=ppg-package-test` AMI by `CreationDate` (no SSM parameter).
 
 ## Housekeeping (all via `just`, fail-safe)
 
-Cleanup is recipes too. Every prune recipe **lists by default** and deregisters
-only on an explicit `1`; the guard **never deletes a promoted prod base** and
-fail-closes on an AMI it cannot positively classify.
+Superseded prod bases are pruned **automatically**: after each successful promote the
+workflow runs `scripts/prune-superseded.sh` for that combo, keeping the last
+`KEEP_GENERATIONS` (default 2, newest + one rollback). `deprecate_at` only marks an AMI
+deprecated, it never deletes, so without this the inventory grows ~6 AMIs/bake. The `just`
+recipes below remain for ad-hoc / backfill cleanup and share that same script.
+
+Every prune recipe **lists by default** and deregisters only on an explicit `1`; the guard
+**never deletes the newest-per-combo base** and fail-closes on an AMI it cannot classify.
+Demoted rollback AMIs (`role=*-superseded*`) are never touched by any recipe. The
+post-promote prune additionally refuses to act while the just-promoted AMI is not yet
+visible as the newest of its combo, and reports every skipped deregister, failed
+snapshot cleanup, or over-keep residue as a workflow warning + step-summary line.
 
 ```bash
 just list                # current factory AMIs (prod|test)

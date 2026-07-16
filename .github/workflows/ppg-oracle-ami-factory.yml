@@ -41,6 +41,7 @@ concurrency:
 env:
   AWS_REGION: eu-central-1
   FACTORY_ENV: ${{ github.event.inputs.env || 'prod' }}
+  KEEP_GENERATIONS: '2' # per (os_major, arch) prod/test bases the post-promote prune keeps
 
 jobs:
   # No-AWS gate: a malformed template or bad combo fails HERE, before bake spins
@@ -109,10 +110,18 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install Session Manager plugin
+        env:
+          # Pinned to an immutable versioned URL + verified SHA256 (supply-chain): never
+          # `latest`. The plugin is installed in a job holding AWS OIDC creds, so the bytes
+          # are integrity-checked. Bump deliberately and re-record the digest of the new
+          # version's .deb (curl the versioned URL, sha256sum it).
+          SMP_VERSION: 1.2.835.0
+          SMP_SHA256: 7c6dcad12518571cc7959a713e6a8ae1bdf6ed66fd9bee37dc189e39ca58ae03
         run: |
           set -euo pipefail
           if ! command -v session-manager-plugin >/dev/null; then
-            curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/smp.deb
+            curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/${SMP_VERSION}/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/smp.deb
+            echo "${SMP_SHA256}  /tmp/smp.deb" | sha256sum -c -
             sudo dpkg -i /tmp/smp.deb
           fi
           session-manager-plugin --version
@@ -162,8 +171,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "smoke candidate: $AMI"
-          # Deregister ONLY on a real boot/install failure (never on a later promote-tag failure).
-          ( cd smoke && packer init . && packer build -color=false \
+          # `packer init` is CI infra (plugin download); a transient init failure must NOT
+          # deregister a good candidate. Only a real boot/install (build) failure does.
+          ( cd smoke && packer init . ) || { echo "smoke packer init failed (CI infra, not a candidate defect); keeping $AMI"; echo "- smoke: init failed (kept $AMI)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          ( cd smoke && packer build -color=false \
               -var "candidate_ami=$AMI" -var "os_major=${OS_MAJOR}" \
               -var "arch=${ARCH}" -var "region=${AWS_REGION}" . ) \
           || { echo "smoke (boot+install) failed; deregistering $AMI + its snapshots"; aws ec2 deregister-image --delete-associated-snapshots --region "$AWS_REGION" --image-id "$AMI"; echo "- smoke: FAIL (deregistered $AMI)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
@@ -183,6 +194,26 @@ jobs:
             echo "promote attempt $a failed; retry in $((a * 5))s"; sleep $((a * 5))
           done
           echo "- promote: $pr" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prune superseded (keep last ${{ env.KEEP_GENERATIONS }})
+        working-directory: ppg/packer
+        # Housekeeping must never fail an already-promoted bake, but it is not
+        # silent either: the script appends counts to $GITHUB_STEP_SUMMARY and
+        # emits ::warning:: annotations on any skipped deregister, failed
+        # snapshot cleanup, or combo left over the keep count.
+        continue-on-error: true
+        env:
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+          AMI: ${{ steps.build.outputs.ami }}
+        run: |
+          set -euo pipefail
+          # Deregister this combo's older promoted bases, keeping the newest KEEP_GENERATIONS.
+          # deprecate_at only marks, it never deletes, so without this the inventory grows.
+          role=ppg-package-test; [ "$FACTORY_ENV" = "test" ] && role=ppg-test-package-test
+          # PROMOTED_AMI guards the prune against EC2 eventual consistency: the script
+          # refuses to act unless the just-promoted AMI is the newest visible match.
+          PROMOTED_AMI="$AMI" bash scripts/prune-superseded.sh "$role" "$OS_MAJOR" "$ARCH" "${KEEP_GENERATIONS:-2}" 1 "$AWS_REGION"
 
   notify:
     needs: bake
