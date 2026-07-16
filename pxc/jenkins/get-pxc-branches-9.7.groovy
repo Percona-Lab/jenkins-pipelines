@@ -41,7 +41,7 @@ pipeline {
                           aws s3 cp s3://percona-jenkins-artifactory/percona-xtradb-cluster/branch_commit_id_97.properties .
 			  source ./branch_commit_id_97.properties
 
-			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.0\\* | tail -1)
+			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-9.7\\* | tail -1)
 			  LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
 			  LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
 
