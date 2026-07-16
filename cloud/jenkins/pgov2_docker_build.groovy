@@ -138,7 +138,7 @@ pipeline {
                                     fi
 
                                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                                    docker buildx create --use
+                                    docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
 
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build-docker-image
 
