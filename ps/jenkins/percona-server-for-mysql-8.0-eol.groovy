@@ -39,25 +39,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
       sh """
           set -o xtrace
           mkdir -p test
-          if [ \${FIPSMODE} = "YES" ]; then
-              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
-              if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                  PRO_BRANCH="8.0"
-              elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
-                  PRO_BRANCH="8.4"
-              else
-                  PRO_BRANCH="trunk"
-              fi
-              curl -L -H "Authorization: Bearer \${TOKEN}" \
-                      -H "Accept: application/vnd.github.v3.raw" \
-                      -o ps_builder.sh \
-                      "https://api.github.com/repos/percona/percona-server-private-build/contents/build-ps/percona-server-8.0_builder.sh?ref=\${PRO_BRANCH}"
-              sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
-              sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
-          else
-              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
-          fi
+          wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-8.0_builder.sh?ref=${BRANCH}
+          sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
           ls -la
+          grep "git clone" ps_builder.sh
           export build_dir=\$(pwd -P)
           if [ "$DOCKER_OS" = "none" ]; then
               set -o xtrace
@@ -70,11 +55,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   . ./test/percona-server-8.0.properties
               fi
               sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-              if [ ${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
-                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-              else
-                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-              fi
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
           else
               docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                   set -o xtrace
@@ -87,11 +68,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                       . ./test/percona-server-8.0.properties
                   fi
                   bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                  if [ ${BUILD_TOKUDB_TOKUBACKUP} = \"ON\" ]; then
-                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-                  else
-                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-                  fi"
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                  "
           fi
       """
     }
@@ -378,18 +356,10 @@ parameters {
          choices: [ 'Hetzner','AWS' ],
          description: 'Cloud infra for build',
          name: 'CLOUD' )
-        string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'https://github.com/percona/percona-server-private.git', description: 'github repository for build', name: 'GIT_REPO')
+        string(defaultValue: 'release-8.0.46-38', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
-        choice(
-            choices: 'OFF\nON',
-            description: 'The TokuDB storage is no longer supported since 8.0.28',
-            name: 'BUILD_TOKUDB_TOKUBACKUP')
-        string(defaultValue: '0', description: 'PerconaFT repository', name: 'PERCONAFT_REPO')
-        string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for PerconaFT repository', name: 'PERCONAFT_BRANCH')
-        string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
-        string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
@@ -427,11 +397,7 @@ parameters {
                 cleanUpWS()
                 installCli("rpm")
                 script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:focal", "--get_sources=1")
-                            }
+                            buildStage("ubuntu:focal", "--get_sources=1")
                        }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -471,11 +437,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1")
-                            }
+                            buildStage("oraclelinux:8", "--build_src_rpm=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -492,11 +454,7 @@ parameters {
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:focal", "--build_source_deb=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:focal", "--build_source_deb=1")
-                            }
+                            buildStage("ubuntu:focal", "--build_source_deb=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -508,7 +466,7 @@ parameters {
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             steps {
                 script {
-                    psBuildMatrix(
+                    ps80BuildMatrix(
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE,
@@ -590,30 +548,7 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
-                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
-                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                    // sync packages
-                    if ("${MYSQL_VERSION_MINOR}" == "0") {
-                        if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild(params.CLOUD, "ps-80-pro", COMPONENT)
-                        } else {
-                            sync2ProdAutoBuild(params.CLOUD, "ps-80", COMPONENT)
-                        }
-                    } else {
-                        if (env.FIPSMODE == 'YES') {
-                            if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild(params.CLOUD, "ps-84-pro", COMPONENT)
-                            } else {
-                                sync2PrivateProdAutoBuild(params.CLOUD, "ps-8x-innovation-pro", COMPONENT)
-                            }
-                        } else {
-                            if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2ProdAutoBuild(params.CLOUD, "ps-84-lts", COMPONENT)
-                            } else {
-                                sync2ProdAutoBuild(params.CLOUD, "ps-8x-innovation", COMPONENT)
-                            }
-                        }
-                    }
+                    sync2PrivateProdAutoBuild(params.CLOUD, "ps-80-eol", COMPONENT)
                 }
             }
         }
@@ -624,11 +559,7 @@ parameters {
             steps {
                 script {
                     try {
-                        if (env.FIPSMODE == 'YES') {
-                            uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
-                        } else {
-                            uploadTarballToDownloadsTesting(params.CLOUD, "ps", "${BRANCH}")
-                        }
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"
@@ -637,28 +568,87 @@ parameters {
                 }
             }
         }
-        stage('Build docker containers') {
-            when {
-                expression { env.FIPSMODE == 'NO' }
-            }
+        stage('Build docker container') {
             agent {
-                label 'launcher-x64'
+                label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'min-jammy-x64'
             }
             steps {
-                sleep time: 20, unit: 'MINUTES'
                 script {
-                    build job: 'hetzner-ps8.0-docker-build',
-                          parameters: [
-                              string(name: 'CLOUD', value: 'Hetzner'),
-                              string(name: 'ORGANIZATION', value: 'perconalab'),
-                              string(name: 'BRANCH', value: "${BRANCH}"),
-                              string(name: 'RPM_RELEASE', value: '1'),
-                              string(name: 'FIPSMODE', value: 'NO'),
-                              string(name: 'COMPONENT', value: "${COMPONENT}"),
-                              booleanParam(name: 'RUN_FAST', value: true)
-                          ],
-                          wait: false
-                }
+                    cleanUpWS()
+                    installCli("deb")
+                    unstash 'uploadPath'
+                    def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/x86_64/*.rpm /tmp
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/aarch64/*.rpm /tmp
+                            ls -la /tmp
+                        """
+                    }
+                    sh '''
+                        REPO_DOCKER="https://github.com/adivinho/percona-docker"
+                        REPO_DOCKER_BRANCH="PXB-3744-Packaging-tasks-for-release-PXB-9.7.1-rc1"
+                        PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
+                        PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
+
+                        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                        sudo apt-get -y install apparmor
+                        sudo aa-status
+                        sudo systemctl stop apparmor
+                        sudo systemctl disable apparmor
+                        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+                        sudo echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+                        sudo apt-get update
+                        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                        export DOCKER_CLI_EXPERIMENTAL=enabled
+                        sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo systemctl restart docker
+                        sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                        sudo qemu-system-x86_64 --version
+                        sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
+                        sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+                        git clone ${REPO_DOCKER}
+                        cd percona-docker/percona-server-8.0
+                        git checkout ${REPO_DOCKER_BRANCH}
+                        mv /tmp/*.rpm .
+                        sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
+                        sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
+                        sudo docker builder prune -af
+                        sudo docker build --provenance=false -t percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f Dockerfile-pro .
+                        sudo docker buildx build --provenance=false --platform linux/arm64 -t percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --load -f Dockerfile.aarch64-pro .
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_MAJOR_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo docker images
+                        sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_MAJOR_RELEASE}
+                        sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo docker images
+                        sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+
+                        sudo addgroup admin || true
+                        sudo useradd -m -s /bin/bash -g admin -G admin admin || true
+                        sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar
+                        sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar
+                        sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar
+                        sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar
+                        ls -la
+                    '''
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            cd percona-docker/percona-server-8.0
+                            export PS_RELEASE=`echo ${BRANCH} | sed 's/release-//g'`
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                        """
+                    }
+               }
             }
         } 
     } 
@@ -666,28 +656,6 @@ parameters {
         success {
             script {
                 notifyBuildSuccess()
-                unstash 'properties'
-                // Extract PS_REVISION from properties file
-                def PS_REVISION = ''
-                if (fileExists('test/percona-server-8.0.properties')) {
-                    PS_REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
-                    echo "PS_REVISION extracted: ${PS_REVISION}"
-                    env.PS_REVISION = PS_REVISION
-                } else {
-                    error "Properties file not found: test/percona-server-8.0.properties"
-                }
-                if (params.BRANCH.startsWith('release-')) MinitestPostSucess(
-                    product_to_test: product_to_test,
-                    PS_RELEASE: PS_RELEASE,
-                    PS_VERSION_SHORT: PS_VERSION_SHORT,
-                    PS_VERSION_SHORT_KEY: PS_VERSION_SHORT_KEY,
-                    minitestNodes: minitestNodes,
-                    SLACKNOTIFY: SLACKNOTIFY,
-                    BRANCH: BRANCH,
-                    DOCKER_ACC: DOCKER_ACC,
-                    packageTestsClosure: { nodes -> package_tests_ps80(nodes) },
-                    dockerTestClosure: { -> docker_test() }
-                )
             }
         }
 
@@ -698,11 +666,7 @@ parameters {
         always {
             sh 'sudo rm -rf ./*'
             script {
-                if (env.FIPSMODE == 'YES') {
-                    currentBuild.description = "Pro -> Build on ${BRANCH}"
-                } else {
-                    currentBuild.description = "Build on ${BRANCH}"
-                }
+                currentBuild.description = "Build on ${BRANCH}"
             }
             deleteDir()
         }

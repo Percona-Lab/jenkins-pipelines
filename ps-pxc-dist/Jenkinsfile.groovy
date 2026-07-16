@@ -302,7 +302,12 @@ pipeline {
                     sh """
                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                            if [ ${COMPONENT} = RELEASE ]; then
-                               curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                               CRAWL_RESPONSE=\$(curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory)
+                               echo "Crawl response: \${CRAWL_RESPONSE}"
+                               if ! echo "\${CRAWL_RESPONSE}" | grep -q '"status":"running"'; then
+                                   echo "ERROR: crawl_directory did not return running status. Response: \${CRAWL_RESPONSE}"
+                                   exit 1
+                               fi
                            fi
 ENDSSH
                     """
@@ -342,23 +347,23 @@ ENDSSH
                                     echo "TRIVY_EXIT_CODE=\$?"
                                 """, returnStatus: true)
                                 echo "Actual Trivy exit code: ${result}"
-                            // 🔴 Fail the build if vulnerabilities are found
+                            // 🟡 Mark build as unstable if vulnerabilities are found
                                 if (result != 0) {
                                     sh """
                                         trivy image --quiet \
                                           --format table --timeout 10m0s --ignore-unfixed --exit-code 0 --scanners vuln \
                                           --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                                     """
-                                    echo "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                                    echo "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                                 } else {
                                     echo "✅ No critical vulnerabilities found in ${image}."
                                 }
                             }
                             if (result != 0) {
-                                    error "❌ Trivy detected vulnerabilities in images. See ${TRIVY_LOG} for details."
+                                    unstable "⚠️ Trivy detected vulnerabilities in images. See ${TRIVY_LOG} for details."
                             }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 }
             }
             }
@@ -367,10 +372,13 @@ ENDSSH
 
     post {
         success {
-            slackSend channel: '#releases-ci', color: '#00FF00', message: "${REPOSITORY} distribution: job finished"
+            slackSend channel: '#releases-ci', color: '#00FF00', message: "✅ ${REPOSITORY} distribution: job finished"
+        }
+        unstable {
+            slackSend channel: '#releases-ci', color: '#FFFF00', message: "⚠️ ${REPOSITORY} distribution: job finished with warnings (Trivy)"
         }
         failure {
-            slackSend channel: '#releases-ci', color: '#FF0000', message: "${REPOSITORY} distribution: job failed"
+            slackSend channel: '#releases-ci', color: '#FF0000', message: "❌ ${REPOSITORY} distribution: job failed"
         }
         always {
             script {

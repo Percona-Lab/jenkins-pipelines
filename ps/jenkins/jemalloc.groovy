@@ -148,7 +148,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     elif [ \\\$DEBIAN_VERSION = resolute ]; then
                         sed -i 's/make check/#make check/g' debian/rules
                     fi
-                    sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
+                    if [ \\\$DEBIAN_VERSION = focal -o \\\$DEBIAN_VERSION = bullseye ]; then
+                        printf 'override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\\n' >> debian/rules
+                    else
+                        printf 'override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip --uniform-compression\\n' >> debian/rules
+                    fi
                     cat debian/rules
 
                     dch -m -D \\"\$(lsb_release -sc)\\" --force-distribution -v \\"\${VERSION}-\${RELEASE}.\\\$(lsb_release -sc)\\" \\"Update jemalloc distribution\\"

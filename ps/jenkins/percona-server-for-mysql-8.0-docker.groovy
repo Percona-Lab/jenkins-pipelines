@@ -387,9 +387,9 @@ parameters {
                        sh '''
                            if echo "${BRANCH}" | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$'; then
                                PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                               PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                               PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk -F'.' '{print $1"."$2}')
                                PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
-                               if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                               if [ ${PS_MAJOR_RELEASE} != "8.0" ]; then
                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                                else
                                    MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
@@ -517,25 +517,24 @@ parameters {
     post {
         success {
             script {
-                //def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
-                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
+                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
             }
             deleteDir()
         }
         unstable {
             script {
-                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#releases-ci' : env.SLACKNOTIFY
+                def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build finished with warnings (Trivy) for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
                 }
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

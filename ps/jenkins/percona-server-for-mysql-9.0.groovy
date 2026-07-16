@@ -430,7 +430,7 @@ parameters {
                 label 'launcher-x64'
             }
             steps {
-                sleep time: 10, unit: 'MINUTES'
+                sleep time: 20, unit: 'MINUTES'
                 script {
                     build job: 'hetzner-ps8.0-docker-build',
                           parameters: [

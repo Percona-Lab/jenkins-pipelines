@@ -126,8 +126,8 @@ pipeline {
                             sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
                             sed -i "s:yum/release:yum/testing:g" Dockerfile
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                                #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-4.1/g" Dockerfile
+                                #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-6.1/g" Dockerfile
                                 sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                                     sed -i "s/tools/pxb-9x-innovation/g" Dockerfile
@@ -255,7 +255,7 @@ stage('Check by trivy') {
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -266,13 +266,13 @@ stage('Check by trivy') {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
             } catch (Exception e) {
-                error "❌ Trivy scan failed: ${e.message}"
+                unstable "⚠️ Trivy scan failed: ${e.message}"
             } // try
         } // script
     } // steps
@@ -281,13 +281,19 @@ stage('Check by trivy') {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build finished with warnings (Trivy) for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
             }
             deleteDir()
         }

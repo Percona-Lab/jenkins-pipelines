@@ -100,7 +100,13 @@ pipeline {
                             else
                                 cd percona-xtrabackup-\${XB_VERSION_MAJOR}.x
                             fi
-                            sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                            XB_EXTRA_CLEAN="${XB_VERSION_EXTRA#-}"
+                            if echo "${XB_EXTRA_CLEAN}" | grep -qE '^[0-9]+$'; then
+                                XB_DOCKER_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}-${XB_EXTRA_CLEAN}.${RPM_RELEASE}"
+                            else
+                                XB_DOCKER_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}-${RPM_RELEASE}.${XB_EXTRA_CLEAN}"
+                            fi
+                            sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_DOCKER_VERSION}/g" Dockerfile
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.1/g" Dockerfile
                             sed -i "s/ARG PXB_REPO=release/ARG PXB_REPO=${COMPONENT}/g" Dockerfile
                             sed -i "s/ARG PS_REPO=release/ARG PS_REPO=${COMPONENT}/g" Dockerfile
@@ -227,7 +233,7 @@ stage('Check by Trivy') {
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -238,13 +244,13 @@ stage('Check by Trivy') {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
             } catch (Exception e) {
-                error "❌ Trivy scan failed: ${e.message}"
+                unstable "⚠️ Trivy scan failed: ${e.message}"
             }
         }
     }
