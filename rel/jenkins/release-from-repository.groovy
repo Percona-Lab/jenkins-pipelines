@@ -387,7 +387,12 @@ ENDSSH
                     sh """ 
                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                            if [ ${COMPONENT} = RELEASE ]; then
-                               curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                               CRAWL_RESPONSE=\$(curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory)
+                               echo "Crawl response: \${CRAWL_RESPONSE}"
+                               if ! echo "\${CRAWL_RESPONSE}" | grep -q '"status":"running"'; then
+                                   echo "ERROR: crawl_directory did not return running status. Response: \${CRAWL_RESPONSE}"
+                                   exit 1
+                               fi
                            fi
 ENDSSH
                     """
