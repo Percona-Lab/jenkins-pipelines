@@ -30,6 +30,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         PMM_QA_GIT_BRANCH : 'main',
         SERVER_TYPE       : 'docker',
         DOCKER_VERSION    : env.PMM_SERVER_IMAGE,
+        AMI_ID            : params.AMI_ID.trim(),
         CLIENT_VERSION    : 'pmm3-rc',
         ADMIN_PASSWORD    : 'pmm3admin!',
         HELM_CHART_BRANCH : 'main',
@@ -139,9 +140,7 @@ pipeline {
                             steps {
                                 script {
                                     triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ami)', [
-                                        SERVER_TYPE    : 'ami',
-                                        AMI_ID         : params.AMI_ID.trim(),
-                                        DOCKER_VERSION : env.PMM_SERVER_IMAGE,
+                                        SERVER_TYPE: 'ami',
                                     ])
                                 }
                             }
