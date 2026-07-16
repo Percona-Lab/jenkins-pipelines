@@ -106,7 +106,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
-                    docker buildx create --use
+                    docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     e2e-tests/build
