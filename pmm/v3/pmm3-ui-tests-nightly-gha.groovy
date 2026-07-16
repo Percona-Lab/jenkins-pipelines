@@ -229,7 +229,6 @@ pipeline {
                           --arg branch "$PMM_QA_GIT_BRANCH" \
                           --arg pwd "$ADMIN_PASSWORD" \
                           --arg confidence "${PTS_CONFIDENCE}%" \
-                          --arg deployment_type "$SERVER_TYPE" \
                           '{
                              ref: $ref,
                              inputs: {
@@ -238,8 +237,7 @@ pipeline {
                                pmm_server_image: $image,
                                pmm_qa_branch: $branch,
                                admin_password: $pwd,
-                               launchable_confidence: $confidence,
-                               deployment_type: $deployment_type
+                               launchable_confidence: $confidence
                              }
                            }')
 
