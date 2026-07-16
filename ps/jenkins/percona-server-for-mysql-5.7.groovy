@@ -125,7 +125,7 @@ parameters {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bionic-x64'
             }
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "🥷 [${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("deb")
                 buildStage("ubuntu:bionic", "--get_sources=1")
@@ -671,12 +671,12 @@ parameters {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "🥷 [${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             unstash 'properties'
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "🥷 [${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
