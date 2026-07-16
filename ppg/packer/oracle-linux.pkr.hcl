@@ -133,8 +133,10 @@ source "amazon-ebs" "ol" {
   skip_profile_validation = true
   user_data               = local.ssm_bootstrap
 
-  # Native retention: the baked AMI auto-deprecates ~5 weeks out, so superseded
-  # weekly images age out without a custom deregister-old sweep.
+  # Mark the AMI deprecated ~5 weeks out (deprioritizes it in default describe-images
+  # results). Deprecation only MARKS, it never deletes the AMI or its snapshot; superseded
+  # bases are removed by the post-promote prune (scripts/prune-superseded.sh, keep last
+  # KEEP_GENERATIONS) in the workflow, or by `just prune-superseded`.
   deprecate_at = timeadd(timestamp(), "840h")
 
   # Latest self-owned base of the same major+arch, selected by FACTORY TAGS
