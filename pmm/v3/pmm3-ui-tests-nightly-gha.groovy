@@ -3,6 +3,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def defaultAmiId = pmmVersion('v3-ami').values()[-1]
+
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -117,6 +119,10 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
+            defaultValue: defaultAmiId,
+            description: '[AMI only] AWS AMI ID (e.g., ami-0669b163befffb6c3).',
+            name: 'AMI_ID')
+        string(
             defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
@@ -171,7 +177,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "ami" }
                     }
                     steps {
-                        runAMIStagingStart(DOCKER_VERSION)
+                        runAMIStagingStart(AMI_ID)
                     }
                 }
                 stage('Setup Helm PMM Server Instance') {
