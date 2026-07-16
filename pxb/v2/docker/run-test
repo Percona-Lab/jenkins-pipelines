@@ -59,12 +59,12 @@ if [[ ${WITH_VAULT_TESTS} == "true" ]]; then
     ATTEMPT=1
     while [ "${TOKEN}" == "" ];
     do
-        sleep 2
-        export TOKEN=$(docker logs vault | grep 'export VAULT_TOKEN' | awk -F'=' '{print $2}')
-        if [[ ${ATTEMPT} -eq 10 ]]; then
+        if [[ ${ATTEMPT} -gt 10 ]]; then
             echo "Vault token not found"
             exit 1
         fi
+        sleep 2
+        export TOKEN=$(docker logs vault | grep 'export VAULT_TOKEN' | awk -F'=' '{print $2}')
         ATTEMPT=$((ATTEMPT+1))
     done
 
