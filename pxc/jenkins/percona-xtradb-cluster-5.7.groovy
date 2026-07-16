@@ -84,6 +84,8 @@ pipeline {
             defaultValue: 'pxc-57',
             description: 'PXC repo name',
             name: 'PXC_REPO')
+        string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
+        string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -502,8 +504,10 @@ pipeline {
                             sudo systemctl status docker
                             sudo apt-get install -y qemu binfmt-support qemu-user-static
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                            git clone https://github.com/percona/percona-docker
-                            cd percona-docker/percona-xtradb-cluster-5.7
+                            git clone ${REPO_DOCKER}
+                            cd percona-docker
+                            git checkout ${REPO_DOCKER_BRANCH}
+                            cd percona-xtradb-cluster-5.7
                             mv /tmp/*.rpm .
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
