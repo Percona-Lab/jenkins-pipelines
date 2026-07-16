@@ -286,12 +286,25 @@ nodeGroups:
 EOF
         """
 
-        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            credentialsId: 'eks-cicd',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
             sh """
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+
                 eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-                kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+                
+                # Use GP3 storage class as default, recommended by the provider
+                kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
+
+                kubectl create clusterrolebinding cluster-admin-binding1 \
+                    --clusterrole=cluster-admin \
+                    --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+
+                kubectl get storageclass
             """
         }
     }
