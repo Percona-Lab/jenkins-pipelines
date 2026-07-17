@@ -145,6 +145,7 @@ pipeline {
 
                     currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
                     currentBuild.description = libraries.tests.buildJobDescription(testVariables)
+                    libraries.tests.printTestVariables(testVariables)
                 }
             }
         }

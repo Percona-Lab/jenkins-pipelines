@@ -66,6 +66,34 @@ String buildJobDescription(Map testVariables) {
     ].findAll { it?.trim() }.join(" ")
 }
 
+void printTestVariables(Map testVariables) {
+    def sensitivePattern = ~/(?i).*(password|secret|token|key|credential).*/
+    def sanitized = testVariables.collectEntries { key, value ->
+        if (key == "libraries") {
+            return [(key): "<libraries>"]
+        }
+
+        if (key == "tests") {
+            return [(key): "<${value?.size() ?: 0} tests>"]
+        }
+
+        if ("${key}" ==~ sensitivePattern) {
+            return [(key): "<redacted>"]
+        }
+
+        if (value instanceof Map) {
+            return [(key): value.collectEntries { nestedKey, nestedValue ->
+                [(nestedKey): ("${nestedKey}" ==~ sensitivePattern ? "<redacted>" : nestedValue)]
+            }]
+        }
+
+        return [(key): value]
+    }
+
+    echo "=========================[ Test variables ]========================="
+    echo groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(sanitized))
+}
+
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
     def versionedImages = [
         "psmdb-operator": [
