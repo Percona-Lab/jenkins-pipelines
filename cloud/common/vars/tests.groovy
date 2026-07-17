@@ -114,76 +114,103 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
     return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
-Map prepareVersions(Map testVariables) {
-    def libraries = testVariables.libraries
-    def platformFromReleaseVersions = false
+String getPlatformProvider(Map testVariables) {
+    return testVariables.platform_provider?.toLowerCase()
+}
 
-    if ("${testVariables.pillar_version}" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        testVariables.platform_channel = "stable"
-        echo "Forcing channel=stable, because it's a release run!"
+Boolean isReleaseRun(Map testVariables) {
+    return "${testVariables.pillar_version}" != "none"
+}
 
-        testVariables.images = resolveImages(testVariables)
+String getPlatformReleasePrefix(Map testVariables) {
+    def platformPrefix = [
+        "gcloud"      : "GKE",
+        "azure"       : "AKS",
+        "redhat"      : "OPENSHIFT",
+        "digitalocean": "DOKS",
+        "rancher"     : "RKE2",
+    ][getPlatformProvider(testVariables)]
 
-        switch (testVariables.platform_provider?.toLowerCase()) {
-            case "rancher":
-                ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
-                    if (!testVariables[field] || testVariables[field] == "latest") {
-                        testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
-                    }
-                }
-                break
+    if (!platformPrefix) {
+        error("Unsupported platform_provider for platform_version=${testVariables.platform_version}: ${testVariables.platform_provider}")
+    }
 
-            case "gcloud":
-            case "azure":
-            case "redhat":
-            case "digitalocean":
-                break
+    return platformPrefix
+}
 
-            default:
-                error("Unsupported platform_provider: ${testVariables.platform_provider}")
+void resolveReleaseRunParams(Map testVariables) {
+    echo "=========================[ Getting parameters for release test ]========================="
+    testVariables.platform_channel = "stable"
+    echo "Forcing channel=stable, because it's a release run!"
+
+    testVariables.images = resolveImages(testVariables)
+
+    def supportedProviders = ["gcloud", "azure", "redhat", "digitalocean", "rancher"]
+    if (!(getPlatformProvider(testVariables) in supportedProviders)) {
+        error("Unsupported platform_provider: ${testVariables.platform_provider}")
+    }
+
+    if (getPlatformProvider(testVariables) == "rancher") {
+        ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
+            if (!testVariables[field] || testVariables[field] == "latest") {
+                testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
+            }
         }
+    }
+}
 
+Boolean resolveReleasePlatformVersion(Map testVariables) {
+    if (!(testVariables.platform_version?.toLowerCase() in ["min", "max"])) {
+        return false
+    }
+
+    testVariables.platform_version = getReleaseVersionsParam(
+        testVariables.release_versions,
+        "${getPlatformReleasePrefix(testVariables)}_${testVariables.platform_version.toUpperCase()}"
+    )
+
+    testVariables.platform_version = testVariables.libraries[testVariables.platform_provider].getPlatformVersion(
+        testVariables.platform_version
+    )
+
+    return true
+}
+
+void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
+    if (!testVariables.platform_provider) {
+        return
+    }
+
+    def library = testVariables.libraries[testVariables.platform_provider]
+    if (testVariables.platform_version == "latest" && testVariables.platform_channel) {
+        testVariables.platform_version = library.getLatestPlatformVersion(
+            testVariables.platform_channel
+        )
+    } else if (!platformFromReleaseVersions) {
+        testVariables.platform_version = library.getPlatformVersion(
+            testVariables.platform_version
+        )
+    }
+}
+
+void resolveMachineType(Map testVariables) {
+    if (testVariables.platform_arch && testVariables.platform_provider) {
+        testVariables.machine_type = testVariables.libraries[testVariables.platform_provider].getMachineType(
+            testVariables.platform_arch
+        )
+    }
+}
+
+Map prepareVersions(Map testVariables) {
+    if (isReleaseRun(testVariables)) {
+        resolveReleaseRunParams(testVariables)
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
-    if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
-        def platformPrefix = [
-            "gcloud"      : "GKE",
-            "azure"       : "AKS",
-            "redhat"      : "OPENSHIFT",
-            "digitalocean": "DOKS",
-            "rancher"     : "RKE2",
-        ][testVariables.platform_provider?.toLowerCase()]
-
-        if (!platformPrefix) {
-            error("Unsupported platform_provider for platform_version=${testVariables.platform_version}: ${testVariables.platform_provider}")
-        }
-
-        testVariables.platform_version = getReleaseVersionsParam(
-            testVariables.release_versions,
-            "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
-        )
-
-        platformFromReleaseVersions = true
-    }
-
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
-            testVariables.platform_channel
-        )
-    } else if (!platformFromReleaseVersions) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
-            testVariables.platform_version
-        )
-    }
-
-    if (testVariables.platform_arch && testVariables.platform_provider) {
-        testVariables.machine_type = libraries[testVariables.platform_provider].getMachineType(
-            testVariables.platform_arch
-        )
-    }
+    def platformFromReleaseVersions = resolveReleasePlatformVersion(testVariables)
+    resolvePlatformVersion(testVariables, platformFromReleaseVersions)
+    resolveMachineType(testVariables)
 
     if (!testVariables.db_tag || testVariables.db_tag == "main") {
         testVariables.db_tag = getDbTag(testVariables, testVariables.db_tag ?: "main")
