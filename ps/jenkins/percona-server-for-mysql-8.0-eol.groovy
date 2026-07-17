@@ -589,7 +589,7 @@ parameters {
                         REPO_DOCKER="https://github.com/adivinho/percona-docker"
                         REPO_DOCKER_BRANCH="PXB-3744-Packaging-tasks-for-release-PXB-9.7.1-rc1"
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
+                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                         PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
 
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -647,6 +647,46 @@ parameters {
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
                         """
+                    }
+                    // 🔹 Trivy scan
+                    try {
+                        installTrivy(method: 'apt')
+                        def PS_RELEASE_TRIVY = sh(returnStdout: true, script: "echo '${BRANCH}' | sed 's/release-//g'").trim()
+                        def imageList = [
+                            "percona/percona-server:${PS_RELEASE_TRIVY}.${RPM_RELEASE}-amd64",
+                            "percona/percona-server:${PS_RELEASE_TRIVY}.${RPM_RELEASE}-arm64"
+                        ]
+                        imageList.each { image ->
+                            echo "🔍 Scanning ${image}..."
+                            def result = sh(script: """#!/bin/bash
+                                set -e
+                                sudo trivy image --quiet \
+                                          --format table \
+                                          --timeout 10m0s \
+                                          --ignore-unfixed \
+                                          --exit-code 1 \
+                                          --scanners vuln \
+                                          --severity HIGH,CRITICAL ${image}
+                                echo "TRIVY_EXIT_CODE=\$?"
+                            """, returnStatus: true)
+                            echo "Actual Trivy exit code: ${result}"
+                            if (result != 0) {
+                                sh """
+                                sudo trivy image --quiet \
+                                             --format table \
+                                             --timeout 10m0s \
+                                             --ignore-unfixed \
+                                             --exit-code 0 \
+                                             --scanners vuln \
+                                             --severity HIGH,CRITICAL ${image} | tee -a trivy-high-junit.xml
+                                """
+                                unstable "⚠️ Trivy detected vulnerabilities in ${image}. See trivy-high-junit.xml for details."
+                            } else {
+                                echo "✅ No critical vulnerabilities found in ${image}."
+                            }
+                        }
+                    } catch (Exception e) {
+                        unstable "⚠️ Trivy scan failed: ${e.message}"
                     }
                }
             }
