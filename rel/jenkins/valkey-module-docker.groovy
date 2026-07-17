@@ -59,6 +59,14 @@ pipeline {
             defaultValue: true,
             description: 'Also tag/push <prefix>-<module>:latest',
             name: 'PUSH_LATEST')
+        booleanParam(
+            defaultValue: false,
+            description: 'Push images despite failed Trivy check (report-only). Use with caution.',
+            name: 'IGNORE_TRIVY')
+        string(
+            defaultValue: 'HIGH,CRITICAL',
+            description: 'Trivy severities that fail the build',
+            name: 'TRIVY_SEVERITY')
     }
     options {
         skipDefaultCheckout()
@@ -111,29 +119,58 @@ pipeline {
                     if (params.RUN_TESTS) {
                         sh "sudo docker pull ${params.SERVER_IMAGE}"
                     }
-                    for (m in params.MODULES.trim().split(/\s+/)) {
-                        def ver = modVar('MOD_VERSION', m)
-                        def src = modVar('MOD_SOURCE', m)
-                        if (!ver) {
-                            error "No MOD_VERSION_${m} in docker/Makefile — unknown module '${m}'"
-                        }
-                        def img = "${params.IMAGE_PREFIX}-${m}"
-                        sh """
-                            cd valkey-packaging/docker
-                            sudo docker build --no-cache \
-                                --build-arg MODULE=${m} \
-                                --build-arg MODULE_VERSION=${ver} \
-                                --build-arg MODULE_SOURCE=${src} \
-                                --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                --platform linux/amd64 \
-                                -t ${img}:${ver}-amd64 \
-                                -f Dockerfile.module .
-                        """
-                        if (params.RUN_TESTS) {
+                    def branches = [:]
+                    for (mod in params.MODULES.trim().split(/\s+/)) {
+                        def m = mod   // rebind per iteration so each closure captures its own module
+                        branches[m] = {
+                            def ver = modVar('MOD_VERSION', m)
+                            def src = modVar('MOD_SOURCE', m)
+                            if (!ver) {
+                                error "No MOD_VERSION_${m} in docker/Makefile — unknown module '${m}'"
+                            }
+                            def img = "${params.IMAGE_PREFIX}-${m}"
                             sh """
                                 cd valkey-packaging/docker
-                                sudo ./test-module-inject.sh ${img}:${ver}-amd64 ${m} ${params.SERVER_IMAGE}
+                                sudo docker build --no-cache \
+                                    --build-arg MODULE=${m} \
+                                    --build-arg MODULE_VERSION=${ver} \
+                                    --build-arg MODULE_SOURCE=${src} \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/amd64 \
+                                    -t ${img}:${ver}-amd64 \
+                                    -f Dockerfile.module .
                             """
+                            if (params.RUN_TESTS) {
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo ./test-module-inject.sh ${img}:${ver}-amd64 ${m} ${params.SERVER_IMAGE}
+                                """
+                            }
+                        }
+                    }
+                    parallel branches
+                }
+            }
+        }
+        stage('Run trivy analyzer') {
+            steps {
+                script {
+                    retry(3) {
+                        try {
+                            installTrivy(method: 'binary')
+                            def exitCode = params.IGNORE_TRIVY ? '0' : '1'
+                            for (m in params.MODULES.trim().split(/\s+/)) {
+                                def ver = modVar('MOD_VERSION', m)
+                                def img = "${params.IMAGE_PREFIX}-${m}:${ver}-amd64"
+                                sh """
+                                    /usr/local/bin/trivy -q image --timeout 10m0s --ignore-unfixed \
+                                        --exit-code ${exitCode} --severity ${params.TRIVY_SEVERITY} ${img}
+                                """
+                            }
+                        } catch (Exception e) {
+                            echo "Attempt failed: ${e.message}"
+                            sleep 15
+                            throw e
                         }
                     }
                 }
@@ -150,41 +187,46 @@ pipeline {
                         docker login -u '${USER}' -p '${PASS}'
                     """
                     script {
-                        for (m in params.MODULES.trim().split(/\s+/)) {
-                            def ver = modVar('MOD_VERSION', m)
-                            def src = modVar('MOD_SOURCE', m)
-                            def img = "${params.IMAGE_PREFIX}-${m}"
-                            sh """
-                                cd valkey-packaging/docker
-                                docker buildx build --push --provenance=mode=max --sbom=true \
-                                    --build-arg MODULE=${m} \
-                                    --build-arg MODULE_VERSION=${ver} \
-                                    --build-arg MODULE_SOURCE=${src} \
-                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                    --platform linux/amd64 \
-                                    -t ${img}:${ver}-amd64 \
-                                    -f Dockerfile.module .
-                                docker buildx build --push --provenance=mode=max --sbom=true \
-                                    --build-arg MODULE=${m} \
-                                    --build-arg MODULE_VERSION=${ver} \
-                                    --build-arg MODULE_SOURCE=${src} \
-                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                    --platform linux/arm64 \
-                                    -t ${img}:${ver}-arm64 \
-                                    -f Dockerfile.module .
-
-                                docker buildx imagetools create -t ${img}:${ver} \
-                                    ${img}:${ver}-amd64 \
-                                    ${img}:${ver}-arm64
-                            """
-                            if (params.PUSH_LATEST) {
+                        def branches = [:]
+                        for (mod in params.MODULES.trim().split(/\s+/)) {
+                            def m = mod   // rebind per iteration so each closure captures its own module
+                            branches[m] = {
+                                def ver = modVar('MOD_VERSION', m)
+                                def src = modVar('MOD_SOURCE', m)
+                                def img = "${params.IMAGE_PREFIX}-${m}"
                                 sh """
-                                    docker buildx imagetools create -t ${img}:latest \
+                                    cd valkey-packaging/docker
+                                    docker buildx build --push --provenance=mode=max --sbom=true \
+                                        --build-arg MODULE=${m} \
+                                        --build-arg MODULE_VERSION=${ver} \
+                                        --build-arg MODULE_SOURCE=${src} \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/amd64 \
+                                        -t ${img}:${ver}-amd64 \
+                                        -f Dockerfile.module .
+                                    docker buildx build --push --provenance=mode=max --sbom=true \
+                                        --build-arg MODULE=${m} \
+                                        --build-arg MODULE_VERSION=${ver} \
+                                        --build-arg MODULE_SOURCE=${src} \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/arm64 \
+                                        -t ${img}:${ver}-arm64 \
+                                        -f Dockerfile.module .
+
+                                    docker buildx imagetools create -t ${img}:${ver} \
                                         ${img}:${ver}-amd64 \
                                         ${img}:${ver}-arm64
                                 """
+                                if (params.PUSH_LATEST) {
+                                    sh """
+                                        docker buildx imagetools create -t ${img}:latest \
+                                            ${img}:${ver}-amd64 \
+                                            ${img}:${ver}-arm64
+                                    """
+                                }
                             }
                         }
+                        parallel branches
                     }
                 }
             }
