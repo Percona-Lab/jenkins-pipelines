@@ -321,7 +321,7 @@ def call(Map args = [:]) {
 
         // Determine agent label based on arch and cloud
         def agentLabel = arch == 'aarch64'
-            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64')
+            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64')
             : (cloud == 'Hetzner' ? 'docker-x64'     : 'docker-32gb')
 
         branches[stageName] = {
