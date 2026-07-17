@@ -662,7 +662,7 @@ void makeReport(List tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
     tests = tests ?: []
 
-    def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
+    def testsReport = "<testsuite>\n"
     tests.each { test ->
         testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
     }
