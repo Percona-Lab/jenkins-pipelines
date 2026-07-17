@@ -144,11 +144,7 @@ pipeline {
                     ])
 
                     currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
-                    def minorPlatformVersion = (testVariables.platform_version =~ /v?(\d+\.\d+)/)[0][1]
-                    def cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-                    currentBuild.description = """
-                        ${minorPlatformVersion} | ${DB_TAG} | ${cw}
-                    """.stripIndent()
+                    currentBuild.description = libraries.tests.buildJobDescription(testVariables)
                 }
             }
         }

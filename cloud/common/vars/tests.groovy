@@ -29,6 +29,43 @@ String getClusterFullName(String clusterName, String clusterSuffix) {
     return "${clusterName}-${clusterSuffix}"
 }
 
+String imageTag(String image, String fallback = "main") {
+    if (!image?.trim()) {
+        return fallback
+    }
+
+    def parts = image.tokenize(":")
+    return parts.size() > 1 ? parts[-1] : fallback
+}
+
+String getDbTag(Map testVariables, String fallback = "main") {
+    def dbImage = [
+        testVariables.images?.IMAGE_MONGOD,
+        testVariables.images?.IMAGE_MYSQL,
+        testVariables.images?.IMAGE_PXC,
+        testVariables.images?.IMAGE_POSTGRESQL
+    ].find { it?.trim() }
+
+    return imageTag(dbImage, fallback)
+}
+
+String getMinorPlatformVersion(String platformVersion) {
+    def matcher = platformVersion =~ /v?(\d+\.\d+)/
+    return matcher ? matcher[0][1] : platformVersion
+}
+
+String buildJobDescription(Map testVariables) {
+    def cw = "${testVariables.cluster_wide}" == "YES" ? "CW" : "NON-CW"
+    def arch = testVariables.platform_arch ?: ""
+
+    return [
+        getMinorPlatformVersion("${testVariables.platform_version}"),
+        arch,
+        testVariables.db_tag ?: getDbTag(testVariables),
+        cw
+    ].findAll { it?.trim() }.join(" ")
+}
+
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
     def versionedImages = [
         "psmdb-operator": [
@@ -79,25 +116,29 @@ Map prepareVersions(Map testVariables) {
                 error("Unsupported platform_provider: ${testVariables.platform_provider}")
         }
 
-        if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
-            def platformPrefix = [
-                "gcloud"      : "GKE",
-                "azure"       : "AKS",
-                "redhat"      : "OPENSHIFT",
-                "digitalocean": "DOKS",
-                "rancher"     : "RKE2",
-            ][testVariables.platform_provider?.toLowerCase()]
-
-            testVariables.platform_version = getReleaseVersionsParam(
-                testVariables.release_versions,
-                "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
-            )
-
-            platformFromReleaseVersions = true
-        }
-
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
+    }
+
+    if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
+        def platformPrefix = [
+            "gcloud"      : "GKE",
+            "azure"       : "AKS",
+            "redhat"      : "OPENSHIFT",
+            "digitalocean": "DOKS",
+            "rancher"     : "RKE2",
+        ][testVariables.platform_provider?.toLowerCase()]
+
+        if (!platformPrefix) {
+            error("Unsupported platform_provider for platform_version=${testVariables.platform_version}: ${testVariables.platform_provider}")
+        }
+
+        testVariables.platform_version = getReleaseVersionsParam(
+            testVariables.release_versions,
+            "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
+        )
+
+        platformFromReleaseVersions = true
     }
 
     if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
@@ -114,6 +155,10 @@ Map prepareVersions(Map testVariables) {
         testVariables.machine_type = libraries[testVariables.platform_provider].getMachineType(
             testVariables.platform_arch
         )
+    }
+
+    if (!testVariables.db_tag || testVariables.db_tag == "main") {
+        testVariables.db_tag = getDbTag(testVariables, testVariables.db_tag ?: "main")
     }
 
     testVariables.git_short_commit = sh(
