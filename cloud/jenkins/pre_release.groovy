@@ -124,7 +124,6 @@ pipeline {
                     tar -xzf ${GO_VERSION}.linux-amd64.tar.gz
                     rm ${GO_VERSION}.linux-amd64.tar.gz
                     export PATH="$WORKSPACE/go/bin:$PATH"
-                    go install sigs.k8s.io/crdify@latest
 
                     curl -LO https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
                     chmod +x yq_linux_amd64
@@ -197,10 +196,8 @@ pipeline {
                         sh """
                             export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$HOME/go/bin:\$PATH"
                             git fetch --depth=1 origin "refs/tags/v${params.PREVIOUS_VERSION}:refs/tags/v${params.PREVIOUS_VERSION}"
-                            crdify 'git://v${params.PREVIOUS_VERSION}?path=deploy/crd.yaml' 'git://${env.RELEASE_BRANCH}?path=deploy/crd.yaml' > crd_diff.txt
                         """
                     }
-                    archiveArtifacts artifacts: 'crd_diff.txt', allowEmptyArchive: false, fingerprint: true
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                         script {
                             def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
@@ -216,7 +213,6 @@ pipeline {
                                 fi
                                 git checkout -b ${updateBranch}
 
-                                rm -f crd_diff.txt
                                 git add .
                                 if ! git diff --cached --exit-code; then
                                     git commit -m "Update images for ${params.VERSION} release"
