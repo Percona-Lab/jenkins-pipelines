@@ -702,6 +702,16 @@ parameters {
         }
 
         failure {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ [${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            }
+            deleteDir()
+        }
+
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ [${JOB_NAME}]: build finished with warnings for ${BRANCH} - [${BUILD_URL}]")
+            }
             deleteDir()
         }
 
