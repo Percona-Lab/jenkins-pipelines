@@ -554,22 +554,6 @@ parameters {
                 }
             }
         }
-        stage('Push Tarballs to TESTING download area') {
-            when {
-                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
-            }
-            steps {
-                script {
-                    try {
-                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
-                    }
-                    catch (err) {
-                        echo "Caught: ${err}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
-            }
-        }
         stage('Build docker container') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'min-jammy-x64'
@@ -692,8 +676,24 @@ parameters {
                     }
                }
             }
-        } 
-    } 
+        }
+        stage('Push Tarballs to TESTING download area') {
+            when {
+                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
+            }
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+    }
     post {
         success {
             script {
