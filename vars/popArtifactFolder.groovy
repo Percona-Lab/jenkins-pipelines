@@ -6,6 +6,10 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String S3
                     pwd
                     S3_PATH=s3://percona-jenkins-artifactory/${AWS_STASH_PATH}
                     AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp --recursive \$S3_PATH/${FOLDER_NAME} ${FOLDER_NAME} ${S3_FILTER} --endpoint-url https://fsn1.your-objectstorage.com --cli-connect-timeout 60 --cli-read-timeout 120
+                    if [ -z "\$(ls -A ${FOLDER_NAME} 2>/dev/null)" ]; then
+                        echo "ERROR: No files downloaded from Hetzner endpoint, falling back to AWS."
+                        exit 1
+                    fi
                 """
             }
         }

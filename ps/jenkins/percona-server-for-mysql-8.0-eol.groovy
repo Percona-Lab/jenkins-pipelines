@@ -412,9 +412,11 @@ parameters {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 script {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                     sh """
-                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                        wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${BRANCH}
                     """
+                    }
                     env.MYSQL_VERSION_MAJOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MAJOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     echo "Detected Percona Server version: ${env.MYSQL_VERSION_MAJOR}.${env.MYSQL_VERSION_MINOR}"
