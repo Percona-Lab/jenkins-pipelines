@@ -97,11 +97,11 @@ pipeline {
                                 --region $AWS_DEFAULT_REGION \
                                 --output text \
                                 --query 'Subnets[].SubnetId' \
-                                --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
+                                --filter 'Name=tag-value,Values=pmm-ami-staging-start'
                         )
 
                         if [ -z "$SUBNET_IDS" ]; then
-                            echo "ERROR: no subnets tagged 'pmm2-ami-staging-start' found"
+                            echo "ERROR: no subnets tagged 'pmm-ami-staging-start' found"
                             exit 1
                         fi
 
