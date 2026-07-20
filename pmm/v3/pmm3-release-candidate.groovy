@@ -14,8 +14,10 @@ def pmm_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit",
         "pmm-dump"
+        // percona-toolkit is excluded: it tracks a shared, long-lived branch of its
+        // own (e.g. pmm-3.9.0) rather than a per-RC branch, so the RC pipeline must
+        // not create/delete branches for it.
     ]
 }
 
