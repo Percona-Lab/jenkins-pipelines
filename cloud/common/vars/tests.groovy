@@ -662,7 +662,7 @@ void makeReport(List tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
     tests = tests ?: []
 
-    def testsReport = "<testsuite>\n"
+    def testsReport = "<testsuite name=\"$JOB_NAME\">\n"
     tests.each { test ->
         testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
     }
@@ -676,10 +676,10 @@ void makeReport(List tests, Map testVariables) {
         pipelineParameters += "${key}=${value ?: 'e2e_defaults'}\n"
     }
 
-    pipelineParameters += "platform_version=${testVariables.platform_version ?: 'e2e_defaults'}\n"
-    pipelineParameters += "platform_channel=${testVariables.platform_channel ?: 'e2e_defaults'}\n"
-    pipelineParameters += "platform_arch=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
-    pipelineParameters += "cluster_wide=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_VERSION=${testVariables.platform_version ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_CHANNEL=${testVariables.platform_channel ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_ARCH=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
+    pipelineParameters += "CLUSTER_WIDE=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: "PipelineParameters.txt", text: pipelineParameters
