@@ -679,7 +679,7 @@ parameters {
         }
         stage('Push Tarballs to TESTING download area') {
             when {
-                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
+                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') || it.trim().toLowerCase().contains('docker') } }
             }
             steps {
                 script {
