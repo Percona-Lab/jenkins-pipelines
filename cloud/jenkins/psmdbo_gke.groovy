@@ -102,6 +102,7 @@ EOF
     echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh '''
+            mkdir -p "$CLOUDSDK_CONFIG"
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
         '''
@@ -454,6 +455,7 @@ EOF
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
+        CLOUDSDK_CONFIG = "${WORKSPACE}/.gcloud"
         DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {

@@ -93,7 +93,9 @@ void prepareNode() {
         curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
     """
 
+    installGoogleCLI()
     installAzureCLI()
+    googleAuth()
     azureAuth()
 
     if ("$PLATFORM_VER" == "latest") {
@@ -339,6 +341,23 @@ void azureAuth() {
     }
 }
 
+void installGoogleCLI() {
+    sh '''
+        sudo cp cloud/common/files/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo
+        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+    '''
+}
+
+void googleAuth() {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh '''
+            mkdir -p "$CLOUDSDK_CONFIG"
+            gcloud auth activate-service-account --key-file "$CLIENT_SECRET_FILE"
+            gcloud config set project "$GCP_PROJECT"
+        '''
+    }
+}
+
 void installAzureCLI() {
     sh """
         if ! command -v az &>/dev/null; then
@@ -390,6 +409,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
+        CLOUDSDK_CONFIG = "${WORKSPACE}/.gcloud"
         DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {

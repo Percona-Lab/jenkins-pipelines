@@ -14,6 +14,7 @@ def getLibraries() {
 
 pipeline {
     environment {
+        CLOUDSDK_CONFIG = "${WORKSPACE}/.gcloud"
         DB_TAG = sh(
             script: '''[[ "$IMAGE_MONGOD" ]] && echo "$IMAGE_MONGOD" | awk -F':' '{print $2}' || echo main''',
             returnStdout: true
