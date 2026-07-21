@@ -3,6 +3,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def defaultAmiId = pmmVersion('v3-ami').values()[-1]
+
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -59,10 +61,12 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
 
 def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
+    def pmmImageRepo = DOCKER_VERSION.split(":")[0]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
+        string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
         string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
@@ -116,6 +120,10 @@ pipeline {
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
+        string(
+            defaultValue: defaultAmiId,
+            description: '[AMI only] AWS AMI ID (e.g., ami-0669b163befffb6c3).',
+            name: 'AMI_ID')
         string(
             defaultValue: 'latest-tarball',
             description: 'PMM Client version',
@@ -171,7 +179,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "ami" }
                     }
                     steps {
-                        runAMIStagingStart(DOCKER_VERSION)
+                        runAMIStagingStart(AMI_ID)
                     }
                 }
                 stage('Setup Helm PMM Server Instance') {
@@ -229,6 +237,7 @@ pipeline {
                           --arg branch "$PMM_QA_GIT_BRANCH" \
                           --arg pwd "$ADMIN_PASSWORD" \
                           --arg confidence "${PTS_CONFIDENCE}%" \
+                          --arg installation_type "$SERVER_TYPE" \
                           '{
                              ref: $ref,
                              inputs: {
@@ -237,7 +246,8 @@ pipeline {
                                pmm_server_image: $image,
                                pmm_qa_branch: $branch,
                                admin_password: $pwd,
-                               launchable_confidence: $confidence
+                               launchable_confidence: $confidence,
+                               installation_type: $installation_type
                              }
                            }')
 
