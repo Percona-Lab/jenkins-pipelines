@@ -18,6 +18,7 @@ pipeline {
         choice(name: 'IMAGE_TYPE', choices: ['both','regular','custom'], description: 'Which upgrade image(s) to build: regular only, custom only, or both (default)')
         booleanParam(name: 'BUILD_UBI9', defaultValue: true, description: 'Build UBI9 image')
         booleanParam(name: 'BUILD_UBI8', defaultValue: true, description: 'Build UBI8 image (regular only, no custom variant)')
+        booleanParam(name: 'BUILD_UBI10', defaultValue: true, description: 'Build UBI10 image (regular only, no custom variant)')
     }
     options {
         disableConcurrentBuilds()
@@ -95,6 +96,23 @@ pipeline {
                             fi
                         """
                     }
+                    if (params.BUILD_UBI10) {
+                        sh """
+                            PG_MAJOR=\$(echo ${params.IMAGE_TAG} | cut -f1 -d'-' | cut -f1 -d'.')
+                            echo "PG_MAJOR=\$PG_MAJOR"
+                            git clone https://github.com/percona/percona-docker percona-docker-ubi10
+                            cd percona-docker-ubi10/percona-distribution-postgresql-upgrade
+                            sed -i "s|ppg-\\\${PG_MAJOR} release|ppg-\\\${PG_MAJOR} ${params.PPG_REPO}|g" Dockerfile-ubi10
+                            sed -i "s|ppg-\\\${pg_version} release|ppg-\\\${pg_version} ${params.PPG_REPO}|g" Dockerfile-ubi10
+
+                            if [ "${params.IMAGE_TYPE}" = "both" ] || [ "${params.IMAGE_TYPE}" = "regular" ]; then
+                                docker build --platform=linux/amd64 --no-cache --provenance=false \\
+                                    --build-arg PG_MAJOR=\$PG_MAJOR \\
+                                    -t percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10 \\
+                                    -f Dockerfile-ubi10 .
+                            fi
+                        """
+                    }
                 }
             }
         }
@@ -140,6 +158,19 @@ pipeline {
                             fi
                         """
                     }
+                    if (params.BUILD_UBI10) {
+                        sh """
+                            if [ ${params.PPG_REPO} = "release" ]; then
+                                TRIVY_EXIT=1
+                            else
+                                TRIVY_EXIT=0
+                            fi
+                            if [ "${params.IMAGE_TYPE}" = "both" ] || [ "${params.IMAGE_TYPE}" = "regular" ]; then
+                                /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-ubi10-junit.xml \\
+                                                 --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10
+                            fi
+                        """
+                    }
                 }
             }
             post {
@@ -169,6 +200,12 @@ pipeline {
                             sh """
                                 docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64
                                 docker push perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64
+                            """
+                        }
+                        if (params.BUILD_UBI10) {
+                            sh """
+                                docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10 perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64
+                                docker push perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64
                             """
                         }
                     }
@@ -205,6 +242,13 @@ pipeline {
                                 docker buildx imagetools create \\
                                     -t percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64 \\
                                     perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64
+                            """
+                        }
+                        if (params.BUILD_UBI10) {
+                            sh """
+                                docker buildx imagetools create \\
+                                    -t percona/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64 \\
+                                    perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64
                             """
                         }
                     }
