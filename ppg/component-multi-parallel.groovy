@@ -32,7 +32,7 @@ pipeline {
 
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(numToKeepStr: '50'))
         retry(conditions: [agent()], count: 2)
     }
 
