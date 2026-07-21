@@ -76,10 +76,21 @@ void setup_ubuntu_package_tests()
     '''
 }
 
+String resolvePmmQaBranch(String branch) {
+    def mergedBranches = [
+        'PMM-14766': 'main',
+    ]
+    return mergedBranches.get(branch, branch)
+}
+
 void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, String TARBALL)
 {
+    def pmmQaBranch = resolvePmmQaBranch(GIT_BRANCH)
+    if (pmmQaBranch != GIT_BRANCH) {
+        echo "pmm-qa branch '${GIT_BRANCH}' was merged; checking out '${pmmQaBranch}' instead"
+    }
     deleteDir()
-    git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa'
+    git poll: false, branch: pmmQaBranch, url: 'https://github.com/percona/pmm-qa'
     sh """
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
@@ -101,7 +112,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for pmm-qa repository (merged feature branches such as PMM-14766 resolve to main)',
             name: 'GIT_BRANCH',
             trim: true)
         string(
@@ -216,6 +227,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu 26.04 Resolute - ARM64') {
+                    when {
+                        expression { !env.TESTS?.contains("upgrade") }
+                    }
                     agent {
                         label 'min-resolute-arm64'
                     }
