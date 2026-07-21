@@ -679,7 +679,12 @@ parameters {
         }
         stage('Push Tarballs to TESTING download area') {
             when {
-                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') || it.trim().toLowerCase().contains('docker') } }
+                expression {
+                    if (!params.BUILD_STAGES) return true
+                    def stages = params.BUILD_STAGES.split(',').collect { it.trim().toLowerCase() }
+                    stages.any { it.contains('tarball') || it.contains('docker') } ||
+                    (stages.any { it.contains('oracle linux 9') && !it.contains('arm') } && stages.any { it.contains('oracle linux 9') && it.contains('arm') })
+                }
             }
             steps {
                 script {
