@@ -149,7 +149,7 @@ void dockerBuildPush() {
                 sg docker -c "
                     echo '$PASS' | docker login -u '$USER' --password-stdin
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
+                    make build
                     docker logout
                 "
                 sudo rm -rf build
@@ -246,12 +246,8 @@ void createCluster(String CLUSTER_SUFFIX) {
             --enable-managed-identity \
             --node-count 3 \
             --node-vm-size Standard_B4ms \
-            --min-count 3 \
-            --max-count 3 \
             --node-osdisk-size 30 \
-            --network-plugin kubenet \
             --generate-ssh-keys \
-            --enable-cluster-autoscaler \
             --outbound-type loadbalancer \
             --kubernetes-version $PLATFORM_VER \
             --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \

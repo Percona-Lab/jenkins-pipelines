@@ -64,6 +64,7 @@ void prepareNode() {
         IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
         IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_SEARCH = IMAGE_SEARCH ?: getParam("IMAGE_SEARCH")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
         }
@@ -100,7 +101,7 @@ void prepareNode() {
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     CLUSTER_NAME = "psmdbo-${GIT_SHORT_COMMIT.take(6)}".toLowerCase()
     env.CLUSTER_NAME = CLUSTER_NAME
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -203,6 +204,58 @@ void clusterRunner(String cluster) {
     }
 }
 
+void enableVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        for i in \$(seq 1 60); do
+            if kubectl get crd csisnapshotcontrollers.operator.openshift.io >/dev/null 2>&1; then
+                break
+            fi
+            sleep 10
+        done
+
+        cat <<EOF | kubectl apply -f -
+apiVersion: operator.openshift.io/v1
+kind: CSISnapshotController
+metadata:
+  name: cluster
+spec:
+  managementState: Managed
+EOF
+
+        kubectl get csisnapshotcontroller cluster -o yaml
+    """
+}
+
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        wait_for_deployment() {
+            local deployment_name="\$1"
+            local namespace="\$2"
+
+            for i in \$(seq 1 60); do
+                if kubectl get deployment "\$deployment_name" -n "\$namespace" >/dev/null 2>&1; then
+                    kubectl wait --for=condition=Available deployment/"\$deployment_name" -n "\$namespace" --timeout=10m
+                    return 0
+                fi
+                sleep 10
+            done
+
+            kubectl get deployment -n "\$namespace" || true
+            return 1
+        }
+
+        wait_for_deployment csi-snapshot-controller-operator openshift-cluster-storage-operator
+        wait_for_deployment csi-snapshot-controller openshift-cluster-storage-operator
+
+        kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+        kubectl api-resources --api-group=snapshot.storage.k8s.io
+    """
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
@@ -274,6 +327,9 @@ EOF
             }
         }
     }
+
+    enableVolumeSnapshotResources(CLUSTER_SUFFIX)
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {
@@ -301,6 +357,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
                     export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                     export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                    export IMAGE_SEARCH=$IMAGE_SEARCH
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
 
                     oc whoami
@@ -361,6 +418,7 @@ IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
 IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
+IMAGE_SEARCH=${IMAGE_SEARCH ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -451,6 +509,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
         string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')

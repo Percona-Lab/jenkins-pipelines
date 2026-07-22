@@ -64,6 +64,7 @@ void prepareNode() {
         IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
         IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_SEARCH = IMAGE_SEARCH ?: getParam("IMAGE_SEARCH")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "EKS_${PLATFORM_VER}")
         }
@@ -99,7 +100,7 @@ void prepareNode() {
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR  | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH  | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -202,6 +203,38 @@ void clusterRunner(String cluster) {
     }
 }
 
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
+
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            export KUBECONFIG=/tmp/${clusterName}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+
+            wait_for_deployment() {
+                local deployment_name="\$1"
+
+                for i in \$(seq 1 60); do
+                    if kubectl get deployment "\$deployment_name" -n kube-system >/dev/null 2>&1; then
+                        kubectl wait --for=condition=Available deployment/"\$deployment_name" -n kube-system --timeout=10m
+                        return 0
+                    fi
+                    sleep 10
+                done
+
+                kubectl get deployment -n kube-system
+                return 1
+            }
+
+            wait_for_deployment ebs-csi-controller
+            wait_for_deployment snapshot-controller
+
+            kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+            kubectl api-resources --api-group=snapshot.storage.k8s.io
+        """
+    }
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
@@ -225,6 +258,7 @@ addons:
 - name: aws-ebs-csi-driver
   wellKnownPolicies:
     ebsCSIController: true
+- name: snapshot-controller
 nodeGroups:
 - name: ng-1
   minSize: 3
@@ -245,15 +279,35 @@ nodeGroups:
 EOF
         """
 
-        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            credentialsId: 'eks-cicd',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
             sh """
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+
                 eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-                kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+                
+                # Use GP3 storage class as default, recommended by the provider
+                kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
+
+                # Remove GP2 storage class default label, for old clusters
+                kubectl annotate storageclass gp2 \
+                    storageclass.kubernetes.io/is-default-class- \
+                    --overwrite 2>/dev/null || true
+
+                kubectl create clusterrolebinding cluster-admin-binding1 \
+                    --clusterrole=cluster-admin \
+                    --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+
+                kubectl get storageclass
             """
         }
     }
+
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {
@@ -282,6 +336,7 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
                         export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                         export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                        export IMAGE_SEARCH=$IMAGE_SEARCH
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
                         e2e-tests/$testName/run
@@ -341,6 +396,7 @@ IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
 IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
+IMAGE_SEARCH=${IMAGE_SEARCH ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -454,6 +510,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
         string(name: 'EKS_REGION', defaultValue: 'eu-west-3', description: 'EKS region to use for cluster')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')

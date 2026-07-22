@@ -25,6 +25,8 @@ void build(String IMAGE_SUFFIX){
 
             if [ ${IMAGE_SUFFIX} = backup ]; then
                 build_multiarch "\$BASE_TAG" percona-backup-mongodb Dockerfile Dockerfile.aarch64
+            elif [ ${IMAGE_SUFFIX} = mongot ]; then
+                build_multiarch "\$BASE_TAG" percona-server-mongodb-mongot Dockerfile Dockerfile.aarch64
             else
                 DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
                 CONTEXT=percona-server-mongodb-\$DOCKER_FILE_PREFIX
@@ -40,6 +42,31 @@ void build(String IMAGE_SUFFIX){
             docker logout
         """
     }
+}
+
+List selectedPsmdbImageSuffixes() {
+    def images = []
+
+    if (params.IMAGE_BACKUP) {
+        images << 'backup'
+    }
+    if (params.IMAGE_MONGOD60) {
+        images << 'mongod6.0'
+    }
+    if (params.IMAGE_MONGOD70) {
+        images << 'mongod7.0'
+    }
+    if (params.IMAGE_MONGOD80) {
+        images << 'mongod8.0'
+    }
+    if (params.IMAGE_MONGOD83) {
+        images << 'mongod8.3'
+    }
+    if (params.IMAGE_SEARCH) {
+        images << 'mongot'
+    }
+
+    return images
 }
 
 void verifyImage(String IMAGE){
@@ -149,6 +176,14 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
             name: 'GIT_PD_REPO')
+
+        booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Build PSMDB operator image')
+        booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Build PBM image')
+        booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Build PSMDB 6.0 image')
+        booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Build PSMDB 7.0 image')
+        booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Build PSMDB 8.0 image')
+        booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Build PSMDB 8.3 image')
+        booleanParam(name: 'IMAGE_SEARCH', defaultValue: true, description: 'Build mongot image')
     }
     agent {
          label 'docker-x64-min'
@@ -193,10 +228,21 @@ pipeline {
                 sh '''
                     rm -rf cloud
                 '''
+
+                script {
+                    if (!params.IMAGE_OPERATOR && selectedPsmdbImageSuffixes().isEmpty()) {
+                        error('Select at least one image to build')
+                    }
+
+                    echo "Selected images: ${([params.IMAGE_OPERATOR ? 'operator' : null] + selectedPsmdbImageSuffixes()).findAll { it }.join(', ')}"
+                }
             }
         }
 
         stage('Build and push PSMDB operator docker image') {
+            when {
+                expression { params.IMAGE_OPERATOR }
+            }
             steps {
                 retry(3) {
                     timeout(time: 30, unit: 'MINUTES') {
@@ -222,6 +268,9 @@ pipeline {
 
 
         stage('Build PSMDB docker images') {
+            when {
+                expression { !selectedPsmdbImageSuffixes().isEmpty() }
+            }
             steps {
                 unstash "checkout"
                 sh """
@@ -230,34 +279,28 @@ pipeline {
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
                 """
-                echo 'Build PBM docker image'
-                retry(3) {
-                    build('backup')
-                }
-                echo 'Build PSMDB docker images'
-                retry(3) {
-                    build('mongod6.0')
-                }
-                retry(3) {
-                    build('mongod7.0')
-                }
-                retry(3) {
-                    build('mongod8.0')
-                }
-                retry(3) {
-                    build('mongod8.3')
+                script {
+                    selectedPsmdbImageSuffixes().each { imageSuffix ->
+                        echo "Build ${imageSuffix} docker image"
+                        retry(3) {
+                            build(imageSuffix)
+                        }
+                    }
                 }
             }
         }
 
         stage('Verify and list PSMDB images') {
             steps {
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_BRANCH}")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod6.0")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod7.0")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.0")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.3")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-backup")
+                script {
+                    if (params.IMAGE_OPERATOR) {
+                        verifyImage("${IMAGE_REPOSITORY}:${GIT_BRANCH}")
+                    }
+
+                    selectedPsmdbImageSuffixes().each { imageSuffix ->
+                        verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-${imageSuffix}")
+                    }
+                }
             }
         }
         stage('Check PSMDB docker images') {

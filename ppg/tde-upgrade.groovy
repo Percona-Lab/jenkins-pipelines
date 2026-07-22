@@ -144,8 +144,8 @@ pipeline {
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
         buildDiscarder(logRotator(
-            numToKeepStr: '30',
-            artifactNumToKeepStr: '30'
+            numToKeepStr: '50',
+            artifactNumToKeepStr: '50'
         ))
         retry(conditions: [agent()], count: 2)
     }
