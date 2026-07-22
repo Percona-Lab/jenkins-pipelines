@@ -122,7 +122,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                         """
                     } else if(action == "side-effect"){
                         sh """ # This will check version during side effect
-                            echo 'install_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                            echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                             echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         """
                     }
