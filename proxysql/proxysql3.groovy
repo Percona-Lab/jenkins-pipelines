@@ -11,8 +11,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         pwd -P
         export build_dir=\$(pwd -P)
         ls -la /var/run/docker.sock
-        who
-        sudo usermod -aG docker jenkins
         sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
