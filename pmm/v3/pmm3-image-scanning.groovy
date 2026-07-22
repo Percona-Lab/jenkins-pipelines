@@ -38,10 +38,12 @@ pipeline {
             steps {
                 script {
                     sh """
-                        trivy image --severity HIGH,CRITICAL --format table -o trivy-server-report.txt ${params.PMM_SERVER_IMAGE}
-                        trivy image --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-server-report.html ${params.PMM_SERVER_IMAGE}
+                        trivy image --platform linux/amd64 --severity HIGH,CRITICAL --format table -o trivy-server-report-amd64.txt ${params.PMM_SERVER_IMAGE}
+                        trivy image --platform linux/amd64 --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-server-report-amd64.html ${params.PMM_SERVER_IMAGE}
+                        trivy image --platform linux/arm64 --severity HIGH,CRITICAL --format table -o trivy-server-report-arm64.txt ${params.PMM_SERVER_IMAGE}
+                        trivy image --platform linux/arm64 --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-server-report-arm64.html ${params.PMM_SERVER_IMAGE}
                     """
-                    archiveArtifacts artifacts: 'trivy-server-report.*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'trivy-server-report-*.*', allowEmptyArchive: true
                 }
             }
         }
@@ -49,10 +51,12 @@ pipeline {
             steps {
                 script {
                     sh """
-                        trivy image --severity HIGH,CRITICAL --format table -o trivy-client-report.txt ${params.PMM_CLIENT_IMAGE}
-                        trivy image --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-client-report.html ${params.PMM_CLIENT_IMAGE}
+                        trivy image --platform linux/amd64 --severity HIGH,CRITICAL --format table -o trivy-client-report-amd64.txt ${params.PMM_CLIENT_IMAGE}
+                        trivy image --platform linux/amd64 --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-client-report-amd64.html ${params.PMM_CLIENT_IMAGE}
+                        trivy image --platform linux/arm64 --severity HIGH,CRITICAL --format table -o trivy-client-report-arm64.txt ${params.PMM_CLIENT_IMAGE}
+                        trivy image --platform linux/arm64 --severity HIGH,CRITICAL --format template --template "@html.tpl" -o trivy-client-report-arm64.html ${params.PMM_CLIENT_IMAGE}
                     """
-                    archiveArtifacts artifacts: 'trivy-client-report.*', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'trivy-client-report-*.*', allowEmptyArchive: true
                 }
             }
         }

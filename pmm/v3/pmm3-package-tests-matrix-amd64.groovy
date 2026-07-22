@@ -7,6 +7,7 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
     packageTestJob = build job: 'pmm3-package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'SERVER_ARCH', value: params.SERVER_ARCH),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: TESTS),
         string(name: 'INSTALL_REPO', value: INSTALL_REPO),
@@ -38,6 +39,10 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION',
             trim: true)
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'Architecture of the PMM server staging VM',
+            name: 'SERVER_ARCH')
         string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
