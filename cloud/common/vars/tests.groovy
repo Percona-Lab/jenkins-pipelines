@@ -1,10 +1,30 @@
 void loadCloudSecret(String operator) {
+    def credentialsIds = [
+        "pg"   : "cloud-secret-file",
+        "ps"   : "cloud-secret-file-ps",
+        "psmdb": "cloud-secret-file-psmdb",
+        "pxc"  : "cloud-secret-file"
+    ]
+
     withCredentials([file(
-        credentialsId: "cloud-secret-file-${operator}",
+        credentialsId: credentialsIds[operator] ?: "cloud-secret-file-${operator}",
         variable: 'CLOUD_SECRET_FILE'
     )]) {
         sh '''
             cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
+        '''
+    }
+}
+
+void loadCloudMinioSecret() {
+    withCredentials([file(
+        credentialsId: "cloud-minio-secret-file",
+        variable: 'CLOUD_MINIO_SECRET_FILE'
+    )]) {
+        sh '''
+            cp "$CLOUD_MINIO_SECRET_FILE" source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         '''
     }
 }
@@ -30,19 +50,28 @@ String getClusterFullName(String clusterName, String clusterSuffix) {
 }
 
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
+    def pillarVersionKey = "${pillarVersion}".replace("-postgis", "")
+    def postgresImageKey = "${pillarVersion}".endsWith("-postgis") ?
+        "IMAGE_POSTGIS${pillarVersionKey}" :
+        "IMAGE_POSTGRESQL${pillarVersionKey}"
+
     def versionedImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
         "ps-operator": [
-            IMAGE_MYSQL: "IMAGE_MYSQL${pillarVersion}"
+            IMAGE_MYSQL : "IMAGE_MYSQL${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}",
+            IMAGE_ROUTER: "IMAGE_ROUTER${pillarVersion}"
         ],
         "pxc-operator": [
-            IMAGE_PXC: "IMAGE_PXC${pillarVersion}"
+            IMAGE_PXC   : "IMAGE_PXC${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_PGBOUNCER: "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: postgresImageKey,
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersionKey}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersionKey}"
         ]
     ]
 
@@ -51,8 +80,6 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
 
 Map prepareVersions(Map testVariables) {
     def libraries = testVariables.libraries
-    def platformFromReleaseVersions = false
-
     if ("${testVariables.pillar_version}" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
         testVariables.platform_channel = "stable"
@@ -73,27 +100,38 @@ Map prepareVersions(Map testVariables) {
             case "azure":
             case "redhat":
             case "digitalocean":
+            case "minikube":
                 break
 
             default:
                 error("Unsupported platform_provider: ${testVariables.platform_provider}")
         }
 
-        if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
+        def platformVersionAlias = testVariables.platform_version?.toLowerCase()
+
+        if (testVariables.platform_provider?.toLowerCase() == "minikube" && platformVersionAlias == "min") {
+            error("Unsupported Minikube platform_version=${testVariables.platform_version}. Use max, rel, or latest.")
+        }
+
+        if (platformVersionAlias in ["min", "max", "rel"]) {
             def platformPrefix = [
                 "gcloud"      : "GKE",
                 "azure"       : "AKS",
                 "redhat"      : "OPENSHIFT",
                 "digitalocean": "DOKS",
                 "rancher"     : "RKE2",
+                "minikube"    : "MINIKUBE",
             ][testVariables.platform_provider?.toLowerCase()]
+
+            def platformKey = (testVariables.platform_provider?.toLowerCase() == "minikube" && platformVersionAlias in ["max", "rel"]) ?
+                "REL" :
+                testVariables.platform_version.toUpperCase()
 
             testVariables.platform_version = getReleaseVersionsParam(
                 testVariables.release_versions,
-                "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
+                "${platformPrefix}_${platformKey}"
             )
 
-            platformFromReleaseVersions = true
         }
 
     } else {
@@ -104,13 +142,13 @@ Map prepareVersions(Map testVariables) {
         testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
             testVariables.platform_channel
         )
-    } else if (!platformFromReleaseVersions) {
+    } else if (testVariables.platform_provider) {
         testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
             testVariables.platform_version
         )
     }
 
-    if (testVariables.platform_arch && testVariables.platform_provider) {
+    if (testVariables.platform_arch && testVariables.platform_provider && libraries[testVariables.platform_provider].metaClass.respondsTo(libraries[testVariables.platform_provider], "getMachineType", String)) {
         testVariables.machine_type = libraries[testVariables.platform_provider].getMachineType(
             testVariables.platform_arch
         )
@@ -296,6 +334,10 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
         exports << "export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')"
     }
 
+    if (testVariables.test_executor_type == "kuttl") {
+        exports << 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"'
+    }
+
     testVariables.extra_envs?.each { key, value ->
         exports << "export ${key}='${value ?: ""}'"
     }
@@ -320,7 +362,9 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
         "FAILED_TEST_NAME=${testName}",
         "KUBECONFIG=${kubeconfig}"
     ]) {
-        sh '''
+        sh(label: "Cleanup failed namespaces for ${testName}", script: '''
+            #!/usr/bin/env bash
+            set +x
             set +e
 
             if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
@@ -334,20 +378,21 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
                     case "$namespace" in
                         "$FAILED_TEST_NAME"-*|kuttl*)
                             echo "Removing finalizers from resources in namespace: $namespace"
-                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
+                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s 2>/dev/null \
+                                | grep -vE '^(events|events\\.events\\.k8s\\.io|endpoints)$' \
                                 | while read -r resource; do
                                     kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
                                         | while read -r object; do
-                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
+                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s >/dev/null 2>&1 || true
                                         done
                                 done
 
                             echo "Deleting namespace: $namespace"
-                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
+                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s >/dev/null 2>&1 || true
                             ;;
                     esac
                 done
-        '''
+        ''')
     }
 }
 

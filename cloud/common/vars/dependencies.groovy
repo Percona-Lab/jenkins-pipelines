@@ -97,4 +97,39 @@ void installAzureCLI() {
     '''
 }
 
+void installMinikube() {
+    sh '''
+        set -euo pipefail
+
+        if ! command -v minikube >/dev/null 2>&1; then
+            sudo curl -fsSL \
+                https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+                -o /usr/local/bin/minikube
+            sudo chmod +x /usr/local/bin/minikube
+        fi
+
+        minikube version
+    '''
+}
+
+void installKuttl() {
+    sh '''
+        set -euo pipefail
+
+        if ! command -v kubectl-krew >/dev/null 2>&1 && ! kubectl krew version >/dev/null 2>&1; then
+            curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+            ./krew-linux_amd64 install krew
+        fi
+
+        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+        kubectl krew install assert || true
+        kubectl krew install --manifest-url \
+            https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml \
+            || true
+
+        kubectl kuttl --version
+    '''
+}
+
 return this
