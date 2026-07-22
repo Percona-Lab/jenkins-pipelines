@@ -27,16 +27,24 @@
         description: Tag/Branch for the Orchestrator CI repository
     - choice:
         name: CLOUD
-        choices: 
+        choices:
           - "Hetzner"
           - "AWS"
-        description: "Host provider for Jenkins workers"          
+        description: "Host provider for Jenkins workers"
+    - string:
+        name: JENKINS_SCRIPTS_REPO
+        default: "https://github.com/Percona-Lab/jenkins-pipelines.git"
+        description: "Repo for the pipeline Groovy and the run-*-tests scripts under orchestrator/local. Override to test changes from a fork."
+    - string:
+        name: JENKINS_SCRIPTS_BRANCH
+        default: "orchestrator"
+        description: "Branch/tag of JENKINS_SCRIPTS_REPO to use"
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
+            url: "${JENKINS_SCRIPTS_REPO}"
             branches:
-            - 'orchestrator'
+            - "${JENKINS_SCRIPTS_BRANCH}"
             wipe-workspace: false
-      lightweight-checkout: true
+      lightweight-checkout: false
       script-path: orchestrator/jenkins/orchestrator-pipeline.groovy

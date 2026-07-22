@@ -1,7 +1,12 @@
-JENKINS_SCRIPTS_BRANCH = 'orchestrator'
-JENKINS_SCRIPTS_REPO = 'https://github.com/kamil-holubicki/jenkins-pipelines'
-LABEL = 'docker-32gb'
-MICRO_LABEL = 'micro-amazon'
+import groovy.transform.Field
+
+@Field String LABEL = 'docker-32gb'
+@Field String MICRO_LABEL = 'micro-amazon'
+
+void checkoutScripts() {
+    echo "JENKINS_SCRIPTS_REPO: ${params.JENKINS_SCRIPTS_REPO}@${params.JENKINS_SCRIPTS_BRANCH}"
+    git branch: params.JENKINS_SCRIPTS_BRANCH, url: params.JENKINS_SCRIPTS_REPO
+}
 
 if (params.CLOUD == 'Hetzner') {
     LABEL = 'docker-x64'
@@ -27,7 +32,7 @@ pipeline {
         stage('Integration Tests') {
             agent { label LABEL }
             steps {
-                git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
+                checkoutScripts()
                 echo 'Run Orchestrator integration tests'
                 sh '''
                     # sudo is needed for better node recovery after compilation failure
@@ -54,7 +59,7 @@ pipeline {
         stage('System Tests') {
             agent { label LABEL }
             steps {
-                git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
+                checkoutScripts()
                 echo 'Run Orchestrator system tests'
                 sh '''
                     # sudo is needed for better node recovery after compilation failure
