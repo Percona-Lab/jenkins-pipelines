@@ -10,7 +10,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/scripts/proxysql_builder.sh -O proxysql_builder.sh
         pwd -P
         export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+        ls -la /var/run/docker.sock
+        sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             sed -i "s/^RPM_RELEASE=.*/RPM_RELEASE=${RPM_RELEASE}/g" proxysql_builder.sh
