@@ -130,7 +130,9 @@ fix_libaio_symlink() {
     local server_dir="$1"
     local binary="$server_dir/bin/mysqld"
     local missing_lib="libaio.so.1"
-    local target_path="/usr/lib/x86_64-linux-gnu"
+    local machine_arch
+    machine_arch="$(uname -m)"
+    local target_path="/usr/lib/${machine_arch}-linux-gnu"
     local real_lib="$target_path/${missing_lib}t64"
     local link_lib="$target_path/$missing_lib"
 
