@@ -124,7 +124,7 @@ void dockerBuildPush() {
                 sg docker -c "
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
+                    make build
                     docker logout
                 "
                 sudo rm -rf build
