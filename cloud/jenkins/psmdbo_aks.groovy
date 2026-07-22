@@ -93,6 +93,24 @@ void prepareNode() {
         curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
     """
 
+    sh '''
+        if ! command -v gsutil &>/dev/null; then
+            echo "gsutil not found, installing google-cloud-cli..."
+            sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+            sudo yum install -y google-cloud-cli
+        fi
+        command -v gsutil
+        gsutil version -l | head -n1
+    '''
+
     installAzureCLI()
     azureAuth()
 
