@@ -32,6 +32,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 docker version
                 sudo docker run --security-opt seccomp=unconfined --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                     set -o xtrace
+                    find / -name "libseccomp*"
                     cd \${build_dir}
                     bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --install_deps=1
                     if [ \${FIPSMODE} = "YES" ]; then
