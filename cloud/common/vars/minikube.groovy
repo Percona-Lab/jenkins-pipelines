@@ -32,7 +32,8 @@ void createCluster(Map cfg) {
             --cpus='${cfg.cpus ?: 6}' \
             --memory='${cfg.memory ?: "28G"}' \
             --force \
-            --driver=docker
+            --driver=docker \
+            --container-runtime=containerd
 
         minikube ssh -p '${cfg.clusterName}-${cfg.clusterSuffix}' -- 'cat /etc/hosts' \
             > minikube-etc-hosts.txt
