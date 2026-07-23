@@ -32,7 +32,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'micro-amazon'
     }
     parameters {
         choice(
@@ -73,7 +73,7 @@ pipeline {
     stages {
           stage('Create Valkey source tarball') {
             agent {
-                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
@@ -100,7 +100,7 @@ pipeline {
             parallel {
                 stage('Build valkey generic source rpm') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -113,7 +113,7 @@ pipeline {
                 }
                 stage('Build valkey generic source deb') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -129,7 +129,7 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -155,7 +155,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -181,7 +181,7 @@ pipeline {
                 }
                 stage('Oracle Linux 10') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -207,7 +207,7 @@ pipeline {
                 }
                 stage('Amazon Linux 2023') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -233,7 +233,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -259,7 +259,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -285,7 +285,7 @@ pipeline {
                 }
                 stage('Ubuntu Resolute(26.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -311,7 +311,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -337,7 +337,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -363,7 +363,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
