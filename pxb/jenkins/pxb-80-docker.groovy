@@ -268,7 +268,7 @@ stage('Check by Trivy') {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${BRANCH}, pushed to ${ORGANIZATION}"
+                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }
