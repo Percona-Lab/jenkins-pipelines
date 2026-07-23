@@ -27,18 +27,20 @@ pipeline {
         choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'Minikube Kubernetes version. Use max or rel to read MINIKUBE_REL from release_versions, or latest for upstream stable.')
-        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
-        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main')
-        string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-psmysql8.0')
-        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-backup8.0')
-        string(name: 'IMAGE_ROUTER', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-router8.0')
-        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-haproxy')
-        string(name: 'IMAGE_ORCHESTRATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-orchestrator')
-        string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-pmm')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-pmm-server')
-        string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-binlog-server')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: '')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
+
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main')
+        string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-psmysql8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-backup8.0')
+        string(name: 'IMAGE_ROUTER', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-router8.0')
+        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-haproxy')
+        string(name: 'IMAGE_ORCHESTRATOR', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-orchestrator')
+        string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-toolkit')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-pmm')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-pmm-server')
+        string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'Example: perconalab/percona-server-mysql-operator:main-binlog-server')
+
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
     }
 
     agent {
@@ -96,19 +98,18 @@ pipeline {
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'ps-operator',
+                        operator_repo         : 'perconalab/percona-server-mysql-operator',
 
                         platform_provider     : 'minikube',
-                        platform_version      : params.PLATFORM_VERSION,
+                        platform_version      : PLATFORM_VERSION,
 
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
 
                         git_branch            : GIT_BRANCH,
                         job_name              : JOB_NAME,
-                        db_tag                : DB_TAG,
+                        db_tag                : env.DB_TAG,
                         test_executor_type    : 'kuttl',
-
-                        default_operator_image: "perconalab/percona-server-mysql-operator:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR      : IMAGE_OPERATOR,

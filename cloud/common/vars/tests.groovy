@@ -199,20 +199,15 @@ List loadTestList(String testList, String testSuite) {
     return tests
 }
 
-String artifactFileName(Map cfg) {
-    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
-}
+String artifactFileName(Map testVariables, String testName) {
+    def branch          = testVariables.git_branch
+    def commit          = testVariables.git_short_commit
+    def platformVersion = testVariables.platform_version
+    def dbTag           = testVariables.db_tag
+    def clusterWide     = testVariables.cluster_wide
+    def paramsHash      = testVariables.params_hash
 
-Map buildArtifactParams(Map testVariables, String testName) {
-    return [
-        gitBranch     : testVariables.git_branch,
-        gitShortCommit: testVariables.git_short_commit,
-        testName      : testName,
-        platformVersion : testVariables.platform_version,
-        dbTag         : testVariables.db_tag,
-        clusterWide   : testVariables.cluster_wide,
-        paramsHash    : testVariables.params_hash
-    ]
+    return "${branch}-${commit}-${testName}-${platformVersion}-${dbTag}-CW_${clusterWide}-${paramsHash}"
 }
 
 String buildParamsHash(Map testVariables) {
@@ -223,8 +218,9 @@ String buildParamsHash(Map testVariables) {
         testVariables.cluster_wide,
         testVariables.platform_arch,
         testVariables.platform_channel,
-        testVariables.pillar_version
-    ].findAll { it != null }
+        testVariables.pillar_version,
+        testVariables.db_tag
+    ].findAll { it != null && it.toString().trim() != '' && it.toString() != 'null' }
 
     testVariables.images.values().findAll { it }.each { imageValue ->
         hashValues << imageValue
@@ -270,7 +266,7 @@ void updateListWithLastExecutionStatus(Map testVariables) {
         """
 
         testVariables.tests.each { test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, test.name))
+            def file = artifactFileName(testVariables, test.name)
             def retFileExists = sh(
                 script: """
                     aws s3api head-object \
@@ -321,9 +317,9 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
     exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
     exports << """
-        [[ '${testVariables.images.IMAGE_OPERATOR}' ]] && \
-            export IMAGE='${testVariables.images.IMAGE_OPERATOR}' || \
-            export IMAGE='${testVariables.default_operator_image}'
+        [[ '${testVariables.images.IMAGE_OPERATOR}' ]] \
+            && export IMAGE='${testVariables.images.IMAGE_OPERATOR}' \
+            || export IMAGE='${testVariables.operator_repo}:${testVariables.git_branch}'
     """.stripIndent().trim()
 
     testVariables.images.each { imageName, imageValue ->
@@ -436,7 +432,7 @@ void runTest(Map testConfig) {
             }
 
             pushArtifactFile(
-                artifactFileName(buildArtifactParams(testVariables, testName)),
+                artifactFileName(testVariables, testName),
                 testVariables.git_short_commit
             )
 
@@ -447,11 +443,13 @@ void runTest(Map testConfig) {
             try {
                 testVariables.libraries.tools.kubernetesArchiveClusterLogs(
                     "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
-                    testName
+                    testName,
+                    testVariables.operator
                 )
                 testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(
                     "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
-                    testName
+                    testName,
+                    testVariables.operator
                 )
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"

@@ -28,19 +28,21 @@ pipeline {
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         string(name: 'GIT_REPO', defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator', description: 'Repository')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'Minikube Kubernetes version. Use max or rel to read MINIKUBE_REL from release_versions, or latest for upstream stable.')
-        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
-        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main')
-        string(name: 'IMAGE_PXC', defaultValue: '', description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0')
-        string(name: 'IMAGE_PROXY', defaultValue: '', description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql')
-        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy')
-        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup')
-        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'PXC PMM client image: perconalab/percona-xtradb-cluster-operator:main-pmm')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'PXC PMM server image: perconalab/percona-xtradb-cluster-operator:main-pmm-server')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'PXC PMM3 client image: perconalab/percona-xtradb-cluster-operator:main-pmm3')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'PXC PMM3 server image: perconalab/percona-xtradb-cluster-operator:main-pmm3-server')
-        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: '')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: '')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
+
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main')
+        string(name: 'IMAGE_PXC', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-pxc8.0')
+        string(name: 'IMAGE_PROXY', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-proxysql')
+        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-haproxy')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-logcollector')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-pmm')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-pmm-server')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-pmm3')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'Example: perconalab/percona-xtradb-cluster-operator:main-pmm3-server')
+
+        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
     }
 
     agent {
@@ -97,20 +99,19 @@ pipeline {
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pxc-operator',
+                        operator_repo         : 'perconalab/percona-xtradb-cluster-operator',
 
                         platform_provider     : 'minikube',
-                        platform_version      : params.PLATFORM_VERSION,
+                        platform_version      : PLATFORM_VERSION,
 
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
 
                         git_branch            : GIT_BRANCH,
                         job_name              : JOB_NAME,
-                        db_tag                : DB_TAG,
+                        db_tag                : env.DB_TAG,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'shell',
-
-                        default_operator_image: "perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,

@@ -27,18 +27,20 @@ pipeline {
         choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'Minikube Kubernetes version. Use max or rel to read MINIKUBE_REL from release_versions, or latest for upstream stable.')
-        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
-        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
-        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
-        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-pmm')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-pmm-server')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-pmm3')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-pmm3-server')
-        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
-        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
-        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: '')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: '')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
+
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-backup')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm-server')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm3')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm3-server')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'Example: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-mongot')
+
+        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
     }
 
     agent {
@@ -110,20 +112,19 @@ pipeline {
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb-operator',
+                        operator_repo         : 'perconalab/percona-server-mongodb-operator',
 
                         platform_provider     : 'minikube',
-                        platform_version      : params.PLATFORM_VERSION,
+                        platform_version      : PLATFORM_VERSION,
 
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
 
                         git_branch            : GIT_BRANCH,
                         job_name              : JOB_NAME,
-                        db_tag                : DB_TAG,
+                        db_tag                : env.DB_TAG,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'shell',
-
-                        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,

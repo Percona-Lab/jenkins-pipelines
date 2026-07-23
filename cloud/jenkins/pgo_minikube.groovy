@@ -14,7 +14,18 @@ def getLibraries() {
 pipeline {
     environment {
         DB_TAG = sh(
-            script: '''[[ "$IMAGE_POSTGRESQL" ]] && echo "$IMAGE_POSTGRESQL" | awk -F':' '{tag=$2; sub(/-postgres$/, "", tag); sub(/-[0-9]+$/, "", tag); print tag}' || echo main-ppg18''',
+            script: '''
+                if [[ -n "$IMAGE_POSTGRESQL" ]]; then
+                    echo "$IMAGE_POSTGRESQL" | awk -F':' '{
+                        tag=$2
+                        sub(/-postgres$/, "", tag)
+                        sub(/-[0-9]+$/, "", tag)
+                        print tag
+                    }'
+                elif [[ -n "$PG_VER" ]]; then
+                    echo "main-ppg${PG_VER}"
+                fi
+            ''',
             returnStdout: true
         ).trim()
     }
@@ -23,24 +34,43 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'Implies release run.')
+
+        choice(
+            name: 'PILLAR_VERSION',
+            choices: [
+                'none',
+                '14',
+                '14-postgis',
+                '15',
+                '15-postgis',
+                '16',
+                '16-postgis',
+                '17',
+                '17-postgis',
+                '18',
+                '18-postgis'
+            ],
+            description: 'Implies release run.'
+        )
+
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'Minikube Kubernetes version. Use max or rel to read MINIKUBE_REL from release_versions, or latest for upstream stable.')
-        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
-        string(name: 'PG_VER', defaultValue: '', description: 'PostgreSQL version')
-        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
-        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pmm')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pmm-server')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pmm3')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pmm3-server')
-        string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: '')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
+        string(name: 'PG_VER', defaultValue: '', description: 'PostgreSQL version. Example: 18, 17, 16, 15, 14')
+
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main')
+        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-ppg18-postgres')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pgbouncer18')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pgbackrest18')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pmm')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pmm-server')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pmm3')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pmm3-server')
+        string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-upgrade')
+
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
         choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that require release documentation')
     }
-
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
     }
@@ -81,10 +111,14 @@ pipeline {
         stage('Docker Build and Push') {
             steps {
                 script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: 'perconalab/percona-postgresql-operator',
-                        branch: GIT_BRANCH
-                    )
+                    if (IMAGE_OPERATOR == '' || PILLAR_VERSION == '' ) {
+                        echo "IMAGE_OPERATOR or PILLAR_VERSION is empty, skipping docker build and push"
+                    } else {
+                        libraries.tools.dockerBuildAndPush(
+                            operatorImage: 'perconalab/percona-postgresql-operator',
+                            branch: GIT_BRANCH
+                        )
+                    }
                 }
             }
         }
@@ -103,19 +137,18 @@ pipeline {
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pg-operator',
+                        operator_repo         : 'perconalab/percona-postgresql-operator',
 
                         platform_provider     : 'minikube',
-                        platform_version      : params.PLATFORM_VERSION,
+                        platform_version      : PLATFORM_VERSION,
 
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
 
                         git_branch            : GIT_BRANCH,
                         job_name              : JOB_NAME,
-                        db_tag                : DB_TAG,
+                        db_tag                : env.DB_TAG,
                         test_executor_type    : 'kuttl',
-
-                        default_operator_image: "perconalab/percona-postgresql-operator:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR   : IMAGE_OPERATOR,
@@ -132,7 +165,10 @@ pipeline {
                         extra_envs: extraEnvs
                     ])
 
-                    def imageTag = testVariables.images.IMAGE_POSTGRESQL ? testVariables.images.IMAGE_POSTGRESQL.split(':')[-1] : DB_TAG
+                    def imageTag = testVariables.images.IMAGE_POSTGRESQL
+                            ? testVariables.images.IMAGE_POSTGRESQL.split(':')[-1]
+                            : DB_TAG
+
                     testVariables.db_tag = imageTag.replaceFirst(/-postgres$/, '').replaceFirst(/-[0-9]+$/, '')
 
                     def cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -179,14 +215,14 @@ pipeline {
 
                 try {
                     def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
-                    sendJobSlack.call(
-                        tests        : testVariables.tests,
-                        gitBranch    : GIT_BRANCH,
-                        platformVer  : testVariables.platform_version,
-                        clusterWide  : testVariables.cluster_wide,
-                        image        : testVariables.images.IMAGE_POSTGRESQL,
-                        operatorImage: testVariables.images.IMAGE_OPERATOR
-                    )
+                    // sendJobSlack.call(
+                    //     tests        : testVariables.tests,
+                    //     gitBranch    : GIT_BRANCH,
+                    //     platformVer  : testVariables.platform_version,
+                    //     clusterWide  : testVariables.cluster_wide,
+                    //     image        : testVariables.images.IMAGE_POSTGRESQL,
+                    //     operatorImage: testVariables.images.IMAGE_OPERATOR
+                    // )
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"
                 }

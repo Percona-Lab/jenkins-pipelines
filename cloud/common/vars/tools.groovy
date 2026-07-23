@@ -26,7 +26,7 @@ void gitResetWorkspace() {
     '''
 }
 
-void kubernetesCleanupFailedTestNamespaces(String kubeconfig, String testName) {
+void kubernetesCleanupFailedTestNamespaces(String kubeconfig, String testName, String operatorName) {
     echo "Cleaning failed test namespaces for ${testName} on kubeconfig ${kubeconfig}"
 
     withEnv([
@@ -47,7 +47,7 @@ void kubernetesCleanupFailedTestNamespaces(String kubeconfig, String testName) {
                 | awk '{print $1}' \
                 | while read -r namespace; do
                     case "$namespace" in
-                        "$FAILED_TEST_NAME"-*|kuttl*)
+                        "$FAILED_TEST_NAME"-*|kuttl*|"${operatorName}"*)
                             echo "Removing finalizers from resources in namespace: $namespace"
                             kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s 2>/dev/null \
                                 | grep -vE '^(events|events\\.events\\.k8s\\.io|endpoints)$' \
@@ -94,7 +94,7 @@ void kubernetesCleanupCluster(String kubeconfig) {
     """
 }
 
-void kubernetesArchiveClusterLogs(String kubeconfig, String testName) {
+void kubernetesArchiveClusterLogs(String kubeconfig, String testName, String operatorName) {
     def timestamp = sh(
         script: 'date +%Y%m%d-%H%M%S',
         returnStdout: true
@@ -127,7 +127,7 @@ void kubernetesArchiveClusterLogs(String kubeconfig, String testName) {
 
         for namespace in \$(kubectl get namespaces -o name \
             | cut -d/ -f2 \
-            | grep -E '^(${testName}|kuttl-)' || true); do
+            | grep -E '^(${testName}|kuttl-|${operatorName})' || true); do
 
             echo "Collecting resources from namespace: \$namespace"
 
