@@ -117,7 +117,7 @@ def call(Map args = [:]) {
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
          skipInFips: false,
          versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
-        [name: 'Ubuntu Resolute(26.04) ARM', image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
+        [name: 'Ubuntu Resolute(26.04) ARM', image: 'ubuntu:resolute-20260610', arch: 'aarch64', buildType: 'deb',
          flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
          skipInFips: false,
          versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
