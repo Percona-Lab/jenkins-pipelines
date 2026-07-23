@@ -404,7 +404,7 @@ parameters {
                                rm -f "${TMP}"
                                PS_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}${VER_EXTRA}"
                                PS_MAJOR_RELEASE="${VER_MAJOR}.${VER_MINOR}"
-                               PS_MAJOR_FULL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATVH}"
+                               PS_MAJOR_FULL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                                MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                            fi
                            MYSQL_ROUTER_RELEASE=${PS_RELEASE}
