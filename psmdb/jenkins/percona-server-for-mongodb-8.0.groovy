@@ -437,6 +437,38 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 10(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_rpm=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 10(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_rpm=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Amazon Linux 2023(x86_64)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -592,6 +624,22 @@ pipeline {
                         withRBE {
                             script {
                                 buildStage(runnerImage('oraclelinux-9'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Oracle Linux 10 binary tarball(glibc2.39)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
