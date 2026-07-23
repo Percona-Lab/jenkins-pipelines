@@ -353,49 +353,6 @@ String defineTestCommand(Map testVariables, String testName) {
     return "e2e-tests/${testName}/run"
 }
 
-void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
-    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-
-    echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-
-    withEnv([
-        "FAILED_TEST_NAME=${testName}",
-        "KUBECONFIG=${kubeconfig}"
-    ]) {
-        sh(label: "Cleanup failed namespaces for ${testName}", script: '''
-            #!/usr/bin/env bash
-            set +x
-            set +e
-
-            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
-                exit 0
-            fi
-
-            kubectl get namespaces --request-timeout=10s --no-headers \
-                | awk '{print $1}' \
-                | while read -r namespace; do
-                    case "$namespace" in
-                        "$FAILED_TEST_NAME"-*|kuttl*)
-                            echo "Removing finalizers from resources in namespace: $namespace"
-                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s 2>/dev/null \
-                                | grep -vE '^(events|events\\.events\\.k8s\\.io|endpoints)$' \
-                                | while read -r resource; do
-                                    kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
-                                        | while read -r object; do
-                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s >/dev/null 2>&1 || true
-                                        done
-                                done
-
-                            echo "Deleting namespace: $namespace"
-                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s >/dev/null 2>&1 || true
-                            ;;
-                    esac
-                done
-        ''')
-    }
-}
-
 // Below functions are annotated with @NonCPS because they are called from parallel stages and manipulate shared state.
 @com.cloudbees.groovy.cps.NonCPS
 Integer claimNextSkippedTest(List tests, String clusterSuffix) {
@@ -488,7 +445,14 @@ void runTest(Map testConfig) {
 
         } catch (exc) {
             try {
-                cleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
+                testVariables.libraries.tools.kubernetesArchiveClusterLogs(
+                    "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
+                    testName
+                )
+                testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(
+                    "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
+                    testName
+                )
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
             }

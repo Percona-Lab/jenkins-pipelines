@@ -91,10 +91,14 @@ pipeline {
         stage('Docker Build and Push') {
             steps {
                 script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: 'perconalab/percona-server-mongodb-operator',
-                        branch: GIT_BRANCH
-                    )
+                    if (IMAGE_OPERATOR == '' || PILLAR_VERSION == '' ) {
+                        echo "IMAGE_OPERATOR or PILLAR_VERSION is empty, skipping docker build and push"
+                    } else {
+                        libraries.tools.dockerBuildAndPush(
+                            operatorImage: 'perconalab/percona-server-mongodb-operator',
+                            branch: GIT_BRANCH
+                        )
+                    }
                 }
             }
         }
