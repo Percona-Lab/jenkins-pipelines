@@ -33,7 +33,19 @@ void createCluster(Map cfg) {
             --memory='${cfg.memory ?: "28G"}' \
             --force \
             --driver=docker
+
+        minikube ssh -p '${cfg.clusterName}-${cfg.clusterSuffix}' -- 'cat /etc/hosts' \
+            > minikube-etc-hosts.txt
+
+        minikube logs -p '${cfg.clusterName}-${cfg.clusterSuffix}' \
+            --file=minikube-debug.log
     """
+
+    archiveArtifacts(
+        artifacts: 'minikube-debug.log,minikube-etc-hosts.txt',
+        allowEmptyArchive: true,
+        fingerprint: true
+    )
 }
 
 void shutdownCluster(Map cfg) {
