@@ -31,7 +31,8 @@ void createCluster(Map cfg) {
             --kubernetes-version '${cfg.platformVersion}' \
             --cpus='${cfg.cpus ?: 6}' \
             --memory='${cfg.memory ?: "28G"}' \
-            --force
+            --force \
+            --driver=docker
     """
 }
 
