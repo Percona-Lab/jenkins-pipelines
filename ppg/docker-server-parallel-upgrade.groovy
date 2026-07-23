@@ -55,7 +55,11 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}-${params.REPOSITORY}"
+                    def displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}-${params.REPOSITORY}"
+                    if (params.WITH_POSTGIS) {
+                        displayName += "-with-postgis"
+                    }
+                    currentBuild.displayName = displayName
                 }
             }
         }
