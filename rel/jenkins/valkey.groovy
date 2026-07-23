@@ -71,6 +71,40 @@ pipeline {
         timestamps ()
     }
     stages {
+          stage('DEBUG resolute') {
+      agent { label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb' }
+      steps {
+          sh '''
+              set -o xtrace
+              build_dir=$(pwd -P)
+              sudo docker run --rm -u root --security-opt seccomp=unconfined \
+                  -e BD="${build_dir}" -v ${build_dir}:${build_dir} ubuntu:resolute bash -c '
+                      set +x
+                      echo "### KERNEL:"; uname -a
+                      echo "### OS:"; head -2 /etc/os-release
+                      echo "### WORKSPACE FS TYPE:"; stat -f -c "%T" "$BD"
+                      echo "### MOUNTS:"; grep -vE 
+  "^(proc|sysfs|cgroup|tmpfs|devpts|mqueue|overlay|shm|devtmpfs) " /proc/mounts | head
+                      mkdir -p /src/d && echo x > /src/d/f && tar -C /src -czf /tmp/s.tgz .
+                      echo "### OVERLAY TEST:"; ( mkdir -p /ovl && cd /ovl && tar -xzf /tmp/s.tgz && echo
+  OVERLAY_OK ) || echo OVERLAY_FAIL
+                      echo "### BINDMOUNT TEST:"; ( rm -rf "$BD/repro" && mkdir -p "$BD/repro" && cd 
+  "$BD/repro" && tar -xzf /tmp/s.tgz && echo BINDMOUNT_OK ) || echo BINDMOUNT_FAIL
+                      echo "### STRACE:"; if apt-get update -qq >/dev/null 2>&1 && apt-get install -y -qq
+  strace >/dev/null 2>&1; then
+                          rm -rf "$BD/repro2"; mkdir -p "$BD/repro2"; cd "$BD/repro2"
+                          strace -f -e 
+  trace=mkdir,mkdirat,open,openat,openat2,creat,statx,fchmodat,fchmodat2 -o /tmp/st.log tar -xzf 
+  /tmp/s.tgz
+                          echo "--- ENOSYS syscalls ---"; grep -m8 ENOSYS /tmp/st.log || echo "(none 
+  captured)"
+                      else echo "strace unavailable"; fi
+                      rm -rf "$BD/repro" "$BD/repro2"
+                  '
+          '''
+      }
+  }
+
         stage('Create Valkey source tarball') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
