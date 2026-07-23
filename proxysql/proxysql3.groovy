@@ -6,6 +6,7 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
+        uname -a
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/scripts/proxysql_builder.sh -O proxysql_builder.sh
         pwd -P

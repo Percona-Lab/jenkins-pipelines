@@ -24,6 +24,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
             sh """
                 set -o xtrace
+                uname -a
                 mkdir -p test
                 if [ \${FIPSMODE} = "YES" ]; then
                     PXC_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION && cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
@@ -47,7 +48,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 export build_dir=\$(pwd -P)
                 docker version
                 docker info | grep -i runtime
-                docker run --runtime=runc --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                docker run --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                     set -o xtrace
                     find / -name "libseccomp*"
                     df -T \${build_dir}
