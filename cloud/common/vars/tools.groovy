@@ -95,7 +95,12 @@ void kubernetesCleanupCluster(String kubeconfig) {
 }
 
 void kubernetesArchiveClusterLogs(String kubeconfig, String testName) {
-    def archiveName = "${testName}-${sh(script: 'date +%Y%m%d-%H%M%S', returnStdout: true).trim()}.tgz"
+    def timestamp = sh(
+        script: 'date +%Y%m%d-%H%M%S',
+        returnStdout: true
+    ).trim()
+
+    def archiveName = "${testName}-${timestamp}.tgz"
 
     sh """
         export KUBECONFIG='${kubeconfig}'
@@ -106,38 +111,100 @@ void kubernetesArchiveClusterLogs(String kubeconfig, String testName) {
         if [ ! -s "\$KUBECONFIG" ] || \
            ! kubectl get --raw=/healthz --request-timeout=5s >/dev/null 2>&1; then
             echo "Kubernetes API is not reachable"
+            rm -rf "\$DIR"
             exit 0
         fi
 
-        kubectl get nodes -o yaml > "\$DIR/nodes/nodes.yaml" 2>&1 || true
-        kubectl describe nodes > "\$DIR/nodes/describe.txt" 2>&1 || true
+        set +x
 
-        for namespace in \$(kubectl get ns -o name | cut -d/ -f2 | grep -E '^(${testName}|kuttl-)'); do
-            mkdir -p "\$DIR"/{logs,describe,templates}/"\$namespace"
+        for node in \$(kubectl get nodes -o name | cut -d/ -f2); do
+            kubectl get node "\$node" -o yaml \
+                > "\$DIR/nodes/\$node.yaml" 2>&1 || true
 
-            kubectl get all -n "\$namespace" -o yaml \
-                > "\$DIR/templates/\$namespace/all.yaml" 2>&1 || true
+            kubectl describe node "\$node" \
+                > "\$DIR/nodes/\$node.txt" 2>&1 || true
+        done
 
-            kubectl get events -n "\$namespace" -o yaml \
-                > "\$DIR/templates/\$namespace/events.yaml" 2>&1 || true
+        for namespace in \$(kubectl get namespaces -o name \
+            | cut -d/ -f2 \
+            | grep -E '^(${testName}|kuttl-)' || true); do
 
-            kubectl describe pods -n "\$namespace" \
-                > "\$DIR/describe/\$namespace/pods.txt" 2>&1 || true
+            echo "Collecting resources from namespace: \$namespace"
 
-            for pod in \$(kubectl get pods -n "\$namespace" -o name | cut -d/ -f2); do
-                kubectl logs -n "\$namespace" "\$pod" --all-containers --timestamps \
-                    > "\$DIR/logs/\$namespace/\$pod.log" 2>&1 || true
+            mkdir -p \
+                "\$DIR/logs/\$namespace" \
+                "\$DIR/describe/\$namespace" \
+                "\$DIR/templates/\$namespace"
 
-                kubectl logs -n "\$namespace" "\$pod" --all-containers --previous --timestamps \
-                    > "\$DIR/logs/\$namespace/\$pod-previous.log" 2>&1 || true
+            for resource in \$(kubectl api-resources \
+                --namespaced=true \
+                --verbs=list \
+                -o name); do
+
+                resourceDir=\$(echo "\$resource" | tr '/.' '__')
+
+                mkdir -p \
+                    "\$DIR/templates/\$namespace/\$resourceDir" \
+                    "\$DIR/describe/\$namespace/\$resourceDir"
+
+                for object in \$(kubectl get "\$resource" \
+                    -n "\$namespace" \
+                    -o name \
+                    --ignore-not-found 2>/dev/null); do
+
+                    objectName=\${object#*/}
+
+                    kubectl get "\$object" \
+                        -n "\$namespace" \
+                        -o yaml \
+                        > "\$DIR/templates/\$namespace/\$resourceDir/\$objectName.yaml" 2>&1 || true
+
+                    kubectl describe "\$object" \
+                        -n "\$namespace" \
+                        > "\$DIR/describe/\$namespace/\$resourceDir/\$objectName.txt" 2>&1 || true
+                done
+            done
+
+            for pod in \$(kubectl get pods \
+                -n "\$namespace" \
+                -o name \
+                | cut -d/ -f2); do
+
+                mkdir -p "\$DIR/logs/\$namespace/\$pod"
+
+                for container in \$(kubectl get pod "\$pod" \
+                    -n "\$namespace" \
+                    -o jsonpath='{range .spec.initContainers[*]}{.name}{"\\n"}{end}{range .spec.containers[*]}{.name}{"\\n"}{end}'); do
+
+                    kubectl logs "\$pod" \
+                        -n "\$namespace" \
+                        -c "\$container" \
+                        --timestamps \
+                        > "\$DIR/logs/\$namespace/\$pod/\$container.log" 2>&1 || true
+
+                    kubectl logs "\$pod" \
+                        -n "\$namespace" \
+                        -c "\$container" \
+                        --previous \
+                        --timestamps \
+                        > "\$DIR/logs/\$namespace/\$pod/\$container-previous.log" 2>&1 || true
+                done
             done
         done
 
-        tar -czf '${archiveName}' -C "\$DIR" logs describe templates nodes
+        set -x
+
+        tar -czf '${archiveName}' \
+            -C "\$DIR" \
+            logs describe templates nodes
+
         rm -rf "\$DIR"
     """
 
-    archiveArtifacts artifacts: archiveName, allowEmptyArchive: true
+    archiveArtifacts(
+        artifacts: archiveName,
+        allowEmptyArchive: true
+    )
 }
 
 void dockerBuildAndPush(Map cfg) {
