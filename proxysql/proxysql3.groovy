@@ -408,6 +408,19 @@ pipeline {
                 sync2ProdAutoBuild(params.CLOUD, PROXYSQL_DEST_REPO, COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting(params.CLOUD, "proxysql", "${PROXYSQL_BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
         stage('Build docker containers') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -497,7 +510,7 @@ pipeline {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${AWS_STASH_PATH}]"
+                currentBuild.description = "Built on ${GIT_BRANCH} + ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${AWS_STASH_PATH}]"
             }
             deleteDir()
         }
