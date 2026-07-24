@@ -307,21 +307,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('pmm3-migration-tests') {
-                            steps {
-                                script {
-                                    triggerJenkinsRc('pmm3-migration-tests', 'pmm3-migration-tests', [
-                                        string(name: 'PMM_V3_UI_GIT_BRANCH', value: 'main'),
-                                        string(name: 'PMM_V2_UI_GIT_BRANCH', value: 'v2'),
-                                        string(name: 'DOCKER_VERSION',       value: 'perconalab/pmm-server:2.44.1'),
-                                        string(name: 'CLIENT_VERSION',       value: '2.44.1'),
-                                        string(name: 'ADMIN_PASSWORD',       value: 'pmm3admin!'),
-                                        string(name: 'PMM_QA_GIT_BRANCH',   value: 'v2'),
-                                        string(name: 'UPGRADE_TAG',          value: 'testing'),
-                                    ])
-                                }
-                            }
-                        }
                         stage('pmm3-ui-tests-matrix') {
                             steps {
                                 script {
