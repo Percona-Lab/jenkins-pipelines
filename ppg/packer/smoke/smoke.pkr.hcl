@@ -9,7 +9,7 @@
 # retried step ONLY after a pass, so a transient promote-tag failure can never
 # delete a smoke-passed AMI.
 #
-#   packer init . && packer build -var candidate_ami=ami-... -var os_major=9 -var arch=x86_64 .
+#   packer init . && packer build -var candidate_ami=ami-... -var os=rocky -var os_major=9 -var arch=x86_64 .
 
 packer {
   required_plugins {
@@ -21,6 +21,14 @@ packer {
 }
 
 variable "candidate_ami" { type = string }
+variable "os" {
+  type    = string # "oraclelinux" | "rocky"
+  default = "oraclelinux"
+  validation {
+    condition     = contains(["oraclelinux", "rocky"], var.os)
+    error_message = "Value of os must be oraclelinux or rocky."
+  }
+}
 variable "os_major" { type = string }
 variable "arch" { type = string } # x86_64 | arm64
 variable "region" {
@@ -43,6 +51,13 @@ variable "builder_security_group_name" {
 locals {
   instance_type = var.arch == "arm64" ? "t4g.large" : "t3.large"
   uname_arch    = var.arch == "arm64" ? "aarch64" : "x86_64"
+  # Identity via /etc/os-release ID (release-file names cannot tell EL distros
+  # apart once more are added: every clone ships /etc/redhat-release).
+  expected_id = var.os == "rocky" ? "rocky" : "ol"
+  # Rocky images use "rocky" as the cloud-init default user, OL uses ec2-user.
+  ssh_user = var.os == "rocky" ? "rocky" : "ec2-user"
+  # CRB naming differs per distro: OL "ol<major>_codeready_builder", Rocky "powertools" (8) / "crb" (9/10).
+  crb_repo = var.os == "rocky" ? (var.os_major == "8" ? "powertools" : "crb") : "ol${var.os_major}_codeready_builder"
 }
 
 source "amazon-ebs" "smoke" {
@@ -50,10 +65,10 @@ source "amazon-ebs" "smoke" {
   instance_type = local.instance_type
   source_ami    = var.candidate_ami
   # ami_name is required by the builder even though we create nothing.
-  ami_name                    = "ppg-smoke-noop-${var.os_major}-${var.arch}"
+  ami_name                    = "ppg-smoke-noop-${var.os}-${var.os_major}-${var.arch}"
   skip_create_ami             = true # boot-test only; produce no image
   communicator                = "ssh"
-  ssh_username                = "ec2-user"
+  ssh_username                = local.ssh_user
   ssh_interface               = "session_manager"
   ssh_timeout                 = "10m"
   iam_instance_profile        = var.builder_instance_profile
@@ -81,12 +96,13 @@ build {
   provisioner "shell" {
     inline = [
       "set -euo pipefail",
-      "grep -Eq 'release[[:space:]]+${var.os_major}\\.' /etc/oracle-release || { echo \"wrong OL major: $(cat /etc/oracle-release)\"; exit 1; }",
+      ". /etc/os-release; [ \"$ID\" = '${local.expected_id}' ] || { echo \"wrong distro ID $ID (want ${local.expected_id})\"; exit 1; }",
+      ". /etc/os-release; [ \"$${VERSION_ID%%.*}\" = '${var.os_major}' ] || { echo \"wrong major $VERSION_ID (want ${var.os_major})\"; exit 1; }",
       "[ \"$(uname -m)\" = '${local.uname_arch}' ] || { echo \"wrong arch $(uname -m)\"; exit 1; }",
       "sudo cloud-init status --wait 2>/dev/null | grep -qE 'done|disabled' || { echo 'cloud-init not done'; exit 1; }",
       "rpm -q amazon-ssm-agent >/dev/null || { echo 'ssm-agent not baked'; exit 1; }",
       "sudo dnf -y install dnf-plugins-core || true",
-      "sudo dnf config-manager --set-enabled ol${var.os_major}_codeready_builder 2>/dev/null || true",
+      "sudo dnf config-manager --set-enabled ${local.crb_repo} 2>/dev/null || true",
       "sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm",
       "sudo percona-release enable-only ppg-17 release",
       "sudo dnf -qy module reset postgresql 2>/dev/null || true",
