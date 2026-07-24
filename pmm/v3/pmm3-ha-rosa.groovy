@@ -116,12 +116,12 @@ pipeline {
         string(
             name: 'PMM_IMAGE_REPOSITORY',
             defaultValue: '',
-            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
+            description: 'PMM image repository override (initial value is pulled from the Helm chart), i.e. "perconalab/pmm-server-fb" for feature builds'
         )
         string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM image tag override (initial value is pulled from the Helm chart)'
+            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc"' for feature builds'
         )
         choice(
             name: 'RETENTION_DAYS',
