@@ -114,28 +114,8 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
     return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
-String getPlatformProvider(Map testVariables) {
-    return testVariables.platform_provider?.toLowerCase()
-}
-
 Boolean isReleaseRun(Map testVariables) {
     return "${testVariables.pillar_version}" != "none"
-}
-
-String getPlatformReleasePrefix(Map testVariables) {
-    def platformPrefix = [
-        "gcloud"      : "GKE",
-        "azure"       : "AKS",
-        "redhat"      : "OPENSHIFT",
-        "digitalocean": "DOKS",
-        "rancher"     : "RKE2",
-    ][getPlatformProvider(testVariables)]
-
-    if (!platformPrefix) {
-        error("Unsupported platform_provider for platform_version=${testVariables.platform_version}: ${testVariables.platform_provider}")
-    }
-
-    return platformPrefix
 }
 
 void resolveReleaseRunParams(Map testVariables) {
@@ -145,12 +125,12 @@ void resolveReleaseRunParams(Map testVariables) {
 
     testVariables.images = resolveImages(testVariables)
 
-    def supportedProviders = ["gcloud", "azure", "redhat", "digitalocean", "rancher"]
-    if (!(getPlatformProvider(testVariables) in supportedProviders)) {
-        error("Unsupported platform_provider: ${testVariables.platform_provider}")
+    def supportedPlatforms = ["gke", "azs", "openshift", "doks", "rke2", "minikube"]
+    if (!(testVariables.platform in supportedPlatforms)) {
+        error("Unsupported platform: ${testVariables.platform}")
     }
 
-    if (getPlatformProvider(testVariables) == "rancher") {
+    if (testVariables.platform_provider?.toLowerCase() == "rancher") {
         ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
             if (!testVariables[field] || testVariables[field] == "latest") {
                 testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
@@ -166,7 +146,7 @@ Boolean resolveReleasePlatformVersion(Map testVariables) {
 
     testVariables.platform_version = getReleaseVersionsParam(
         testVariables.release_versions,
-        "${getPlatformReleasePrefix(testVariables)}_${testVariables.platform_version.toUpperCase()}"
+        "${testVariables.platform.toUpperCase()}_${testVariables.platform_version.toUpperCase()}"
     )
 
     testVariables.platform_version = testVariables.libraries[testVariables.platform_provider].getPlatformVersion(
@@ -177,10 +157,6 @@ Boolean resolveReleasePlatformVersion(Map testVariables) {
 }
 
 void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
-    if (!testVariables.platform_provider) {
-        return
-    }
-
     def library = testVariables.libraries[testVariables.platform_provider]
     if (testVariables.platform_version == "latest" && testVariables.platform_channel) {
         testVariables.platform_version = library.getLatestPlatformVersion(
@@ -569,21 +545,19 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     def clusterCfg = [
         clusterName     : testVariables.cluster_name,
         clusterSuffix   : clusterSuffix,
-        platformProvider: testVariables.platform_provider,
+        product         : testVariables.operator,
         platformVersion : testVariables.platform_version,
         platformChannel : testVariables.platform_channel,
-        platformArch    : testVariables.platform_arch,
         machineType     : testVariables.machine_type,
         workerCountMin  : testVariables.worker_min_count ?: 4,
         workerCountMax  : testVariables.worker_max_count ?: 6,
-        sourceRanges    : testVariables.source_ranges ?: "0.0.0.0/0",
         region          : testVariables.region ?: "",
         zone            : testVariables.zone ?: "",
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
         debug           : testVariables.debug
     ]
 
-    if (testVariables.platform_provider == "rancher") {
+    if (testVariables.platform_provider.toLowerCase() == "rancher") {
         clusterCfg.rancherVersion = testVariables.rancher_version
         clusterCfg.certManagerVersion = testVariables.cert_manager_version
     }

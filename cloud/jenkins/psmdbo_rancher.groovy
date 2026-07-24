@@ -113,6 +113,7 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb-operator',
 
+                        platform              : 'rke2',
                         platform_provider     : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VERSION,
