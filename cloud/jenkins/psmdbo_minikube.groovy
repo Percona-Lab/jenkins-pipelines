@@ -1,6 +1,6 @@
 import groovy.transform.Field
 
-@Field Integer numClusters = 1
+@Field Integer numClusters = 2
 @Field List clusters = []
 
 @Field Map libraries = [:]

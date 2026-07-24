@@ -1,6 +1,6 @@
 import groovy.transform.Field
 
-@Field Integer numClusters = 1
+@Field Integer numClusters = 2
 @Field List clusters = []
 
 @Field Map libraries = [:]
@@ -215,14 +215,14 @@ pipeline {
 
                 try {
                     def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
-                    // sendJobSlack.call(
-                    //     tests        : testVariables.tests,
-                    //     gitBranch    : GIT_BRANCH,
-                    //     platformVer  : testVariables.platform_version,
-                    //     clusterWide  : testVariables.cluster_wide,
-                    //     image        : testVariables.images.IMAGE_POSTGRESQL,
-                    //     operatorImage: testVariables.images.IMAGE_OPERATOR
-                    // )
+                    sendJobSlack.call(
+                        tests        : testVariables.tests,
+                        gitBranch    : GIT_BRANCH,
+                        platformVer  : testVariables.platform_version,
+                        clusterWide  : testVariables.cluster_wide,
+                        image        : testVariables.images.IMAGE_POSTGRESQL,
+                        operatorImage: testVariables.images.IMAGE_OPERATOR
+                    )
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"
                 }
