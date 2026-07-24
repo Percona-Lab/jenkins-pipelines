@@ -263,7 +263,7 @@ pipeline {
             description: 'Jenkins credentialsId of the OIDC token credential (audience=bazel-jenkins). The credential type must be "OpenID Connect ID token" issued by the OIDC Provider plugin.',
             name: 'PSMDB_RBE_OIDC_CREDENTIALS_ID')
         string(
-            defaultValue: '',
+            defaultValue: 'https://bb.psmdb.percona.com:5556',
             description: 'Dex issuer URL the credential_helper exchanges the Jenkins OIDC token against (RFC 8693 token-exchange).',
             name: 'PSMDB_RBE_OIDC_ISSUER')
         // Dex requires the `connector_id` form field on /token when the
@@ -276,7 +276,7 @@ pipeline {
             description: 'Dex connector_id form field for the token-exchange grant. Must match `connectors[].id` in dex.yaml.',
             name: 'PSMDB_RBE_OIDC_CONNECTOR_ID')
         string(
-            defaultValue: '',
+            defaultValue: '--config=psmdb_buildfarm --remote_executor=grpcs://bb.psmdb.percona.com:8981 --remote_cache=grpcs://bb.psmdb.percona.com:8981 --bes_backend=grpcs://bb.psmdb.percona.com:1985 --bes_results_url=https://bb.psmdb.percona.com:7986/bazel-invocations/ --credential_helper=bb.psmdb.percona.com=%workspace%/bazel/wrapper_hook/credential_helper.py --jobs=72',
             description: 'Bazel flags injected by percona-packaging into the bazel build command line. Leave empty to disable RBE.',
             name: 'PSMDB_RBE_BAZEL_FLAGS')
     }
