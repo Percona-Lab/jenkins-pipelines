@@ -77,6 +77,8 @@ void installGoogleCLI() {
     sh '''
         sudo cp cloud/common/files/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+        command -v gsutil
+        gsutil version -l | head -n1
     '''
 }
 
