@@ -17,7 +17,7 @@ void build(String IMAGE_PREFIX){
         sh """
             cd ./source/
             docker login -u '${USER}' -p '${PASS}'
-            docker buildx create --use
+            docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
             docker buildx build --platform linux/amd64,linux/arm64 --progress plain -t perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX} --push -f fluentbit/Dockerfile fluentbit
             docker logout
         """
