@@ -10,8 +10,7 @@ List selectedTargets() {
     if (params.BUILD_POSTGRES19_BETA) {
         targets << "postgres19${suffix}"
     }
-    // pgbackrest/pgbouncer have no -ubi8 targets: their ubi8 flavor is built by
-    // the regular target with BASE_IMAGE=redhat/ubi8-minimal (see makeArgs()).
+
     if (params.BUILD_PGBACKREST) {
         targets << 'pgbackrest'
     }
@@ -29,8 +28,6 @@ String imageForTarget(String target, String tag) {
     return "perconalab/percona-postgresql-operator:${tag}-${name}-community"
 }
 
-// ubi8 images follow Slava's convention: same image names under the '<tag>-ubi8' TAG
-// (e.g. main-ubi8-postgres18-community), never overwriting the el9 tags.
 String makeArgs(String tag) {
     def args = "TAG=${tag}"
     if (params.BASE_OS == 'ubi8') {
