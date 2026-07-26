@@ -7,10 +7,6 @@ List selectedTargets() {
             targets << "postgres${ver}${suffix}"
         }
     }
-    if (params.BUILD_POSTGRES19_BETA) {
-        targets << "postgres19${suffix}"
-    }
-
     if (params.BUILD_PGBACKREST) {
         targets << 'pgbackrest'
     }
@@ -20,12 +16,30 @@ List selectedTargets() {
     if (params.BUILD_UPGRADE) {
         targets << "upgrade${suffix}"
     }
+
+    if (params.BUILD_POSTGRES19_BETA && params.BASE_OS == 'el9') {
+        targets << 'postgres19'
+        if (!targets.contains('pgbackrest')) {
+            targets << 'pgbackrest'
+        }
+        targets << 'pgbackrest19'
+        targets << 'pgbouncer19'
+    }
     return targets
 }
 
-String imageForTarget(String target, String tag) {
-    def name = target.replace('-ubi8', '')
-    return "perconalab/percona-postgresql-operator:${tag}-${name}-community"
+List imagesForTarget(String target, String tag) {
+    def repo = 'perconalab/percona-postgresql-operator'
+    switch (target) {
+        case 'postgres19':
+            return ["${repo}:${tag}-postgres19-community", "${repo}:${tag}-ppg19-postgres"]
+        case 'pgbackrest19':
+            return ["${repo}:${tag}-pgbackrest19"]
+        case 'pgbouncer19':
+            return ["${repo}:${tag}-pgbouncer19"]
+        default:
+            return ["${repo}:${tag}-${target.replace('-ubi8', '')}-community"]
+    }
 }
 
 String makeArgs(String tag) {
@@ -168,7 +182,7 @@ pipeline {
                         }
                     }
 
-                    def images = targets.collect { imageForTarget(it, tag) }.unique()
+                    def images = targets.collectMany { imagesForTarget(it, tag) }.unique()
                     writeFile(file: 'list-of-images.txt', text: images.join('\n') + '\n')
                 }
             }
