@@ -381,8 +381,12 @@ ENDSSH
         always {
             script {
                 currentBuild.description = "Repo: ${REPOSITORY}-${REPOSITORY_VERSION}/${COMPONENT}"
+                try {
+                    deleteDir()
+                } catch (Exception e) {
+                    echo "Warning: Could not delete workspace (agent may have been removed): ${e.message}"
+                }
             }
-            deleteDir()
         }
     }
 }
