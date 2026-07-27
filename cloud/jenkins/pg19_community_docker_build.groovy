@@ -1,32 +1,19 @@
-List selectedTargets() {
-    def targets = []
-    def suffix = params.BASE_OS == 'ubi8' ? '-ubi8' : ''
+// Builds and pushes the PostgreSQL 19 (BETA, tech preview) image set from
+// percona-docker postgresql-containers/community. PG 19 images are built from
+// PGDG testing packages (ppg-19 does not exist yet); pgAudit and pgBackRest
+// 2.59 are compiled from source inside the images.
+//
+// Published tags (REGISTRY defaults to perconalab/percona-postgresql-operator):
+//   <tag>-postgres19-community  - postgres 19 + patroni + pgbackrest client
+//   <tag>-ppg19-postgres        - same image under the versioned CR name
+//   <tag>-pgbackrest19          - pgBackRest 2.59 overlay for the repo-host
+//   <tag>-pgbouncer19           - pgbouncer under the versioned CR name
+//
+// This job builds ONLY PG 19 images. Images for PG 14-18 are the regular
+// Percona ones built by pg_containers_docker_build.groovy from ppg packages.
+// Delete this job once ppg-19 is released and 19 joins the regular loop.
 
-    if (params.BUILD_POSTGRES) {
-        for (ver in ['18', '17', '16', '15', '14']) {
-            targets << "postgres${ver}${suffix}"
-        }
-    }
-    if (params.BUILD_PGBACKREST) {
-        targets << 'pgbackrest'
-    }
-    if (params.BUILD_PGBOUNCER) {
-        targets << 'pgbouncer'
-    }
-    if (params.BUILD_UPGRADE) {
-        targets << "upgrade${suffix}"
-    }
-
-    if (params.BUILD_POSTGRES19_BETA && params.BASE_OS == 'el9') {
-        targets << 'postgres19'
-        if (!targets.contains('pgbackrest')) {
-            targets << 'pgbackrest'
-        }
-        targets << 'pgbackrest19'
-        targets << 'pgbouncer19'
-    }
-    return targets
-}
+List PG19_TARGETS = ['postgres19', 'pgbackrest19', 'pgbouncer19']
 
 List imagesForTarget(String target, String tag) {
     def repo = 'perconalab/percona-postgresql-operator'
@@ -38,16 +25,8 @@ List imagesForTarget(String target, String tag) {
         case 'pgbouncer19':
             return ["${repo}:${tag}-pgbouncer19"]
         default:
-            return ["${repo}:${tag}-${target.replace('-ubi8', '')}-community"]
+            return []
     }
-}
-
-String makeArgs(String tag) {
-    def args = "TAG=${tag}"
-    if (params.BASE_OS == 'ubi8') {
-        args += ' BASE_IMAGE=redhat/ubi8-minimal'
-    }
-    return args
 }
 
 void generateImageSummary(filePath) {
@@ -83,30 +62,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
             name: 'GIT_PD_REPO')
-        choice(
-            name: 'BASE_OS',
-            choices: ['el9', 'ubi8'],
-            description: 'Base image family. el9 publishes <branch>-*-community tags, ubi8 publishes <branch>-ubi8-*-community tags.')
-        booleanParam(
-            name: 'BUILD_POSTGRES',
-            defaultValue: true,
-            description: 'Build postgres 14-18 community images')
-        booleanParam(
-            name: 'BUILD_POSTGRES19_BETA',
-            defaultValue: false,
-            description: 'Build postgres 19 (BETA, PGDG testing repo) community image')
-        booleanParam(
-            name: 'BUILD_PGBACKREST',
-            defaultValue: true,
-            description: 'Build pgbackrest community image')
-        booleanParam(
-            name: 'BUILD_PGBOUNCER',
-            defaultValue: true,
-            description: 'Build pgbouncer community image')
-        booleanParam(
-            name: 'BUILD_UPGRADE',
-            defaultValue: true,
-            description: 'Build upgrade community image')
+        string(
+            defaultValue: 'perconalab/percona-postgresql-operator:main-pgbackrest-community',
+            description: 'Existing community pgbackrest image used as the base for the pgbackrest19 (2.59) overlay',
+            name: 'PGBACKREST_BASE_IMAGE')
     }
 
     stages {
@@ -151,19 +110,10 @@ pipeline {
             }
         }
 
-        stage('Build and push community docker images') {
+        stage('Build and push PG 19 docker images') {
             steps {
                 script {
-                    def targets = selectedTargets()
-
-                    if (targets.isEmpty()) {
-                        error 'No image selected to build'
-                    }
-
                     def tag = params.GIT_PD_BRANCH.replaceAll('[/.]', '-').toLowerCase()
-                    if (params.BASE_OS == 'ubi8') {
-                        tag += '-ubi8'
-                    }
 
                     retry(3) {
                         timeout(time: 120, unit: 'MINUTES') {
@@ -174,7 +124,7 @@ pipeline {
                                         set -e
                                         echo \$PASS | docker login -u \$USER --password-stdin
                                         docker buildx create --use
-                                        make ${targets.join(' ')} ${makeArgs(tag)}
+                                        make ${PG19_TARGETS.join(' ')} TAG=${tag} PGBACKREST_IMAGE=${params.PGBACKREST_BASE_IMAGE}
                                         docker logout
                                     "
                                 """
@@ -182,7 +132,7 @@ pipeline {
                         }
                     }
 
-                    def images = targets.collectMany { imagesForTarget(it, tag) }.unique()
+                    def images = PG19_TARGETS.collectMany { imagesForTarget(it, tag) }.unique()
                     writeFile(file: 'list-of-images.txt', text: images.join('\n') + '\n')
                 }
             }
@@ -210,7 +160,7 @@ pipeline {
             deleteDir()
         }
         failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PG community docker images failed. Please check the log ${BUILD_URL}"
+            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PG 19 community docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }
