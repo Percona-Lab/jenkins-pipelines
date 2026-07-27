@@ -340,11 +340,9 @@ ENDSSH
                         // 🔹 Scan images and store logs
                             imageList.each { image ->
                                 echo "🔍 Scanning ${image}..."
-                                def result = sh(script: """#!/bin/bash
-                                    set -e
+                                def result = sh(script: """
                                     trivy image --quiet \
                                       --format table --timeout 10m0s --ignore-unfixed --exit-code 1 --scanners vuln --severity HIGH,CRITICAL ${image}
-                                    echo "TRIVY_EXIT_CODE=\$?"
                                 """, returnStatus: true)
                                 echo "Actual Trivy exit code: ${result}"
                             // 🟡 Mark build as unstable if vulnerabilities are found
