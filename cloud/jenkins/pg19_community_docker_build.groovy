@@ -1,7 +1,8 @@
 // Builds and pushes the PostgreSQL 19 (BETA, tech preview) image set from
 // percona-docker postgresql-containers/community. PG 19 images are built from
 // PGDG testing packages (ppg-19 does not exist yet); pgAudit and pgBackRest
-// 2.59 are compiled from source inside the images.
+// 2.59 are compiled from source inside the images. The PG 19 Dockerfiles are
+// hand-maintained (not sync.sh-generated) until ppg-19 exists.
 //
 // Published tags (REGISTRY defaults to perconalab/percona-postgresql-operator):
 //   <tag>-postgres19-community  - postgres 19 + patroni + pgbackrest client
@@ -92,20 +93,6 @@ pipeline {
                     export GIT_REPO=$GIT_PD_REPO
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
-                """
-            }
-        }
-
-        stage('Check generated Dockerfiles are in sync') {
-            steps {
-                sh """
-                    cd ./source/postgresql-containers/community
-                    ./sync.sh | tee \$WORKSPACE/sync-report.txt
-                    if grep -q 'source changed' \$WORKSPACE/sync-report.txt; then
-                        echo 'ERROR: generated community Dockerfiles are stale.'
-                        echo 'Run ./sync.sh --apply in postgresql-containers/community and commit the result.'
-                        exit 1
-                    fi
                 """
             }
         }
