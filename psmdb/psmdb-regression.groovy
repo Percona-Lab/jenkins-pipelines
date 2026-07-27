@@ -13,6 +13,7 @@ pipeline {
     parameters {
         choice(name: 'image', choices: ['build','predefined'], description: 'Build image from sources or use predefined docker image for tests')
         string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/refs/heads/main/regression-tests/build_image/Dockerfile_gcc_from_scratch', description: 'Dockerfile for image')
+        string(name: 'repo', defaultValue: 'https://github.com/percona/percona-server-mongodb.git', description: 'PSMDB repo')
         string(name: 'branch', defaultValue: 'v8.0', description: 'Repo branch for build image from sources')
         string(name: 'version', defaultValue: '8.0.4', description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '1', description: 'Release for build tag (psm_release) to build image from sources')
@@ -31,7 +32,7 @@ pipeline {
         string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer', description: 'Extra params passed to resmoke.py')
     }
     options {
-        withCredentials(moleculePbmJenkinsCreds())
+        withCredentials([string(credentialsId: 'SMART_TESTS_TOKEN', variable: 'SMART_TESTS_TOKEN')])
     }
     stages {
         stage('Set build name'){
@@ -48,7 +49,7 @@ pipeline {
                 environment name: 'image', value: 'build'
             }
             steps {
-                git poll: false, branch: branch, url: 'https://github.com/percona/percona-server-mongodb.git'
+                git poll: false, branch: branch, url: repo
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                      sh """
                          sudo mkdir -p /usr/libexec/docker/cli-plugins
@@ -62,6 +63,8 @@ pipeline {
                          fi
                          sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                          sudo systemctl restart docker
+                         docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN --rm cloudbees/smart-tests-cli:v2.5.0 /src/.venv/bin/smart-tests verify
+                         docker run -u \$(id -u):\$(id -g) --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record build --build ${env.branch}-${env.BUILD_NUMBER}"
                          rm -rf *
                          if [[ ${params.instance} =~ "aarch64" ]]; then
                             curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
@@ -75,6 +78,7 @@ pipeline {
                          curl -o Dockerfile ${params.dockerfile}
                          VER=\$(echo ${params.version} | cut -d"." -f1)
                          build_args="--build-arg branch=${params.branch} \
+                             --build-arg repo=${params.repo} \
                              --build-arg psm_ver=${params.version} \
                              --build-arg psm_release=${params.release} \
                              --build-arg toolchain_version=${params.toolchain_version} \
@@ -174,6 +178,9 @@ pipeline {
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
                                                         docker run --ulimit memlock=-1 --ulimit nofile=64000:64000 -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record session --build  ${env.branch}-${env.BUILD_NUMBER} --test-suite ${suiteName} > session.txt" || true
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record attachment --session @session.txt resmoke_${suiteName}_s.log" || true
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record tests pytest --session @session.txt junit.xml" || true                                                        
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 }
@@ -183,6 +190,9 @@ pipeline {
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
                                                         docker run --ulimit memlock=-1 --ulimit nofile=64000:64000 -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record session --build  ${env.branch}-${env.BUILD_NUMBER} --test-suite ${suiteName} > session.txt" || true
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record attachment --session @session.txt resmoke_${suiteName}_s.log" || true
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record tests pytest --session @session.txt junit.xml" || true
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 }
@@ -231,6 +241,7 @@ pipeline {
                                             curl -o Dockerfile ${params.dockerfile}
                                             VER=\$(echo ${params.version} | cut -d"." -f1)
                                             build_args="--build-arg branch=${params.branch} \
+                                                        --build-arg repo=${params.repo} \
                                                         --build-arg psm_ver=${params.version} \
                                                         --build-arg psm_release=${params.release} \
                                                         --build-arg toolchain_version=${params.toolchain_version} \
@@ -267,6 +278,9 @@ pipeline {
                                                     docker run -v `pwd`/test_results:/work --rm unittests bash -c "python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                     docker run -v `pwd`/test_results:/work -w /work --rm unittests bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py'
                                                     sudo chmod -R 777 test_results
+                                                    docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record session --build  ${env.branch}-${env.BUILD_NUMBER} --test-suite ${suiteName} > session.txt" || true
+                                                    docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record attachment --session @session.txt resmoke_${suiteName}_s.log" || true
+                                                    docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record tests pytest --session @session.txt junit.xml" || true
                                                     echo "finish suite ${suiteName}"
                                                 """
                                                 junit testResults: "test_results/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
@@ -315,6 +329,7 @@ pipeline {
                                             curl -o Dockerfile ${params.dockerfile}
                                             VER=\$(echo ${params.version} | cut -d"." -f1)
                                             build_args="--build-arg branch=${params.branch} \
+                                                        --build-arg repo=${params.repo} \
                                                         --build-arg psm_ver=${params.version} \
                                                         --build-arg psm_release=${params.release} \
                                                         --build-arg toolchain_version=${params.toolchain_version} \
@@ -396,6 +411,7 @@ pipeline {
                                             curl -o Dockerfile ${params.dockerfile}
                                             VER=\$(echo ${params.version} | cut -d"." -f1)
                                             build_args="--build-arg branch=${params.branch} \
+                                                        --build-arg repo=${params.repo} \
                                                         --build-arg psm_ver=${params.version} \
                                                         --build-arg psm_release=${params.release} \
                                                         --build-arg toolchain_version=${params.toolchain_version} \
@@ -432,6 +448,9 @@ pipeline {
                                                         docker run -v `pwd`/test_results:/work --rm integrationtests bash -c "python buildscripts/resmoke.py run --suite ${suite} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm integrationtests bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py'
                                                         sudo chmod -R 777 test_results
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record session --build  ${env.branch}-${env.BUILD_NUMBER} --test-suite ${suiteName} > session.txt" || true
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record attachment --session @session.txt resmoke_${suiteName}_s.log" || true
+                                                        docker run --entrypoint '' -e SMART_TESTS_TOKEN=$SMART_TESTS_TOKEN -w /work -v `pwd`/test_results:/work --rm cloudbees/smart-tests-cli:v2.5.0 sh -c "/src/.venv/bin/smart-tests record tests pytest --session @session.txt junit.xml" || true
                                                         echo "finish suite ${suiteName}"
                                                     """
                                                 junit testResults: "test_results/junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
