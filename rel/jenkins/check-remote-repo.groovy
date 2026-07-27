@@ -78,6 +78,11 @@ ReposPathMap = [
     'PgBouncer':            "${GitHubURL}/pgbouncer/pgbouncer",
     'Wal2Json':             "${GitHubURL}/eulerto/wal2json",
     'Valkey':               "${GitHubURL}/valkey-io/valkey",
+    'ValkeyJSON':           "${GitHubURL}/valkey-io/valkey-json",
+    'ValkeyBloom':          "${GitHubURL}/valkey-io/valkey-bloom",
+    'ValkeySearch':         "${GitHubURL}/valkey-io/valkey-search",
+    'ValkeyLDAP':           "${GitHubURL}/valkey-io/valkey-ldap",
+    'ValkeyAudit':          "${GitHubURL}/valkey-io/valkey-audit",
     'PgPool':               "${GitHubURL}/pgpool/pgpool2",
     'PgTDE':                "${GitHubURL}/percona/pg_tde",
     'PostGIS':              "${GitHubURL}/postgis/postgis",
@@ -152,7 +157,12 @@ ReposSlackMap = [
     'PostgreSQL-Common':    "#postgresql-build",
     'PostgreSQL':           "#postgresql-build",
     'PostgreSQL-Percona':   "#postgresql-build",
-    'Valkey':               "#valkey"
+    'Valkey':               "#valkey-redis",
+    'ValkeyJSON':           "#valkey-redis",
+    'ValkeyBloom':          "#valkey-redis",
+    'ValkeySearch':         "#valkey-redis",
+    'ValkeyLDAP':           "#valkey-redis",
+    'ValkeyAudit':          "#valkey-redis"
     ]
 
 pipeline {
