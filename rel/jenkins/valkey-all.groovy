@@ -28,6 +28,10 @@ pipeline {
             defaultValue: 'valkey-91',
             description: 'Repository every package publishes to (and the test stage installs from)',
             name: 'VALKEY_REPO')
+        string(
+            defaultValue: 'perconalab',
+            description: 'DockerHub namespace images publish to (server=<ns>/valkey, bundle=<ns>/valkey-bundle, modules=<ns>/valkey-mod-<name>)',
+            name: 'IMAGE_NAMESPACE')
 
         // --- What to build (tick to include) ---
         booleanParam(defaultValue: true, description: 'Package: percona-valkey (server)',        name: 'PKG_SERVER')
@@ -150,6 +154,7 @@ pipeline {
                     String cloud = params.CLOUD
                     String ch    = params.CHANNEL
                     String pkgBr = params.PACKAGING_BRANCH
+                    String ns    = params.IMAGE_NAMESPACE
                     Map jobs = [:]
                     if (params.IMG_VALKEY) {
                         jobs['valkey'] = trigger('hetzner-valkey-DOCKER', [
@@ -157,6 +162,7 @@ pipeline {
                             string(name: 'PACKAGING_BRANCH', value: pkgBr),
                             string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
                             string(name: 'REPO_CHANNEL',     value: ch),
+                            string(name: 'IMAGE_NAME',       value: "${ns}/valkey"),
                         ])
                     }
                     if (params.IMG_BUNDLE) {
@@ -165,6 +171,7 @@ pipeline {
                             string(name: 'PACKAGING_BRANCH', value: pkgBr),
                             string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
                             string(name: 'REPO_CHANNEL',     value: ch),
+                            string(name: 'IMAGE_NAME',       value: "${ns}/valkey-bundle"),
                         ])
                     }
                     if (params.IMG_MODULE) {
@@ -172,9 +179,10 @@ pipeline {
                             string(name: 'CLOUD',            value: cloud),
                             string(name: 'PACKAGING_BRANCH', value: pkgBr),
                             string(name: 'REPO_CHANNEL',     value: ch),
+                            string(name: 'IMAGE_PREFIX',     value: "${ns}/valkey-mod"),
                         ])
                     }
-                    echo "Building Docker images: ${jobs.keySet().join(', ')}"
+                    echo "Building Docker images (namespace ${ns}): ${jobs.keySet().join(', ')}"
                     parallel(jobs)
                 }
             }
