@@ -1,0 +1,16 @@
+- view:
+    name: 'Valkey'
+    description: |
+        Percona Valkey — packaging (server + modules), testing, and Docker images.
+        Groups every hetzner-valkey-* job in one place.
+        Do not edit these jobs through the web!
+    view-type: list
+    regex: 'hetzner-valkey-.*'
+    columns:
+      - status
+      - weather
+      - job
+      - last-success
+      - last-failure
+      - last-duration
+      - build-button
