@@ -44,7 +44,7 @@ pipeline {
             description: 'URL for valkey-audit repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'main',
+            defaultValue: 'percona-packaging',
             description: 'Tag/Branch for valkey-audit repository',
             name: 'GIT_BRANCH')
         string(
