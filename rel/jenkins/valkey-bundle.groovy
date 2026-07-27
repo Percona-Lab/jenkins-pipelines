@@ -23,7 +23,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bundle_deps
-            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bundle_version=${VALKEY_BUNDLE_VERSION} ${STAGE_PARAM}"
+            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bundle_version=${VALKEY_BUNDLE_VERSION} --release=${VALKEY_BUNDLE_RELEASE} ${STAGE_PARAM}"
     """
 }
 

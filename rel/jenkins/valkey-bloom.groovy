@@ -18,7 +18,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bloom_deps
-            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bloom_repo=${GIT_REPO} --bloom_branch=${GIT_BRANCH} --bloom_version=${VALKEY_BLOOM_VERSION} ${STAGE_PARAM}"
+            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bloom_repo=${GIT_REPO} --bloom_branch=${GIT_BRANCH} --bloom_version=${VALKEY_BLOOM_VERSION} --release=${VALKEY_BLOOM_RELEASE} ${STAGE_PARAM}"
     """
 }
 
