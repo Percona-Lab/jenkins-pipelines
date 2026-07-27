@@ -1,22 +1,24 @@
-# Oracle Linux package-test AMI factory.
-# Bakes OL8/OL9 (and later OL10) x86_64+arm64 AMIs with Packer over AWS Session
+# EL package-test AMI factory: Oracle Linux + Rocky Linux.
+# Bakes OL and Rocky 8/9/10 x86_64+arm64 AMIs with Packer over AWS Session
 # Manager (no inbound SSH), authenticated via GitHub OIDC (no static keys), and
 # promotes each via a fresh-boot smoke test. Consumer: pg.cd molecule jobs select
 # the newest role=ppg-package-test AMI by tag (vars/moleculeEnvPPG.groovy).
+# Rocky lineage roots are seeded once per combo via dispatch (just ci-seed-rocky).
 #
-# Triggers: recipe change (paths), weekly security rebake (cron), manual.
+# Triggers: PR validate-only (pull_request -> check job, no AWS), recipe change
+# (paths), weekly security rebake (cron), manual.
 # Actions are pinned to commit SHAs; the trailing "# vX.Y.Z" records the tag.
 
-name: ppg-oracle-ami-factory
-run-name: ppg OL AMI factory (${{ inputs.env || 'prod' }}, ${{ github.event_name }})
+name: ppg-ami-factory
+run-name: ppg AMI factory (${{ inputs.env || 'prod' }}, ${{ github.event_name }})
 
 on:
   workflow_dispatch:
     inputs:
       combos:
-        description: 'JSON matrix include list, e.g. [{"os_major":"9","arch":"x86_64"}]'
+        description: 'JSON matrix include list, e.g. [{"os":"rocky","os_major":"9","arch":"x86_64","seed":true}]; os defaults to oraclelinux, seed to false'
         required: false
-        default: '[{"os_major":"9","arch":"x86_64"}]'
+        default: '[{"os":"oraclelinux","os_major":"9","arch":"x86_64"}]'
       env:
         description: 'prod (real factory tags) or test (isolated tags, never consumed by pg.cd)'
         required: false
@@ -27,9 +29,13 @@ on:
     branches: [master]
     paths:
       - 'ppg/packer/**'
-      - '.github/workflows/ppg-oracle-ami-factory.yml'
+      - '.github/workflows/ppg-ami-factory.yml'
+  pull_request:
+    paths:
+      - 'ppg/packer/**'
+      - '.github/workflows/ppg-ami-factory.yml'
   schedule:
-    - cron: '0 6 * * 1' # weekly Mon 06:00 UTC - absorb Oracle security errata
+    - cron: '0 6 * * 1' # weekly Mon 06:00 UTC - absorb OL + Rocky security errata
 
 permissions:
   contents: read # workflow-level default: read-only
@@ -44,8 +50,9 @@ env:
 
 jobs:
   # No-AWS gate: a malformed template or bad combo fails HERE, before bake spins
-  # up any EC2. Mirrors the local `just check` (fmt-check + validate every combo +
-  # smoke). No id-token, so this job can never assume the factory role.
+  # up any EC2. Runs scripts/check.sh, the SAME file `just check` runs, so the
+  # CI and local gates cannot drift. No id-token, so this job can never assume
+  # the factory role.
   check:
     name: Validate templates (no AWS)
     runs-on: ubuntu-latest
@@ -64,28 +71,12 @@ jobs:
         working-directory: ppg/packer
         run: |
           set -euo pipefail
-          packer fmt -check -diff .
-          packer fmt -check -diff smoke
-          packer init .
-          for m in 8 9 10; do
-            for a in x86_64 arm64; do
-              echo "validate OL$m $a"
-              packer validate -var "os_major=$m" -var "arch=$a" .
-            done
-          done
-          ( cd smoke && packer init . && packer validate \
-              -var candidate_ami=ami-00000000000000000 \
-              -var os_major=9 -var arch=x86_64 . )
-          # drift guard (mirrors `just check`): justfile root_gib must equal var.volume_size,
-          # else a reimaged base would be the wrong root size for the refresh to launch.
-          rg=$(awk -F'"' '/^root_gib[[:space:]]*:=/{print $2; exit}' justfile)
-          vs=$(awk '/variable "volume_size"/{f=1} f&&/default/{gsub(/[^0-9]/,"");print;exit}' oracle-linux.pkr.hcl)
-          [[ -n "$rg" && "$rg" == "$vs" ]] || { echo "DRIFT: justfile root_gib=$rg != var.volume_size=$vs"; exit 1; }
-          echo "check OK"
+          bash scripts/check.sh
 
   bake:
-    name: OL${{ matrix.os_major }} ${{ matrix.arch }}
+    name: ${{ matrix.os || 'oraclelinux' }} ${{ matrix.os_major }} ${{ matrix.arch }}
     needs: check # no EC2 launches until templates validate
+    if: github.event_name != 'pull_request' # PRs run the no-AWS check only
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -93,9 +84,9 @@ jobs:
       id-token: write # ONLY this job mints the OIDC token
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 12
       matrix:
-        include: ${{ fromJSON(github.event.inputs.combos || '[{"os_major":"8","arch":"x86_64"},{"os_major":"8","arch":"arm64"},{"os_major":"9","arch":"x86_64"},{"os_major":"9","arch":"arm64"},{"os_major":"10","arch":"x86_64"},{"os_major":"10","arch":"arm64"}]') }}
+        include: ${{ fromJSON(github.event.inputs.combos || '[{"os":"oraclelinux","os_major":"8","arch":"x86_64"},{"os":"oraclelinux","os_major":"8","arch":"arm64"},{"os":"oraclelinux","os_major":"9","arch":"x86_64"},{"os":"oraclelinux","os_major":"9","arch":"arm64"},{"os":"oraclelinux","os_major":"10","arch":"x86_64"},{"os":"oraclelinux","os_major":"10","arch":"arm64"},{"os":"rocky","os_major":"8","arch":"x86_64"},{"os":"rocky","os_major":"8","arch":"arm64"},{"os":"rocky","os_major":"9","arch":"x86_64"},{"os":"rocky","os_major":"9","arch":"arm64"},{"os":"rocky","os_major":"10","arch":"x86_64"},{"os":"rocky","os_major":"10","arch":"arm64"}]') }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -129,18 +120,22 @@ jobs:
         working-directory: ppg/packer
         run: packer init .
 
-      - name: Build candidate AMI (OL${{ matrix.os_major }} ${{ matrix.arch }}, env=${{ env.FACTORY_ENV }})
+      - name: Build candidate AMI (${{ matrix.os || 'oraclelinux' }} ${{ matrix.os_major }} ${{ matrix.arch }}, env=${{ env.FACTORY_ENV }})
         id: build
         working-directory: ppg/packer
         # Matrix values via env, not inline ${{ }}, so they reach packer as data
         # (quoted shell vars) and cannot break out of the run shell.
         env:
+          OS: ${{ matrix.os || 'oraclelinux' }}
+          SEED: ${{ matrix.seed || false }}
           OS_MAJOR: ${{ matrix.os_major }}
           ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
           rm -f manifest.json
           packer build -color=false \
+            -var "os=${OS}" \
+            -var "seed=${SEED}" \
             -var "os_major=${OS_MAJOR}" \
             -var "arch=${ARCH}" \
             -var "region=${AWS_REGION}" \
@@ -149,7 +144,7 @@ jobs:
           echo "ami=$AMI" >> "$GITHUB_OUTPUT"
           echo "built candidate: $AMI"
           {
-            echo "### OL${OS_MAJOR} ${ARCH}"
+            echo "### ${OS} ${OS_MAJOR} ${ARCH}"
             echo "- built: $AMI"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -157,6 +152,7 @@ jobs:
         working-directory: ppg/packer
         env:
           AMI: ${{ steps.build.outputs.ami }}
+          OS: ${{ matrix.os || 'oraclelinux' }}
           OS_MAJOR: ${{ matrix.os_major }}
           ARCH: ${{ matrix.arch }}
         run: |
@@ -164,7 +160,7 @@ jobs:
           echo "smoke candidate: $AMI"
           # Deregister ONLY on a real boot/install failure (never on a later promote-tag failure).
           ( cd smoke && packer init . && packer build -color=false \
-              -var "candidate_ami=$AMI" -var "os_major=${OS_MAJOR}" \
+              -var "candidate_ami=$AMI" -var "os=${OS}" -var "os_major=${OS_MAJOR}" \
               -var "arch=${ARCH}" -var "region=${AWS_REGION}" . ) \
           || { echo "smoke (boot+install) failed; deregistering $AMI + its snapshots"; aws ec2 deregister-image --delete-associated-snapshots --region "$AWS_REGION" --image-id "$AMI"; echo "- smoke: FAIL (deregistered $AMI)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
           echo "- smoke: pass" >> "$GITHUB_STEP_SUMMARY"
@@ -186,7 +182,9 @@ jobs:
 
   notify:
     needs: bake
-    if: failure()
+    # failure() is true when ANY ancestor failed, including a check failure on a
+    # pull_request run where bake was skipped. Never ping the webhook for PR lint.
+    if: failure() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Job-level so the step `if` below reads it reliably; a step-scoped env can be
     # unavailable to its own step's `if`, which would skip the alert silently.
@@ -202,4 +200,4 @@ jobs:
           webhook: ${{ env.SLACK_WEBHOOK }}
           webhook-type: incoming-webhook
           payload: |
-            text: "PPG-OL-AMI factory FAILED - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            text: "PPG AMI factory FAILED - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
