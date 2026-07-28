@@ -106,6 +106,12 @@ if [[ "${DOCKER_OS}" = "centos-8" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
   fi
 fi
 
+# AL2023 ships gcc14 as the named package, not an SCL. Set CC/CXX directly.
+if [[ "${DOCKER_OS}" = "amazonlinux-2023" ]] && [[ ${XB_VERSION_MAJOR} -ge 9 ]]; then
+  export CC=gcc14-gcc
+  export CXX=gcc14-g++
+fi
+
 XTRABACKUP_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"
 FULL_PRODUCT_NAME="percona-xtrabackup-${XTRABACKUP_VERSION}-$(uname -s)-$(uname -m)-${DOCKER_OS}${TAG}"
 
