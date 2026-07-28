@@ -8,7 +8,7 @@ if (params.CLOUD == 'AWS') {
 } else {
     LABEL = (params.ARCH == 'aarch64') ? 'docker-aarch64' : 'docker-x64'
 }
-String MICRO_LABEL = (params.CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
+String MICRO_LABEL = 'launcher-x64' // pxbval: pxb micro-amazon agents are down (PKG-1431 signature)
 
 pipeline {
     parameters {
