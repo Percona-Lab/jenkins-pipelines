@@ -140,7 +140,7 @@ def cleanupStaleVMs() {
 def installMoleculeChaos() {
     sh '''
         set -e
-        bash setup.sh
+        sudo bash setup.sh
     '''
 }
 
