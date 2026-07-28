@@ -6,12 +6,15 @@ set -o xtrace
 ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
+# pxbval harness knob: set IMAGE_SUFFIX=-pxbval to consume a staging-suffixed
+# pxc-build tag instead of the production one. Empty by default.
+IMAGE_SUFFIX=${IMAGE_SUFFIX:-}
 
 docker run --rm \
     --cap-add SYS_PTRACE \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
-    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-}${IMAGE_SUFFIX} \
     sh -c "
     set -o errexit
     set -o xtrace
