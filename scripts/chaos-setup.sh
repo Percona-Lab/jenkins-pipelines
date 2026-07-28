@@ -96,8 +96,3 @@ for entry in "${IMAGES[@]}"; do
         echo "  already present: ${raw}"
     fi
 done
-
-echo
-echo "Setup complete (amd64)."
-echo "  source ${VENV_DIR}/bin/activate"
-echo "  molecule test -s ubuntu24"

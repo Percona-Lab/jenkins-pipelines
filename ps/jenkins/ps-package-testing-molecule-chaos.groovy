@@ -89,6 +89,14 @@ def ps57PackageTesting() {
 
 List allOS = (ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()).unique()
 
+// Chaos QEMU scenarios live in the package-testing clone under
+// molecule/ps/chaos/. Molecule resolves scenarios as molecule/<os>/ relative
+// to this dir, and each scenario's converge reuses package-testing's shared
+// playbooks (../../../../../playbooks/${PLAYBOOK_VAR}.yml).
+def chaosMoleculeDir() {
+    return "\${HOME}/package-testing/molecule/ps/chaos"
+}
+
 // Run each scenario's create/converge/destroy cycle in parallel on the local
 // QEMU host. Mirrors moleculeParallelTestALL() but uses the qemu venv and the
 // create/converge/destroy lifecycle from workingsetup.groovy.
@@ -101,6 +109,7 @@ def moleculeParallelTestChaos(allOS, operatingSystems, venvDir) {
                     sh """
                         set -e
                         . ${venvDir}/bin/activate
+                        cd ${chaosMoleculeDir()}
                         molecule create   -s ${os}
                         molecule converge -s ${os}
                         molecule destroy  -s ${os}
@@ -137,10 +146,9 @@ def cleanupStaleVMs() {
 }
 
 // Build the molecule + QEMU environment (venv, system packages, cloud images).
-// Uses scripts/chaos-setup.sh from THIS jenkins-pipelines repo (which carries
-// the molecule/ansible-core version pins for the Python 3.10 node) instead of
-// the qemu-kvm-molecule repo's own setup.sh. The script is downloaded because
-// the Checkout stage replaces the workspace with the qemu-kvm-molecule repo.
+// Runs scripts/chaos-setup.sh straight from this jenkins-pipelines checkout
+// (it carries the molecule/ansible-core version pins for the Python 3.10 node)
+// instead of the qemu-kvm-molecule repo's own setup.sh.
 def installMoleculeChaos() {
     sh '''
         set -e
@@ -159,16 +167,9 @@ def installMoleculeChaos() {
             sleep 5
         done
 
-        # Fetch chaos-setup.sh from jenkins-pipelines (scripts/) rather than the
-        # qemu-kvm-molecule setup.sh, so the version pins live with this pipeline.
-        RAW_BASE=$(echo "${PIPELINES_REPO}" | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')
-        SETUP_URL="${RAW_BASE}/${PIPELINES_BRANCH}/scripts/chaos-setup.sh"
-        echo "→ Downloading chaos setup script from ${SETUP_URL}"
-        wget -q "${SETUP_URL}" -O chaos-setup.sh || curl -fsSL "${SETUP_URL}" -o chaos-setup.sh
-
         # Run as the agent user (NOT sudo): chaos-setup.sh calls sudo itself for
         # the apt steps and creates the venv under $HOME (/opt/jenkins-agent).
-        bash chaos-setup.sh
+        bash "${WORKSPACE}/scripts/chaos-setup.sh"
     '''
 }
 
@@ -416,8 +417,6 @@ pipeline {
         label 'chaos-amd'
     }
     environment {
-        PIPELINES_REPO               = 'https://github.com/Percona-Lab/jenkins-pipelines.git'
-        PIPELINES_BRANCH             = 'master'
         VENV_DIR                     = "${env.HOME}/.venv/molecule_qemu"
         ANSIBLE_DEPRECATION_WARNINGS = "False"
         product_to_test = "${params.product_to_test}"
@@ -527,8 +526,9 @@ pipeline {
                 // Best-effort teardown of every scenario in case a converge
                 // failed before its destroy ran.
                 sh """
-                    if [ -d "${VENV_DIR}" ]; then
+                    if [ -d "${VENV_DIR}" ] && [ -d "${chaosMoleculeDir()}" ]; then
                         . ${VENV_DIR}/bin/activate
+                        cd ${chaosMoleculeDir()}
                         for s in ${allOS.join(' ')}; do
                             molecule destroy -s \${s} || true
                         done
