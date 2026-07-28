@@ -83,6 +83,24 @@ void prepareNode() {
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
 
+    sh '''
+        if ! command -v gsutil &>/dev/null; then
+            echo "gsutil not found, installing google-cloud-cli..."
+            sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+            sudo yum install -y google-cloud-cli
+        fi
+        command -v gsutil
+        gsutil version -l | head -n1
+    '''
+
     installAzureCLI()
     azureAuth()
 
@@ -279,12 +297,30 @@ nodeGroups:
 EOF
         """
 
-        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            credentialsId: 'eks-cicd',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
             sh """
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+
                 eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-                kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+                
+                # Use GP3 storage class as default, recommended by the provider
+                kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
+
+                # Remove GP2 storage class default label, for old clusters
+                kubectl annotate storageclass gp2 \
+                    storageclass.kubernetes.io/is-default-class- \
+                    --overwrite 2>/dev/null || true
+
+                kubectl create clusterrolebinding cluster-admin-binding1 \
+                    --clusterrole=cluster-admin \
+                    --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+
+                kubectl get storageclass
             """
         }
     }

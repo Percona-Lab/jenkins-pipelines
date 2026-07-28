@@ -36,8 +36,6 @@ def ps90PackageTesting() {
 
 def ps80PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'oracle-8',
@@ -54,8 +52,6 @@ def ps80PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
-        'amazon-linux-2023',
-        'amazon-linux-2023-arm'
     ]
 }
 
@@ -550,7 +546,9 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
-                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
