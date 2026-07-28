@@ -137,10 +137,38 @@ def cleanupStaleVMs() {
 }
 
 // Build the molecule + QEMU environment (venv, system packages, cloud images).
+// Uses scripts/chaos-setup.sh from THIS jenkins-pipelines repo (which carries
+// the molecule/ansible-core version pins for the Python 3.10 node) instead of
+// the qemu-kvm-molecule repo's own setup.sh. The script is downloaded because
+// the Checkout stage replaces the workspace with the qemu-kvm-molecule repo.
 def installMoleculeChaos() {
     sh '''
         set -e
-        sudo bash setup.sh
+        # A freshly-booted node may still be running unattended-upgrades /
+        # apt-daily, which holds the dpkg lock and makes apt-get fail
+        # instantly. Wait (up to ~10 min) for the lock to clear first.
+        echo "Waiting for any apt/dpkg lock to be released..."
+        for i in $(seq 1 120); do
+            if ! sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
+               && ! sudo fuser /var/lib/dpkg/lock         >/dev/null 2>&1 \
+               && ! sudo fuser /var/lib/apt/lists/lock    >/dev/null 2>&1; then
+                echo "apt/dpkg lock is free."
+                break
+            fi
+            echo "apt/dpkg is busy, waiting... (${i}/120)"
+            sleep 5
+        done
+
+        # Fetch chaos-setup.sh from jenkins-pipelines (scripts/) rather than the
+        # qemu-kvm-molecule setup.sh, so the version pins live with this pipeline.
+        RAW_BASE=$(echo "${PIPELINES_REPO}" | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')
+        SETUP_URL="${RAW_BASE}/${PIPELINES_BRANCH}/scripts/chaos-setup.sh"
+        echo "→ Downloading chaos setup script from ${SETUP_URL}"
+        wget -q "${SETUP_URL}" -O chaos-setup.sh || curl -fsSL "${SETUP_URL}" -o chaos-setup.sh
+
+        # Run as the agent user (NOT sudo): chaos-setup.sh calls sudo itself for
+        # the apt steps and creates the venv under $HOME (/opt/jenkins-agent).
+        bash chaos-setup.sh
     '''
 }
 
@@ -388,7 +416,8 @@ pipeline {
         label 'chaos-amd'
     }
     environment {
-        REPO_URL                     = 'https://github.com/panchal-yash/qemu-kvm-molecule.git'
+        PIPELINES_REPO               = 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+        PIPELINES_BRANCH             = 'master'
         VENV_DIR                     = "${env.HOME}/.venv/molecule_qemu"
         ANSIBLE_DEPRECATION_WARNINGS = "False"
         product_to_test = "${params.product_to_test}"
@@ -420,12 +449,6 @@ pipeline {
                     script {
                         cleanupStaleVMs()
                     }
-                }
-            }
-            stage('Checkout') {
-                steps {
-                    deleteDir()
-                    git poll: false, branch: 'main', url: "${REPO_URL}"
                 }
             }
             stage('Prepare') {
