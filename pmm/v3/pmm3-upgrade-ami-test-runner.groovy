@@ -271,7 +271,7 @@ pipeline {
                             source /home/admin/.config/systemd/user/pmm-server.env
                             podman pull \\${PMM_IMAGE}
                             systemctl --user restart pmm-server
-                            podman ps | grep pmm-server
+                            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do podman ps | grep pmm-server && break; sleep 5; done
                         '
                         "
                     '''
