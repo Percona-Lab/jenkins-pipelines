@@ -75,17 +75,26 @@ if [ -f /usr/bin/yum ]; then
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
       retry yum -y install ${PKGLIST}
-      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
-      yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
-      yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
-      rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      if [[ $(uname -m) == "x86_64" ]]; then
+          # Legacy Percona-pinned x86_64-only RPMs (procps-ng, procps-ng-devel,
+          # MySQL-python, python2-scons). aarch64 gets procps-ng-devel from CRB
+          # below and skips the python2-era packages.
+          wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+          yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+          yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
+          rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      fi
 
       dnf config-manager --enable ol8_codeready_builder
       PKGLIST+=" libedit-devel python3-docutils"
+      if [[ $(uname -m) != "x86_64" ]]; then
+          # OL8 aarch64: procps-ng is in base; procps-ng-devel lives in CRB.
+          PKGLIST+=" procps-ng-devel"
+      fi
   fi
 
   if [[ ${RHVER} -eq 9 ]]; then
@@ -159,6 +168,9 @@ if [ -f /usr/bin/yum ]; then
   if [[ "${DIST}" == ".amzn2023" ]]; then
       # AL2023: scons is not packaged (modern builds use cmake); netcat is nmap-ncat.
       PKGLIST+=" nmap-ncat"
+  elif [[ $(uname -m) != "x86_64" ]]; then
+      # aarch64: scons is not packaged on OL8; modern PXB/PXC build with cmake.
+      PKGLIST+=" netcat"
   else
       PKGLIST+=" scons netcat"
   fi
@@ -237,7 +249,12 @@ if [ -f /usr/bin/yum ]; then
     fi
 
     if [[ ${RHVER} -lt 9 ]]; then
-        PKGLIST+=" sysbench MySQL-python redhat-lsb-core"
+        PKGLIST+=" sysbench redhat-lsb-core"
+        # MySQL-python (python2 EOL) is not packaged for OL8 aarch64;
+        # mysql-connector + mysqlclient are installed via pip3 below.
+        if [[ ${RHVER} -ne 8 ]] || [[ $(uname -m) == "x86_64" ]]; then
+            PKGLIST+=" MySQL-python"
+        fi
     fi
 
 # Percona-Server
@@ -299,7 +316,6 @@ if [ -f /usr/bin/yum ]; then
     else
         pip3 install mysql-connector mysqlclient
     fi
-
 fi
 
 if [ -f /usr/bin/apt-get ]; then
@@ -326,7 +342,7 @@ if [ -f /usr/bin/apt-get ]; then
     "
 
     # PXC specific
-    PKGLIST+=" make build-essential check scons  libgcrypt-dev libev-dev  libasio-dev  vim-common python3-pip \
+    PKGLIST+=" make build-essential check libgcrypt-dev libev-dev  libasio-dev  vim-common python3-pip \
         libboost-all-dev rsync python3 sysbench patch patchelf librtmp-dev lsof socat \
         python3-sphinx stunnel pigz net-tools netcat-openbsd \
     "
@@ -422,6 +438,11 @@ if [ -f /usr/bin/apt-get ]; then
     # For Debian buster install libre2-dev
     if [[ ${DISTRIBUTOR_ID} == Debian ]] && [[ $(echo "${RELEASE} >= 10" | bc -l) == 1 ]]; then
         PKGLIST+=" libre2-dev"
+    fi
+
+    # aarch64 skips scons; modern PXB/PXC build with cmake.
+    if [[ $(uname -m) == "x86_64" ]]; then
+        PKGLIST+=" scons"
     fi
 
     retry apt-get -y install ${PKGLIST}
