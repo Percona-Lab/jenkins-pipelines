@@ -597,6 +597,22 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Trixie(13)(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_deb=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Oracle Linux 8 binary tarball(glibc2.28)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
