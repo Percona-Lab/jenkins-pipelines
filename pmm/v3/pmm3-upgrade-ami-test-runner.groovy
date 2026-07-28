@@ -265,9 +265,9 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        sed -i "s|PMM_IMAGE=.*|PMM_IMAGE=docker.io/\$DOCKER_TAG_UPGRADE|g" ~/.config/systemd/user/pmm-server.env
-                        cat ~/.config/systemd/user/pmm-server.env
-                        source ~/.config/systemd/user/pmm-server.env podman pull ${PMM_IMAGE}
+                        sed -i "s|PMM_IMAGE=.*|PMM_IMAGE=docker.io/\$DOCKER_TAG_UPGRADE|g" /home/admin/.config/systemd/user/pmm-server.env
+                        cat /home/admin/.config/systemd/user/pmm-server.env
+                        source /home/admin/.config/systemd/user/pmm-server.env podman pull ${PMM_IMAGE}
                         systemctl --user restart pmm-server
                         podman ps | grep pmm-server
                     '''
