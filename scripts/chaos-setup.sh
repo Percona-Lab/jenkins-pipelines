@@ -10,7 +10,13 @@ set -e
 [ "$(uname)" = "Linux" ] || { echo "setup.sh is for Linux. On macOS use ./setup-arm.sh"; exit 1; }
 
 VENV_DIR="${HOME}/.venv/molecule_qemu"
-IMG_DIR="${HOME}/qemu-images"
+# Cache cloud images in a fixed, HOME-independent location so repeat runs
+# (whether invoked with or without sudo) always find the already-converted
+# .raw files and skip re-downloading. Override with QEMU_IMAGES_DIR if the
+# agent home differs. NOTE: the molecule scenarios
+# (package-testing molecule/ps/chaos/molecule/<os>/molecule.yml) must point
+# their image: paths at this SAME directory, or the VMs won't find the images.
+IMG_DIR="${QEMU_IMAGES_DIR:-/opt/jenkins-agent/qemu-images}"
 
 echo "→ Installing OS packages (requires sudo)"
 sudo apt-get update -y
@@ -75,7 +81,10 @@ IMAGES=(
   "https://cdn.amazonlinux.com/al2023/os-images/2023.11.20260511.1/kvm/al2023-kvm-2023.11.20260511.1-kernel-6.1-x86_64.xfs.gpt.qcow2 al2023-amd64"
 )
 
-echo "→ Downloading and converting amd64 cloud images"
+echo "→ Downloading and converting amd64 cloud images into ${IMG_DIR}"
+# Minimum plausible size (100 MB) for a converted raw image. A smaller file is
+# a leftover from an interrupted download/convert and must be re-fetched.
+MIN_RAW_BYTES=$((100 * 1024 * 1024))
 for entry in "${IMAGES[@]}"; do
     # shellcheck disable=SC2086
     set -- $entry
@@ -84,15 +93,25 @@ for entry in "${IMAGES[@]}"; do
     src="${base}.qcow2"
     raw="${base}.raw"
 
-    if [ ! -f "${raw}" ]; then
-        if [ ! -f "${src}" ]; then
-            echo "  downloading ${url}"
-            wget -q --show-progress "${url}" -O "${src}"
+    # Drop a truncated/partial .raw so the guard below re-fetches it.
+    if [ -f "${raw}" ]; then
+        raw_size=$(stat -c%s "${raw}" 2>/dev/null || echo 0)
+        if [ "${raw_size}" -lt "${MIN_RAW_BYTES}" ]; then
+            echo "  ${raw} looks truncated (${raw_size} bytes) - re-fetching"
+            rm -f "${raw}" "${src}"
         fi
-        echo "  converting ${src} -> ${raw}"
-        qemu-img convert -f qcow2 -O raw "${src}" "${raw}"
-        rm -f "${src}"
-    else
-        echo "  already present: ${raw}"
     fi
+
+    if [ -f "${raw}" ]; then
+        echo "  already present, skipping: ${IMG_DIR}/${raw}"
+        continue
+    fi
+
+    if [ ! -f "${src}" ]; then
+        echo "  downloading ${url}"
+        wget -q --show-progress "${url}" -O "${src}"
+    fi
+    echo "  converting ${src} -> ${raw}"
+    qemu-img convert -f qcow2 -O raw "${src}" "${raw}"
+    rm -f "${src}"
 done
