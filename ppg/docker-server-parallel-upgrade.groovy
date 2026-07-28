@@ -46,7 +46,7 @@ pipeline {
     options {
         // Ensure this shared library function returns the correct wrapper
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '100', artifactNumToKeepStr: '10'))
         timestamps()
         retry(conditions: [agent()], count: 2)
     }
@@ -55,7 +55,11 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}-${params.REPOSITORY}"
+                    def displayName = "#${env.BUILD_NUMBER}-docker-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}-${params.REPOSITORY}"
+                    if (params.WITH_POSTGIS) {
+                        displayName += "-with-postgis"
+                    }
+                    currentBuild.displayName = displayName
                 }
             }
         }

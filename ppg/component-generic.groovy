@@ -83,7 +83,11 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(
+            daysToKeepStr: '30',
+            numToKeepStr: '100',
+            artifactNumToKeepStr: '10'
+        ))
         retry(conditions: [agent()], count: 2)
     }
     stages {
@@ -126,6 +130,10 @@ pipeline {
                 }
                 sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION, env.PLATFORM)
             }
+            archiveArtifacts(
+                artifacts: "${env.MOLECULE_DIR}/artifacts/**/*.tar.gz",
+                allowEmptyArchive: true
+            )
         }
     }
 }

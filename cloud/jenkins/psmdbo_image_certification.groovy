@@ -8,7 +8,8 @@ def certifiableImages = [
     'IMAGE_BACKUP',
     'IMAGE_PMM_CLIENT',
     'IMAGE_PMM3_CLIENT',
-    'IMAGE_LOGCOLLECTOR'
+    'IMAGE_LOGCOLLECTOR',
+    'IMAGE_CLUSTERSYNC'
 ]
 
 def imageTag(image) {
@@ -38,6 +39,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_MONGOD60':
         case 'IMAGE_MONGOD70':
         case 'IMAGE_MONGOD80':
+        case 'IMAGE_MONGOD83':
             return target(image, projectId, "${params.RELEASE}-psmdb-${imageTag(image)}", credentials)
 
         case 'IMAGE_BACKUP':
@@ -51,6 +53,9 @@ def buildTargetImage(key, image, params) {
 
         case 'IMAGE_LOGCOLLECTOR':
             return target(image, projectId, "${params.RELEASE}-logcollector-${imageTag(image)}", credentials)
+
+        case 'IMAGE_CLUSTERSYNC':
+            return target(image, projectId, "${params.RELEASE}-clustersync", credentials)
 
         default:
             echo "Skipping ${key}"
@@ -77,10 +82,12 @@ pipeline {
         booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Certify IMAGE_MONGOD60')
         booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Certify IMAGE_MONGOD70')
         booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Certify IMAGE_MONGOD80')
+        booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Certify IMAGE_MONGOD83')
         booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Certify IMAGE_BACKUP')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
         booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
         booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
+        booleanParam(name: 'IMAGE_CLUSTERSYNC', defaultValue: true, description: 'Certify IMAGE_CLUSTERSYNC')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }

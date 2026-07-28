@@ -4,20 +4,156 @@
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
+
+def pxb80PackageTesting() {
+    return [
+        'debian-11',
+        'debian-11-arm',
+        'debian-12',
+        'debian-12-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-9',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'al-2023',
+        'al-2023-arm'
+    ]
+}
+
+def pxb84PackageTesting() {
+    return [
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-9',
+        'rhel-10',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'al-2023',
+        'al-2023-arm'
+    ]
+}
+
+def pxb97PackageTesting() {
+    return [
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-9',
+        'rhel-10',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'al-2023',
+        'al-2023-arm'
+    ]
+}
+
+def pxbInnovationPackageTesting() {
+    return [
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-9',
+        'rhel-10',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'al-2023',
+        'al-2023-arm'
+    ]
+}
+
+List pxbAllOS = (pxb80PackageTesting() + pxb84PackageTesting() + pxb97PackageTesting() + pxbInnovationPackageTesting()).unique()
+
+def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
+    def tests = [:]
+    allOS.each { os ->
+        tests["${os}"] = {
+            stage("${os}") {
+                if (operatingSystems.contains(os)) {
+                    sh """
+                        . virtenv/bin/activate
+                        cd ${moleculeDir}
+                        molecule test -s ${os}
+                    """
+                } else {
+                    echo "Skipping ${os} as it's not in operatingSystems for ${env.product_to_test}"
+                }
+            }
+        }
+    }
+    parallel tests
+}
+
+
     properties([
         parameters([
 
             [
                 $class: 'ChoiceParameter',
                 choiceType: 'PT_SINGLE_SELECT',
-                description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation',
+                description: 'Choose the product version to test: PXB8.0, PXB8.4, PXB9.7 OR pxb_innovation',
                 name: 'product_to_test',
                 script: [
                     $class: 'GroovyScript',
                     script: [
                         classpath: [],
                         sandbox: true,
-                        script: 'return ["pxb_80", "pxb_innovation", "pxb_84"]'
+                        script: 'return ["pxb_80", "pxb_innovation", "pxb_84", "pxb_97"]'
                     ]
                 ]
             ],
@@ -39,11 +175,14 @@
                             else if (product_to_test == "pxb_84") {
                                 return ["ps-84", "ms-84"]
                             }
+                            else if (product_to_test == "pxb_97") {
+                                return ["ps-97", "ms-97"]
+                            }
                             else if (product_to_test == "pxb_innovation") {
                                 return ["ps_innovation", "ms_innovation"]
                             }
                             else {
-                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84"]
+                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84", "ps-97", "ms-97"]
                             }
                         '''
                     ]
@@ -66,7 +205,7 @@
                 name: 'TESTING_BRANCH'
             ),
             choice(
-                choices: ['install', 'upgrade', 'kms'],
+                choices: ['install', 'major_upgrade', 'upgrade', 'kms', 'kmip'],
                 description: 'Scenario To Test',
                 name: 'scenario_to_test'
             ),
@@ -142,17 +281,30 @@
                                 def envMap = loadEnvFile('.env.ENV_VARS')
                                 
                                 withEnv(envMap) {
-                                    
-                                if (REPO_TYPE == 'PRO') {
+
+                                    def osList
+                                    if (product_to_test == "pxb_80") {
+                                        osList = pxb80PackageTesting()
+                                    } else if (product_to_test == "pxb_84") {
+                                        osList = pxb84PackageTesting()
+                                    } else if (product_to_test == "pxb_97") {
+                                        osList = pxb97PackageTesting()
+                                    } else if (product_to_test == "pxb_innovation") {
+                                        osList = pxbInnovationPackageTesting()
+                                    } else {
+                                        error("Unsupported product_to_test: ${product_to_test}")
+                                    }
+
+                                    if (REPO_TYPE == 'PRO') {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             script {
-                                                moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
+                                                moleculeParallelTestPXBALL(pxbAllOS, osList, "molecule/pxb-package-testing/")
                                             }
                                         }
-                                }
-                                else {
-                                        moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
-                                }
+                                    }
+                                    else {
+                                        moleculeParallelTestPXBALL(pxbAllOS, osList, "molecule/pxb-package-testing/")
+                                    }
 
                                 }
 

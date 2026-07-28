@@ -14,7 +14,7 @@ pipeline {
             name: 'GIT_URL'
         )
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm repository',
             name: 'GIT_BRANCH'
         )

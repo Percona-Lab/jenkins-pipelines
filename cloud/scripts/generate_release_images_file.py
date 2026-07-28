@@ -347,6 +347,25 @@ def get_gke():
     return None
 
 
+def get_rancher():
+    resp = _session.get(
+        "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/",
+        timeout=15,
+    )
+    resp.raise_for_status()
+    html = resp.text
+    ver = re.search(r"Rancher Manager v([\d.]+)", html)
+    rke2 = re.search(
+        r"<td>\s*RKE2\s*</td>\s*<td>\s*v?([\d.]+)\s*</td>\s*<td>\s*v?([\d.]+)\s*</td>",
+        html,
+    )
+    return {
+        "rancher": ver.group(1) if ver else None,
+        "rke2_min": rke2.group(1) if rke2 else None,
+        "rke2_max": rke2.group(2) if rke2 else None,
+    }
+
+
 def parse_aks_versions(html, today):
     versions = []
     for ver, _, _, ga, eol in re.findall(
@@ -462,6 +481,7 @@ K8S_VERSION_FETCHERS = {
     "AKS": ("aks", get_aks),
     "OPENSHIFT": ("os", get_openshift),
     "MINIKUBE": ("mk", get_minikube),
+    "RANCHER": ("rancher", get_rancher),
 }
 
 
@@ -469,6 +489,8 @@ def get_supported_platforms(operator):
     platforms = ["GKE", "EKS", "OPENSHIFT", "MINIKUBE"]
     if operator != "ps":
         platforms.insert(2, "AKS")
+    if operator == "psmdb":
+        platforms.append("RANCHER")
     return platforms
 
 
@@ -493,6 +515,11 @@ def get_k8s_lines(operator):
     if "MINIKUBE" in platforms and (mk := r.get("mk")):
         minikube_key = "MINIKUBE_MAX" if operator in {"ps", "pg"} else "MINIKUBE_REL"
         lines.append(f"{minikube_key}={mk}")
+    if "RANCHER" in platforms and (rc := r.get("rancher")):
+        if rc.get("rke2_min") and rc.get("rke2_max"):
+            lines += [f"RKE2_MIN={rc['rke2_min']}", f"RKE2_MAX={rc['rke2_max']}"]
+        if rc.get("rancher"):
+            lines.append(f"RANCHER={rc['rancher']}")
     return lines
 
 

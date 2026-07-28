@@ -36,8 +36,6 @@ def ps90PackageTesting() {
 
 def ps80PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'oracle-8',
@@ -54,15 +52,11 @@ def ps80PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
-        'amazon-linux-2023',
-        'amazon-linux-2023-arm'
     ]
 }
 
 def ps84PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'debian-13',
@@ -108,8 +102,18 @@ def ps97PackageTesting() {
         'rhel-9-arm',
         'rhel-10',
         'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'ubuntu-resolute',
-       'ubuntu-resolute-arm'
+        'ubuntu-resolute-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -296,7 +300,7 @@ properties([
                         if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -350,6 +354,9 @@ properties([
                             }
                             else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
+                            }
+                            else if (product_to_test == "ps_97") {
+                                return ["ps_84"]
                             }
                             else {
                                 return ["NA"]
@@ -405,6 +412,9 @@ properties([
                             }
                             else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
+                            }
+                            else if (product_to_test == "ps_97") {
+                                return ["ps_97"]
                             }
                             else {
                                 return ["NA"]
@@ -536,7 +546,9 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
-                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")

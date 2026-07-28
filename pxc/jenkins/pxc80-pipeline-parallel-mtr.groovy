@@ -640,10 +640,10 @@ pipeline {
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
 
                 script {
-                    BUILD_TRIGGER_BY = " (${currentBuild.getBuildCauses()[0].userId})"
-                    if (BUILD_TRIGGER_BY == " (null)") {
-                        BUILD_TRIGGER_BY = " "
-                    }
+                    // A build can have no cause at all (Replay, or the EC2 Fleet
+                    // plugin's task resubmit); indexing [0] then throws an NPE.
+                    def userCause = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')
+                    BUILD_TRIGGER_BY = userCause ? " (${userCause[0].userId})" : " "
                     currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}${BUILD_TRIGGER_BY} ${CUSTOM_BUILD_NAME}"
                 }
 

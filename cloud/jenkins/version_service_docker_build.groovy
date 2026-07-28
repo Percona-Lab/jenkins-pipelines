@@ -1,15 +1,17 @@
 void checkImageForDocker(){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE=\$(cat IMG)
-            IMAGE_TAG=\$(echo "\$IMAGE" | cut -d':' -f2)
-            TrivyLog="$WORKSPACE/trivy-version-service-\${IMAGE_TAG}.xml"
+        sh '''
+            export IMAGE=$(cat IMG)
+            export IMAGE_TAG=$(echo "$IMAGE" | cut -d':' -f2)
+            export TrivyLog="${WORKSPACE}/trivy-version-service-${IMAGE_TAG}.xml"
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
-            "
-        """
+            sg docker -c '
+                set -e
+                echo "$PASS" | docker login -u "$USER" --password-stdin
+                /usr/local/bin/trivy -q --cache-dir "/mnt/jenkins/trivy-${JOB_NAME}/" image --format template --template @/tmp/junit.tpl -o "$TrivyLog" --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL "$IMAGE"
+                docker logout
+            '
+        '''
     }
 }
 

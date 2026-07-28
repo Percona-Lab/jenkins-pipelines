@@ -30,20 +30,6 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-    ]
-    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP
-    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
-    env.ADMIN_PASSWORD = "admin"
-}
-
 def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD) {
     def clusterName = "nightly-test-${env.BUILD_NUMBER}"
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
@@ -244,7 +230,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
+            choices: ['docker', 'ami', 'helm', 'ha'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -354,14 +340,6 @@ pipeline {
                     }
                     steps {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('Setup OVF PMM Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ovf" }
-                    }
-                    steps {
-                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
                     }
                 }
                 stage('Setup AMI PMM Server Instance') {
@@ -522,7 +500,7 @@ pipeline {
         }
         stage('Prepare Launchable') {
             when {
-                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
+                expression { env.SERVER_TYPE != 'ami' }
             }
             steps {
                 dir('codeceptjs-e2e') {
@@ -581,11 +559,6 @@ pipeline {
                     '''
                 }
                 // stop staging
-                if (env.SERVER_TYPE == "ovf") {
-                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
-                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
-                    ]
-                }
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),

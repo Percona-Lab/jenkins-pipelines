@@ -4,7 +4,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         string(

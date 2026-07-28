@@ -63,7 +63,6 @@ def call(String type='dev-latest') {
   ]
   List<String> versionsList = amiVersions.keySet() as List<String>;
   // Grab 5 latest versions
-  List<String> ovfVersions = versionsList[-5..-1]
   List<String> dbaasVersions = versionsList[-5..-1]
 
   HashMap<String, String> v3Versions = [
@@ -80,6 +79,7 @@ def call(String type='dev-latest') {
     '3.7.1': 'ami-07fe22a2d9e2e5672',
     '3.8.0': 'ami-0948285405115bcbf',
     '3.8.1': 'ami-045ba46ff67584b6b',
+    '3.9.0': 'ami-084707c8a853d6168',
   ]
   List<String> v3 = v3Versions.keySet() as List<String>;
 
@@ -101,8 +101,6 @@ def call(String type='dev-latest') {
       return amiVersions
     case 'list':
       return versionsList
-    case 'ovf':
-      return ovfVersions
     case 'v3':
       return v3
     case 'v3-old':

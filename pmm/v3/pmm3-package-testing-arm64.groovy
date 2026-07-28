@@ -7,7 +7,7 @@ void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         string(name: 'NOTIFY', value: 'false'),
@@ -209,6 +209,15 @@ pipeline {
                 stage('Ubuntu 24.04 Noble - ARM64') {
                     agent {
                         label 'min-noble-arm64'
+                    }
+                    steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                }
+                stage('Ubuntu 26.04 Resolute - ARM64') {
+                    agent {
+                        label 'min-resolute-arm64'
                     }
                     steps {
                         setup_ubuntu_package_tests()

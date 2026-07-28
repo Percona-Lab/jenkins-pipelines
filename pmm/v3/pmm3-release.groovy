@@ -458,24 +458,6 @@ ENDSSH
                 deleteDir()
             }
         }
-        stage('Publish OVF image') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        aws s3 cp --only-show-errors s3://percona-vm/PMM3-Server-${VERSION}.ova pmm-server-${VERSION}.ova
-                    '''
-                }
-                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh '''
-                        sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
-                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm3/${VERSION}/ova"
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/ova/
-                    '''
-                }
-                deleteDir()
-            }
-        }
         stage('Refresh website') {
             steps {
                 sh """
@@ -512,14 +494,14 @@ ENDSSH
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/percona/pmm-qa/actions/workflows/package-test-single.yml/dispatches" \
-                                -d '{"ref":"v3","inputs":{"playbook": "pmm3-client", "package": "pmm3-client", "repository": "release", "metrics_mode": "auto"}}'
+                                -d '{"ref":"main","inputs":{"playbook": "pmm3-client", "package": "pmm3-client", "repository": "release", "metrics_mode": "auto"}}'
                         '''
                         sh '''
                             curl -v -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/percona/pmm-qa/actions/workflows/e2e-upgrade-tests-matrix-full.yml/dispatches" \
-                                -d '{"ref":"v3","inputs":{"pmm_ui_tests_branch": "v3", "pmm_qa_branch": "v3", "repository": "release", "versions_range": 1}}'
+                                -d '{"ref":"main","inputs":{"pmm_ui_tests_branch": "main", "pmm_qa_branch": "main", "repository": "release", "versions_range": 1}}'
                         '''
                     }
                 }

@@ -109,7 +109,7 @@ void dockerBuildPush() {
                 sg docker -c "
                     echo '$PASS' | docker login -u '$USER' --password-stdin
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
+                    make build
                     docker logout
                 "
                 sudo rm -rf build

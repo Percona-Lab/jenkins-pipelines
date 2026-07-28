@@ -127,6 +127,9 @@ pipeline {
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export DOCKERFILE=Dockerfile.el9
+                    if [ -n "${DOCKER_RC_TAG}" ]; then
+                        export PMM_PERCONA_PLATFORM_ADDRESS=https://check.percona.com
+                    fi
 
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
@@ -166,12 +169,12 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                     sh '''
-                        # 'ref' is a required parameter, it should always equal 'v3' (or 'main' for v2)
+                        # 'ref' is a required parameter, it should always equal 'main' (the default branch of percona/pmm)
                         curl -L -X POST \
                             -H "Accept: application/vnd.github+json" \
                             -H "Authorization: token ${GITHUB_API_TOKEN}" \
                             "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
-                            -d '{"ref":"v3"}'
+                            -d '{"ref":"main"}'
                     '''
                 }
             }
