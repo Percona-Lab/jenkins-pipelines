@@ -263,13 +263,17 @@ pipeline {
                 ADMIN_PASSWORD = "pmm3admin!"
             }
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        sed -i "s|PMM_IMAGE=.*|PMM_IMAGE=docker.io/\$DOCKER_TAG_UPGRADE|g" /home/admin/.config/systemd/user/pmm-server.env
-                        cat /home/admin/.config/systemd/user/pmm-server.env
-                        source /home/admin/.config/systemd/user/pmm-server.env podman pull ${PMM_IMAGE}
-                        systemctl --user restart pmm-server
-                        podman ps | grep pmm-server
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                            sed -i \\"s|PMM_IMAGE=.*|PMM_IMAGE=docker.io/${DOCKER_TAG_UPGRADE}|g\\" /home/admin/.config/systemd/user/pmm-server.env
+                            cat /home/admin/.config/systemd/user/pmm-server.env
+                            source /home/admin/.config/systemd/user/pmm-server.env
+                            podman pull \\${PMM_IMAGE}
+                            systemctl --user restart pmm-server
+                            podman ps | grep pmm-server
+                        '
+                        "
                     '''
                 }
             }
