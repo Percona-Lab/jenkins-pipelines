@@ -184,6 +184,80 @@ def installAwsCli() {
     '''
 }
 
+def installGrype() {
+    sh '''
+        abort() {
+            printf "Error: %s\n" "${1:-unknown error}" >&2
+            exit "${2:-1}"
+        }
+
+        install_grype() {
+            GRYPE_URL="https://raw.githubusercontent.com/anchore/grype/main/install.sh"
+            for i in 1 2 3; do
+                # installer auto-detects CPU architecture
+                installer="$(mktemp grype.install.XXXXXX.sh)"
+                if curl -fsSL -o "${installer}" "${GRYPE_URL}" \
+                    && sudo sh "${installer}" -b /usr/local/bin
+                then
+                    rm -f "${installer}"
+                    break
+                fi
+                rm -f "${installer}"
+                sleep 10
+            done
+            command -v grype >/dev/null 2>&1 || abort 'failed to install `grype`'
+        }
+
+        if ! command -v grype >/dev/null 2>&1; then
+            install_grype
+        fi
+
+        echo "\\`grype\\` version: $(grype version | awk '/^Version:/{print $2}')";
+    '''
+}
+
+def installCycloneDxCli() {
+    sh '''
+        abort() {
+            printf "Error: %s\n" "${1:-unknown error}" >&2
+            exit "${2:-1}"
+        }
+
+        install_cyclonedx() {
+            CPU_ARCH=$(uname -m)
+            case "$CPU_ARCH" in
+                x86_64)         CDX_ARCH=x64 ;;
+                aarch64|arm64)  CDX_ARCH=arm64 ;;
+                *) abort "unsupported CPU architecture \\`${CPU_ARCH}\\` for \\`cyclonedx\\`" ;;
+            esac
+
+            CDX_URL="https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download"
+            CDX_URL="$CDX_URL/cyclonedx-linux-${CDX_ARCH}"
+            for i in 1 2 3; do
+                # See the note on a temporary file in `installSyft`
+                binary="$(mktemp cyclonedx.XXXXXX)"
+                if curl -fsSL -o "${binary}" "${CDX_URL}" \
+                    && sudo install -m 0755 "${binary}" /usr/local/bin/cyclonedx
+                then
+                    rm -f "${binary}"
+                    break
+                fi
+                rm -f "${binary}"
+                sleep 10
+            done
+
+            command -v cyclonedx >/dev/null 2>&1 || abort 'failed to install `cyclonedx`'
+        }
+
+        if ! command -v cyclonedx >/dev/null 2>&1; then
+            install_cyclonedx
+        fi
+
+        # `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT` avoids an ICU dependency error
+        echo "\\`cyclonedx\\` version: $(DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 cyclonedx --version)";
+    '''
+}
+
 /** @} */
 
 
@@ -597,16 +671,19 @@ def buildImage(Version v,
 /**
  * Scans the built Docker image for security issues.
  *
- * The `buildImage` must be called prior to calling this function.
- * The function also publishes the scanning report file.
+ * Runs a trivy scan of the image and additionally validates the SBOM and scans
+ * it for vulnerabilities (report only). Publishes the trivy report file.
+ *
+ * The `buildImage` and `createSbom` functions must be called prior to this one.
  *
  * @param arch      See the comment for the `buildStage` function.
+ * @param sbomFile  The SBOM file to validate and scan.
  * @param exitCode  The code Trivy exits with when any security issues are
  *                  found. Default value is 1.
  *
  * @return Trivy's exit code
  */
-int scanImage(String arch, int exitCode = 1) {
+int scanImage(String arch, String sbomFile, int exitCode = 1) {
     installTrivy(method: 'binary', junitTpl: true)
     String reportFile = "trivy-high-junit-${arch}.xml"
     int status = sh(
@@ -623,6 +700,10 @@ int scanImage(String arch, int exitCode = 1) {
     )
     junit testResults: "${reportFile}", keepLongStdio: true, allowEmptyResults: true,
         skipPublishingChecks: true
+
+    // validate SBOM + scan for vulnerabilities (report only, never fails)
+    checkSbom(sbomFile, arch)
+
     return status
 }
 
@@ -664,12 +745,61 @@ def createSbom(Version v, String arch) {
 }
 
 /**
+ * Validates SBOM against CycloneDX 1.6 and scans it for vulnerabilities
+ * with grype (report only; trivy can't match PSMDB's `github` components).
+ * grype findings are published as a junit report so they show up in the
+ * build's test report next to the trivy results.
+ *
+ * @param sbomFile  The SBOM file to check. `createSbom` must be called first.
+ * @param arch      The CPU architecture, used to name the grype report file.
+ */
+def checkSbom(String sbomFile, String arch) {
+    installCycloneDxCli()
+    installGrype()
+
+    sh """
+        abort() {
+            printf "Error: %s\\n" "\${1:-unknown error}" >&2
+            exit "\${2:-1}"
+        }
+
+        echo "Validating ${sbomFile} against the CycloneDX 1.6 schema..."
+        DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 cyclonedx validate \\
+            --input-file "${sbomFile}" --input-format json --input-version v1_6 \\
+            || abort "CycloneDX 1.6 schema validation failed for ${sbomFile}"
+    """
+
+    // junit template mirroring trivy's junit.tpl so grype findings render
+    // identically to trivy in the build's test report
+    writeFile file: 'grype-junit.tmpl', text: '''<?xml version="1.0" encoding="UTF-8"?>
+<testsuite tests="{{ len .Matches }}" failures="{{ len .Matches }}" name="grype" errors="0">
+  {{- range .Matches }}
+    <testcase classname="{{ .Artifact.Name }}-{{ .Artifact.Version }}" name="[{{ .Vulnerability.Severity | upper }}] {{ .Vulnerability.ID }}" time="">
+        <failure message="{{ .Vulnerability.ID }}" type="description">{{ .Vulnerability.Description | replace "&" "&amp;" | replace "<" "&lt;" | replace ">" "&gt;" }}</failure>
+    </testcase>
+  {{- end }}
+</testsuite>
+'''
+
+    // Report only: never fails the stage even if CVEs are found.
+    sh """
+        echo "Scanning ${sbomFile} for vulnerabilities (report only)..."
+        grype "sbom:${sbomFile}" --only-fixed -o template -t grype-junit.tmpl \\
+            > grype-junit-${arch}.xml || true
+    """
+    junit testResults: "grype-junit-${arch}.xml", keepLongStdio: true,
+        allowEmptyResults: true, skipPublishingChecks: true
+}
+
+/**
  * Implements the build stage of the pipeline.
  *
  * In particular:
  * - builds a Docker image for the specified PSMDB version and CPU architecture;
- * - scans the built image for security issues and publishes the report file;
- * - generates and stashes the SBOM file for the built image;
+ * - generates the SBOM file for the built image;
+ * - scans the image (trivy) and the SBOM (grype + CycloneDX) for security
+ *   issues and publishes the report file;
+ * - stashes the SBOM file for the built image;
  * - pushes the built image to the Docker registry.
  *
  * @param psmdbVersion  The PSMDB version for which the image is created.
@@ -693,11 +823,12 @@ def buildStage(String psmdbVersion,
 
     buildImage(v, arch, imageType, debug)
 
-    if (scanImage(arch, imageType == "release" ? 1 : 0) != 0) {
+    def sbomFile = createSbom(v, arch)
+
+    if (scanImage(arch, sbomFile, imageType == "release" ? 1 : 0) != 0) {
         error "Image scanning has found security issues. See the published report file."
     }
 
-    def sbomFile = createSbom(v, arch)
     stash includes: sbomFile, name: "sbom-${arch}"
 
     // Postponing pushing the image(s) until after an SBOM has been created
