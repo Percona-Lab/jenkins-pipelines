@@ -152,6 +152,7 @@ pipeline {
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
+                    ls
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -637,6 +638,13 @@ pipeline {
                 archiveArtifacts artifacts: 'playwright-logs.tar.gz'
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
+                try {
+                    dir('/srv/pmm-qa/codeceptjs-e2e') {
+                        junit PATH_TO_REPORT_RESULTS
+                    }
+                } catch (err) {
+                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+                }
                 try {
                     dir('/srv/pmm-qa/codeceptjs-e2e') {
                         junit PATH_TO_REPORT_RESULTS
