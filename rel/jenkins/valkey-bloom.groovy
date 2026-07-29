@@ -18,7 +18,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bloom_deps
-            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bloom_repo=${GIT_REPO} --bloom_branch=${GIT_BRANCH} --bloom_version=${VALKEY_BLOOM_VERSION} ${STAGE_PARAM}"
+            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --bloom_repo=${GIT_REPO} --bloom_branch=${GIT_BRANCH} --bloom_version=${VALKEY_BLOOM_VERSION} --release=${VALKEY_BLOOM_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -298,7 +298,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_bloom_deb")
+                        buildStage("ubuntu:resolute-20260627", "--build_bloom_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -311,7 +311,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_bloom_deb")
+                        buildStage("ubuntu:resolute-20260627", "--build_bloom_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)

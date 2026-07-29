@@ -17,11 +17,11 @@ pipeline {
             description: 'URL for Percona Search for MongoDB (mongot) repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'release-0.50.0-1',
+            defaultValue: 'release-1.70.1-1',
             description: 'Glob for release branches to watch. The latest one (by version sort) is built.',
             name: 'RELEASE_BRANCH_PATTERN')
         string(
-            defaultValue: '0.50.0',
+            defaultValue: '1.70.1',
             description: 'mongot release version passed to the build job (mongot does not encode the version in the branch name).',
             name: 'VERSION')
         string(
@@ -29,8 +29,8 @@ pipeline {
             description: 'Package release/revision number (same for rpm and deb)',
             name: 'PS4M_RELEASE')
         string(
-            defaultValue: 'psmdb-83',
-            description: 'Target repo name for the build job (mongot is shipped under the PSMDB repo)',
+            defaultValue: 'ps4m',
+            description: 'Target repo name for the build job (mongot is shipped under the ps4m repo)',
             name: 'MONGOT_REPO')
     }
     options {
@@ -50,7 +50,7 @@ pipeline {
                         EC=0
                         # `aws s3 ls <key>` is a prefix match; the marker name is unique so no
                         # stray object shares this prefix. Exit code: 0=present, 1=absent.
-                        AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/branch_commit_id_ps4m.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
+                        AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-search-mongodb/branch_commit_id_ps4m.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
 
                         if [ "\${EC}" != "0" ] && [ "\${EC}" != "1" ]; then
                           echo "ERROR: 'aws s3 ls' for the marker failed with exit code \${EC}; aborting to avoid a wrong build decision."
@@ -81,7 +81,7 @@ pipeline {
                           echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_ps4m.properties
                           echo "START_NEW_BUILD=YES" > startBuild
                         else
-                          AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/branch_commit_id_ps4m.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                          AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-search-mongodb/branch_commit_id_ps4m.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                           source branch_commit_id_ps4m.properties
 
                           if [ "x\${COMMIT_ID}" != "x\${LATEST_COMMIT_ID}" ] || [ "x\${BRANCH_NAME}" != "x\${LATEST_BRANCH_NAME}" ]; then
@@ -129,7 +129,7 @@ pipeline {
                         sh """
                             echo "BRANCH_NAME=${BRANCH_NAME}" > branch_commit_id_ps4m.properties
                             echo "COMMIT_ID=${COMMIT_ID}" >> branch_commit_id_ps4m.properties
-                            AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_ps4m.properties s3://percona-jenkins-artifactory/percona-server-mongodb-mongot/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                            AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_ps4m.properties s3://percona-jenkins-artifactory/percona-search-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                         """
                     }
                 }

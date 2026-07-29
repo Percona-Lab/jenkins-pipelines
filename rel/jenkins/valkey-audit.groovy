@@ -14,7 +14,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
-        sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+        sudo docker run -u root --security-opt seccomp=unconfined -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             bash -x ./valkey-audit/packaging/build_package.sh --builddir=\${build_dir}/test --install_deps=1
@@ -44,7 +44,7 @@ pipeline {
             description: 'URL for valkey-audit repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'main',
+            defaultValue: 'percona-packaging',
             description: 'Tag/Branch for valkey-audit repository',
             name: 'GIT_BRANCH')
         string(
@@ -290,7 +290,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_deb=1")
+                        buildStage("ubuntu:resolute-20260627", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -303,7 +303,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_deb=1")
+                        buildStage("ubuntu:resolute-20260627", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)

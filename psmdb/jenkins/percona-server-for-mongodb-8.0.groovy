@@ -263,7 +263,7 @@ pipeline {
             description: 'Jenkins credentialsId of the OIDC token credential (audience=bazel-jenkins). The credential type must be "OpenID Connect ID token" issued by the OIDC Provider plugin.',
             name: 'PSMDB_RBE_OIDC_CREDENTIALS_ID')
         string(
-            defaultValue: '',
+            defaultValue: 'https://bb.psmdb.percona.com:5556',
             description: 'Dex issuer URL the credential_helper exchanges the Jenkins OIDC token against (RFC 8693 token-exchange).',
             name: 'PSMDB_RBE_OIDC_ISSUER')
         // Dex requires the `connector_id` form field on /token when the
@@ -276,7 +276,7 @@ pipeline {
             description: 'Dex connector_id form field for the token-exchange grant. Must match `connectors[].id` in dex.yaml.',
             name: 'PSMDB_RBE_OIDC_CONNECTOR_ID')
         string(
-            defaultValue: '',
+            defaultValue: '--config=psmdb_buildfarm --remote_executor=grpcs://bb.psmdb.percona.com:8981 --remote_cache=grpcs://bb.psmdb.percona.com:8981 --bes_backend=grpcs://bb.psmdb.percona.com:1985 --bes_results_url=https://bb.psmdb.percona.com:7986/bazel-invocations/ --credential_helper=bb.psmdb.percona.com=%workspace%/bazel/wrapper_hook/credential_helper.py --jobs=72',
             description: 'Bazel flags injected by percona-packaging into the bazel build command line. Leave empty to disable RBE.',
             name: 'PSMDB_RBE_BAZEL_FLAGS')
     }
@@ -437,6 +437,38 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 10(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_rpm=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 10(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_rpm=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Amazon Linux 2023(x86_64)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -565,6 +597,22 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Trixie(13)(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_deb=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Oracle Linux 8 binary tarball(glibc2.28)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -592,6 +640,22 @@ pipeline {
                         withRBE {
                             script {
                                 buildStage(runnerImage('oraclelinux-9'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Oracle Linux 10 binary tarball(glibc2.39)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }

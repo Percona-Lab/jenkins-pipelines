@@ -8,14 +8,14 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         ls -laR ./
         # Backup properties file if it exists
-        if [ -f test/percona-server-mongodb-mongot.properties ]; then
-            cp test/percona-server-mongodb-mongot.properties percona-server-mongodb-mongot.properties.backup
+        if [ -f test/percona-search-mongodb.properties ]; then
+            cp test/percona-search-mongodb.properties percona-search-mongodb.properties.backup
         fi
         rm -rf test/*
         mkdir -p test
         # Restore properties file if it was backed up
-        if [ -f percona-server-mongodb-mongot.properties.backup ]; then
-            mv percona-server-mongodb-mongot.properties.backup test/percona-server-mongodb-mongot.properties
+        if [ -f percona-search-mongodb.properties.backup ]; then
+            mv percona-search-mongodb.properties.backup test/percona-search-mongodb.properties
         fi
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/mongot_builder.sh -O mongot_builder.sh
         chmod +x mongot_builder.sh
@@ -60,7 +60,7 @@ pipeline {
             description: 'Tag/Branch for Percona mongot fork',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '0.50.0',
+            defaultValue: '1.70.1',
             description: 'mongot release version',
             name: 'VERSION')
         string(
@@ -68,8 +68,8 @@ pipeline {
             description: 'Package release/revision number (same for rpm and deb)',
             name: 'PS4M_RELEASE')
         string(
-            defaultValue: 'psmdb-83',
-            description: 'Target repo name for sync2ProdAutoBuild (mongot is shipped under PSMDB repo)',
+            defaultValue: 'ps4m',
+            description: 'Target repo name for sync2ProdAutoBuild (mongot is shipped under the ps4m repo)',
             name: 'MONGOT_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
@@ -94,11 +94,11 @@ pipeline {
                     buildStage("oraclelinux:9", "--get_sources=1")
                 }
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-mongot.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-search-mongodb.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-server-mongodb-mongot.properties
+                   cat test/percona-search-mongodb.properties
                    cat uploadPath
                    cat awsUploadPath
                 '''
@@ -106,7 +106,7 @@ pipeline {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
-                stash includes: 'test/percona-server-mongodb-mongot.properties', name: 'mongot-properties'
+                stash includes: 'test/percona-search-mongodb.properties', name: 'ps4m-properties'
                 pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
@@ -125,7 +125,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             buildStage("oraclelinux:9", "--build_mongot=1 --build_variant=linux-x64")
@@ -139,7 +139,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             buildStage("oraclelinux:9", "--build_mongot=1 --build_variant=linux-aarch64")
@@ -158,7 +158,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
@@ -173,7 +173,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
@@ -188,7 +188,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
@@ -203,7 +203,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
@@ -218,7 +218,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
@@ -233,7 +233,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
@@ -248,7 +248,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
@@ -263,7 +263,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
@@ -278,7 +278,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
@@ -293,7 +293,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
                         script {
@@ -308,7 +308,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        unstash 'mongot-properties'
+                        unstash 'ps4m-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
@@ -350,7 +350,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        uploadTarballToDownloadsTesting(params.CLOUD, "mongot", "${VERSION}")
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps4m", "${VERSION}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"

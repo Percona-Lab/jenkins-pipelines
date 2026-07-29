@@ -269,7 +269,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        testStage("ubuntu:resolute")
+                        testStage("ubuntu:resolute-20260627")
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
@@ -279,7 +279,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        testStage("ubuntu:resolute")
+                        testStage("ubuntu:resolute-20260627")
                     }
                 }
                 stage('Debian Bullseye(11)') {

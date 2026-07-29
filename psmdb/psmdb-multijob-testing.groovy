@@ -37,8 +37,7 @@ pipeline {
             steps {
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
-                    build job: 'hetzner-psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
-                    build job: 'hetzner-psmdb-docker-arm', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
+                    build job: 'hetzner-psmdb-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'IMAGE_TYPE', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'DEBUG', value: "no"), string(name: 'TESTS', value: "no") ]
                 }
             }
         }
