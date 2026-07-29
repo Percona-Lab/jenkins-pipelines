@@ -656,6 +656,9 @@ pipeline {
             }
         }
         failure {
+            dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
+                archiveArtifacts artifacts: 'tests/output/*.png'
+            }
             dir('/srv/pmm-qa/codeceptjs-e2e') {
                 archiveArtifacts artifacts: 'tests/output/*.png'
             }
