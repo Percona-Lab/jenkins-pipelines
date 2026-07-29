@@ -25,7 +25,7 @@ void installCli(String PLATFORM) {
                         cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
                     fi
                 fi
-                sudo yum -y install wget curl unzip
+                sudo yum -y install curl unzip
             fi
             curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
             unzip awscliv2.zip
