@@ -252,7 +252,7 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    npm ci
+                    npm ci --omit=optional
                     npx playwright install chromium
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
@@ -418,7 +418,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
-                            npm ci
+                            npm ci --omit=optional
                         popd
                     '''
                     sh '''
@@ -584,7 +584,7 @@ pipeline {
                         sh '''
                             pushd /srv/pmm-qa/e2e_tests/
                                 export CI=true
-                                sudo npm ci
+                                sudo npm ci --omit=optional
                                 sudo npx playwright install chromium
                                 sudo CI=true npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
                             popd
