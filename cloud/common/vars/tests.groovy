@@ -1,10 +1,13 @@
 void loadCloudSecret(String operator) {
+    def credentialsId = operator in ["pg-operator", "pxc-operator"] ? "cloud-secret-file" : "cloud-secret-file-${operator}"
+
     withCredentials([file(
-        credentialsId: "cloud-secret-file-${operator}",
+        credentialsId: credentialsId,
         variable: 'CLOUD_SECRET_FILE'
     )]) {
         sh '''
             cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
         '''
     }
 }
@@ -29,16 +32,20 @@ String getClusterFullName(String clusterName, String clusterSuffix) {
     return "${clusterName}-${clusterSuffix}"
 }
 
-String imageTag(String image, String fallback = "main") {
+String getKubeconfig(Map testVariables, String clusterSuffix) {
+    return "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+}
+
+String imageTag(String image) {
     if (!image?.trim()) {
-        return fallback
+        return ""
     }
 
     def parts = image.tokenize(":")
-    return parts.size() > 1 ? parts[-1] : fallback
+    return parts.size() > 1 ? parts[-1] : ""
 }
 
-String getDbTag(Map testVariables, String fallback = "main") {
+String getDbTag(Map testVariables) {
     def dbImage = [
         testVariables.images?.IMAGE_MONGOD,
         testVariables.images?.IMAGE_MYSQL,
@@ -46,7 +53,7 @@ String getDbTag(Map testVariables, String fallback = "main") {
         testVariables.images?.IMAGE_POSTGRESQL
     ].find { it?.trim() }
 
-    return imageTag(dbImage, fallback)
+    return imageTag(dbImage)
 }
 
 String getMinorPlatformVersion(String platformVersion) {
@@ -61,7 +68,7 @@ String buildJobDescription(Map testVariables) {
     return [
         getMinorPlatformVersion("${testVariables.platform_version}"),
         arch,
-        testVariables.db_tag ?: getDbTag(testVariables),
+        testVariables.pillar_version ?: testVariables.db_version ?: testVariables.db_tag,
         cw
     ].findAll { it?.trim() }.join(" ")
 }
@@ -94,24 +101,31 @@ void printTestVariables(Map testVariables) {
     echo groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(sanitized))
 }
 
-String getReleaseParamName(String imageName, String pillarVersion, String operator) {
+String getPgReleaseParamName(String imageName, String pillarVersion) {
+    def postgresImage = "${pillarVersion}".endsWith('-postgis') ? "IMAGE_POSTGIS${pillarVersion}" : "IMAGE_POSTGRESQL${pillarVersion}"
+
     def versionedImages = [
-        "psmdb-operator": [
-            IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
-        ],
-        "ps-operator": [
-            IMAGE_MYSQL: "IMAGE_MYSQL${pillarVersion}"
-        ],
-        "pxc-operator": [
-            IMAGE_PXC: "IMAGE_PXC${pillarVersion}"
-        ],
-        "pg-operator": [
-            IMAGE_PGBOUNCER: "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST : "IMAGE_BACKREST${pillarVersion}"
-        ]
+        IMAGE_POSTGRESQL: postgresImage,
+        IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersion}",
+        IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersion}"
     ]
 
-    return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
+    return versionedImages.get(imageName) ?: imageName
+}
+
+String getReleaseParamName(String imageName, String pillarVersion, String operator) {
+    switch (operator?.toLowerCase()) {
+        case "psmdb-operator":
+            return imageName == "IMAGE_MONGOD" ? "IMAGE_MONGOD${pillarVersion}" : imageName
+        case "ps-operator":
+            return imageName == "IMAGE_MYSQL" ? "IMAGE_MYSQL${pillarVersion}" : imageName
+        case "pxc-operator":
+            return imageName == "IMAGE_PXC" ? "IMAGE_PXC${pillarVersion}" : imageName
+        case "pg-operator":
+            return getPgReleaseParamName(imageName, pillarVersion)
+        default:
+            return imageName
+    }
 }
 
 Boolean isReleaseRun(Map testVariables) {
@@ -139,34 +153,25 @@ void resolveReleaseRunParams(Map testVariables) {
     }
 }
 
-Boolean resolveReleasePlatformVersion(Map testVariables) {
-    if (!(testVariables.platform_version?.toLowerCase() in ["min", "max"])) {
-        return false
-    }
-
-    testVariables.platform_version = getReleaseVersionsParam(
-        testVariables.release_versions,
-        "${testVariables.platform.toUpperCase()}_${testVariables.platform_version.toUpperCase()}"
-    )
-
-    testVariables.platform_version = testVariables.libraries[testVariables.platform_provider].getPlatformVersion(
-        testVariables.platform_version
-    )
-
-    return true
-}
-
-void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
+void resolvePlatformVersion(Map testVariables) {
     def library = testVariables.libraries[testVariables.platform_provider]
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel) {
-        testVariables.platform_version = library.getLatestPlatformVersion(
+    def platformVersion = testVariables.platform_version
+
+    if (platformVersion?.toLowerCase() in ["min", "max"]) {
+        platformVersion = getReleaseVersionsParam(
+            testVariables.release_versions,
+            "${testVariables.platform.toUpperCase()}_${platformVersion.toUpperCase()}"
+        )
+    } else if (platformVersion == "latest") {
+        platformVersion = library.getLatestPlatformVersion(
             testVariables.platform_channel
         )
-    } else if (!platformFromReleaseVersions) {
-        testVariables.platform_version = library.getPlatformVersion(
-            testVariables.platform_version
-        )
+
+        testVariables.platform_version = platformVersion
+        return
     }
+
+    testVariables.platform_version = library.getPlatformVersion(platformVersion)
 }
 
 void resolveMachineType(Map testVariables) {
@@ -184,12 +189,12 @@ Map prepareVersions(Map testVariables) {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
-    def platformFromReleaseVersions = resolveReleasePlatformVersion(testVariables)
-    resolvePlatformVersion(testVariables, platformFromReleaseVersions)
+    resolvePlatformVersion(testVariables)
     resolveMachineType(testVariables)
 
-    if (!testVariables.db_tag || testVariables.db_tag == "main") {
-        testVariables.db_tag = getDbTag(testVariables, testVariables.db_tag ?: "main")
+    dbTag = getDbTag(testVariables)
+    if (dbTag) {
+        testVariables.db_tag = dbTag
     }
 
     testVariables.git_short_commit = sh(
@@ -237,20 +242,20 @@ List loadTestList(String testList, String testSuite) {
     return tests
 }
 
-String artifactFileName(Map cfg) {
-    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
-}
+String artifactFileName(Map testVariables, String testName) {
+    def dbVersion = testVariables.db_version ?:
+        testVariables.db_tag ?:
+        getDbTag(testVariables)
 
-Map buildArtifactParams(Map testVariables, String testName) {
     return [
-        gitBranch     : testVariables.git_branch,
-        gitShortCommit: testVariables.git_short_commit,
-        testName      : testName,
-        platformVersion : testVariables.platform_version,
-        dbTag         : testVariables.db_tag,
-        clusterWide   : testVariables.cluster_wide,
-        paramsHash    : testVariables.params_hash
-    ]
+        testVariables.git_branch,
+        testVariables.git_short_commit,
+        testName,
+        testVariables.platform_version,
+        dbVersion,
+        "CW_${testVariables.cluster_wide}",
+        testVariables.params_hash
+    ].join("-")
 }
 
 String buildParamsHash(Map testVariables) {
@@ -261,7 +266,7 @@ String buildParamsHash(Map testVariables) {
         testVariables.cluster_wide,
         testVariables.platform_arch,
         testVariables.platform_channel,
-        testVariables.pillar_version
+        testVariables.pillar_version ?: testVariables.db_version ?: testVariables.db_tag
     ].findAll { it != null }
 
     testVariables.images.values().findAll { it }.each { imageValue ->
@@ -308,7 +313,7 @@ void updateListWithLastExecutionStatus(Map testVariables) {
         """
 
         testVariables.tests.each { test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, test.name))
+            def file = artifactFileName(testVariables, test.name)
             def retFileExists = sh(
                 script: """
                     aws s3api head-object \
@@ -339,7 +344,8 @@ Map resolveImages(Map testVariables) {
         def releaseParamName = getReleaseParamName(
             imageName,
             testVariables.pillar_version,
-            testVariables.operator
+            testVariables.operator,
+            testVariables.db_version
         )
 
         resolvedImages[imageName] = imageValue ?: getReleaseVersionsParam(
@@ -355,7 +361,6 @@ Map resolveImages(Map testVariables) {
 String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     def exports = []
 
-    exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
     exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
     exports << """
@@ -368,10 +373,6 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
         exports << "export ${imageName}='${imageValue ?: ""}'"
     }
 
-    if (testVariables.images.IMAGE_POSTGRESQL) {
-        exports << "export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')"
-    }
-
     testVariables.extra_envs?.each { key, value ->
         exports << "export ${key}='${value ?: ""}'"
     }
@@ -381,14 +382,17 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
 
 String defineTestCommand(Map testVariables, String testName) {
     if (testVariables.test_executor_type == "kuttl") {
-        return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
+        return """
+            export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+            kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'
+        """
+    } else {
+        return "e2e-tests/${testName}/run"
     }
-
-    return "e2e-tests/${testName}/run"
 }
 
 void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
-    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    def kubeconfig = getKubeconfig(testVariables, clusterSuffix)
 
     echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
 
@@ -495,22 +499,22 @@ void runTest(Map testConfig) {
             echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}!"
             updateTestResult(testVariables.tests, testId, "failure")
 
-
             timeout(time: 90, unit: 'MINUTES') {
+                def kubeconfig = getKubeconfig(testVariables, clusterSuffix)  
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
 
                 sh """
                     cd source
 
+                    export KUBECONFIG="${kubeconfig}"
                     ${exports}
-
                     ${command}
                 """
             }
 
             pushArtifactFile(
-                artifactFileName(buildArtifactParams(testVariables, testName)),
+                artifactFileName(testVariables, testName),
                 testVariables.git_short_commit
             )
 

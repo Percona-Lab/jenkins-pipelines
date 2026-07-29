@@ -73,6 +73,33 @@ void install(Map config = [:]) {
     }
 }
 
+void installKuttlAndAssert() {
+    sh '''
+        set -euo pipefail
+
+        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+        has_krew_plugin() {
+            kubectl krew list | awk '{print $1}' | grep -qx "$1"
+        }
+
+        if ! command -v kubectl-krew >/dev/null; then
+            workdir="$(mktemp -d)"
+            trap 'rm -rf "$workdir"' EXIT
+
+            curl -fsSL \
+                https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz \
+                | tar -C "$workdir" -xzf -
+
+            "$workdir/krew-linux_amd64" install krew
+        fi
+
+        has_krew_plugin assert || kubectl krew install assert
+        has_krew_plugin kuttl || kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
+        kubectl kuttl --version
+    '''
+}
+
 void installGoogleCLI() {
     sh '''
         sudo cp cloud/common/files/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo
