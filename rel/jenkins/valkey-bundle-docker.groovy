@@ -46,6 +46,14 @@ pipeline {
             defaultValue: true,
             description: 'Build Hardened (DHI) image',
             name: 'BUILD_HARDENED')
+        booleanParam(
+            defaultValue: false,
+            description: 'Push images despite a failed Trivy check (report-only). Use with caution.',
+            name: 'IGNORE_TRIVY')
+        string(
+            defaultValue: 'HIGH,CRITICAL',
+            description: 'Trivy severities that fail the build',
+            name: 'TRIVY_SEVERITY')
     }
     options {
         skipDefaultCheckout()
@@ -95,7 +103,7 @@ pipeline {
                 '''
             }
         }
-        stage('Build, test and scan') {
+        stage('Build and test') {
             stages {
                 stage('Build images') {
                     parallel {
@@ -192,6 +200,31 @@ pipeline {
                     }
                 }
                 
+            }
+        }
+        stage('Scan images (trivy)') {
+            steps {
+                script {
+                    retry(3) {
+                        try {
+                            installTrivy(method: 'binary')
+                            def exitCode = params.IGNORE_TRIVY ? '0' : '1'
+                            def imgs = []
+                            if (params.BUILD_RPM)      { imgs << "${IMAGE_NAME}:${VALKEY_VERSION}-amd64" }
+                            if (params.BUILD_HARDENED) { imgs << "${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64" }
+                            for (img in imgs) {
+                                sh """
+                                    /usr/local/bin/trivy -q image --timeout 10m0s --ignore-unfixed \
+                                        --exit-code ${exitCode} --severity ${params.TRIVY_SEVERITY} ${img}
+                                """
+                            }
+                        } catch (Exception e) {
+                            echo "Attempt failed: ${e.message}"
+                            sleep 15
+                            throw e
+                        }
+                    }
+                }
             }
         }
         stage('Push and create manifests') {
