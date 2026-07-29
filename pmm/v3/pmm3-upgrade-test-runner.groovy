@@ -152,6 +152,7 @@ pipeline {
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
+                    pwd
                     ls
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
