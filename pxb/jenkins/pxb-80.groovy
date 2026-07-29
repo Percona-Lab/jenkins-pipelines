@@ -37,7 +37,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   mv -f \${build_dir}/percona-xtrabackup-private-build \${build_dir}/test/.
                   ls \${build_dir}/test
               fi
-              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+              SBOM_PARAM=\"\"
+              if [ \"${ENABLE_SBOM}\" = \"ON\" ]; then SBOM_PARAM=\"--sbom=1\"; fi
+              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
       """
     }
 }
@@ -190,6 +192,10 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
+        choice(
+            choices: 'OFF\nON',
+            description: 'Enable SBOM generation',
+            name: 'ENABLE_SBOM')
         choice(
             choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
@@ -863,7 +869,7 @@ pipeline {
                             sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                             export DOCKER_CLI_EXPERIMENTAL=enabled
                             sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo systemctl restart docker
                             sudo apt-get install -y qemu-system binfmt-support qemu-user-static

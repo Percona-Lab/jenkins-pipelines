@@ -37,7 +37,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   mv -f \${build_dir}/percona-xtrabackup-private-build \${build_dir}/test/.
                   ls \${build_dir}/test
               fi
-              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+              SBOM_PARAM=\"\"
+              if [ \"${ENABLE_SBOM}\" = \"ON\" ]; then SBOM_PARAM=\"--sbom=1\"; fi
+              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
       """
     }
 }
@@ -190,6 +192,10 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
+        choice(
+            choices: 'OFF\nON',
+            description: 'Enable SBOM generation',
+            name: 'ENABLE_SBOM')
         choice(
             choices: 'NO\nYES',
             description: 'Experimental packages only',

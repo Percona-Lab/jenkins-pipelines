@@ -12,17 +12,17 @@
  *   )
  */
 
-void installCli(String PLATFORM) {
+void installCli() {
     sh """
         set -o xtrace
         if [ -d aws ]; then
             rm -rf aws
         fi
         cat /etc/os-release
-        if [ ${PLATFORM} = "deb" ]; then
+        if command -v apt-get > /dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
-        elif [ ${PLATFORM} = "rpm" ]; then
+        elif command -v yum > /dev/null 2>&1; then
             export RHVER=\$(rpm --eval %rhel)
             if [ \${RHVER} = "7" ]; then
                 sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
@@ -320,12 +320,9 @@ def call(Map args = [:]) {
         def versionConstraint = s.get('versionConstraint', null)
 
         // Determine agent label based on arch and cloud
-        def agentLabel
-        if (arch == 'aarch64') {
-            agentLabel = cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
-        } else {
-            agentLabel = cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-        }
+        def agentLabel = arch == 'aarch64'
+            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64')
+            : (cloud == 'Hetzner' ? 'docker-x64'     : 'docker-32gb')
 
         branches[stageName] = {
             stage(stageName) {
@@ -354,11 +351,7 @@ def call(Map args = [:]) {
 
                 node(agentLabel) {
                     cleanUpWS()
-                    if (cloud == 'Hetzner') {
-                        installCli("deb")
-                    } else {
-                        installCli("rpm")
-                    }
+                    installCli()
                     unstash 'properties'
                     popArtifactFolder(cloud, sourceFolder, awsStashPath)
 

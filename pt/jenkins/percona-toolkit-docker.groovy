@@ -66,7 +66,7 @@ pipeline {
                         sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                         export DOCKER_CLI_EXPERIMENTAL=enabled
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo systemctl restart docker
                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -149,8 +149,7 @@ pipeline {
 
                         imageList.each { image ->
                             echo "🔍 Scanning ${image}..."
-                            def result = sh(script: """#!/bin/bash
-                                set -e
+                            def result = sh(script: """
                                 sudo trivy image --quiet \
                                           --format table \
                                           --timeout 10m0s \
@@ -158,7 +157,6 @@ pipeline {
                                           --exit-code 1 \
                                           --scanners vuln \
                                           --severity HIGH,CRITICAL ${image}
-                                echo "TRIVY_EXIT_CODE=\$?"
                             """, returnStatus: true)
                             echo "Actual Trivy exit code: ${result}"
 

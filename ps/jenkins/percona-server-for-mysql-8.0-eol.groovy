@@ -129,7 +129,7 @@ def installDependencies(def nodeName) {
             echo "Unexpected node name: ${nodeName}"
         }
     } catch (Exception e) {
-        slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
+        slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ [${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
     }
 
 }
@@ -338,9 +338,9 @@ env.product_to_test = product_to_test
 
 void notifyBuildSuccess() {
     if (env.FIPSMODE == 'YES') {
-        slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build finished successfully for ${BRANCH} - [${BUILD_URL}]")
+        slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ 🔒 [${JOB_NAME}]: PRO -> build finished successfully for ${BRANCH} - [${BUILD_URL}]")
     } else {
-        slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build finished successfully for ${BRANCH} - [${BUILD_URL}]")
+        slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ [${JOB_NAME}]: build finished successfully for ${BRANCH} - [${BUILD_URL}]")
     }
 }
 
@@ -393,7 +393,7 @@ parameters {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "🚀 [${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("rpm")
                 script {
@@ -412,9 +412,11 @@ parameters {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 script {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                     sh """
-                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                        wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${BRANCH}
                     """
+                    }
                     env.MYSQL_VERSION_MAJOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MAJOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     echo "Detected Percona Server version: ${env.MYSQL_VERSION_MAJOR}.${env.MYSQL_VERSION_MINOR}"
@@ -552,22 +554,6 @@ parameters {
                 }
             }
         }
-        stage('Push Tarballs to TESTING download area') {
-            when {
-                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
-            }
-            steps {
-                script {
-                    try {
-                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
-                    }
-                    catch (err) {
-                        echo "Caught: ${err}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
-            }
-        }
         stage('Build docker container') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'min-jammy-x64'
@@ -589,7 +575,7 @@ parameters {
                         REPO_DOCKER="https://github.com/adivinho/percona-docker"
                         REPO_DOCKER_BRANCH="PXB-3744-Packaging-tasks-for-release-PXB-9.7.1-rc1"
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
+                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                         PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
 
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -603,7 +589,7 @@ parameters {
                         sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                         export DOCKER_CLI_EXPERIMENTAL=enabled
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo systemctl restart docker
                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -644,14 +630,74 @@ parameters {
                         sh """
                             cd percona-docker/percona-server-8.0
                             export PS_RELEASE=`echo ${BRANCH} | sed 's/release-//g'`
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "mkdir -p ${path_to_build}/binary/tarball"
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-amd64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball/
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-server-\${PS_RELEASE}-${RPM_RELEASE}-arm64.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball/
                         """
+                    }
+                    // 🔹 Trivy scan
+                    try {
+                        installTrivy(method: 'apt')
+                        def PS_RELEASE_TRIVY = sh(returnStdout: true, script: "echo '${BRANCH}' | sed 's/release-//g'").trim()
+                        def imageList = [
+                            "percona/percona-server:${PS_RELEASE_TRIVY}.${RPM_RELEASE}-amd64",
+                            "percona/percona-server:${PS_RELEASE_TRIVY}.${RPM_RELEASE}-arm64"
+                        ]
+                        imageList.each { image ->
+                            echo "🔍 Scanning ${image}..."
+                            def result = sh(script: """
+                                sudo trivy image --quiet \
+                                          --format table \
+                                          --timeout 10m0s \
+                                          --ignore-unfixed \
+                                          --exit-code 1 \
+                                          --scanners vuln \
+                                          --severity HIGH,CRITICAL ${image}
+                            """, returnStatus: true)
+                            echo "Actual Trivy exit code: ${result}"
+                            if (result != 0) {
+                                sh """
+                                sudo trivy image --quiet \
+                                             --format table \
+                                             --timeout 10m0s \
+                                             --ignore-unfixed \
+                                             --exit-code 0 \
+                                             --scanners vuln \
+                                             --severity HIGH,CRITICAL ${image} | tee -a trivy-high-junit.xml
+                                """
+                                unstable "⚠️ Trivy detected vulnerabilities in ${image}. See trivy-high-junit.xml for details."
+                            } else {
+                                echo "✅ No critical vulnerabilities found in ${image}."
+                            }
+                        }
+                    } catch (Exception e) {
+                        unstable "⚠️ Trivy scan failed: ${e.message}"
                     }
                }
             }
-        } 
-    } 
+        }
+        stage('Push Tarballs to TESTING download area') {
+            when {
+                expression {
+                    if (!params.BUILD_STAGES) return true
+                    def stages = params.BUILD_STAGES.split(',').collect { it.trim().toLowerCase() }
+                    stages.any { it.contains('tarball') || it.contains('docker') } ||
+                    (stages.any { it.contains('oracle linux 9') && !it.contains('arm') } && stages.any { it.contains('oracle linux 9') && it.contains('arm') })
+                }
+            }
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+    }
     post {
         success {
             script {
@@ -660,6 +706,16 @@ parameters {
         }
 
         failure {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ [${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            }
+            deleteDir()
+        }
+
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ [${JOB_NAME}]: build finished with warnings for ${BRANCH} - [${BUILD_URL}]")
+            }
             deleteDir()
         }
 
