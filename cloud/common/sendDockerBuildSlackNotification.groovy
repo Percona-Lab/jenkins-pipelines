@@ -4,7 +4,6 @@ def call(Map cfg = [:]) {
     def gitBranch = cfg.gitBranch ?: params.GIT_BRANCH ?: env.GIT_BRANCH
     def dockerBranch = cfg.dockerBranch ?: params.GIT_PD_BRANCH
     def trivySummary = cfg.trivySummary ?: ''
-    def cveCheckFailed = cfg.containsKey('cveCheckFailed') ? cfg.cveCheckFailed : (trivySummary as Boolean)
 
     def buildResult = (currentBuild.currentResult ?: currentBuild.result ?: 'FAILURE')
     def status = cfg.status ?: buildResult
@@ -45,12 +44,7 @@ def call(Map cfg = [:]) {
         }
     }
 
-    if (cveCheckFailed) {
-        message += "\n*Failed on CVE check*\n"
-        if (trivySummary) {
-            message += trivySummary
-        }
-    } else if (trivySummary) {
+    if (trivySummary) {
         message += trivySummary
     }
 

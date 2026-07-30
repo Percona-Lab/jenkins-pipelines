@@ -171,13 +171,12 @@ void notifyDockerBuildSlack(String status, String color) {
         def sendDockerSlack = load 'cloud/common/sendDockerBuildSlackNotification.groovy'
         def trivySummary = getTrivyCveSummary('trivy-*.xml')
         sendDockerSlack.call(
-            status        : status,
-            color         : color,
-            failedImages  : failedImages,
-            gitBranch     : params.GIT_BRANCH,
-            dockerBranch  : params.GIT_PD_BRANCH,
-            trivySummary  : trivySummary,
-            cveCheckFailed: !!trivySummary && (status == 'UNSTABLE' || !failedImages)
+            status      : status,
+            color       : color,
+            failedImages: failedImages,
+            gitBranch   : params.GIT_BRANCH,
+            dockerBranch: params.GIT_PD_BRANCH,
+            trivySummary: trivySummary
         )
     } catch (err) {
         echo "Slack helper load/call failed: ${err}"
@@ -228,7 +227,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                checkout scm
+                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
                     TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
@@ -246,8 +245,6 @@ pipeline {
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
-                    export GIT_REPO=${params.GIT_REPO}
-                    export GIT_BRANCH=${params.GIT_BRANCH}
                     ./cloud/local/checkout
                 """
                 stash includes: "cloud/**" , name: "checkout"
@@ -273,30 +270,32 @@ pipeline {
             }
             steps {
                 script {
-                    try {
-                        retry(3) {
-                            timeout(time: 30, unit: 'MINUTES') {
-                                unstash "sourceFILES"
-                                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                                    sh '''
-                                        docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
-                                        docker buildx inspect --bootstrap
-                                        sg docker -c "
-                                            echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                                            pushd source
-                                            export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
-                                            DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
-                                            popd
-                                            docker logout
-                                        "
-                                    '''
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        try {
+                            retry(3) {
+                                timeout(time: 30, unit: 'MINUTES') {
+                                    unstash "sourceFILES"
+                                    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                                        sh '''
+                                            docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
+                                            docker buildx inspect --bootstrap
+                                            sg docker -c "
+                                                echo "\$PASS" | docker login -u "\$USER" --password-stdin
+                                                pushd source
+                                                export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
+                                                DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                                popd
+                                                docker logout
+                                            "
+                                        '''
+                                    }
                                 }
                             }
+                        } catch (Exception e) {
+                            failedImages << 'operator'
+                            echo "Failed to build operator: ${e}"
+                            throw e
                         }
-                    } catch (Exception e) {
-                        failedImages << 'operator'
-                        echo "Failed to build operator: ${e}"
-                        throw e
                     }
                 }
             }
@@ -318,14 +317,16 @@ pipeline {
                 script {
                     selectedPsmdbImageSuffixes().each { imageSuffix ->
                         echo "Build ${imageSuffix} docker image"
-                        try {
-                            retry(3) {
-                                build(imageSuffix)
+                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            try {
+                                retry(3) {
+                                    build(imageSuffix)
+                                }
+                            } catch (Exception e) {
+                                failedImages << imageSuffix
+                                echo "Failed to build ${imageSuffix}: ${e}"
+                                throw e
                             }
-                        } catch (Exception e) {
-                            failedImages << imageSuffix
-                            echo "Failed to build ${imageSuffix}: ${e}"
-                            throw e
                         }
                     }
                 }
@@ -335,17 +336,26 @@ pipeline {
         stage('Verify and list PSMDB images') {
             steps {
                 script {
-                    if (params.IMAGE_OPERATOR) {
+                    sh 'touch list-of-images.txt'
+
+                    if (params.IMAGE_OPERATOR && !failedImages.contains('operator')) {
                         verifyImage("${IMAGE_REPOSITORY}:${GIT_BRANCH}")
                     }
 
                     selectedPsmdbImageSuffixes().each { imageSuffix ->
+                        if (failedImages.contains(imageSuffix)) {
+                            echo "Skipping verify for failed image: ${imageSuffix}"
+                            return
+                        }
                         verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-${imageSuffix}")
                     }
                 }
             }
         }
         stage('Check PSMDB docker images') {
+            when {
+                expression { fileExists('list-of-images.txt') && readFile('list-of-images.txt').trim() }
+            }
             steps {
                 checkImagesForDocker('list-of-images.txt')
             }
@@ -361,13 +371,16 @@ pipeline {
     post {
         always {
             script {
-                def summary = generateImageSummary('list-of-images.txt')
+                if (fileExists('list-of-images.txt') && readFile('list-of-images.txt').trim()) {
+                    def summary = generateImageSummary('list-of-images.txt')
 
-                addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-                    text: "<pre>${summary}</pre>"
-                )
-                // Also save as a file if needed
-                 writeFile(file: 'image-summary.html', text: summary)
+                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                        text: "<pre>${summary}</pre>"
+                    )
+                    writeFile(file: 'image-summary.html', text: summary)
+                } else {
+                    echo 'No successfully built images to summarize'
+                }
             }
         }
         unstable {
