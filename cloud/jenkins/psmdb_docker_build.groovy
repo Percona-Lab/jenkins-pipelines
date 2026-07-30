@@ -1,3 +1,7 @@
+import groovy.transform.Field
+
+@Field def failedImages = []
+
 void build(String IMAGE_SUFFIX){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
@@ -158,6 +162,28 @@ String getTrivyCveSummary(String reportGlob) {
 
     return "\n*CVEs found:*\n```\n${table}```\n"
 }
+
+void notifyDockerBuildSlack(String status, String color) {
+    try {
+        if (!fileExists('cloud/common/sendDockerBuildSlackNotification.groovy')) {
+            unstash 'checkout'
+        }
+        def sendDockerSlack = load 'cloud/common/sendDockerBuildSlackNotification.groovy'
+        def trivySummary = getTrivyCveSummary('trivy-*.xml')
+        sendDockerSlack.call(
+            status        : status,
+            color         : color,
+            failedImages  : failedImages,
+            gitBranch     : params.GIT_BRANCH,
+            dockerBranch  : params.GIT_PD_BRANCH,
+            trivySummary  : trivySummary,
+            cveCheckFailed: !!trivySummary && (status == 'UNSTABLE' || !failedImages)
+        )
+    } catch (err) {
+        echo "Slack helper load/call failed: ${err}"
+    }
+}
+
 pipeline {
     parameters {
         string(
@@ -202,7 +228,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                checkout scm
                 sh """
                     TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
@@ -220,6 +246,8 @@ pipeline {
                     sudo git reset --hard
                     sudo git clean -xdf
                     sudo rm -rf source
+                    export GIT_REPO=${params.GIT_REPO}
+                    export GIT_BRANCH=${params.GIT_BRANCH}
                     ./cloud/local/checkout
                 """
                 stash includes: "cloud/**" , name: "checkout"
@@ -244,23 +272,31 @@ pipeline {
                 expression { params.IMAGE_OPERATOR }
             }
             steps {
-                retry(3) {
-                    timeout(time: 30, unit: 'MINUTES') {
-                        unstash "sourceFILES"
-                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            sh '''
-                                docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
-                                docker buildx inspect --bootstrap
-                                sg docker -c "
-                                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                                    pushd source
-                                    export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
-                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
-                                    popd
-                                    docker logout
-                                "
-                            '''
+                script {
+                    try {
+                        retry(3) {
+                            timeout(time: 30, unit: 'MINUTES') {
+                                unstash "sourceFILES"
+                                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                                    sh '''
+                                        docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
+                                        docker buildx inspect --bootstrap
+                                        sg docker -c "
+                                            echo "\$PASS" | docker login -u "\$USER" --password-stdin
+                                            pushd source
+                                            export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
+                                            DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                            popd
+                                            docker logout
+                                        "
+                                    '''
+                                }
+                            }
                         }
+                    } catch (Exception e) {
+                        failedImages << 'operator'
+                        echo "Failed to build operator: ${e}"
+                        throw e
                     }
                 }
             }
@@ -282,8 +318,14 @@ pipeline {
                 script {
                     selectedPsmdbImageSuffixes().each { imageSuffix ->
                         echo "Build ${imageSuffix} docker image"
-                        retry(3) {
-                            build(imageSuffix)
+                        try {
+                            retry(3) {
+                                build(imageSuffix)
+                            }
+                        } catch (Exception e) {
+                            failedImages << imageSuffix
+                            echo "Failed to build ${imageSuffix}: ${e}"
+                            throw e
                         }
                     }
                 }
@@ -330,14 +372,12 @@ pipeline {
         }
         unstable {
             script {
-                def trivySummary = getTrivyCveSummary('trivy-*.xml')
-                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of *PSMDB* operator docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
+                notifyDockerBuildSlack('UNSTABLE', '#F6F930')
             }
         }
         failure {
             script {
-                def trivySummary = getTrivyCveSummary('trivy-*.xml')
-                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of *PSMDB* operator docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
+                notifyDockerBuildSlack('FAILURE', '#FF0000')
             }
         }
         cleanup {
