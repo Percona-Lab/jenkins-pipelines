@@ -9,7 +9,9 @@ void build(String IMAGE_PREFIX){
             docker build --no-cache --squash --build-arg PXC_REPO=release -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
             docker build --build-arg DEBUG=1 --no-cache --squash --build-arg PXC_REPO=release -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile proxysql
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile-proxysql2 proxysql
+        elif [ ${IMAGE_PREFIX} = proxysql3 ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile-proxysql3 proxysql
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
             docker build --no-cache --squash --build-arg PXC_REPO=release --build-arg TOOLS_REPO=release --build-arg PXB_REPO=release --build-arg PS_REPO=release \
                 -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-8.0/Dockerfile percona-xtrabackup-8.0
@@ -113,6 +115,9 @@ pipeline {
                     build('proxysql')
                 }
                 retry(3) {
+                    build('proxysql3')
+                }
+                retry(3) {
                     build('pxc8.0')
                 }
                 retry(3) {
@@ -130,6 +135,7 @@ pipeline {
                 pushImageToDocker('pxc8.0-debug')
                 pushImageToDocker('pxc8.4-debug')
                 pushImageToDocker('proxysql')
+                pushImageToDocker('proxysql3')
                 pushImageToDocker('pxc8.0-backup')
                 pushImageToDocker('pxc8.4-backup')
                 pushImageToDocker('haproxy')

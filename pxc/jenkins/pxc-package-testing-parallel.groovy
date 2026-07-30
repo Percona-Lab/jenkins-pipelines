@@ -58,8 +58,10 @@ List non_pro_pxc80 = [
 List non_pro_pxc84 = [
                 'ubuntu-noble',
                 'ubuntu-jammy',
+                'ubuntu-resolute',
                 'ubuntu-noble-arm',
                 'ubuntu-jammy-arm',
+                'ubuntu-resolute-arm',
                 'debian-13',
                 'debian-12',
                 'debian-11',

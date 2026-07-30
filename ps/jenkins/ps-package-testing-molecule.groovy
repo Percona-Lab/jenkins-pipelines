@@ -7,54 +7,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 def ps90PackageTesting() {
     return [
-        'ubuntu-noble',
-        'ubuntu-noble-arm',
-        'ubuntu-jammy',
-        'ubuntu-jammy-arm',
-        'debian-12',
-        'debian-12-arm',
-        'debian-13',
-        'debian-13-arm',
-        'oracle-8',
-        'oracle-9',
-        'rhel-8',
-        'rhel-8-arm',
-        'rhel-9',
-        'rhel-9-arm',
-        'rhel-10',
-        'rhel-10-arm'
-    ]
-}
-
-def ps80PackageTesting() {
-    return [
-        'debian-11',
-        'debian-11-arm',
-        'debian-12',
-        'debian-12-arm',
-        'oracle-8',
-        'oracle-9',
-        'rhel-8',
-        'rhel-9',
-        'rhel-8-arm',
-        'rhel-9-arm',
-        'rocky-8',
-        'rocky-8-arm',
-        'rocky-9',
-        'rocky-9-arm',
-        'ubuntu-jammy',
-        'ubuntu-jammy-arm',
-        'ubuntu-noble',
-        'ubuntu-noble-arm',
-        'amazon-linux-2023',
-        'amazon-linux-2023-arm'
-    ]
-}
-
-def ps84PackageTesting() {
-    return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'debian-13',
@@ -75,6 +27,91 @@ def ps84PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
+    ]
+}
+
+def ps80PackageTesting() {
+    return [
+        'debian-12',
+        'debian-12-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-9',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+    ]
+}
+
+def ps84PackageTesting() {
+    return [
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-9',
+        'rhel-10',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
+    ]
+}
+
+def ps97PackageTesting() {
+    return [
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-8-arm',
+        'rhel-9',
+        'rhel-9-arm',
+        'rhel-10',
+        'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
+        'ubuntu-resolute',
+        'ubuntu-resolute-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'amazon-linux-2023',
         'amazon-linux-2023-arm'
     ]
@@ -95,7 +132,7 @@ def ps57PackageTesting() {
     ]
 }
 
-List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting()
+List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()
 
 def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
     def tests = [:]
@@ -231,7 +268,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "client_test"]'
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "client_test"]'
                 ]
             ]
         ],
@@ -263,7 +300,7 @@ properties([
                         if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -317,6 +354,9 @@ properties([
                             }
                             else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
+                            }
+                            else if (product_to_test == "ps_97") {
+                                return ["ps_84"]
                             }
                             else {
                                 return ["NA"]
@@ -372,6 +412,9 @@ properties([
                             }
                             else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
+                            }
+                            else if (product_to_test == "ps_97") {
+                                return ["ps_97"]
                             }
                             else {
                                 return ["NA"]
@@ -440,6 +483,7 @@ pipeline {
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
+        timeout(time: 6, unit: 'HOURS')
     }
         stages {
             stage('Set Build Name'){
@@ -502,10 +546,15 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
-                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                    }
+                                    else if (product_to_test == "ps_97") {
+                                        moleculeParallelTestALL(allOS, ps97PackageTesting(), "molecule/ps/")
                                     }
                                     else {
                                         error("Unsupported product_to_test: ${product_to_test}")

@@ -2,13 +2,12 @@
 
 ## Important directories in repo
 
-- [CloudFormation for PMM Jenkins](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/IaC/pmm.cd)
 - [PMM pipelines](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/pmm)
 - [Jenkins variable (named helpers in this doc)](https://github.com/Percona-Lab/jenkins-pipelines/tree/master/vars)
 
 ## Agents
 
-We build the custom image for agents and you can find Packer and Ansible files in [pmm](https://github.com/percona/pmm/tree/v3/build/packer) repo.
+We build the custom image for agents and you can find Packer and Ansible files in [pmm](https://github.com/percona/pmm/tree/main/build/packer) repo.
 
 Use the following tags for agents:
 

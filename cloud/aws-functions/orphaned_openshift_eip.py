@@ -41,7 +41,8 @@ def get_ip_to_release(client, aws_region):
         ips = client.describe_addresses()["Addresses"]
     except Exception as e:
         logging.error(f"The ips can't be received because of the error {e}")
-        
+        raise
+
     if not ips:
         logging.info(f"There are no ips in region {aws_region}")
         return ips_for_release
@@ -63,6 +64,7 @@ def release_ip(client, aws_region, allocation_id):
         )
     except Exception as e:
         logging.error(f"Error releasing Elastic IP: {e}")
+        raise
 
 
 def lambda_handler(event, context):

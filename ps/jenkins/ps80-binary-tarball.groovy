@@ -6,7 +6,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 
 def operatingsystems() {
-    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'al-2023' , 'debian-12', 'debian-13']
+    if (params.EOL == 'yes') {
+        return ['oracle-8', 'oracle-9', 'ubuntu-jammy', 'ubuntu-noble', 'debian-12']
+    }
+    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023' , 'debian-12', 'debian-13']
 }
 
 
@@ -18,6 +21,8 @@ pipeline {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/ps80-binary-tarball/";
     PRO = "${params.PRO}"
+    EOL = "${params.EOL}"
+    REPO = "${params.REPO}"
   }
   parameters {
     string(
@@ -31,8 +36,18 @@ pipeline {
       description: 'PS revision'
     )
     booleanParam(
-        defaultValue: false, 
+        defaultValue: false,
         name: 'PRO'
+    )
+    choice(
+      name: 'EOL',
+      choices: ['no', 'yes'],
+      description: 'Set to yes to test the PS 8.0 EOL tarball from the private repo'
+    )
+    choice(
+      name: 'REPO',
+      choices: ['testing', 'main'],
+      description: 'Private repo for EOL tarballs: testing (qa-test gated repo) or main (ps-80-eol repo). Only used when EOL=yes'
     )
     string(
       defaultValue: 'master',
@@ -48,6 +63,7 @@ pipeline {
   options {
     withCredentials(moleculePdpsJenkinsCreds())
     disableConcurrentBuilds()
+    timeout(time: 6, unit: 'HOURS')
   }
   stages {
     stage('Set build name'){
@@ -74,9 +90,11 @@ pipeline {
 
     stage('Run tarball molecule') {
       steps {
+        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
           script {
             moleculeParallelTest(operatingsystems(), env.MOLECULE_DIR)
           }
+        }
       }
     }
   }

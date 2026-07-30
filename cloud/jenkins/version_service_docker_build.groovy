@@ -1,15 +1,17 @@
 void checkImageForDocker(){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE=\$(cat IMG)
-            IMAGE_TAG=\$(echo "\$IMAGE" | cut -d':' -f2)
-            TrivyLog="$WORKSPACE/trivy-version-service-\${IMAGE_TAG}.xml"
+        sh '''
+            export IMAGE=$(cat IMG)
+            export IMAGE_TAG=$(echo "$IMAGE" | cut -d':' -f2)
+            export TrivyLog="${WORKSPACE}/trivy-version-service-${IMAGE_TAG}.xml"
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
-            "
-        """
+            sg docker -c '
+                set -e
+                echo "$PASS" | docker login -u "$USER" --password-stdin
+                /usr/local/bin/trivy -q --cache-dir "/mnt/jenkins/trivy-${JOB_NAME}/" image --format template --template @/tmp/junit.tpl -o "$TrivyLog" --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL "$IMAGE"
+                docker logout
+            '
+        '''
     }
 }
 
@@ -35,6 +37,8 @@ pipeline {
             steps {
                 git poll: true, branch: "${GIT_BRANCH}", url: 'https://github.com/Percona-Lab/percona-version-service'
                 sh """
+                    sudo yum install -y make
+
                     TRIVY_VERSION="0.69.3"
                     TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz

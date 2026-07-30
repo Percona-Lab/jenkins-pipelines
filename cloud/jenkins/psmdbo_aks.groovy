@@ -75,6 +75,7 @@ void prepareNode() {
         IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
         IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_SEARCH = IMAGE_SEARCH ?: getParam("IMAGE_SEARCH")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "AKS_${PLATFORM_VER}")
         }
@@ -92,6 +93,24 @@ void prepareNode() {
         curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
     """
 
+    sh '''
+        if ! command -v gsutil &>/dev/null; then
+            echo "gsutil not found, installing google-cloud-cli..."
+            sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+            sudo yum install -y google-cloud-cli
+        fi
+        command -v gsutil
+        gsutil version -l | head -n1
+    '''
+
     installAzureCLI()
     azureAuth()
 
@@ -107,7 +126,7 @@ void prepareNode() {
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -122,7 +141,7 @@ void dockerBuildPush() {
                     docker buildx create --use
                     echo "$PASS" | docker login -u "$USER" --password-stdin
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    e2e-tests/build
+                    DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
                     docker logout
                 '
                 sudo rm -rf build
@@ -224,7 +243,6 @@ void createCluster(String CLUSTER_SUFFIX) {
                 --node-count 3 \
                 --node-vm-size Standard_B4ms \
                 --node-osdisk-size 30 \
-                --network-plugin kubenet \
                 --generate-ssh-keys \
                 --outbound-type loadbalancer \
                 --kubernetes-version $PLATFORM_VER \
@@ -260,6 +278,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
                     export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                     export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                    export IMAGE_SEARCH=$IMAGE_SEARCH
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
                     e2e-tests/$testName/run
@@ -318,6 +337,7 @@ IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
 IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
+IMAGE_SEARCH=${IMAGE_SEARCH ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -394,7 +414,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv', 'run-backups.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '70', '60'], description: 'Implies release run.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'AKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
@@ -406,6 +426,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
         string(name: 'AKS_LOCATION', defaultValue: '', description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')

@@ -1,0 +1,8 @@
+manifest.json
+*.log
+packer_cache/
+.packer.d/
+ol10-import/
+*.pem
+*.vmdk
+*.qcow2

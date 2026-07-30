@@ -202,9 +202,9 @@
             // Get all templates for the current cloud
             def templates = cloud.getTemplates()
 
-            // Iterate through each template
+            // Iterate through each template (skip on-demand templates, they have no spotConfig)
             templates.each { template ->
-                if (template instanceof SlaveTemplate) {
+                if (template instanceof SlaveTemplate && template.spotConfig instanceof SpotConfiguration) {
                     def instanceType = template.type.toString()
                     def amiId = template.ami
                     def maxBidPrice = template.spotConfig.getSpotMaxBidPrice()

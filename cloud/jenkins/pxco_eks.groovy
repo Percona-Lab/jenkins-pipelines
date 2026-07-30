@@ -58,6 +58,11 @@ void prepareNode() {
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
 
+        # install cfssl for PXC operator tests
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssl_1.6.5_linux_amd64 -o /usr/local/bin/cfssl
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssljson_1.6.5_linux_amd64 -o /usr/local/bin/cfssljson
+        sudo chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
+
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable pxb-84-lts
         sudo yum install -y percona-xtrabackup-84
@@ -187,6 +192,38 @@ void clusterRunner(String cluster) {
     }
 }
 
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
+
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            export KUBECONFIG=/tmp/${clusterName}
+            export PATH=/home/ec2-user/.local/bin:$PATH
+
+            wait_for_deployment() {
+                local deployment_name="\$1"
+
+                for i in \$(seq 1 60); do
+                    if kubectl get deployment "\$deployment_name" -n kube-system >/dev/null 2>&1; then
+                        kubectl wait --for=condition=Available deployment/"\$deployment_name" -n kube-system --timeout=10m
+                        return 0
+                    fi
+                    sleep 10
+                done
+
+                kubectl get deployment -n kube-system
+                return 1
+            }
+
+            wait_for_deployment ebs-csi-controller
+            wait_for_deployment snapshot-controller
+
+            kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+            kubectl api-resources --api-group=snapshot.storage.k8s.io
+        """
+    }
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
@@ -214,6 +251,8 @@ addons:
   wellKnownPolicies:
     ebsCSIController: true
 
+- name: snapshot-controller
+
 nodeGroups:
     - name: ng-1
       minSize: 3
@@ -235,14 +274,29 @@ nodeGroups:
 EOF
     """
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[
+        $class: 'AmazonWebServicesCredentialsBinding',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        credentialsId: 'eks-cicd',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    ]]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
+
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-            kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
-            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+
+            # Use GP3 storage class as default, recommended by the provider
+            kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
+
+            kubectl create clusterrolebinding cluster-admin-binding1 \
+                --clusterrole=cluster-admin \
+                --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+
+            kubectl get storageclass
         """
     }
+
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {

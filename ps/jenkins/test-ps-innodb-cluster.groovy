@@ -167,13 +167,14 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['PS80','PS84','PS_LTS_INN'],
+            choices: ['PS97','PS80','PS84','PS_LTS_INN'],
             description: 'Product for which the packages will be tested',
             name: 'PRODUCT_TO_TEST'
         )
         choice(
             name: 'TEST_DIST',
             choices: [
+                'ubuntu-resolute',
                 'ubuntu-noble',
                 'ubuntu-jammy',
                 'debian-13',  
@@ -193,7 +194,8 @@ pipeline {
                 'debian-12-arm',
                 'debian-13-arm',
                 'ubuntu-jammy-arm',
-                'ubuntu-noble-arm'
+                'ubuntu-noble-arm',
+                'ubuntu-resolute-arm'
             ],
             description: 'Distribution to run test'
         )

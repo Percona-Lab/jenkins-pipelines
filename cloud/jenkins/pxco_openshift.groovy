@@ -63,6 +63,11 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
+        # install cfssl for PXC operator tests
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssl_1.6.5_linux_amd64 -o /usr/local/bin/cfssl
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssljson_1.6.5_linux_amd64 -o /usr/local/bin/cfssljson
+        sudo chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
+
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable pxb-84-lts
         sudo yum install -y percona-xtrabackup-84
@@ -186,6 +191,58 @@ void clusterRunner(String cluster) {
     }
 }
 
+void enableVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        for i in \$(seq 1 60); do
+            if kubectl get crd csisnapshotcontrollers.operator.openshift.io >/dev/null 2>&1; then
+                break
+            fi
+            sleep 10
+        done
+
+        cat <<EOF | kubectl apply -f -
+apiVersion: operator.openshift.io/v1
+kind: CSISnapshotController
+metadata:
+  name: cluster
+spec:
+  managementState: Managed
+EOF
+
+        kubectl get csisnapshotcontroller cluster -o yaml
+    """
+}
+
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    sh """
+        export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
+        wait_for_deployment() {
+            local deployment_name="\$1"
+            local namespace="\$2"
+
+            for i in \$(seq 1 60); do
+                if kubectl get deployment "\$deployment_name" -n "\$namespace" >/dev/null 2>&1; then
+                    kubectl wait --for=condition=Available deployment/"\$deployment_name" -n "\$namespace" --timeout=10m
+                    return 0
+                fi
+                sleep 10
+            done
+
+            kubectl get deployment -n "\$namespace" || true
+            return 1
+        }
+
+        wait_for_deployment csi-snapshot-controller-operator openshift-cluster-storage-operator
+        wait_for_deployment csi-snapshot-controller openshift-cluster-storage-operator
+
+        kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
+        kubectl api-resources --api-group=snapshot.storage.k8s.io
+    """
+}
+
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
@@ -253,6 +310,9 @@ EOF
             }
         }
     }
+
+    enableVolumeSnapshotResources(CLUSTER_SUFFIX)
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {

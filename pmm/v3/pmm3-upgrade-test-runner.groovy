@@ -209,7 +209,7 @@ pipeline {
                             -e PMM_DEBUG=1 \
                             -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                             -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
-                            -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                            -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                             -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                             -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
@@ -225,7 +225,7 @@ pipeline {
                             -e PMM_DEBUG=1 \
                             -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                             -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
-                            -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                            -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                             -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                             -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
@@ -286,7 +286,7 @@ pipeline {
         }
         stage('Sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Setup Custom queries') {
@@ -387,10 +387,10 @@ pipeline {
                                         docker run --detach --restart always \
                                             --network="pmm-qa" \
                                             -e PMM_DEBUG=1 \
-                                            -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                            -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                                             -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                                             -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
-                                            -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
+                                            -e PMM_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                                             -e PMM_ENABLE_UPDATES=1 \
                                             -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                                             --publish 80:8080 --publish 443:8443 \
@@ -404,7 +404,7 @@ pipeline {
                         }
                         stage('Sanity check after upgrade') {
                             steps {
-                                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
                             }
                         }
                     }
@@ -569,7 +569,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
                         popd
                     '''
                 }
