@@ -97,7 +97,7 @@ pipeline {
                         unstash "sourceFILES"
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh '''
-                                docker buildx create --use
+                                docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                                 cd ./source/
                                 sg docker -c "
                                     docker login -u '${USER}' -p '${PASS}'
