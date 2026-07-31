@@ -17,30 +17,6 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
-void downloadKubectl() {
-    sh """
-        KUBECTL_VERSION="\$(curl -L -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r .tag_name)"
-        for i in {1..5}; do
-          if [ -f /usr/local/bin/kubectl ]; then
-              break
-          fi
-          echo "Attempt \$i: downloading kubectl..."
-          sudo curl -s -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-          sudo curl -s -L -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
-          if echo "\$(cat /tmp/kubectl.sha256) /usr/local/bin/kubectl" | sha256sum --check --status; then
-            echo 'Download passed checksum'
-            sudo chmod +x /usr/local/bin/kubectl
-            kubectl version --client --output=yaml
-            break
-          else
-            echo 'Checksum failed, retrying...'
-            sudo rm -f /usr/local/bin/kubectl /tmp/kubectl.sha256
-            sleep 5
-          fi
-        done
-    """
-}
-
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
     checkout(scm)
@@ -73,36 +49,17 @@ void prepareNode() {
     }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.dependencies.install()
+    libraries.dependencies.installGoogleCLI()
+    libraries.dependencies.installAzureCLI()
+    libraries.dependencies.installUv()
+    libraries.dependencies.syncPythonDeps()
+    libraries.azure.auth()
+
     sh """
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-    """
-    downloadKubectl()
-    sh """
-        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
-
-    sh '''
-        if ! command -v gsutil &>/dev/null; then
-            echo "gsutil not found, installing google-cloud-cli..."
-            sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-            sudo yum install -y google-cloud-cli
-        fi
-        command -v gsutil
-        gsutil version -l | head -n1
-    '''
-
-    installAzureCLI()
-    azureAuth()
 
     if ("$PLATFORM_VER" == "latest") {
         withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -118,7 +75,7 @@ EOF
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH  | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -297,12 +254,7 @@ nodeGroups:
 EOF
         """
 
-        withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'eks-cicd',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
+        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
                 export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
 
@@ -341,23 +293,32 @@ void runTest(Integer TEST_ID) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                    def testsLib = load('cloud/common/vars/tests.groovy')
+                    def testVars = testsLib.buildPsmdbTestVariables(
+                        cluster_name: CLUSTER_NAME,
+                        debug_tests: DEBUG_TESTS,
+                        cluster_wide: CLUSTER_WIDE,
+                        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+                        images: [
+                            IMAGE_OPERATOR    : IMAGE_OPERATOR,
+                            IMAGE_MONGOD      : IMAGE_MONGOD,
+                            IMAGE_BACKUP      : IMAGE_BACKUP,
+                            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+                            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+                            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+                            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
+                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+                            IMAGE_SEARCH      : IMAGE_SEARCH
+                        ]
+                    )
+                    def exports = testsLib.getExportedVariablesForTests(testVars, clusterSuffix)
+                    def testCmd = testsLib.defineTestCommand(testVars, testName)
                     sh """
                         cd source
 
-                        [[ "$DEBUG_TESTS" == "YES" ]] && export DEBUG_TESTS=1
-                        [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                        export IMAGE_MONGOD=$IMAGE_MONGOD
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                        export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
-                        export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
-                        export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-                        export IMAGE_SEARCH=$IMAGE_SEARCH
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        ${exports}
 
-                        e2e-tests/$testName/run
+                        ${testCmd}
                     """
                 }
             }
@@ -472,39 +433,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             """
         }
     }
-}
-
-void azureAuth() {
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh '''
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-            az account set -s "$AZURE_SUBSCRIPTION_ID"
-        '''
-    }
-}
-
-void installAzureCLI() {
-    sh """
-        if ! command -v az &>/dev/null; then
-            if [ "\$JENKINS_AGENT" = "AWS" ]; then
-                curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-                sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
-            else
-                echo "Installing Azure CLI for Hetzner instances..."
-                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-                cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
-[azure-cli]
-name=Azure CLI
-baseurl=https://packages.microsoft.com/yumrepos/azure-cli
-enabled=1
-gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc
-EOF
-                sudo dnf install azure-cli -y
-            fi
-        fi
-    """
 }
 
 pipeline {

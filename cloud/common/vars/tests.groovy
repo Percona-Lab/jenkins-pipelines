@@ -355,7 +355,12 @@ Map resolveImages(Map testVariables) {
 String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     def exports = []
 
-    exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    if (testVariables.kubeconfig) {
+        exports << "export KUBECONFIG=${testVariables.kubeconfig}"
+    } else if (!testVariables.skip_kubeconfig) {
+        exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    }
+
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
     exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
     exports << """
@@ -372,6 +377,12 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
         exports << "export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')"
     }
 
+    if (testVariables.test_executor_type == "make") {
+        exports << 'export PATH="$HOME/.local/bin:$PATH"'
+        exports << 'export SKIP_DELETE=0'
+        exports << 'export COLUMNS=200'
+    }
+
     testVariables.extra_envs?.each { key, value ->
         exports << "export ${key}='${value ?: ""}'"
     }
@@ -379,9 +390,29 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     return exports.join("\n")
 }
 
+Map buildPsmdbTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'psmdb-operator',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'make',
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
 String defineTestCommand(Map testVariables, String testName) {
     if (testVariables.test_executor_type == "kuttl") {
         return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
+    }
+
+    if (testVariables.test_executor_type == "make") {
+        return "make e2e-test TEST=${testName}"
     }
 
     return "e2e-tests/${testName}/run"
