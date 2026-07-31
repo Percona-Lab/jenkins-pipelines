@@ -235,8 +235,6 @@ pipeline {
                 libraries.tools.dockerCleanupVolumes()
             }
 
-            junit testResults: '*.xml', healthScaleFactor: 1.0, allowEmptyResults: true
-            archiveArtifacts artifacts: '*.xml,*.txt', allowEmptyArchive: true
             deleteDir()
         }
     }

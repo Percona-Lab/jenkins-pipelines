@@ -253,13 +253,13 @@ void runTest(Integer TEST_ID) {
 
     waitUntil {
         def timeStart = new Date().getTime()
+        def testsLib = load('cloud/common/vars/tests.groovy')
         try {
             echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT')]) {
-                    def testsLib = load('cloud/common/vars/tests.groovy')
                     def testVars = testsLib.buildPsmdbTestVariables(
                         cluster_name: CLUSTER_NAME,
                         debug_tests: DEBUG_TESTS,
@@ -286,7 +286,12 @@ void runTest(Integer TEST_ID) {
                         export GCP_PROJECT=\$GCP_PROJECT
                         export GCS_WI_SERVICE_ACCOUNT=percona-psmdb-operator-wi@\$GCP_PROJECT.iam.gserviceaccount.com
 
-                        ${testCmd}
+                        mkdir -p e2e-tests/logs e2e-tests/reports
+                        bash -o pipefail <<BASH
+                        {
+                            ${testCmd}
+                        } 2>&1 | tee e2e-tests/logs/${testName}.log
+BASH
                     """
                 }
             }
@@ -306,6 +311,11 @@ void runTest(Integer TEST_ID) {
             def timeStop = new Date().getTime()
             def durationSec = (timeStop - timeStart) / 1000
             tests[TEST_ID]["time"] = durationSec
+            try {
+                testsLib.pushLogFile(testName, [gitShortCommit: GIT_SHORT_COMMIT])
+            } catch (logErr) {
+                echo "Warning: failed to push log for $testName: ${logErr}"
+            }
             echo "The $testName test was finished!"
         }
     }
@@ -325,15 +335,8 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void makeReport() {
-    echo "=========================[ Generating Test Report ]========================="
-    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
-    for (int i = 0; i < tests.size(); i ++) {
-        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
-    }
-    testsReport += '</testsuite>\n'
-
     echo "=========================[ Generating Parameters Report ]========================="
-    pipelineParameters = """
+    def pipelineParameters = """
 testsuite name=$JOB_NAME
 IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
 IMAGE_MONGOD=${IMAGE_MONGOD ?: 'e2e_defaults'}
@@ -347,11 +350,13 @@ IMAGE_SEARCH=${IMAGE_SEARCH ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER
 GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 
-    writeFile file: "TestsReport.xml", text: testsReport
-    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
-
-    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-        text: "<pre>${pipelineParameters}</pre>"
+    def testsLib = load('cloud/common/vars/tests.groovy')
+    testsLib.writePipelineParameters(pipelineParameters)
+    testsLib.publishPytestReports(
+        tests         : tests,
+        gitShortCommit: GIT_SHORT_COMMIT,
+        gitBranch     : GIT_BRANCH,
+        title         : "PSMDB e2e tests - ${GIT_BRANCH} (${GIT_SHORT_COMMIT})"
     )
 }
 
@@ -459,8 +464,6 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            junit testResults: '*.xml', healthScaleFactor: 1.0
-            archiveArtifacts '*.xml,*.txt'
 
             script {
                 try {
