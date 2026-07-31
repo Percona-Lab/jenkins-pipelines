@@ -63,7 +63,24 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                                 echo 'install_repo_eol: "testing"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
                             """
 
-                            echo "Setting the secret variables for molecule use"
+                            echo "Setting the  variables for molecule use"
+                            withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
+                                sh """
+                                    echo 'USERNAME: "${USERNAME}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                                    echo 'PASSWORD: "${PASSWORD}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                                """
+                            }
+                        } else{
+                            echo "Not setting the secret variables for molecule use as EOL not selected"
+                        }
+                    }else if ("${product_to_test}" == "pxc80"){
+                        if ("${params.EOL}" == "yes"){
+
+                            sh """
+                                echo 'eol: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                            """
+
+                            echo "Setting the variables for molecule use"
                             withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
                                 sh """
                                     echo 'USERNAME: "${USERNAME}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
@@ -74,7 +91,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                             echo "Not setting the secret variables for molecule use as EOL not selected"
                         }
                     }else{
-                        echo "Product is not pxc57 so skipping value assignment to it"
+                        echo "Product is not pxc57 or pxc80 so skipping value assignment to it"
                     }
 
                 }else{
@@ -844,6 +861,11 @@ properties([
             name: 'test_repo',
             choices: ['testing', 'main', 'experimental'],
             description: 'Repo to install packages from'
+        ),
+        choice(
+            name: 'EOL',
+            choices: ['no', 'yes'],
+            description: 'Use the EOL (password protected) testing repo for PXC 8.0'
         ),
         [
             $class: 'CascadeChoiceParameter',
