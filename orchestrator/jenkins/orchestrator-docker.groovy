@@ -56,7 +56,7 @@ parameters {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: '3.2.6', description: 'Orchestrator Version', name: 'VERSION')
-        string(defaultValue: '20', description: 'RPM version', name: 'RPM_RELEASE')
+        string(defaultValue: '23', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
             choices: 'testing\nexperimental\nrelease',
             description: 'Repository component used to get packages',
