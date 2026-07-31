@@ -46,7 +46,7 @@ pipeline {
     options {
         // Ensure this shared library function returns the correct wrapper
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '50'))
+        buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '100', artifactNumToKeepStr: '10'))
         timestamps()
         retry(conditions: [agent()], count: 2)
     }

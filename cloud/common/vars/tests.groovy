@@ -29,6 +29,71 @@ String getClusterFullName(String clusterName, String clusterSuffix) {
     return "${clusterName}-${clusterSuffix}"
 }
 
+String imageTag(String image, String fallback = "main") {
+    if (!image?.trim()) {
+        return fallback
+    }
+
+    def parts = image.tokenize(":")
+    return parts.size() > 1 ? parts[-1] : fallback
+}
+
+String getDbTag(Map testVariables, String fallback = "main") {
+    def dbImage = [
+        testVariables.images?.IMAGE_MONGOD,
+        testVariables.images?.IMAGE_MYSQL,
+        testVariables.images?.IMAGE_PXC,
+        testVariables.images?.IMAGE_POSTGRESQL
+    ].find { it?.trim() }
+
+    return imageTag(dbImage, fallback)
+}
+
+String getMinorPlatformVersion(String platformVersion) {
+    def matcher = platformVersion =~ /v?(\d+\.\d+)/
+    return matcher ? matcher[0][1] : platformVersion
+}
+
+String buildJobDescription(Map testVariables) {
+    def cw = "${testVariables.cluster_wide}" == "YES" ? "CW" : "NON-CW"
+    def arch = testVariables.platform_arch ?: ""
+
+    return [
+        getMinorPlatformVersion("${testVariables.platform_version}"),
+        arch,
+        testVariables.db_tag ?: getDbTag(testVariables),
+        cw
+    ].findAll { it?.trim() }.join(" ")
+}
+
+void printTestVariables(Map testVariables) {
+    def sensitivePattern = ~/(?i).*(password|secret|token|key|credential).*/
+    def sanitized = testVariables.collectEntries { key, value ->
+        if (key == "libraries") {
+            return [(key): "<libraries>"]
+        }
+
+        if (key == "tests") {
+            return [(key): "<${value?.size() ?: 0} tests>"]
+        }
+
+        if ("${key}" ==~ sensitivePattern) {
+            return [(key): "<redacted>"]
+        }
+
+        if (value instanceof Map) {
+            return [(key): value.collectEntries { nestedKey, nestedValue ->
+                [(nestedKey): ("${nestedKey}" ==~ sensitivePattern ? "<redacted>" : nestedValue)]
+            }]
+        }
+
+        return [(key): value]
+    }
+
+    echo "=========================[ Test variables ]========================="
+    echo groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(sanitized))
+}
+
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
     def versionedImages = [
         "psmdb-operator": [
@@ -49,71 +114,82 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
     return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
+Boolean isReleaseRun(Map testVariables) {
+    return "${testVariables.pillar_version}" != "none"
+}
+
+void resolveReleaseRunParams(Map testVariables) {
+    echo "=========================[ Getting parameters for release test ]========================="
+    testVariables.platform_channel = "stable"
+    echo "Forcing channel=stable, because it's a release run!"
+
+    testVariables.images = resolveImages(testVariables)
+
+    def supportedPlatforms = ["gke", "azs", "openshift", "doks", "rke2", "minikube"]
+    if (!(testVariables.platform in supportedPlatforms)) {
+        error("Unsupported platform: ${testVariables.platform}")
+    }
+
+    if (testVariables.platform_provider?.toLowerCase() == "rancher") {
+        ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
+            if (!testVariables[field] || testVariables[field] == "latest") {
+                testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
+            }
+        }
+    }
+}
+
+Boolean resolveReleasePlatformVersion(Map testVariables) {
+    if (!(testVariables.platform_version?.toLowerCase() in ["min", "max"])) {
+        return false
+    }
+
+    testVariables.platform_version = getReleaseVersionsParam(
+        testVariables.release_versions,
+        "${testVariables.platform.toUpperCase()}_${testVariables.platform_version.toUpperCase()}"
+    )
+
+    testVariables.platform_version = testVariables.libraries[testVariables.platform_provider].getPlatformVersion(
+        testVariables.platform_version
+    )
+
+    return true
+}
+
+void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
+    def library = testVariables.libraries[testVariables.platform_provider]
+    if (testVariables.platform_version == "latest" && testVariables.platform_channel) {
+        testVariables.platform_version = library.getLatestPlatformVersion(
+            testVariables.platform_channel
+        )
+    } else if (!platformFromReleaseVersions) {
+        testVariables.platform_version = library.getPlatformVersion(
+            testVariables.platform_version
+        )
+    }
+}
+
+void resolveMachineType(Map testVariables) {
+    if (testVariables.platform_arch && testVariables.platform_provider) {
+        testVariables.machine_type = testVariables.libraries[testVariables.platform_provider].getMachineType(
+            testVariables.platform_arch
+        )
+    }
+}
+
 Map prepareVersions(Map testVariables) {
-    def libraries = testVariables.libraries
-    def platformFromReleaseVersions = false
-
-    if ("${testVariables.pillar_version}" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        testVariables.platform_channel = "stable"
-        echo "Forcing channel=stable, because it's a release run!"
-
-        testVariables.images = resolveImages(testVariables)
-
-        switch (testVariables.platform_provider?.toLowerCase()) {
-            case "rancher":
-                ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
-                    if (!testVariables[field] || testVariables[field] == "latest") {
-                        testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
-                    }
-                }
-                break
-
-            case "gcloud":
-            case "azure":
-            case "redhat":
-            case "digitalocean":
-                break
-
-            default:
-                error("Unsupported platform_provider: ${testVariables.platform_provider}")
-        }
-
-        if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
-            def platformPrefix = [
-                "gcloud"      : "GKE",
-                "azure"       : "AKS",
-                "redhat"      : "OPENSHIFT",
-                "digitalocean": "DOKS",
-                "rancher"     : "RKE2",
-            ][testVariables.platform_provider?.toLowerCase()]
-
-            testVariables.platform_version = getReleaseVersionsParam(
-                testVariables.release_versions,
-                "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
-            )
-
-            platformFromReleaseVersions = true
-        }
-
+    if (isReleaseRun(testVariables)) {
+        resolveReleaseRunParams(testVariables)
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
-            testVariables.platform_channel
-        )
-    } else if (!platformFromReleaseVersions) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
-            testVariables.platform_version
-        )
-    }
+    def platformFromReleaseVersions = resolveReleasePlatformVersion(testVariables)
+    resolvePlatformVersion(testVariables, platformFromReleaseVersions)
+    resolveMachineType(testVariables)
 
-    if (testVariables.platform_arch && testVariables.platform_provider) {
-        testVariables.machine_type = libraries[testVariables.platform_provider].getMachineType(
-            testVariables.platform_arch
-        )
+    if (!testVariables.db_tag || testVariables.db_tag == "main") {
+        testVariables.db_tag = getDbTag(testVariables, testVariables.db_tag ?: "main")
     }
 
     testVariables.git_short_commit = sh(
@@ -469,21 +545,19 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     def clusterCfg = [
         clusterName     : testVariables.cluster_name,
         clusterSuffix   : clusterSuffix,
-        platformProvider: testVariables.platform_provider,
+        product         : testVariables.operator,
         platformVersion : testVariables.platform_version,
         platformChannel : testVariables.platform_channel,
-        platformArch    : testVariables.platform_arch,
         machineType     : testVariables.machine_type,
         workerCountMin  : testVariables.worker_min_count ?: 4,
         workerCountMax  : testVariables.worker_max_count ?: 6,
-        sourceRanges    : testVariables.source_ranges ?: "0.0.0.0/0",
         region          : testVariables.region ?: "",
         zone            : testVariables.zone ?: "",
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
         debug           : testVariables.debug
     ]
 
-    if (testVariables.platform_provider == "rancher") {
+    if (testVariables.platform_provider.toLowerCase() == "rancher") {
         clusterCfg.rancherVersion = testVariables.rancher_version
         clusterCfg.certManagerVersion = testVariables.cert_manager_version
     }
@@ -562,7 +636,7 @@ void makeReport(List tests, Map testVariables) {
     echo "=========================[ Generating Test Report ]========================="
     tests = tests ?: []
 
-    def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
+    def testsReport = "<testsuite name=\"$JOB_NAME\">\n"
     tests.each { test ->
         testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
     }
@@ -576,10 +650,10 @@ void makeReport(List tests, Map testVariables) {
         pipelineParameters += "${key}=${value ?: 'e2e_defaults'}\n"
     }
 
-    pipelineParameters += "platform_version=${testVariables.platform_version ?: 'e2e_defaults'}\n"
-    pipelineParameters += "platform_channel=${testVariables.platform_channel ?: 'e2e_defaults'}\n"
-    pipelineParameters += "platform_arch=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
-    pipelineParameters += "cluster_wide=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_VERSION=${testVariables.platform_version ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_CHANNEL=${testVariables.platform_channel ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_ARCH=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
+    pipelineParameters += "CLUSTER_WIDE=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: "PipelineParameters.txt", text: pipelineParameters
