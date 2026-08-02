@@ -100,7 +100,7 @@ pipeline {
             description: 'Experimental packages only',
             name: 'EXPERIMENTALMODE')
         choice(
-            choices: 'experimental\nlaboratory\ntesting',
+            choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
