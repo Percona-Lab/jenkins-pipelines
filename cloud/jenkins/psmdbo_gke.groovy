@@ -78,6 +78,7 @@ void prepareNode() {
     IMAGE_LOGCOLLECTOR = testVariables.images.IMAGE_LOGCOLLECTOR
     IMAGE_SEARCH = testVariables.images.IMAGE_SEARCH
     MACHINE_TYPE = testVariables.machine_type
+    DB_TAG = testVariables.db_tag
     GIT_SHORT_COMMIT = testVariables.git_short_commit
     CLUSTER_NAME = testVariables.cluster_name
     PARAMS_HASH = testVariables.params_hash

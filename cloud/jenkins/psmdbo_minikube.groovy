@@ -67,6 +67,7 @@ void prepareNode() {
     IMAGE_PMM3_SERVER = testVariables.images.IMAGE_PMM3_SERVER
     IMAGE_LOGCOLLECTOR = testVariables.images.IMAGE_LOGCOLLECTOR
     IMAGE_SEARCH = testVariables.images.IMAGE_SEARCH
+    DB_TAG = testVariables.db_tag
     GIT_SHORT_COMMIT = testVariables.git_short_commit
     PARAMS_HASH = testVariables.params_hash
 
