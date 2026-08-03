@@ -56,6 +56,14 @@ String getDbTag(Map testVariables) {
     return imageTag(dbImage)
 }
 
+String getDBVersion(Map testVariables) {
+    return [
+        testVariables.pillar_version,
+        testVariables.db_version,
+        testVariables.db_tag
+    ].find { it?.toString()?.trim() && !it.toString().equalsIgnoreCase("none") } ?: ""
+}
+
 String getMinorPlatformVersion(String platformVersion) {
     def matcher = platformVersion =~ /v?(\d+\.\d+)/
     return matcher ? matcher[0][1] : platformVersion
@@ -68,7 +76,7 @@ String buildJobDescription(Map testVariables) {
     return [
         getMinorPlatformVersion("${testVariables.platform_version}"),
         arch,
-        testVariables.pillar_version ?: testVariables.db_version ?: testVariables.db_tag,
+        getDBVersion(testVariables),
         cw
     ].findAll { it?.trim() }.join(" ")
 }
@@ -266,7 +274,7 @@ String buildParamsHash(Map testVariables) {
         testVariables.cluster_wide,
         testVariables.platform_arch,
         testVariables.platform_channel,
-        testVariables.pillar_version ?: testVariables.db_version ?: testVariables.db_tag
+        getDBVersion(testVariables) ?: null
     ].findAll { it != null }
 
     testVariables.images.values().findAll { it }.each { imageValue ->
@@ -383,7 +391,7 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
 String defineTestCommand(Map testVariables, String testName) {
     if (testVariables.test_executor_type == "kuttl") {
         return """
-            export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+            PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH" \
             kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'
         """
     } else {
@@ -506,10 +514,8 @@ void runTest(Map testConfig) {
 
                 sh """
                     cd source
-
-                    export KUBECONFIG="${kubeconfig}"
                     ${exports}
-                    ${command}
+                    KUBECONFIG=${kubeconfig} ${command}
                 """
             }
 
