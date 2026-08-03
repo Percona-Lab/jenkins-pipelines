@@ -251,19 +251,15 @@ List loadTestList(String testList, String testSuite) {
 }
 
 String artifactFileName(Map testVariables, String testName) {
-    def dbVersion = testVariables.db_version ?:
-        testVariables.db_tag ?:
-        getDbTag(testVariables)
-
     return [
         testVariables.git_branch,
         testVariables.git_short_commit,
         testName,
         testVariables.platform_version,
-        dbVersion,
+        getDBVersion(testVariables),
         "CW_${testVariables.cluster_wide}",
         testVariables.params_hash
-    ].join("-")
+    ].findAll { it?.toString()?.trim() }.join("-")
 }
 
 String buildParamsHash(Map testVariables) {
