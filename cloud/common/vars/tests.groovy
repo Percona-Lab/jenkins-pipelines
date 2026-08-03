@@ -510,7 +510,6 @@ void runTest(Map testConfig) {
                 def command = defineTestCommand(testVariables, testName)
 
                 sh """
-                    cat "${kubeconfig}"
                     cd source && ${variables} KUBECONFIG='${kubeconfig}' ${command}
                 """
             }

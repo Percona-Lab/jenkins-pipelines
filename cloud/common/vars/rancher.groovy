@@ -26,13 +26,12 @@ void createCluster(Map clusterCfg) {
         "CERT_MANAGER_VERSION=${clusterCfg.certManagerVersion ?: 'latest'}",
         "INSTALL_RKE2_CHANNEL=${clusterCfg.platformChannel ?: 'stable'}",
         "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: 'latest'}",
-        "KUBECONFIG=${clusterCfg.kubeconfig ?: '/tmp/kubeconfig'}"
+        "KUBECONFIG=${clusterCfg.kubeconfig}"
     ]
 
     // Default timeout for cluster creation is 60 minutes
     timeout(time: 60, unit: 'MINUTES') {
-        withEnv(envVars) {
-            sh '''
+        sh(script: envVars.collect { "export ${it}" }.join("\n") + '''
                 set -euo pipefail
 
                 for attempt in {1..3}; do
@@ -50,23 +49,22 @@ void createCluster(Map clusterCfg) {
                     echo "Retrying in 10 seconds..."
                     sleep 10
                 done
-            '''
-        }
+            ''')
     }
 }
 
 void shutdownCluster(Map clusterCfg) {
-    withEnv([
+    def envVars = [
         "PREFIX=${cluster(clusterCfg)}",
         "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
         "KUBECONFIG=${clusterCfg.kubeconfig}"
-    ]) {
-        sh '''
+    ]
+
+    sh(script: envVars.collect { "export ${it}" }.join("\n") + '''
             set -euo pipefail
 
-            # python3 cloud/scripts/destroy_rancher.py "$PREFIX"
-        '''
-    }
+            python3 cloud/scripts/destroy_rancher.py "$PREFIX"
+        ''')
 }
 
 def getLatestPlatformVersion(String channel) {

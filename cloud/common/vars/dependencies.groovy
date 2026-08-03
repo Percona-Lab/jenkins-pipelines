@@ -1,11 +1,12 @@
 void install(Map config = [:]) {
-    withEnv([
+    def envVars = [
         "YQ_VERSION=${config.yqVersion ?: ''}",
         "JQ_VERSION=${config.jqVersion ?: ''}",
         "HELM_VERSION=${config.helmVersion ?: ''}",
         "KUBECTL_VERSION=${config.kubectlVersion ?: ''}"
-    ]) {
-        sh '''
+    ]
+
+    sh(script: envVars.collect { "export ${it}" }.join("\n") + '''
             set -euo pipefail
 
             latest() {
@@ -69,8 +70,7 @@ void install(Map config = [:]) {
             jq --version
             helm version
             kubectl version --client
-        '''
-    }
+        ''')
 }
 
 void installKuttlAndAssert() {
