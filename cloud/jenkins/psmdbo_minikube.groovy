@@ -16,17 +16,13 @@ String getParam(String paramName, String keyName = null) {
 }
 
 void prepareNode() {
-    echo "=========================[ Cloning the sources ]========================="
     checkout(scm)
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
-    """
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tools.gitResetWorkspace()
+    libraries.tools.gitClone(
+        branch: GIT_BRANCH,
+        repo: 'https://github.com/percona/percona-server-mongodb-operator'
+    )
 
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
@@ -47,7 +43,6 @@ void prepareNode() {
     }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
     libraries.dependencies.install()
     libraries.dependencies.installAzureCLI()
     libraries.dependencies.installUv()
@@ -242,28 +237,25 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void makeReport() {
-    echo "=========================[ Generating Parameters Report ]========================="
-    def pipelineParameters = """
-testsuite name=$JOB_NAME
-IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
-IMAGE_MONGOD=${IMAGE_MONGOD ?: 'e2e_defaults'}
-IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
-IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
-IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
-IMAGE_SEARCH=${IMAGE_SEARCH ?: 'e2e_defaults'}
-PLATFORM_VER=$PLATFORM_VER"""
-
-    def testsLib = load('cloud/common/vars/tests.groovy')
-    testsLib.writePipelineParameters(pipelineParameters)
-    testsLib.publishPytestReports(
-        tests         : tests,
-        gitShortCommit: GIT_SHORT_COMMIT,
-        gitBranch     : GIT_BRANCH,
-        title         : "PSMDB e2e tests - ${GIT_BRANCH} (${GIT_SHORT_COMMIT})"
-    )
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tests.makeReport(tests, [
+        job_name         : JOB_NAME,
+        git_branch       : GIT_BRANCH,
+        git_short_commit : GIT_SHORT_COMMIT,
+        platform_version : PLATFORM_VER,
+        cluster_wide     : CLUSTER_WIDE,
+        images: [
+            IMAGE_OPERATOR    : IMAGE_OPERATOR,
+            IMAGE_MONGOD      : IMAGE_MONGOD,
+            IMAGE_BACKUP      : IMAGE_BACKUP,
+            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
+            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+            IMAGE_SEARCH      : IMAGE_SEARCH
+        ]
+    ])
 }
 
 pipeline {

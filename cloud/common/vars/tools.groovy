@@ -33,7 +33,7 @@ def kubernetesCleanupCluster(String kubeconfig) {
         if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
             for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers \
                 | awk '{print \$1}' \
-                | grep -vE "^kube-|^gke-|^cattle-" \
+                | grep -vE "^kube-|^gke-|^cattle-|^openshift" \
                 | sed '/-operator/ s/^/1-/' \
                 | sort \
                 | sed 's/^1-//'); do

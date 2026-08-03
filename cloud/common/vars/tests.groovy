@@ -733,9 +733,9 @@ void normalizeReports(List tests, String sourceDir = 'source') {
     sh "mkdir -p ${reportsDir}"
 
     for (int i = 0; i < tests.size(); i++) {
-        def testName = tests[i]["name"] ?: tests[i].name
-        def testResult = tests[i]["result"] ?: tests[i].result
-        def testTime = (tests[i]["time"] ?: tests[i].time) ?: 0
+        def testName = tests[i]["name"]
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"] ?: 0
 
         if (testResult == "skipped") {
             continue
@@ -744,6 +744,8 @@ void normalizeReports(List tests, String sourceDir = 'source') {
         def xmlFile = "${reportsDir}/${testName}.xml"
         def htmlFile = "${reportsDir}/${testName}.html"
 
+        // Always collapse to a single testcase per test so python (multi-method) and
+        // bash-wrapper tests are counted identically in JUnit. Detail stays in the HTML.
         def failures = testResult == "failure" ? 1 : 0
         def errors = testResult == "error" ? 1 : 0
         def resultElement = ""
@@ -844,19 +846,25 @@ void publishPytestReports(Map config) {
         normalizeReports(tests, sourceDir)
 
         sh """
-            set -euo pipefail
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
             uv run pytest_html_merger -i e2e-tests/reports -o "\$WORKSPACE/${reportHtml}" -t "${title}"
             uv run junitparser merge --glob 'e2e-tests/reports/*.xml' "\$WORKSPACE/${reportXml}"
         """
 
-        formatReportDuration(reportHtml)
+        if (fileExists(reportHtml)) {
+            formatReportDuration(reportHtml)
+        }
+
         junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
         archiveArtifacts artifacts: "${reportXml}, ${reportHtml}, PipelineParameters.txt", allowEmptyArchive: true
 
-        if (pushToS3 && gitShortCommit) {
+        if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
             pushReportFile(reportHtml, gitShortCommit)
+
+            def reportUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/${env.JOB_NAME}/${gitShortCommit}/${reportHtml}"
+            def reportLink = "<a href=\"${reportUrl}\">Test report</a>"
+            currentBuild.description = currentBuild.description ? "${currentBuild.description} | ${reportLink}" : reportLink
         }
     } catch (err) {
         echo "Warning: pytest report publish failed: ${err}"
