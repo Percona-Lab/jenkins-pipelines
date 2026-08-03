@@ -362,26 +362,29 @@ Map resolveImages(Map testVariables) {
     return resolvedImages
 }
 
-String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
-    def exports = []
+String getVariablesForTests(Map testVariables) {
+    def variables = []
 
-    exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
-    exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
-    exports << """
-        [[ '${testVariables.images.IMAGE_OPERATOR}' ]] && \
-            export IMAGE='${testVariables.images.IMAGE_OPERATOR}' || \
-            export IMAGE='${testVariables.default_operator_image}'
-    """.stripIndent().trim()
+    if (testVariables.debug_tests == "YES") {
+        variables << "DEBUG_TESTS=1"
+    }
+
+    if (testVariables.cluster_wide == "YES") {
+        variables << "OPERATOR_NS='${testVariables.operator}'"
+    }
+
+    def operatorImage = testVariables.images.IMAGE_OPERATOR ?: testVariables.default_operator_image
+    variables << "IMAGE='${operatorImage}'"
 
     testVariables.images.each { imageName, imageValue ->
-        exports << "export ${imageName}='${imageValue ?: ""}'"
+        variables << "${imageName}='${imageValue ?: ""}'"
     }
 
     testVariables.extra_envs?.each { key, value ->
-        exports << "export ${key}='${value ?: ""}'"
+        variables << "${key}='${value ?: ""}'"
     }
 
-    return exports.join("\n")
+    return variables.collect { "${it}" }.join(" ")
 }
 
 String defineTestCommand(Map testVariables, String testName) {
@@ -389,7 +392,7 @@ String defineTestCommand(Map testVariables, String testName) {
         return """
             PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH" \
             kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'
-        """
+        """.stripIndent().trim()
     } else {
         return "e2e-tests/${testName}/run"
     }
@@ -400,39 +403,37 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
 
     echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
 
-    withEnv([
-        "FAILED_TEST_NAME=${testName}",
-        "KUBECONFIG=${kubeconfig}"
-    ]) {
-        sh '''
-            set +e
+    sh """
+        set +e
 
-            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
-                exit 0
-            fi
+        export FAILED_TEST_NAME='${testName}'
+        export KUBECONFIG='${kubeconfig}'
 
-            kubectl get namespaces --request-timeout=10s --no-headers \
-                | awk '{print $1}' \
-                | while read -r namespace; do
-                    case "$namespace" in
-                        "$FAILED_TEST_NAME"-*|kuttl*)
-                            echo "Removing finalizers from resources in namespace: $namespace"
-                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
-                                | while read -r resource; do
-                                    kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
-                                        | while read -r object; do
-                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
-                                        done
-                                done
+        if [ ! -s "\$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+            echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for \$KUBECONFIG"
+            exit 0
+        fi
 
-                            echo "Deleting namespace: $namespace"
-                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
-                            ;;
-                    esac
-                done
-        '''
-    }
+        kubectl get namespaces --request-timeout=10s --no-headers \
+            | awk '{print \$1}' \
+            | while read -r namespace; do
+                case "\$namespace" in
+                    "\$FAILED_TEST_NAME"-*|kuttl*)
+                        echo "Removing finalizers from resources in namespace: \$namespace"
+                        kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
+                            | while read -r resource; do
+                                kubectl get "\$resource" -n "\$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
+                                    | while read -r object; do
+                                        kubectl patch "\$object" -n "\$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
+                                    done
+                            done
+
+                        echo "Deleting namespace: \$namespace"
+                        kubectl delete namespace "\$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
+                        ;;
+                esac
+            done
+    """
 }
 
 // Below functions are annotated with @NonCPS because they are called from parallel stages and manipulate shared state.
@@ -505,13 +506,12 @@ void runTest(Map testConfig) {
 
             timeout(time: 90, unit: 'MINUTES') {
                 def kubeconfig = getKubeconfig(testVariables, clusterSuffix)  
-                def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
+                def variables = getVariablesForTests(testVariables)
                 def command = defineTestCommand(testVariables, testName)
 
                 sh """
-                    cd source
-                    ${exports}
-                    KUBECONFIG=${kubeconfig} ${command}
+                    cat "${kubeconfig}"
+                    cd source && ${variables} KUBECONFIG='${kubeconfig}' ${command}
                 """
             }
 

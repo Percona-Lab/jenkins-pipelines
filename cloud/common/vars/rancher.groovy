@@ -58,13 +58,13 @@ void createCluster(Map clusterCfg) {
 void shutdownCluster(Map clusterCfg) {
     withEnv([
         "PREFIX=${cluster(clusterCfg)}",
-        "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: env.GOOGLE_REGION ?: env.ZONE ?: 'us-central1-a'}",
-        "KUBECONFIG=${ clusterCfg.kubeconfig ?: env.KUBECONFIG ?: '/tmp/kubeconfig'}"
+        "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
+        "KUBECONFIG=${clusterCfg.kubeconfig}"
     ]) {
         sh '''
             set -euo pipefail
 
-            python3 cloud/scripts/destroy_rancher.py "$PREFIX"
+            # python3 cloud/scripts/destroy_rancher.py "$PREFIX"
         '''
     }
 }
