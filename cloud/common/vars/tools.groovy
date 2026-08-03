@@ -71,7 +71,11 @@ void dockerBuildAndPush(Map cfg) {
                     docker buildx create --use || true
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
-                    e2e-tests/build
+                    if [[ "$cfg.operator" == "pg-operator" ]]; then
+                        DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 make build
+                    else
+                        DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
+                    fi
                     docker logout
                 '
 

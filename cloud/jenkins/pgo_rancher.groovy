@@ -92,7 +92,8 @@ pipeline {
                 script {
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: 'perconalab/percona-postgresql-operator',
-                        branch: GIT_BRANCH
+                        branch: GIT_BRANCH,
+                        operator: 'pg-operator'
                     )
                 }
             }
