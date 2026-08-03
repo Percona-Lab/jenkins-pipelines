@@ -6,6 +6,8 @@ import groovy.transform.Field
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
 @Field String clusterType = "rancher"
+@Field String sourceRepo = 'https://github.com/percona/percona-server-mongodb-operator'
+@Field String operatorImage = 'docker.io/perconalab/percona-server-mongodb-operator'
 
 def getLibraries() {
     def loader = load('cloud/common/libraries.groovy')
@@ -79,7 +81,7 @@ pipeline {
                 script {
                     libraries.tools.gitClone(
                         branch: GIT_BRANCH,
-                        repo: 'https://github.com/percona/percona-server-mongodb-operator'
+                        repo: sourceRepo
                     )
 
                     libraries.dependencies.install()
@@ -96,7 +98,7 @@ pipeline {
             steps {
                 script {
                     libraries.tools.dockerBuildAndPush(
-                        operatorImage: 'perconalab/percona-server-mongodb-operator',
+                        operatorImage: operatorImage,
                         branch: GIT_BRANCH
                     )
                 }
@@ -131,7 +133,7 @@ pipeline {
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'shell',
 
-                        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+                        default_operator_image: "${operatorImage}:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,

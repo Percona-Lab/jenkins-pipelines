@@ -5,6 +5,8 @@ import groovy.transform.Field
 
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
+@Field String sourceRepo = 'https://github.com/percona/percona-postgresql-operator'
+@Field String operatorImage = 'docker.io/perconalab/percona-postgresql-operator'
 
 def getLibraries() {
     def loader = load('cloud/common/libraries.groovy')
@@ -71,18 +73,12 @@ pipeline {
         stage('Prepare Node') {
             steps {
                 script {
-                    libraries.tools.gitClone(
-                        branch: GIT_BRANCH,
-                        repo: 'https://github.com/percona/percona-postgresql-operator'
-                    )
-
-                    libraries.dependencies.install()
-                    libraries.dependencies.installKuttlAndAssert()
-                    libraries.dependencies.installGoogleCLI()
-                    libraries.dependencies.installAzureCLI()
-
-                    libraries.gcloud.auth()
-                    libraries.azure.auth()
+                    libraries.tests.prepareNode([
+                        libraries         : libraries,
+                        git_branch        : GIT_BRANCH,
+                        source_repo       : sourceRepo,
+                        test_executor_type: 'kuttl'
+                    ])
                 }
             }
         }
@@ -91,7 +87,7 @@ pipeline {
             steps {
                 script {
                     libraries.tools.dockerBuildAndPush(
-                        operatorImage: 'perconalab/percona-postgresql-operator',
+                        operatorImage: operatorImage,
                         branch: GIT_BRANCH,
                         operator: 'pg-operator'
                     )
@@ -125,12 +121,13 @@ pipeline {
                         pillar_version        : PILLAR_VERSION,
 
                         git_branch            : GIT_BRANCH,
+                        source_repo           : sourceRepo,
                         job_name              : JOB_NAME,
                         db_version            : PG_VERSION,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'kuttl',
 
-                        default_operator_image: "perconalab/percona-postgresql-operator:${GIT_BRANCH}",
+                        default_operator_image: "${operatorImage}:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
@@ -166,6 +163,9 @@ pipeline {
                     }
 
                     libraries.tests.loadCloudSecret(testVariables.operator)
+
+                    stash includes: 'cloud/**', name: 'pipelineFILES'
+                    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
                 }
             }
         }
@@ -177,6 +177,7 @@ pipeline {
                     testVariables.numClusters = numClusters
                     testVariables.kubeconfigPath = '/tmp'
                     testVariables.retries = 1
+                    testVariables.jenkins_agent_label = params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
 
                     parallel libraries.tests.getParallelStages(testVariables)
                 }

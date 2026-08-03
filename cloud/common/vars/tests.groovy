@@ -490,6 +490,29 @@ void removeCluster(List clusters, String clusterSuffix) {
     }
 }
 
+void prepareNode(Map testVariables, boolean useUnstash = false) {
+    if (useUnstash) {
+        deleteDir()
+        unstash 'pipelineFILES'
+        unstash 'sourceFILES'
+    } else {
+        testVariables.libraries.tools.gitClone(
+            branch: testVariables.git_branch,
+            repo: testVariables.source_repo
+        )
+    }
+
+    testVariables.libraries.dependencies.install()
+    if (testVariables.test_executor_type == 'kuttl') {
+        testVariables.libraries.dependencies.installKuttlAndAssert()
+    }
+    testVariables.libraries.dependencies.installGoogleCLI()
+    testVariables.libraries.dependencies.installAzureCLI()
+
+    testVariables.libraries.gcloud.auth()
+    testVariables.libraries.azure.auth()
+}
+
 void runTest(Map testConfig) {
     def retryCount = 0
     def testVariables = testConfig.testVariables
@@ -629,7 +652,14 @@ Map getParallelStages(Map testVariables) {
 
         parallelStages[clusterSuffix] = {
             stage(clusterSuffix) {
-                clusterRunner(clusterSuffix, testVariables)
+                if (testVariables.jenkins_agent_label) {
+                    node(testVariables.jenkins_agent_label) {
+                        prepareNode(testVariables, true)
+                        clusterRunner(clusterSuffix, testVariables)
+                    }
+                } else {
+                    clusterRunner(clusterSuffix, testVariables)
+                }
             }
         }
     }
