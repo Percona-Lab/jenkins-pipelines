@@ -4,18 +4,7 @@ import groovy.transform.Field
 @Field def tests = []
 @Field def clusters = []
 @Field def release_versions = "source/e2e-tests/release_versions"
-
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
-
-    def param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
-}
+@Field Map testVariables = [:]
 
 void prepareNode() {
     checkout(scm)
@@ -25,27 +14,6 @@ void prepareNode() {
         branch: GIT_BRANCH,
         repo: 'https://github.com/percona/percona-server-mongodb-operator'
     )
-
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        GKE_RELEASE_CHANNEL = "stable"
-        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
-
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_MONGOD = IMAGE_MONGOD ?: getParam("IMAGE_MONGOD", "IMAGE_MONGOD${PILLAR_VERSION}")
-        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
-        IMAGE_SEARCH = IMAGE_SEARCH ?: getParam("IMAGE_SEARCH")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
-    }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     libraries.dependencies.install()
@@ -58,47 +26,66 @@ void prepareNode() {
     echo "=========================[ Logging in the Kubernetes provider ]========================="
     libraries.gcloud.auth()
 
-    if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
+    if ("$PILLAR_VERSION" != "none") {
+        GKE_RELEASE_CHANNEL = "stable"
+        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
     }
 
-    if ("$ARCH" == "amd64") {
-        MACHINE_TYPE="n1-standard-4"
-    } else if ("$ARCH" == "arm64") {
-        MACHINE_TYPE="t2a-standard-4"
-    } else {
-        error("Unknown architecture $ARCH")
+    def platformVersion = "$PLATFORM_VER"
+    if ("$PILLAR_VERSION" != "none" && (platformVersion.toLowerCase() in ["min", "max"])) {
+        platformVersion = libraries.tests.getReleaseVersionsParam(release_versions, "PLATFORM_VER", "GKE_${platformVersion.toUpperCase()}")
     }
+
+    testVariables = libraries.tests.prepareVersions([
+        libraries             : libraries,
+        release_versions      : release_versions,
+        operator              : 'psmdb-operator',
+        platform              : 'gke',
+        platform_provider     : 'gcloud',
+        platform_channel      : GKE_RELEASE_CHANNEL,
+        platform_version      : platformVersion,
+        platform_arch         : ARCH,
+        zone                  : GKE_REGION,
+        cluster_wide          : CLUSTER_WIDE,
+        pillar_version        : PILLAR_VERSION,
+        git_branch            : GIT_BRANCH,
+        job_name              : JOB_NAME,
+        db_tag                : DB_TAG,
+        debug_tests           : DEBUG_TESTS,
+        test_executor_type    : 'make',
+        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+        images: [
+            IMAGE_OPERATOR    : IMAGE_OPERATOR,
+            IMAGE_MONGOD      : IMAGE_MONGOD,
+            IMAGE_BACKUP      : IMAGE_BACKUP,
+            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
+            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+            IMAGE_SEARCH      : IMAGE_SEARCH
+        ]
+    ])
+
+    PLATFORM_VER = testVariables.platform_version
+    IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+    IMAGE_MONGOD = testVariables.images.IMAGE_MONGOD
+    IMAGE_BACKUP = testVariables.images.IMAGE_BACKUP
+    IMAGE_PMM_CLIENT = testVariables.images.IMAGE_PMM_CLIENT
+    IMAGE_PMM_SERVER = testVariables.images.IMAGE_PMM_SERVER
+    IMAGE_PMM3_CLIENT = testVariables.images.IMAGE_PMM3_CLIENT
+    IMAGE_PMM3_SERVER = testVariables.images.IMAGE_PMM3_SERVER
+    IMAGE_LOGCOLLECTOR = testVariables.images.IMAGE_LOGCOLLECTOR
+    IMAGE_SEARCH = testVariables.images.IMAGE_SEARCH
+    MACHINE_TYPE = testVariables.machine_type
+    GIT_SHORT_COMMIT = testVariables.git_short_commit
+    CLUSTER_NAME = testVariables.cluster_name
+    PARAMS_HASH = testVariables.params_hash
 
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL $ARCH " + "$IMAGE_MONGOD".split(":")[1] + " $cw"
-    }
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH | md5sum | cut -d' ' -f1", returnStdout: true).trim()
-}
-
-void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh '''
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c '
-                    docker buildx create --use
-                    echo "$PASS" | docker login -u "$USER" --password-stdin
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
-                    docker logout
-                '
-                sudo rm -rf build
-            fi
-        '''
     }
 }
 
@@ -184,61 +171,15 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-            withEnv([
-                "CLUSTER_SUFFIX=${CLUSTER_SUFFIX}",
-                "CLUSTER_NAME=${CLUSTER_NAME}",
-                "GKE_RELEASE_CHANNEL=${GKE_RELEASE_CHANNEL}",
-                "GKE_REGION=${GKE_REGION}",
-                "PLATFORM_VER=${PLATFORM_VER}",
-                "MACHINE_TYPE=${MACHINE_TYPE}"
-            ]) {
-                sh '''
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-                    maxRetries=15
-                    exitCode=1
-
-                    while [[ $exitCode != 0 && $maxRetries > 0 ]]; do
-                        gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                            --release-channel $GKE_RELEASE_CHANNEL \
-                            --zone $GKE_REGION \
-                            --cluster-version $PLATFORM_VER \
-                            --preemptible \
-                            --disk-size 30 \
-                            --machine-type $MACHINE_TYPE \
-                            --num-nodes=3 \
-                            --network=jenkins-vpc \
-                            --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                            --cluster-ipv4-cidr=/21 \
-                            --labels delete-cluster-after-hours=6 \
-                            --enable-ip-alias \
-                            --monitoring=NONE \
-                            --logging=NONE \
-                            --no-enable-managed-prometheus \
-                            --workload-pool=cloud-dev-112233.svc.id.goog \
-                            --quiet &&\
-                        kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
-                        exitCode=$?
-                        if [[ $exitCode == 0 ]]; then break; fi
-                        (( maxRetries -- ))
-                        sleep 1
-                    done
-                    if [[ $exitCode != 0 ]]; then exit $exitCode; fi
-
-                    CURRENT_TIME=$(date --rfc-3339=seconds)
-                    FUTURE_TIME=$(date -d '6 hours' --rfc-3339=seconds)
-
-                    gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                        --zone $GKE_REGION \
-                        --add-maintenance-exclusion-start "$CURRENT_TIME" \
-                        --add-maintenance-exclusion-end "$FUTURE_TIME"
-
-                    kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
-                '''
-            }
-        }
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.gcloud.createCluster([
+        clusterName    : CLUSTER_NAME,
+        clusterSuffix  : CLUSTER_SUFFIX,
+        platformChannel: GKE_RELEASE_CHANNEL,
+        platformVersion: PLATFORM_VER,
+        machineType    : MACHINE_TYPE,
+        zone           : GKE_REGION
+    ])
 }
 
 void runTest(Integer TEST_ID) {
@@ -290,7 +231,7 @@ BASH
                     """
                 }
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            testsLib.pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH", GIT_SHORT_COMMIT)
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -316,59 +257,14 @@ BASH
     }
 }
 
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-void makeReport() {
-    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-    libraries.tests.makeReport(tests, [
-        job_name         : JOB_NAME,
-        git_branch       : GIT_BRANCH,
-        git_short_commit : GIT_SHORT_COMMIT,
-        platform_version : PLATFORM_VER,
-        platform_channel : GKE_RELEASE_CHANNEL,
-        platform_arch    : ARCH,
-        cluster_wide     : CLUSTER_WIDE,
-        images: [
-            IMAGE_OPERATOR    : IMAGE_OPERATOR,
-            IMAGE_MONGOD      : IMAGE_MONGOD,
-            IMAGE_BACKUP      : IMAGE_BACKUP,
-            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
-            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
-            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
-            IMAGE_SEARCH      : IMAGE_SEARCH
-        ]
-    ])
-}
-
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-            withEnv([
-                "CLUSTER_SUFFIX=${CLUSTER_SUFFIX}",
-                "CLUSTER_NAME=${CLUSTER_NAME}",
-                "GKE_REGION=${GKE_REGION}"
-            ]) {
-                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-                libraries.tools.kubernetesCleanupCluster("/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}")
-                sh '''
-                    gcloud container clusters delete --async --zone $GKE_REGION $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-                '''
-            }
-        }
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tools.kubernetesCleanupCluster("/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}")
+    libraries.gcloud.shutdownCluster([
+        clusterName  : CLUSTER_NAME,
+        clusterSuffix: CLUSTER_SUFFIX,
+        zone         : GKE_REGION
+    ])
 }
 
 pipeline {
@@ -417,7 +313,14 @@ pipeline {
         }
         stage('Docker Build and Push') {
             steps {
-                dockerBuildPush()
+                script {
+                    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: 'perconalab/percona-server-mongodb-operator',
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
+                    )
+                }
             }
         }
         stage('Init Tests') {
@@ -445,9 +348,11 @@ pipeline {
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-            makeReport()
 
             script {
+                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                libraries.tests.makeReport(tests, testVariables)
+
                 try {
                     def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
                     sendJobSlack.call(
@@ -466,7 +371,6 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
 
-                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
                 libraries.tools.dockerCleanupVolumes()
             }
 

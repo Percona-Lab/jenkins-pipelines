@@ -125,7 +125,7 @@ void resolveReleaseRunParams(Map testVariables) {
 
     testVariables.images = resolveImages(testVariables)
 
-    def supportedPlatforms = ["gke", "azs", "openshift", "doks", "rke2", "minikube"]
+    def supportedPlatforms = ["gke", "aks", "eks", "openshift", "doks", "rke2", "minikube"]
     if (!(testVariables.platform in supportedPlatforms)) {
         error("Unsupported platform: ${testVariables.platform}")
     }
@@ -158,10 +158,8 @@ Boolean resolveReleasePlatformVersion(Map testVariables) {
 
 void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
     def library = testVariables.libraries[testVariables.platform_provider]
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel) {
-        testVariables.platform_version = library.getLatestPlatformVersion(
-            testVariables.platform_channel
-        )
+    if (testVariables.platform_version == "latest") {
+        testVariables.platform_version = library.getLatestPlatformVersion(testVariables)
     } else if (!platformFromReleaseVersions) {
         testVariables.platform_version = library.getPlatformVersion(
             testVariables.platform_version

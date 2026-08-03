@@ -4,18 +4,7 @@ import groovy.transform.Field
 @Field def tests = []
 @Field def clusters = []
 @Field def release_versions = "source/e2e-tests/release_versions"
-
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
-
-    def param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
-}
+@Field Map testVariables = [:]
 
 void prepareNode() {
     checkout(scm)
@@ -25,24 +14,6 @@ void prepareNode() {
         branch: GIT_BRANCH,
         repo: 'https://github.com/percona/percona-server-mongodb-operator'
     )
-
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_MONGOD = IMAGE_MONGOD ?: getParam("IMAGE_MONGOD", "IMAGE_MONGOD${PILLAR_VERSION}")
-        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
-        IMAGE_SEARCH = IMAGE_SEARCH ?: getParam("IMAGE_SEARCH")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "EKS_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
-    }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     libraries.dependencies.install()
@@ -56,41 +27,58 @@ void prepareNode() {
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
 
-    if ("$PLATFORM_VER" == "latest") {
-        withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            PLATFORM_VER = sh(script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'", , returnStdout: true).trim()
-        }
+    def platformVersion = "$PLATFORM_VER"
+    if ("$PILLAR_VERSION" != "none" && (platformVersion.toLowerCase() in ["min", "max"])) {
+        platformVersion = libraries.tests.getReleaseVersionsParam(release_versions, "PLATFORM_VER", "EKS_${platformVersion.toUpperCase()}")
     }
+
+    testVariables = libraries.tests.prepareVersions([
+        libraries             : libraries,
+        release_versions      : release_versions,
+        operator              : 'psmdb-operator',
+        platform              : 'eks',
+        platform_provider     : 'eks',
+        platform_version      : platformVersion,
+        region                : EKS_REGION,
+        cluster_wide          : CLUSTER_WIDE,
+        pillar_version        : PILLAR_VERSION,
+        git_branch            : GIT_BRANCH,
+        job_name              : JOB_NAME,
+        db_tag                : DB_TAG,
+        debug_tests           : DEBUG_TESTS,
+        test_executor_type    : 'make',
+        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+        images: [
+            IMAGE_OPERATOR    : IMAGE_OPERATOR,
+            IMAGE_MONGOD      : IMAGE_MONGOD,
+            IMAGE_BACKUP      : IMAGE_BACKUP,
+            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
+            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+            IMAGE_SEARCH      : IMAGE_SEARCH
+        ]
+    ])
+
+    PLATFORM_VER = testVariables.platform_version
+    IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+    IMAGE_MONGOD = testVariables.images.IMAGE_MONGOD
+    IMAGE_BACKUP = testVariables.images.IMAGE_BACKUP
+    IMAGE_PMM_CLIENT = testVariables.images.IMAGE_PMM_CLIENT
+    IMAGE_PMM_SERVER = testVariables.images.IMAGE_PMM_SERVER
+    IMAGE_PMM3_CLIENT = testVariables.images.IMAGE_PMM3_CLIENT
+    IMAGE_PMM3_SERVER = testVariables.images.IMAGE_PMM3_SERVER
+    IMAGE_LOGCOLLECTOR = testVariables.images.IMAGE_LOGCOLLECTOR
+    IMAGE_SEARCH = testVariables.images.IMAGE_SEARCH
+    GIT_SHORT_COMMIT = testVariables.git_short_commit
+    CLUSTER_NAME = testVariables.cluster_name
+    PARAMS_HASH = testVariables.params_hash
 
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MONGOD".split(":")[1] + " $cw"
-    }
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH | md5sum | cut -d' ' -f1", returnStdout: true).trim()
-}
-
-void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh '''
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c '
-                    docker buildx create --use
-                    echo "$PASS" | docker login -u "$USER" --password-stdin
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
-                    docker logout
-                '
-                sudo rm -rf build
-            fi
-        '''
     }
 }
 
@@ -173,106 +161,17 @@ void clusterRunner(String cluster) {
     }
 }
 
-void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
-    def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
-
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            export KUBECONFIG=/tmp/${clusterName}
-            export PATH=/home/ec2-user/.local/bin:$PATH
-
-            wait_for_deployment() {
-                local deployment_name="\$1"
-
-                for i in \$(seq 1 60); do
-                    if kubectl get deployment "\$deployment_name" -n kube-system >/dev/null 2>&1; then
-                        kubectl wait --for=condition=Available deployment/"\$deployment_name" -n kube-system --timeout=10m
-                        return 0
-                    fi
-                    sleep 10
-                done
-
-                kubectl get deployment -n kube-system
-                return 1
-            }
-
-            wait_for_deployment ebs-csi-controller
-            wait_for_deployment snapshot-controller
-
-            kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
-            kubectl api-resources --api-group=snapshot.storage.k8s.io
-        """
-    }
-}
-
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    timeout(time: 30, unit: 'MINUTES') {
-        sh """
-            timestamp="\$(date +%s)"
-tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-metadata:
-  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
-  region: ${EKS_REGION}
-  version: "$PLATFORM_VER"
-  tags:
-    'delete-cluster-after-hours': '6'
-    'creation-time': '\$timestamp'
-    'team': 'cloud'
-iam:
-  withOIDC: true
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-- name: snapshot-controller
-nodeGroups:
-- name: ng-1
-  minSize: 3
-  maxSize: 4
-  iam:
-    attachPolicyARNs:
-    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-    - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-  instancesDistribution:
-    instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-  tags:
-    'iit-billing-tag': 'jenkins-eks'
-    'delete-cluster-after-hours': '6'
-    'team': 'cloud'
-    'product': 'psmdb-operator'
-EOF
-        """
-
-        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh """
-                export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
-
-                eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-                
-                # Use GP3 storage class as default, recommended by the provider
-                kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
-
-                # Remove GP2 storage class default label, for old clusters
-                kubectl annotate storageclass gp2 \
-                    storageclass.kubernetes.io/is-default-class- \
-                    --overwrite 2>/dev/null || true
-
-                kubectl create clusterrolebinding cluster-admin-binding1 \
-                    --clusterrole=cluster-admin \
-                    --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
-
-                kubectl get storageclass
-            """
-        }
-    }
-
-    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.eks.createCluster([
+        clusterName    : CLUSTER_NAME,
+        clusterSuffix  : CLUSTER_SUFFIX,
+        platformVersion: PLATFORM_VER,
+        region         : EKS_REGION,
+        product        : 'psmdb-operator'
+    ])
 }
 
 void runTest(Integer TEST_ID) {
@@ -322,7 +221,7 @@ BASH
                     """
                 }
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            testsLib.pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH", GIT_SHORT_COMMIT)
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -348,76 +247,14 @@ BASH
     }
 }
 
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-void makeReport() {
-    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-    libraries.tests.makeReport(tests, [
-        job_name         : JOB_NAME,
-        git_branch       : GIT_BRANCH,
-        git_short_commit : GIT_SHORT_COMMIT,
-        platform_version : PLATFORM_VER,
-        cluster_wide     : CLUSTER_WIDE,
-        images: [
-            IMAGE_OPERATOR    : IMAGE_OPERATOR,
-            IMAGE_MONGOD      : IMAGE_MONGOD,
-            IMAGE_BACKUP      : IMAGE_BACKUP,
-            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
-            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
-            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
-            IMAGE_SEARCH      : IMAGE_SEARCH
-        ]
-    ])
-}
-
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-            libraries.tools.kubernetesCleanupCluster("/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}")
-            sh """
-                VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
-                if [ -n "\$VPC_ID" ]; then
-                    LOADBALS=\$(aws elb describe-load-balancers --region ${EKS_REGION} --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
-                    for loadbal in \$LOADBALS; do
-                        aws elb delete-load-balancer --load-balancer-name \$loadbal --region ${EKS_REGION}
-                    done
-                    eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
-
-                    VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${EKS_REGION} || true)
-                    if [ -n "\$VPC_DESC" ]; then
-                        aws ec2 delete-vpc --vpc-id \$VPC_ID --region ${EKS_REGION} || true
-                    fi
-                    VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${EKS_REGION} || true)
-                    if [ -n "\$VPC_DESC" ]; then
-                        for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region ${EKS_REGION}); do
-                            aws ec2 delete-security-group --group-id \$secgroup --region ${EKS_REGION} || true
-                        done
-
-                        aws ec2 delete-vpc --vpc-id \$VPC_ID --region ${EKS_REGION} || true
-                    fi
-                fi
-                aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region ${EKS_REGION} || true
-                aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region ${EKS_REGION} || true
-
-                eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} || true
-                aws cloudformation list-stacks --region ${EKS_REGION} | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
-            """
-        }
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tools.kubernetesCleanupCluster("/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}")
+    libraries.eks.shutdownCluster([
+        clusterName  : CLUSTER_NAME,
+        clusterSuffix: CLUSTER_SUFFIX,
+        region       : EKS_REGION
+    ])
 }
 
 pipeline {
@@ -464,7 +301,14 @@ pipeline {
         }
         stage('Docker Build and Push') {
             steps {
-                dockerBuildPush()
+                script {
+                    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: 'perconalab/percona-server-mongodb-operator',
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
+                    )
+                }
             }
         }
         stage('Init Tests') {
@@ -492,9 +336,11 @@ pipeline {
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-            makeReport()
 
             script {
+                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                libraries.tests.makeReport(tests, testVariables)
+
                 try {
                     def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
                     sendJobSlack.call(
@@ -512,7 +358,6 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
 
-                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
                 libraries.tools.dockerCleanupVolumes()
             }
 
