@@ -9,12 +9,12 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        IMAGE_VER = "${params.PPG_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '16.3-1', description: 'PPG version')
+        string(name: 'FULL_VERSION', defaultValue: '17.10.2', description: 'Full 3 digit version for PPG17 and PPG18')
         string(name: 'BUILD_NUMBER', defaultValue: '1', description: 'Image Build Number')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
@@ -30,8 +30,11 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
+                    def pgMaj = params.PPG_VERSION.tokenize('.')[0].toInteger()
+                    env.IMAGE_VER = (pgMaj > 16) ? "${params.FULL_VERSION}-${params.BUILD_NUMBER}" : "${params.PPG_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
                     currentBuild.displayName = "${params.PPG_REPO}-${env.IMAGE_VER}"
                 }
+                echo "IMAGE_VER=${env.IMAGE_VER}"
             }
         }
         stage ('Build image') {
