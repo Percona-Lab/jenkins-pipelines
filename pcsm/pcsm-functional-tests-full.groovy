@@ -3,6 +3,9 @@ library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+// PSMDB version pairs; keep in sync with PSMDB_PAIR axis below (declarative limitation)
+PSMDB_PAIRS = ['6.0-6.0', '6.0-7.0', '6.0-8.0', '7.0-7.0', '7.0-8.0', '8.0-8.0']
+
 def set_agent(cloud, arch) {
     if (arch == 'x86') {
         if (cloud == 'Hetzner') {
@@ -32,20 +35,28 @@ pipeline {
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PCSM_BRANCH', defaultValue: 'main', description: 'PCSM branch')
-        string(name: 'MONGODB_SRC_IMAGE', defaultValue: 'perconalab/percona-server-mongodb:8.0', description: 'Source PSMDB docker image (full image[:tag])')
-        string(name: 'MONGODB_DST_IMAGE', defaultValue: 'perconalab/percona-server-mongodb:8.0', description: 'Target PSMDB docker image (full image[:tag])')
+        booleanParam(name: 'MONGODB_COMMUNITY', defaultValue: false, description: 'Do you want to use Mongodb Community Edition?')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'ARCH', choices: ['x86','arm'], description: 'Ec2 instance type for running tests')
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
         string(name: 'TEST_FILTER', defaultValue: '', description: 'Optional pytest filter, f.e. T2 or T3')
         booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: true, description: 'Include tests with jenkins marker')
+        booleanParam(name: 'MULTIVERSION', defaultValue: true, description: 'Run cross-version PSMDB pairs (e.g. 6.0-7.0) in addition to same-version pairs')
     }
     stages {
         stage('Set build name'){
             steps {
                 script {
                     currentBuild.displayName = "${params.PCSM_BRANCH}"
-                    currentBuild.description = "PSMDB source: ${params.MONGODB_SRC_IMAGE} | target: ${params.MONGODB_DST_IMAGE}"
+                    def sameVersion = PSMDB_PAIRS.findAll {
+                        def p = it.split('-')
+                        return p.length == 2 && p[0] == p[1]
+                    }
+                    if (params.MULTIVERSION) {
+                        currentBuild.description = "PSMDB pairs (multiversion ON): ${PSMDB_PAIRS.join(', ')}"
+                    } else {
+                        currentBuild.description = "PSMDB pairs (multiversion OFF): ${sameVersion.join(', ')}"
+                    }
                 }
             }
         }
@@ -59,9 +70,24 @@ pipeline {
                         name 'SHARD'
                         values '0','1','2','3','4'
                     }
+                    axis {
+                        name 'PSMDB_PAIR'
+                        // sync with PSMDB_PAIRS at top
+                        values '6.0-6.0', '6.0-7.0', '6.0-8.0', '7.0-7.0', '7.0-8.0', '8.0-8.0'
+                    }
                 }
                 stages {
                     stage ('Run tests') {
+                        when {
+                            beforeAgent true
+                            anyOf {
+                                expression { return params.MULTIVERSION }
+                                expression {
+                                    def parts = env.PSMDB_PAIR.split('-')
+                                    return parts.length == 2 && parts[0] == parts[1]
+                                }
+                            }
+                        }
                         steps {
                             withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                                 sh """
@@ -80,8 +106,17 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/pcsm-pytest
-                                    export MONGODB_SRC_IMAGE="${params.MONGODB_SRC_IMAGE}"
-                                    export MONGODB_DST_IMAGE="${params.MONGODB_DST_IMAGE}"
+                                    SRC_PSMDB="\${PSMDB_PAIR%-*}"
+                                    TGT_PSMDB="\${PSMDB_PAIR#*-}"
+                                    if [ "${params.MONGODB_COMMUNITY}" = "true" ]; then
+                                        REGISTRY="mongo"
+                                        echo "Using MongoDB Community Edition"
+                                    else
+                                        REGISTRY="perconalab/percona-server-mongodb"
+                                        echo "Using Percona Server for MongoDB"
+                                    fi
+                                    export MONGODB_SRC_IMAGE="\${REGISTRY}:\${SRC_PSMDB}"
+                                    export MONGODB_DST_IMAGE="\${REGISTRY}:\${TGT_PSMDB}"
                                     echo "SRC=\${MONGODB_SRC_IMAGE}  DST=\${MONGODB_DST_IMAGE}"
                                     docker compose build easyrsa --no-cache
                                     docker compose build --no-cache
