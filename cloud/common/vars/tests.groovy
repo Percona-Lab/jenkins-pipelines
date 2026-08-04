@@ -1,13 +1,21 @@
 void loadCloudSecret(String operator) {
     def credentialsId = operator in ["pg-operator", "pxc-operator"] ? "cloud-secret-file" : "cloud-secret-file-${operator}"
 
-    withCredentials([file(
-        credentialsId: credentialsId,
-        variable: 'CLOUD_SECRET_FILE'
-    )]) {
+    withCredentials([
+        file(
+            credentialsId: credentialsId,
+            variable: 'CLOUD_SECRET_FILE'
+        ),
+        file(
+            credentialsId: 'cloud-minio-secret-file', 
+            variable: 'CLOUD_MINIO_SECRET_FILE'
+        )
+    ]) {
         sh '''
             cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
             chmod 600 source/e2e-tests/conf/cloud-secret.yml
+            cp "$CLOUD_MINIO_SECRET_FILE" source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         '''
     }
 }
