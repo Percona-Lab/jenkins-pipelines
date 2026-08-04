@@ -73,6 +73,29 @@ void install(Map config = [:]) {
     }
 }
 
+void installUv() {
+    sh '''
+        set -euo pipefail
+        export PATH="$HOME/.local/bin:$PATH"
+        if command -v uv >/dev/null 2>&1; then
+            echo "uv already installed: $(uv --version)"
+        else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+        fi
+        uv --version
+    '''
+}
+
+void syncPythonDeps(String sourceDir = 'source') {
+    sh """
+        set -euo pipefail
+        export PATH="\$HOME/.local/bin:\$PATH"
+        cd ${sourceDir}
+        uv sync --locked
+    """
+}
+
 void installGoogleCLI() {
     sh '''
         sudo cp cloud/common/files/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo

@@ -125,7 +125,7 @@ void resolveReleaseRunParams(Map testVariables) {
 
     testVariables.images = resolveImages(testVariables)
 
-    def supportedPlatforms = ["gke", "azs", "openshift", "doks", "rke2", "minikube"]
+    def supportedPlatforms = ["gke", "aks", "eks", "openshift", "doks", "rke2", "minikube"]
     if (!(testVariables.platform in supportedPlatforms)) {
         error("Unsupported platform: ${testVariables.platform}")
     }
@@ -158,10 +158,8 @@ Boolean resolveReleasePlatformVersion(Map testVariables) {
 
 void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
     def library = testVariables.libraries[testVariables.platform_provider]
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel) {
-        testVariables.platform_version = library.getLatestPlatformVersion(
-            testVariables.platform_channel
-        )
+    if (testVariables.platform_version == "latest") {
+        testVariables.platform_version = library.getLatestPlatformVersion(testVariables)
     } else if (!platformFromReleaseVersions) {
         testVariables.platform_version = library.getPlatformVersion(
             testVariables.platform_version
@@ -355,7 +353,12 @@ Map resolveImages(Map testVariables) {
 String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     def exports = []
 
-    exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    if (testVariables.kubeconfig) {
+        exports << "export KUBECONFIG=${testVariables.kubeconfig}"
+    } else if (!testVariables.skip_kubeconfig) {
+        exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    }
+
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
     exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
     exports << """
@@ -372,6 +375,12 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
         exports << "export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')"
     }
 
+    if (testVariables.test_executor_type == "make") {
+        exports << 'export PATH="$HOME/.local/bin:$PATH"'
+        exports << 'export SKIP_DELETE=0'
+        exports << 'export COLUMNS=200'
+    }
+
     testVariables.extra_envs?.each { key, value ->
         exports << "export ${key}='${value ?: ""}'"
     }
@@ -379,9 +388,29 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     return exports.join("\n")
 }
 
+Map buildPsmdbTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'psmdb-operator',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'make',
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
 String defineTestCommand(Map testVariables, String testName) {
     if (testVariables.test_executor_type == "kuttl") {
         return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
+    }
+
+    if (testVariables.test_executor_type == "make") {
+        return "make e2e-test TEST=${testName}"
     }
 
     return "e2e-tests/${testName}/run"
@@ -505,7 +534,12 @@ void runTest(Map testConfig) {
 
                     ${exports}
 
-                    ${command}
+                    mkdir -p e2e-tests/logs e2e-tests/reports
+                    bash -o pipefail <<BASH
+                    {
+                        ${command}
+                    } 2>&1 | tee e2e-tests/logs/${testName}.log
+BASH
                 """
             }
 
@@ -534,6 +568,14 @@ void runTest(Map testConfig) {
 
         } finally {
             updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
+            try {
+                pushLogFile(testName, [
+                    sourceDir     : 'source',
+                    gitShortCommit: testVariables.git_short_commit
+                ])
+            } catch (logErr) {
+                echo "Warning: failed to push log for ${testName}: ${logErr}"
+            }
             echo "The ${testName} test was finished!"
         }
     }
@@ -632,17 +674,202 @@ Map getParallelStages(Map testVariables) {
     return parallelStages
 }
 
-void makeReport(List tests, Map testVariables) {
-    echo "=========================[ Generating Test Report ]========================="
-    tests = tests ?: []
-
-    def testsReport = "<testsuite name=\"$JOB_NAME\">\n"
-    tests.each { test ->
-        testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
+String formatTime(def time) {
+    if (!time || time == "N/A") {
+        return "N/A"
     }
 
-    testsReport += "</testsuite>\n"
+    try {
+        def totalSeconds = time as Double
+        def hours = (totalSeconds / 3600) as Integer
+        def minutes = ((totalSeconds % 3600) / 60) as Integer
+        def seconds = (totalSeconds % 60) as Integer
 
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+    } catch (Exception e) {
+        println("Error converting time: ${e.message}")
+        return time.toString()
+    }
+}
+
+void pushLogFile(String testName, Map config = [:]) {
+    def sourceDir = config.sourceDir ?: 'source'
+    def gitShortCommit = config.gitShortCommit ?: env.GIT_SHORT_COMMIT
+    def logFilePath = "${sourceDir}/e2e-tests/logs/${testName}.log"
+    def logFileName = "${testName}.log"
+
+    echo "Push logfile ${logFileName} to S3!"
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/${gitShortCommit}
+            if [ ! -f ${logFilePath} ]; then
+                mkdir -p ${sourceDir}/e2e-tests/logs
+                cat > ${logFilePath} <<EOF
+Log file ${logFileName} was not found in Jenkins workspace.
+The test may have timed out or terminated before the test runner created/flushed the log.
+Build URL: ${BUILD_URL}
+EOF
+            fi
+            aws s3 ls \$S3_PATH/${logFileName} || :
+            aws s3 cp --content-type text/plain --quiet ${logFilePath} \$S3_PATH/${logFileName}
+        """
+    }
+}
+
+void pushReportFile(String reportHtml, String gitShortCommit) {
+    echo "Push ${reportHtml} to S3!"
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/${gitShortCommit}
+            aws s3 cp --content-type text/html --quiet ${reportHtml} \$S3_PATH/${reportHtml} || :
+        """
+    }
+}
+
+void normalizeReports(List tests, String sourceDir = 'source') {
+    def reportsDir = "${sourceDir}/e2e-tests/reports"
+    sh "mkdir -p ${reportsDir}"
+
+    for (int i = 0; i < tests.size(); i++) {
+        def testName = tests[i]["name"]
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"] ?: 0
+
+        if (testResult == "skipped") {
+            continue
+        }
+
+        def xmlFile = "${reportsDir}/${testName}.xml"
+        def htmlFile = "${reportsDir}/${testName}.html"
+
+        // Always collapse to a single testcase per test so python (multi-method) and
+        // bash-wrapper tests are counted identically in JUnit. Detail stays in the HTML.
+        def failures = testResult == "failure" ? 1 : 0
+        def errors = testResult == "error" ? 1 : 0
+        def resultElement = ""
+        if (testResult == "failure") {
+            resultElement = '<failure message="Jenkins reported test failure">Jenkins reported this test as failed. See the HTML report for details.</failure>'
+        } else if (testResult == "error") {
+            resultElement = '<error message="Jenkins reported test error">Jenkins reported this test as errored (infrastructure/timeout). See the HTML report for details.</error>'
+        }
+
+        writeFile file: xmlFile, text: """<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">
+<testsuite name="psmdb-e2e" errors="${errors}" failures="${failures}" skipped="0" tests="1" time="${testTime}">
+<testcase classname="" name="${testName}" time="${testTime}">
+${resultElement}
+</testcase>
+</testsuite>
+</testsuites>"""
+
+        if (!fileExists(htmlFile)) {
+            def formattedTime = formatTime(testTime)
+            def resultCapitalized
+            def logMessage
+            if (testResult == "failure") {
+                resultCapitalized = "Failed"
+                logMessage = "Test did not produce a report"
+            } else if (testResult == "error") {
+                resultCapitalized = "Error"
+                logMessage = "Test errored (infrastructure/timeout) and did not produce a report"
+            } else {
+                resultCapitalized = "Passed"
+                logMessage = "Test marked as passed (from previous run)"
+            }
+
+            writeFile file: htmlFile, text: """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title id="head-title">${testName}.html</title>
+</head>
+<body>
+<div id="data-container" data-jsonblob='{"environment": {"Note": "Placeholder report generated because the test report was missing"}, "tests": {"${testName}": [{"extras": [], "result": "${resultCapitalized}", "testId": "${testName}", "duration": "${formattedTime}", "resultsTableRow": ["<td class=\\"col-result\\">${resultCapitalized}</td>", "<td>-</td>", "<td class=\\"col-testId\\">${testName}</td>", "<td class=\\"col-duration\\">${formattedTime}</td>", "<td>-</td>"], "log": "${logMessage}"}]}}'></div>
+</body>
+</html>"""
+        }
+    }
+}
+
+void formatReportDuration(String htmlFile) {
+    def marker = ' tests ran in '
+    def suffix = ' seconds'
+    def html = readFile(htmlFile)
+
+    def valueStart = html.indexOf(marker)
+    if (valueStart < 0) {
+        return
+    }
+    valueStart += marker.length()
+
+    def valueEnd = html.indexOf(suffix, valueStart)
+    if (valueEnd < 0) {
+        return
+    }
+
+    def formatted = formatTime(html.substring(valueStart, valueEnd))
+    writeFile file: htmlFile, text: html.substring(0, valueStart) + formatted + html.substring(valueEnd + suffix.length())
+}
+
+void writePipelineParameters(String pipelineParameters) {
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
+    )
+}
+
+void publishPytestReports(Map config) {
+    def tests = config.tests ?: []
+    def sourceDir = config.sourceDir ?: 'source'
+    def reportHtml = config.reportHtml ?: 'e2e-test-report.html'
+    def reportXml = config.reportXml ?: 'e2e-test-report.xml'
+    def gitShortCommit = config.gitShortCommit ?: env.GIT_SHORT_COMMIT
+    def gitBranch = config.gitBranch ?: env.GIT_BRANCH
+    def title = config.title ?: "PSMDB e2e tests - ${gitBranch} (${gitShortCommit})"
+    def pushToS3 = config.containsKey('pushToS3') ? config.pushToS3 : true
+
+    echo "=========================[ Publishing pytest HTML/JUnit reports ]========================="
+
+    def startedTests = tests.findAll { test ->
+        def result = test.containsKey("result") ? test.result : test["result"]
+        result && result != "skipped"
+    }
+
+    if (!startedTests) {
+        echo "No started tests; skipping pytest report merge."
+        return
+    }
+
+    try {
+        normalizeReports(tests, sourceDir)
+
+        sh """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            cd ${sourceDir}
+            uv run pytest_html_merger -i e2e-tests/reports -o "\$WORKSPACE/${reportHtml}" -t "${title}"
+            uv run junitparser merge --glob 'e2e-tests/reports/*.xml' "\$WORKSPACE/${reportXml}"
+        """
+
+        if (fileExists(reportHtml)) {
+            formatReportDuration(reportHtml)
+        }
+
+        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
+        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}, PipelineParameters.txt", allowEmptyArchive: true
+
+        if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
+            pushReportFile(reportHtml, gitShortCommit)
+
+            def reportUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/${env.JOB_NAME}/${gitShortCommit}/${reportHtml}"
+            def reportLink = "<a href=\"${reportUrl}\">Test report</a>"
+            currentBuild.description = currentBuild.description ? "${currentBuild.description} | ${reportLink}" : reportLink
+        }
+    } catch (err) {
+        echo "Warning: pytest report publish failed: ${err}"
+    }
+}
+
+void makeReport(List tests, Map testVariables) {
     echo "=========================[ Generating Parameters Report ]========================="
 
     def pipelineParameters = "testsuite name=${testVariables.job_name}\n"
@@ -655,11 +882,13 @@ void makeReport(List tests, Map testVariables) {
     pipelineParameters += "PLATFORM_ARCH=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
     pipelineParameters += "CLUSTER_WIDE=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
 
-    writeFile file: "TestsReport.xml", text: testsReport
-    writeFile file: "PipelineParameters.txt", text: pipelineParameters
+    writePipelineParameters(pipelineParameters)
 
-    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-        text: "<pre>${pipelineParameters}</pre>"
+    publishPytestReports(
+        tests         : tests,
+        gitShortCommit: testVariables.git_short_commit,
+        gitBranch     : testVariables.git_branch,
+        title         : "PSMDB e2e tests - ${testVariables.git_branch ?: env.GIT_BRANCH} (${testVariables.git_short_commit})"
     )
 }
 

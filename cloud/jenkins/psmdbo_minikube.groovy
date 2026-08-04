@@ -2,116 +2,79 @@ import groovy.transform.Field
 
 @Field def tests = []
 @Field def release_versions = "source/e2e-tests/release_versions"
-
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
-
-    def param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
-}
-
-void downloadKubectl() {
-    sh """
-        KUBECTL_VERSION="\$(curl -L -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r .tag_name)"
-        for i in {1..5}; do
-          if [ -f /usr/local/bin/kubectl ]; then
-              break
-          fi
-          echo "Attempt \$i: downloading kubectl..."
-          sudo curl -s -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-          sudo curl -s -L -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
-          if echo "\$(cat /tmp/kubectl.sha256) /usr/local/bin/kubectl" | sha256sum --check --status; then
-            echo 'Download passed checksum'
-            sudo chmod +x /usr/local/bin/kubectl
-            kubectl version --client --output=yaml
-            break
-          else
-            echo 'Checksum failed, retrying...'
-            sudo rm -f /usr/local/bin/kubectl /tmp/kubectl.sha256
-            sleep 5
-          fi
-        done
-    """
-}
+@Field Map testVariables = [:]
 
 void prepareNode() {
-    echo "=========================[ Cloning the sources ]========================="
     checkout(scm)
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
-    """
-
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_MONGOD = IMAGE_MONGOD ?: getParam("IMAGE_MONGOD", "IMAGE_MONGOD${PILLAR_VERSION}")
-        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
-        IMAGE_SEARCH = IMAGE_SEARCH ?: getParam("IMAGE_SEARCH")
-        if ("$PLATFORM_VER".toLowerCase() == "rel") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tools.gitResetWorkspace()
+    libraries.tools.gitClone(
+        branch: GIT_BRANCH,
+        repo: 'https://github.com/percona/percona-server-mongodb-operator'
+    )
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    libraries.dependencies.install()
+    libraries.dependencies.installAzureCLI()
+    libraries.dependencies.installUv()
+    libraries.dependencies.syncPythonDeps()
+    libraries.azure.auth()
+
     sh """
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-    """
-    downloadKubectl()
-    sh """
-        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
     """
 
-    installAzureCLI()
-    azureAuth()
+    def platformVersion = "$PLATFORM_VER"
+    if ("$PILLAR_VERSION" != "none" && platformVersion.toLowerCase() == "rel") {
+        platformVersion = libraries.tests.getReleaseVersionsParam(release_versions, "PLATFORM_VER", "MINIKUBE_REL")
+    }
+
+    testVariables = libraries.tests.prepareVersions([
+        libraries             : libraries,
+        release_versions      : release_versions,
+        operator              : 'psmdb-operator',
+        platform              : 'minikube',
+        platform_provider     : 'minikube',
+        platform_version      : platformVersion,
+        cluster_wide          : CLUSTER_WIDE,
+        pillar_version        : PILLAR_VERSION,
+        git_branch            : GIT_BRANCH,
+        job_name              : JOB_NAME,
+        db_tag                : DB_TAG,
+        debug_tests           : DEBUG_TESTS,
+        test_executor_type    : 'make',
+        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+        images: [
+            IMAGE_OPERATOR    : IMAGE_OPERATOR,
+            IMAGE_MONGOD      : IMAGE_MONGOD,
+            IMAGE_BACKUP      : IMAGE_BACKUP,
+            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
+            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+            IMAGE_SEARCH      : IMAGE_SEARCH
+        ]
+    ])
+
+    PLATFORM_VER = testVariables.platform_version
+    IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+    IMAGE_MONGOD = testVariables.images.IMAGE_MONGOD
+    IMAGE_BACKUP = testVariables.images.IMAGE_BACKUP
+    IMAGE_PMM_CLIENT = testVariables.images.IMAGE_PMM_CLIENT
+    IMAGE_PMM_SERVER = testVariables.images.IMAGE_PMM_SERVER
+    IMAGE_PMM3_CLIENT = testVariables.images.IMAGE_PMM3_CLIENT
+    IMAGE_PMM3_SERVER = testVariables.images.IMAGE_PMM3_SERVER
+    IMAGE_LOGCOLLECTOR = testVariables.images.IMAGE_LOGCOLLECTOR
+    IMAGE_SEARCH = testVariables.images.IMAGE_SEARCH
+    DB_TAG = testVariables.db_tag
+    GIT_SHORT_COMMIT = testVariables.git_short_commit
+    PARAMS_HASH = testVariables.params_hash
 
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MONGOD".split(":")[1] + " $cw"
-    }
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR-$IMAGE_SEARCH | md5sum | cut -d' ' -f1", returnStdout: true).trim()
-}
-
-void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh '''
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c '
-                    docker buildx create --use
-                    echo "$PASS" | docker login -u "$USER" --password-stdin
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
-                    docker logout
-                '
-                sudo rm -rf build
-            fi
-        '''
     }
 }
 
@@ -168,10 +131,8 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    sh """
-        export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
-    """
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.minikube.createCluster([platformVersion: PLATFORM_VER])
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
@@ -188,29 +149,47 @@ void runTest(Integer TEST_ID) {
 
     waitUntil {
         def timeStart = new Date().getTime()
+        def testsLib = load('cloud/common/vars/tests.groovy')
         try {
             echo "The $testName test was started !"
             tests[TEST_ID]["result"] = "failure"
 
-            sh """
-                cd source
+            timeout(time: 90, unit: 'MINUTES') {
+                def testVars = testsLib.buildPsmdbTestVariables(
+                    cluster_name: 'minikube',
+                    skip_kubeconfig: true,
+                    debug_tests: DEBUG_TESTS,
+                    cluster_wide: CLUSTER_WIDE,
+                    default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+                    images: [
+                        IMAGE_OPERATOR    : IMAGE_OPERATOR,
+                        IMAGE_MONGOD      : IMAGE_MONGOD,
+                        IMAGE_BACKUP      : IMAGE_BACKUP,
+                        IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+                        IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+                        IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+                        IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
+                        IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+                        IMAGE_SEARCH      : IMAGE_SEARCH
+                    ]
+                )
+                def exports = testsLib.getExportedVariablesForTests(testVars, 'cluster1')
+                def testCmd = testsLib.defineTestCommand(testVars, testName)
+                sh """
+                    cd source
 
-                [[ "$DEBUG_TESTS" == "YES" ]] && export DEBUG_TESTS=1
-                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                export IMAGE_MONGOD=$IMAGE_MONGOD
-                export IMAGE_BACKUP=$IMAGE_BACKUP
-                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
-                export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
-                export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-                export IMAGE_SEARCH=$IMAGE_SEARCH
+                    ${exports}
 
-                sudo rm -rf /tmp/hostpath-provisioner/*
-                e2e-tests/$testName/run
-            """
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+                    sudo rm -rf /tmp/hostpath-provisioner/*
+                    mkdir -p e2e-tests/logs e2e-tests/reports
+                    bash -o pipefail <<BASH
+                    {
+                        ${testCmd}
+                    } 2>&1 | tee e2e-tests/logs/${testName}.log
+BASH
+                """
+            }
+            testsLib.pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH", GIT_SHORT_COMMIT)
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -226,85 +205,14 @@ void runTest(Integer TEST_ID) {
             def timeStop = new Date().getTime()
             def durationSec = (timeStop - timeStart) / 1000
             tests[TEST_ID]["time"] = durationSec
+            try {
+                testsLib.pushLogFile(testName, [gitShortCommit: GIT_SHORT_COMMIT])
+            } catch (logErr) {
+                echo "Warning: failed to push log for $testName: ${logErr}"
+            }
             echo "The $testName test was finished!"
         }
     }
-}
-
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-void makeReport() {
-    echo "=========================[ Generating Test Report ]========================="
-    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
-    for (int i = 0; i < tests.size(); i ++) {
-        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
-    }
-    testsReport += '</testsuite>\n'
-
-    echo "=========================[ Generating Parameters Report ]========================="
-    pipelineParameters = """
-testsuite name=$JOB_NAME
-IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
-IMAGE_MONGOD=${IMAGE_MONGOD ?: 'e2e_defaults'}
-IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
-IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
-IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
-IMAGE_SEARCH=${IMAGE_SEARCH ?: 'e2e_defaults'}
-PLATFORM_VER=$PLATFORM_VER"""
-
-    writeFile file: "TestsReport.xml", text: testsReport
-    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
-
-    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-        text: "<pre>${pipelineParameters}</pre>"
-    )
-}
-
-void azureAuth() {
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh '''
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-            az account set -s "$AZURE_SUBSCRIPTION_ID"
-        '''
-    }
-}
-
-void installAzureCLI() {
-    sh """
-        if ! command -v az &>/dev/null; then
-            if [ "\$JENKINS_AGENT" = "AWS" ]; then
-                curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-                sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
-            else
-                echo "Installing Azure CLI for Hetzner instances..."
-                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-                cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
-[azure-cli]
-name=Azure CLI
-baseurl=https://packages.microsoft.com/yumrepos/azure-cli
-enabled=1
-gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc
-EOF
-                sudo dnf install azure-cli -y
-            fi
-        fi
-    """
 }
 
 pipeline {
@@ -350,7 +258,14 @@ pipeline {
         }
         stage('Docker Build and Push') {
             steps {
-                dockerBuildPush()
+                script {
+                    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: 'perconalab/percona-server-mongodb-operator',
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
+                    )
+                }
             }
         }
         stage('Init Tests') {
@@ -370,11 +285,11 @@ pipeline {
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-            makeReport()
-            junit testResults: '*.xml', healthScaleFactor: 1.0
-            archiveArtifacts '*.xml,*.txt'
 
             script {
+                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                libraries.tests.makeReport(tests, testVariables)
+
                 try {
                     def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
                     sendJobSlack.call(
