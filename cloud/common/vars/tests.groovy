@@ -100,7 +100,9 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
         "ps-operator": [
-            IMAGE_MYSQL: "IMAGE_MYSQL${pillarVersion}"
+            IMAGE_MYSQL : "IMAGE_MYSQL${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}",
+            IMAGE_ROUTER: "IMAGE_ROUTER${pillarVersion}"
         ],
         "pxc-operator": [
             IMAGE_PXC   : "IMAGE_PXC${pillarVersion}",
@@ -433,6 +435,10 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
         exports << 'export COLUMNS=200'
     }
 
+    if (testVariables.test_executor_type == "kuttl") {
+        exports << 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"'
+    }
+
     testVariables.extra_envs?.each { key, value ->
         exports << "export ${key}='${value ?: ""}'"
     }
@@ -466,6 +472,22 @@ Map buildPxcTestVariables(Map config) {
         cluster_wide           : config.cluster_wide,
         operator               : 'pxc-operator',
         default_operator_image : config.default_operator_image,
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
+Map buildPsTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests ?: 'NO',
+        cluster_wide           : config.cluster_wide,
+        operator               : 'ps-operator',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'kuttl',
         images                 : config.images,
         extra_envs             : config.extra_envs ?: [:]
     ]

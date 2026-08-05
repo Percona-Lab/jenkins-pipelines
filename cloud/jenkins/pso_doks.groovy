@@ -1,97 +1,82 @@
-tests=[]
-clusters=[]
-release_versions="source/e2e-tests/release_versions"
+import groovy.transform.Field
 
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
+@Field def tests = []
+@Field def clusters = []
+@Field def release_versions = "source/e2e-tests/release_versions"
+@Field Map testVariables = [:]
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
-}
-
-void downloadKubectl() {
-    sh """
-        KUBECTL_VERSION="\$(curl -L -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r .tag_name)"
-        for i in {1..5}; do
-          if [ -f /usr/local/bin/kubectl ]; then
-              break
-          fi
-          echo "Attempt \$i: downloading kubectl..."
-          sudo curl -s -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-          sudo curl -s -L -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
-
-          if echo "\$(cat /tmp/kubectl.sha256) /usr/local/bin/kubectl" | sha256sum --check --status; then
-            echo 'Download passed checksum'
-            sudo chmod +x /usr/local/bin/kubectl
-            kubectl version --client --output=yaml
-            break
-          else
-            echo 'Checksum failed, retrying...'
-            sudo rm -f /usr/local/bin/kubectl /tmp/kubectl.sha256
-            sleep 5
-          fi
-        done
-    """
+void installTools() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.dependencies.install()
+    libraries.dependencies.installKuttl()
+    libraries.dependencies.installDoctl()
 }
 
 void prepareAgent() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-    """
-    downloadKubectl()
-    sh """
-        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.25.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
-        client_version=\$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | cut -d '"' -f4 | sed 's/^v//')
-        curl -sL "https://github.com/digitalocean/doctl/releases/download/v\$client_version/doctl-\$client_version-linux-amd64.tar.gz" | tar -xz && sudo mv doctl /usr/local/bin
-        doctl version
-    """
+    checkout scm
+    installTools()
 }
 
-void initParams() {
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
+void prepareNode() {
+    checkout scm
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tools.gitResetWorkspace()
+    libraries.tools.gitClone(
+        branch: GIT_BRANCH,
+        repo: 'https://github.com/percona/percona-server-mysql-operator'
+    )
+    installTools()
 
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_MYSQL = IMAGE_MYSQL ?: getParam("IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
-        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_ROUTER = IMAGE_ROUTER ?: getParam("IMAGE_ROUTER", "IMAGE_ROUTER${PILLAR_VERSION}")
-        IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
-        IMAGE_ORCHESTRATOR = IMAGE_ORCHESTRATOR ?: getParam("IMAGE_ORCHESTRATOR")
-        IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: getParam("IMAGE_TOOLKIT")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        IMAGE_BINLOG_SERVER = IMAGE_BINLOG_SERVER ?: getParam("IMAGE_BINLOG_SERVER")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "DOKS_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
+    def platformVersion = "$PLATFORM_VER"
+    if ("$PILLAR_VERSION" != "none" && (platformVersion.toLowerCase() in ["min", "max"])) {
+        platformVersion = libraries.tests.getReleaseVersionsParam(release_versions, "PLATFORM_VER", "DOKS_${platformVersion.toUpperCase()}")
     }
 
-    if ("$PLATFORM_VER" == "latest") {
-        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
-            PLATFORM_VER = sh(script: "doctl kubernetes options versions | awk 'NR==2 { print \$2 }'", returnStdout: true).trim()
-            echo "Latest platform version is $PLATFORM_VER"
-        }
-    }
+    testVariables = libraries.tests.prepareVersions([
+        libraries             : libraries,
+        release_versions      : release_versions,
+        operator              : 'ps-operator',
+        platform              : 'doks',
+        platform_provider     : 'doks',
+        platform_version      : platformVersion,
+        region                : DO_REGION,
+        cluster_wide          : CLUSTER_WIDE,
+        pillar_version        : PILLAR_VERSION,
+        git_branch            : GIT_BRANCH,
+        job_name              : JOB_NAME,
+        db_tag                : DB_TAG,
+        test_executor_type    : 'kuttl',
+        default_operator_image: "perconalab/percona-server-mysql-operator:${GIT_BRANCH}",
+        images: [
+            IMAGE_OPERATOR     : IMAGE_OPERATOR,
+            IMAGE_MYSQL        : IMAGE_MYSQL,
+            IMAGE_BACKUP       : IMAGE_BACKUP,
+            IMAGE_ROUTER       : IMAGE_ROUTER,
+            IMAGE_HAPROXY      : IMAGE_HAPROXY,
+            IMAGE_ORCHESTRATOR : IMAGE_ORCHESTRATOR,
+            IMAGE_TOOLKIT      : IMAGE_TOOLKIT,
+            IMAGE_PMM_CLIENT   : IMAGE_PMM_CLIENT,
+            IMAGE_PMM_SERVER   : IMAGE_PMM_SERVER,
+            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER
+        ]
+    ])
+
+    PLATFORM_VER = testVariables.platform_version
+    IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+    IMAGE_MYSQL = testVariables.images.IMAGE_MYSQL
+    IMAGE_BACKUP = testVariables.images.IMAGE_BACKUP
+    IMAGE_ROUTER = testVariables.images.IMAGE_ROUTER
+    IMAGE_HAPROXY = testVariables.images.IMAGE_HAPROXY
+    IMAGE_ORCHESTRATOR = testVariables.images.IMAGE_ORCHESTRATOR
+    IMAGE_TOOLKIT = testVariables.images.IMAGE_TOOLKIT
+    IMAGE_PMM_CLIENT = testVariables.images.IMAGE_PMM_CLIENT
+    IMAGE_PMM_SERVER = testVariables.images.IMAGE_PMM_SERVER
+    IMAGE_BINLOG_SERVER = testVariables.images.IMAGE_BINLOG_SERVER
+    DB_TAG = testVariables.db_tag
+    GIT_SHORT_COMMIT = testVariables.git_short_commit
+    CLUSTER_NAME = testVariables.cluster_name
+    PARAMS_HASH = testVariables.params_hash
 
     if ("$IMAGE_MYSQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -100,91 +85,15 @@ void initParams() {
     }
 }
 
-void prepareSources() {
-    echo "=========================[ Cloning the sources ]========================="
-    checkout(scm)
-    sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
-    """
-
-    initParams()
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_BINLOG_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-}
-
-void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c "
-                    echo '$PASS' | docker login -u '$USER' --password-stdin
-                    export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
-                    e2e-tests/build
-                    docker logout
-                "
-                sudo rm -rf build
-            fi
-        """
-    }
-}
-
 void initTests() {
-    echo "=========================[ Initializing the tests ]========================="
-
-    echo "Populating tests into the tests array!"
-    def testList = "$TEST_LIST"
-    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
-
-    if (testList.length() != 0) {
-        suiteFileName = 'source/e2e-tests/run-custom.csv'
-        sh """
-            echo -e "$testList" > $suiteFileName
-            echo "Custom test suite contains following tests:"
-            cat $suiteFileName
-        """
-    }
-
-    def records = readCSV file: suiteFileName
-
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
-    }
-
-    echo "Marking passed tests in the tests map!"
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-            sh """
-                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
-            """
-
-            for (int i=0; i<tests.size(); i++) {
-                def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
-                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
-
-                if (retFileExists == 0) {
-                    tests[i]["result"] = "passed"
-                }
-            }
-        } else {
-            sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
-            """
-        }
-    }
-
-    withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
-            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-            chmod 600 source/e2e-tests/conf/cloud-secret.yml
-        """
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tests.initTests(tests, testVariables, [
+        testSuite              : TEST_SUITE,
+        testList               : TEST_LIST,
+        ignorePreviousRun      : IGNORE_PREVIOUS_RUN,
+        cloudSecretCredentialId: 'cloud-secret-file-ps',
+        secretFileMode         : '600'
+    ])
     stash includes: "source/**", name: "sourceFILES"
 }
 
@@ -218,41 +127,13 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
-        sh """
-            set -euo pipefail
-
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
-            cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
-
-            create_cluster() {
-                doctl kubernetes cluster create "\$cluster" \
-                    --region "$DO_REGION" \
-                    --version "\$cluster_version" \
-                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
-
-                doctl kubernetes cluster kubeconfig save "\$cluster"
-            }
-
-            assign_cluster_to_project() {
-                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
-                urn="do:kubernetes:\$cluster_id"
-
-                doctl projects resources assign "$PROJECT" --resource "\$urn"
-            }
-
-            max_retries=15
-            for ((i=1;i<=max_retries;i++)); do
-                if create_cluster && assign_cluster_to_project; then
-                    break
-                fi
-
-                echo "Retry \$i/\$max_retries"
-                sleep 2
-            done
-        """
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.doks.createCluster([
+        clusterName    : CLUSTER_NAME,
+        clusterSuffix  : CLUSTER_SUFFIX,
+        platformVersion: PLATFORM_VER,
+        region         : DO_REGION
+    ])
 }
 
 void runTest(Integer TEST_ID) {
@@ -262,34 +143,31 @@ void runTest(Integer TEST_ID) {
 
     waitUntil {
         def timeStart = new Date().getTime()
+        def testsLib = load('cloud/common/vars/tests.groovy')
         try {
             echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                    def testVars = testsLib.buildPsTestVariables(
+                        cluster_name: CLUSTER_NAME,
+                        cluster_wide: CLUSTER_WIDE,
+                        default_operator_image: "perconalab/percona-server-mysql-operator:${GIT_BRANCH}",
+                        images: testVariables.images
+                    )
+                    def exports = testsLib.getExportedVariablesForTests(testVars, clusterSuffix)
+                    def testCmd = testsLib.defineTestCommand(testVars, testName)
                     sh """
                         cd source
 
-                        [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
-                        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
-                        export IMAGE_MYSQL=$IMAGE_MYSQL
-                        export IMAGE_BACKUP=$IMAGE_BACKUP
-                        export IMAGE_ROUTER=$IMAGE_ROUTER
-                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
-                        export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
-                        export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
-                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                        export IMAGE_BINLOG_SERVER=$IMAGE_BINLOG_SERVER
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+                        ${exports}
 
-                        kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
+                        ${testCmd}
                     """
                 }
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            testsLib.pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH", GIT_SHORT_COMMIT)
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -311,75 +189,14 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-void makeReport() {
-    echo "=========================[ Generating Test Report ]========================="
-    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
-    for (int i = 0; i < tests.size(); i ++) {
-        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
-    }
-    testsReport += '</testsuite>\n'
-
-    echo "=========================[ Generating Parameters Report ]========================="
-    pipelineParameters = """
-        testsuite name=$JOB_NAME
-        IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
-        IMAGE_MYSQL=${IMAGE_MYSQL ?: 'e2e_defaults'}
-        IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
-        IMAGE_ROUTER=${IMAGE_ROUTER ?: 'e2e_defaults'}
-        IMAGE_HAPROXY=${IMAGE_HAPROXY ?: 'e2e_defaults'}
-        IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR ?: 'e2e_defaults'}
-        IMAGE_TOOLKIT=${IMAGE_TOOLKIT ?: 'e2e_defaults'}
-        IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
-        IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-        IMAGE_BINLOG_SERVER=${IMAGE_BINLOG_SERVER ?: 'e2e_defaults'}
-        PLATFORM_VER=$PLATFORM_VER
-    """.trim().replaceAll('  ', '')
-
-    writeFile file: "TestsReport.xml", text: testsReport
-    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
-
-    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-        text: "<pre>${pipelineParameters}</pre>"
-    )
-}
-
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
-            sh """
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-                if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                    kubectl get ns -o json --request-timeout=5s 2>/dev/null \
-                    | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
-                    | while read ns; do
-                        kubectl delete deployment --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete statefulset --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete replicaset --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete pod --all -n "\$ns" --grace-period=0 --request-timeout=10s || true
-                        kubectl delete pvc --all -n "\$ns" --request-timeout=10s || true
-                        kubectl delete svc --all -n "\$ns" --request-timeout=10s || true
-                    done
-                else
-                    echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
-                fi
-
-                doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
-            """
-        }
-    }
+    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+    libraries.tools.kubernetesCleanupCluster("/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}")
+    libraries.doks.shutdownCluster([
+        clusterName  : CLUSTER_NAME,
+        clusterSuffix: CLUSTER_SUFFIX,
+        region       : DO_REGION
+    ])
 }
 
 pipeline {
@@ -404,7 +221,7 @@ pipeline {
         string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
-        string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: =perconalab/percona-binlog-server:0.2.1')
+        string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
         string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital Ocean region to use for cluster')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
@@ -420,14 +237,18 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
-                prepareAgent()
-                prepareSources()
+                prepareNode()
             }
         }
         stage('Docker Build and Push') {
             steps {
-                dockerBuildPush()
+                script {
+                    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: 'perconalab/percona-server-mysql-operator',
+                        branch       : GIT_BRANCH
+                    )
+                }
             }
         }
         stage('Init Tests') {
@@ -486,11 +307,16 @@ pipeline {
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-            makeReport()
+
+            script {
+                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
+                libraries.tests.makeReportJUnit(tests, testVariables)
+            }
             junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {
+                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
                 try {
                     def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
                     sendJobSlack.call(
@@ -507,11 +333,9 @@ pipeline {
                 }
 
                 clusters.each { shutdownCluster(it) }
+
+                libraries.tools.dockerCleanupVolumes()
             }
-            sh """
-                    sudo docker system prune --volumes -af
-                    sudo rm -rf *
-                """
             deleteDir()
         }
     }
