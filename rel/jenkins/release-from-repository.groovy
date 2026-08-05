@@ -381,8 +381,8 @@ ENDSSH
                            if [ ${COMPONENT} = RELEASE ]; then
                                CRAWL_RESPONSE=\$(curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory)
                                echo "Crawl response: \${CRAWL_RESPONSE}"
-                               if ! echo "\${CRAWL_RESPONSE}" | grep -q '"status":"running"'; then
-                                   echo "ERROR: crawl_directory did not return running status. Response: \${CRAWL_RESPONSE}"
+                               if ! echo "\${CRAWL_RESPONSE}" | grep -qE '"status":"(running|queued)"'; then
+                                   echo "ERROR: crawl_directory did not return running or queued status. Response: \${CRAWL_RESPONSE}"
                                    exit 1
                                fi
                            fi

@@ -338,15 +338,17 @@ ENDSSH
                             "perconalab/percona-orchestrator:latest"
                         ]
                         // 🔹 Scan images and store logs
+                            def anyVulnerabilities = false
                             imageList.each { image ->
                                 echo "🔍 Scanning ${image}..."
-                                def result = sh(script: """
+                                def trivyExitCode = sh(script: """
                                     trivy image --quiet \
                                       --format table --timeout 10m0s --ignore-unfixed --exit-code 1 --scanners vuln --severity HIGH,CRITICAL ${image}
                                 """, returnStatus: true)
-                                echo "Actual Trivy exit code: ${result}"
+                                echo "Actual Trivy exit code: ${trivyExitCode}"
                             // 🟡 Mark build as unstable if vulnerabilities are found
-                                if (result != 0) {
+                                if (trivyExitCode != 0) {
+                                    anyVulnerabilities = true
                                     sh """
                                         trivy image --quiet \
                                           --format table --timeout 10m0s --ignore-unfixed --exit-code 0 --scanners vuln \
@@ -357,7 +359,7 @@ ENDSSH
                                     echo "✅ No critical vulnerabilities found in ${image}."
                                 }
                             }
-                            if (result != 0) {
+                            if (anyVulnerabilities) {
                                     unstable "⚠️ Trivy detected vulnerabilities in images. See ${TRIVY_LOG} for details."
                             }
                 } catch (Exception e) {
