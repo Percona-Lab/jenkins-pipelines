@@ -94,8 +94,9 @@ void initTests() {
     echo "=========================[ Initializing the tests ]========================="
 
     def testsLib = load('cloud/common/vars/tests.groovy')
+    def platform = ("$ARCH" == "arm64") ? "${testVariables.platform}-arm64" : testVariables.platform
     tests.addAll(testsLib.loadTestList(TEST_LIST, TEST_SUITE, [
-        platform   : testVariables.platform,
+        platform   : platform,
         clusterWide: CLUSTER_WIDE
     ]))
 
