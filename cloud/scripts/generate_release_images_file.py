@@ -56,6 +56,22 @@ def fetch_percona_version(product):
     return max(versions, key=parse_version) if versions else None
 
 
+UPGRADE_TAG_RE = re.compile(r"^\d+\.\d+(?:-\d+\.\d+)+-\d+$")
+
+
+def fetch_pg_upgrade_tag():
+    resp = _session.get(
+        "https://registry.hub.docker.com/v2/repositories/"
+        "percona/percona-distribution-postgresql-upgrade/tags",
+        params={"page_size": 100},
+    )
+    resp.raise_for_status()
+    tags = [t["name"] for t in resp.json()["results"] if UPGRADE_TAG_RE.match(t["name"])]
+    if not tags:
+        return None
+    return max(tags, key=lambda t: [int(p) for p in t.replace("-", ".").split(".")])
+
+
 def fetch_dockerhub_tag(repo, prefix=None):
     resp = _session.get(
         f"https://registry.hub.docker.com/v2/repositories/{repo}/tags",
@@ -118,14 +134,15 @@ def build_pg_image_lines(operator_version, versions, pmm3):
             versions.get("pgbackrest"),
         )
 
+    lines.append("")
+    append_image_line(
+        lines,
+        "UPGRADE",
+        "percona-distribution-postgresql-upgrade",
+        versions.get("upgrade"),
+    )
     lines.extend(
         [
-            "",
-            format_image_line(
-                "UPGRADE",
-                "percona-postgresql-operator",
-                f"{operator_version}-upgrade",
-            ),
             "",
             format_image_line("PMM_CLIENT", "pmm-client", PMM_CLIENT),
             format_image_line("PMM_SERVER", "pmm-server", PMM_SERVER),
@@ -199,6 +216,7 @@ def get_image_tasks(op):
             ),
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
+            "upgrade": (fetch_pg_upgrade_tag,),
             "pmm3": (D, "percona/pmm-client", "3"),
         },
         "ps": {
