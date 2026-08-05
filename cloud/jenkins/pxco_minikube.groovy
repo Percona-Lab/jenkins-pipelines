@@ -225,7 +225,7 @@ pipeline {
             script {
                 def libraries = load('cloud/common/libraries.groovy').loadLibraries()
                 libraries.tests.makeReportJUnit(tests, testVariables)
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                junit testResults: '*.xml', healthScaleFactor: 1.0
                 archiveArtifacts '*.xml,*.txt'
 
                 try {
