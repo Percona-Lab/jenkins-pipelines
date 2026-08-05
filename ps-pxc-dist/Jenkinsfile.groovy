@@ -255,6 +255,7 @@ pipeline {
                                 bash -x /tmp/args_pipeline
                                 wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/sync_repos_prod.sh -O sync_repos_prod.sh
                                 bash -xe sync_repos_prod.sh
+                                date +%s > /srv/repo-copy/version
                         "
                 """
                 }
