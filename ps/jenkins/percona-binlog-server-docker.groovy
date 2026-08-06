@@ -236,7 +236,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}, repo tools ${COMPONENT} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }
