@@ -443,9 +443,6 @@ pipeline {
     post {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
-            }
             deleteDir()
         }
         failure {
@@ -453,6 +450,9 @@ pipeline {
             deleteDir()
         }
         always {
+            script {
+                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+            }
             sh '''
                 sudo rm -rf ./*
             '''
