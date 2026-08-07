@@ -188,6 +188,15 @@ EOF
 
                         # Granting access to SSO admin role
                         grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
+
+                        # Granting access to the pmm-qa GitHub Actions OIDC role
+                        if GHA_ROLE_ARN=$(aws iam get-role \
+                            --role-name percona-ci-platform-gha-pmm-qa-eks \
+                            --query Role.Arn --output text 2>/dev/null); then
+                            grant_admin "${GHA_ROLE_ARN}"
+                        else
+                            echo "pmm-qa GHA OIDC role not found, skipping its access entry"
+                        fi
                     '''
                 }
             }
