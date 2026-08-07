@@ -140,7 +140,7 @@ pipeline {
                                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                                     docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
 
-                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build-docker-image
+                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build
 
                                     docker logout
                                     echo "perconalab/\$IMAGE_NAME:\${TAG_PREFIX}" >> list-of-images.txt

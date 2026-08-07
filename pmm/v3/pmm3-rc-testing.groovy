@@ -30,7 +30,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         PMM_QA_GIT_BRANCH : 'main',
         SERVER_TYPE       : 'docker',
         DOCKER_VERSION    : env.PMM_SERVER_IMAGE,
-        OVA_VERSION       : '',
+        AMI_ID            : params.AMI_ID.trim(),
         CLIENT_VERSION    : 'pmm3-rc',
         ADMIN_PASSWORD    : 'pmm3admin!',
         HELM_CHART_BRANCH : 'main',
@@ -140,8 +140,7 @@ pipeline {
                             steps {
                                 script {
                                     triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (ami)', [
-                                        SERVER_TYPE    : 'ami',
-                                        DOCKER_VERSION : params.AMI_ID.trim(),
+                                        SERVER_TYPE: 'ami',
                                     ])
                                 }
                             }
@@ -305,21 +304,6 @@ pipeline {
                                     } catch (err) {
                                         slackRcMessage("*Github Release Testing Suite* (dispatch failed): ${err.getMessage()}")
                                     }
-                                }
-                            }
-                        }
-                        stage('pmm3-migration-tests') {
-                            steps {
-                                script {
-                                    triggerJenkinsRc('pmm3-migration-tests', 'pmm3-migration-tests', [
-                                        string(name: 'PMM_V3_UI_GIT_BRANCH', value: 'main'),
-                                        string(name: 'PMM_V2_UI_GIT_BRANCH', value: 'v2'),
-                                        string(name: 'DOCKER_VERSION',       value: 'perconalab/pmm-server:2.44.1'),
-                                        string(name: 'CLIENT_VERSION',       value: '2.44.1'),
-                                        string(name: 'ADMIN_PASSWORD',       value: 'pmm3admin!'),
-                                        string(name: 'PMM_QA_GIT_BRANCH',   value: 'v2'),
-                                        string(name: 'UPGRADE_TAG',          value: 'testing'),
-                                    ])
                                 }
                             }
                         }

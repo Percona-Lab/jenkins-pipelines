@@ -736,7 +736,7 @@ EOF
                         oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
 
                         # HAProxy
-                        oc rollout status deployment/pmm-ha-haproxy -n pmm --timeout=10m
+                        oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
 
                         # VictoriaMetrics
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m

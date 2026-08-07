@@ -45,15 +45,20 @@ def fetch_parallel(tasks):
     return results
 
 
-def fetch_percona_version(product):
-    resp = _session.post(
-        "https://www.percona.com/products-api.php", data={"version": product}
+UPGRADE_TAG_RE = re.compile(r"^\d+\.\d+(?:-\d+\.\d+)+-\d+$")
+
+
+def fetch_pg_upgrade_tag():
+    resp = _session.get(
+        "https://registry.hub.docker.com/v2/repositories/"
+        "percona/percona-distribution-postgresql-upgrade/tags",
+        params={"page_size": 100},
     )
-    versions = []
-    for m in re.findall(r'value="([^"]*)"', resp.text):
-        if v := re.search(r"(\d+(?:\.\d+)*(?:-\d+)?)", m.split("|")[0]):
-            versions.append(v.group(1))
-    return max(versions, key=parse_version) if versions else None
+    resp.raise_for_status()
+    tags = [t["name"] for t in resp.json()["results"] if UPGRADE_TAG_RE.match(t["name"])]
+    if not tags:
+        return None
+    return max(tags, key=lambda t: [int(p) for p in t.replace("-", ".").split(".")])
 
 
 def fetch_dockerhub_tag(repo, prefix=None):
@@ -118,32 +123,22 @@ def build_pg_image_lines(operator_version, versions, pmm3):
             versions.get("pgbackrest"),
         )
 
-    lines.extend(
-        [
-            "",
-            format_image_line(
-                "UPGRADE",
-                "percona-postgresql-operator",
-                f"{operator_version}-upgrade",
-            ),
-            "",
-            format_image_line("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            format_image_line("PMM_SERVER", "pmm-server", PMM_SERVER),
-        ]
+    lines.append("")
+    append_image_line(
+        lines,
+        "UPGRADE",
+        "percona-distribution-postgresql-upgrade",
+        versions.get("upgrade"),
     )
-    if pmm3:
-        lines.extend(
-            [
-                format_image_line("PMM3_CLIENT", "pmm-client", pmm3),
-                format_image_line("PMM3_SERVER", "pmm-server", pmm3),
-            ]
-        )
+    lines.append("")
+    append_image_line(lines, "PMM_CLIENT", "pmm-client", pmm3)
+    append_image_line(lines, "PMM_SERVER", "pmm-server", pmm3)
+    lines.append("")
     return lines
 
 
 def get_image_tasks(op):
-    P, D = fetch_percona_version, fetch_dockerhub_tag
-
+    D = fetch_dockerhub_tag
     return {
         "psmdb": {
             "8.0": (D, "percona/percona-server-mongodb", "8.0"),
@@ -199,6 +194,7 @@ def get_image_tasks(op):
             ),
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
+            "upgrade": (fetch_pg_upgrade_tag,),
             "pmm3": (D, "percona/pmm-client", "3"),
         },
         "ps": {
@@ -347,6 +343,25 @@ def get_gke():
     return None
 
 
+def get_rancher():
+    resp = _session.get(
+        "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/",
+        timeout=15,
+    )
+    resp.raise_for_status()
+    html = resp.text
+    ver = re.search(r"Rancher Manager v([\d.]+)", html)
+    rke2 = re.search(
+        r"<td>\s*RKE2\s*</td>\s*<td>\s*v?([\d.]+)\s*</td>\s*<td>\s*v?([\d.]+)\s*</td>",
+        html,
+    )
+    return {
+        "rancher": ver.group(1) if ver else None,
+        "rke2_min": rke2.group(1) if rke2 else None,
+        "rke2_max": rke2.group(2) if rke2 else None,
+    }
+
+
 def parse_aks_versions(html, today):
     versions = []
     for ver, _, _, ga, eol in re.findall(
@@ -462,6 +477,7 @@ K8S_VERSION_FETCHERS = {
     "AKS": ("aks", get_aks),
     "OPENSHIFT": ("os", get_openshift),
     "MINIKUBE": ("mk", get_minikube),
+    "RANCHER": ("rancher", get_rancher),
 }
 
 
@@ -469,6 +485,8 @@ def get_supported_platforms(operator):
     platforms = ["GKE", "EKS", "OPENSHIFT", "MINIKUBE"]
     if operator != "ps":
         platforms.insert(2, "AKS")
+    if operator == "psmdb":
+        platforms.append("RANCHER")
     return platforms
 
 
@@ -493,6 +511,11 @@ def get_k8s_lines(operator):
     if "MINIKUBE" in platforms and (mk := r.get("mk")):
         minikube_key = "MINIKUBE_MAX" if operator in {"ps", "pg"} else "MINIKUBE_REL"
         lines.append(f"{minikube_key}={mk}")
+    if "RANCHER" in platforms and (rc := r.get("rancher")):
+        if rc.get("rke2_min") and rc.get("rke2_max"):
+            lines += [f"RKE2_MIN={rc['rke2_min']}", f"RKE2_MAX={rc['rke2_max']}"]
+        if rc.get("rancher"):
+            lines.append(f"RANCHER={rc['rancher']}")
     return lines
 
 

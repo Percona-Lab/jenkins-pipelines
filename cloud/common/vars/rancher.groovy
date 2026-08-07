@@ -14,18 +14,18 @@ void createCluster(Map clusterCfg) {
         "PREFIX=${prefix}",
         "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
         "WORKER_COUNT=${clusterCfg.workerCountMin ?: '4'}",
-        "MACHINE_TYPE=${clusterCfg.machineType ?: 'e2-standard-4'}",
-        "BOOT_DISK_SIZE=${clusterCfg.bootDiskSize ?: '100GB'}",
-        "IMAGE_FAMILY=${clusterCfg.imageFamily ?: 'rocky-linux-9-optimized-gcp'}",
-        "IMAGE_PROJECT=${clusterCfg.imageProject ?: 'rocky-linux-cloud'}",
-        "SOURCE_RANGES=${clusterCfg.sourceRanges ?: '0.0.0.0/0'}",
-        "OWNER=${clusterCfg.owner ?: 'jenkins'}",
-        "PRODUCT=${clusterCfg.product ?: 'psmdb'}",
+        "MACHINE_TYPE=e2-standard-4",
+        "BOOT_DISK_SIZE=100GB",
+        "IMAGE_FAMILY=rocky-linux-9-optimized-gcp",
+        "IMAGE_PROJECT=rocky-linux-cloud",
+        "SOURCE_RANGES=0.0.0.0/0",
+        "OWNER=jenkins",
+        "PRODUCT=${clusterCfg.product}",
         "DELETE_AFTER_HOURS=${clusterCfg.deleteAfterHours ?: '6'}",
         "RANCHER_VERSION=${clusterCfg.rancherVersion ?: 'latest'}",
         "CERT_MANAGER_VERSION=${clusterCfg.certManagerVersion ?: 'latest'}",
         "INSTALL_RKE2_CHANNEL=${clusterCfg.platformChannel ?: 'stable'}",
-        "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: ''}",
+        "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: 'latest'}",
         "KUBECONFIG=${clusterCfg.kubeconfig ?: '/tmp/kubeconfig'}"
     ]
 
@@ -69,8 +69,10 @@ void shutdownCluster(Map clusterCfg) {
     }
 }
 
-def getLatestPlatformVersion(String channel) {
-    sh(
+def getLatestPlatformVersion(Map testVariables) {
+    def channel = testVariables.platform_channel
+
+    return sh(
         script: """
             curl -fsSL https://update.rke2.io/v1-release/channels \
             | jq -r --arg channel "${channel}" '.data[] | select(.id == \$channel) | .latest'

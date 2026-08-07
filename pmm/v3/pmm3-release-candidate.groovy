@@ -14,8 +14,10 @@ def pmm_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit",
         "pmm-dump"
+        // percona-toolkit is excluded: it tracks a shared, long-lived branch of its
+        // own (e.g. pmm-3.9.0) rather than a per-RC branch, so the RC pipeline must
+        // not create/delete branches for it.
     ]
 }
 
@@ -150,7 +152,8 @@ pipeline {
             }
             steps {
                 script {
-                    env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH
+                    // percona/pmm no longer has a v3 branch
+                    env.TARGET_BRANCH = (params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH) ? 'main' : params.SUBMODULES_GIT_BRANCH
 
                     git branch: env.TARGET_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
 
@@ -187,7 +190,7 @@ pipeline {
         }
         stage('Rewind Submodules') {
             when {
-                expression { env.REMOVE_RELEASE_BRANCH == 'no' && env.TARGET_BRANCH == DEFAULT_BRANCH && env.API_DESCRIPTOR == 'CHANGED' }
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' && params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH && env.API_DESCRIPTOR == 'CHANGED' }
             }
             steps {
                 build job: 'pmm3-submodules-rewind', propagate: false, wait: true

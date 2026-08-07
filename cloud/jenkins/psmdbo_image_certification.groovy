@@ -8,7 +8,8 @@ def certifiableImages = [
     'IMAGE_BACKUP',
     'IMAGE_PMM_CLIENT',
     'IMAGE_PMM3_CLIENT',
-    'IMAGE_LOGCOLLECTOR'
+    'IMAGE_LOGCOLLECTOR',
+    'IMAGE_CLUSTERSYNC'
 ]
 
 def imageTag(image) {
@@ -53,6 +54,9 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_LOGCOLLECTOR':
             return target(image, projectId, "${params.RELEASE}-logcollector-${imageTag(image)}", credentials)
 
+        case 'IMAGE_CLUSTERSYNC':
+            return target(image, projectId, "${params.RELEASE}-clustersync", credentials)
+
         default:
             echo "Skipping ${key}"
             return null
@@ -83,6 +87,7 @@ pipeline {
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
         booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
         booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
+        booleanParam(name: 'IMAGE_CLUSTERSYNC', defaultValue: true, description: 'Certify IMAGE_CLUSTERSYNC')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
