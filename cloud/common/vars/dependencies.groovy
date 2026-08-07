@@ -120,15 +120,19 @@ void installPxcTools() {
 
 void installKuttl() {
     sh '''
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
         export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 
-        kubectl krew install assert
+        command -v kubectl-krew >/dev/null || {
+            curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+            ./krew-linux_amd64 install krew
+        }
 
-        # v0.25.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
-        echo $(kubectl kuttl --version) is installed
+        command -v kubectl-assert >/dev/null || kubectl krew install assert
+
+        kubectl krew install --manifest-url \
+            https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
+
+        kubectl kuttl --version
     '''
 }
 
