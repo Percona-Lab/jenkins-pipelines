@@ -1,0 +1,249 @@
+# EL package-test snapshot factory (Hetzner Cloud): Rocky Linux, AlmaLinux, and
+# Oracle Linux. Bakes package-test snapshots with Packer over plain SSH (Hetzner
+# injects the build key at server create, no static keys), authenticated by a
+# project-scoped API token, and promotes each via a fresh-boot smoke test. The
+# scheduled run then self-prunes retention (keep 4 promoted per combo).
+# Sibling of ppg-ami-factory.yml (AWS). Consumers select the newest
+# role=ppg-package-test snapshot by label (see ppg/packer-hetzner/README.md).
+# Lineage roots are seeded once per combo via dispatch (just ci-seed).
+#
+# Triggers: PR validate-only (pull_request -> check job, no token), recipe change
+# (code paths only, doc edits never bake), weekly security rebake (cron, offset
+# from the AWS factory's Mon 06:00 so the two factories never rebake in the same
+# window), manual.
+# Actions are pinned to commit SHAs. The trailing "# vX.Y.Z" records the tag.
+
+name: ppg-hcloud-factory
+run-name: ppg hcloud factory (${{ inputs.env || 'prod' }}, ${{ github.event_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      combos:
+        description: 'JSON matrix include list, e.g. [{"os":"rocky","os_major":"9","arch":"x86_64","seed":true}]; os defaults to rocky, seed to false'
+        required: false
+        default: '[{"os":"rocky","os_major":"9","arch":"x86_64"}]'
+      env:
+        description: 'prod (real factory labels) or test (isolated labels, never consumed by production)'
+        required: false
+        default: 'prod'
+        type: choice
+        options: [prod, test]
+  # Code paths only (templates, scripts, justfile, bootstrap, this workflow,
+  # the local setup-hcloud action): a README-only edit must not trigger a bake.
+  push:
+    branches: [master]
+    paths:
+      - 'ppg/packer-hetzner/*.pkr.hcl'
+      - 'ppg/packer-hetzner/smoke/**'
+      - 'ppg/packer-hetzner/scripts/**'
+      - 'ppg/packer-hetzner/justfile'
+      - 'ppg/packer-hetzner/bootstrap/**'
+      - '.github/workflows/ppg-hcloud-factory.yml'
+      - '.github/actions/setup-hcloud/**'
+  pull_request:
+    paths:
+      - 'ppg/packer-hetzner/*.pkr.hcl'
+      - 'ppg/packer-hetzner/smoke/**'
+      - 'ppg/packer-hetzner/scripts/**'
+      - 'ppg/packer-hetzner/justfile'
+      - 'ppg/packer-hetzner/bootstrap/**'
+      - '.github/workflows/ppg-hcloud-factory.yml'
+      - '.github/actions/setup-hcloud/**'
+  schedule:
+    - cron: '0 8 * * 1' # weekly Mon 08:00 UTC - absorb EL errata, offset from the AWS factory
+
+permissions:
+  contents: read # workflow-level default: read-only
+
+concurrency:
+  # PR checks stay per-ref. Everything that can bake (push, schedule, manual
+  # dispatch) serializes per factory env ACROSS refs, so two prod bakes can
+  # never interleave their promote and prune steps.
+  group: ppg-hcloud-factory-${{ github.event_name == 'pull_request' && github.ref || (github.event.inputs.env || 'prod') }}
+  cancel-in-progress: false
+
+env:
+  FACTORY_ENV: ${{ github.event.inputs.env || 'prod' }}
+  # One location for bake AND smoke so the snapshot and its boot test share a
+  # placement family (parity with the justfile's location variable).
+  BAKE_LOCATION: fsn1
+
+jobs:
+  # No-token gate: a malformed template or bad combo fails HERE, before bake
+  # spins up any server. Runs scripts/check.sh, the SAME file `just check` runs,
+  # so the CI and local gates cannot drift. The factory token secret is never
+  # exposed to this job, so a PR can never reach the Hetzner project.
+  check:
+    name: Validate templates (no token)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@3286471d6cc6756d056a0b199fea5e0becdbc189 # v3.3.0
+        with:
+          version: '1.15.4' # exact, matches the bake job
+
+      - name: fmt-check + validate (fail before any server spend)
+        working-directory: ppg/packer-hetzner
+        run: |
+          set -euo pipefail
+          bash scripts/check.sh
+
+  bake:
+    name: ${{ matrix.os || 'rocky' }} ${{ matrix.os_major }} ${{ matrix.arch }}
+    needs: check # no server launches until templates validate
+    if: github.event_name != 'pull_request' # PRs run the no-token check only
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    # The factory token secret lives in this environment, whose protected-branch
+    # deployment rule keeps a branch-ref dispatch from ever reading it.
+    environment: hcloud-factory
+    # Job-level so packer, the smoke, and the promote/delete steps all read the
+    # same project-scoped token without repeating the secret per step.
+    env:
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN_PPG_FACTORY }}
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      # Default matrix: only combos with a promoted lineage today, so no leg is
+      # guaranteed red. arm64 rows return when CAX stock allows seeding (zero
+      # stock in fsn1/nbg1/hel1 since 2026-08-05). Uncomment the OL8/OL10 rows
+      # after their base bootstrap + seed land (bootstrap/bootstrap-base.sh,
+      # then `just seed <major> x86_64 prod oraclelinux`):
+      #   {"os":"oraclelinux","os_major":"8","arch":"x86_64"},
+      #   {"os":"oraclelinux","os_major":"10","arch":"x86_64"},
+      matrix:
+        include: ${{ fromJSON(github.event.inputs.combos || '[{"os":"rocky","os_major":"8","arch":"x86_64"},{"os":"rocky","os_major":"9","arch":"x86_64"},{"os":"rocky","os_major":"10","arch":"x86_64"},{"os":"almalinux","os_major":"8","arch":"x86_64"},{"os":"almalinux","os_major":"9","arch":"x86_64"},{"os":"almalinux","os_major":"10","arch":"x86_64"},{"os":"oraclelinux","os_major":"9","arch":"x86_64"}]') }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install hcloud CLI (pinned, checksum-verified)
+        uses: ./.github/actions/setup-hcloud
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@3286471d6cc6756d056a0b199fea5e0becdbc189 # v3.3.0
+        with:
+          # Exact version, never a constraint: setup-packer uses this string verbatim
+          # as the tool-cache path segment, so a space/'>' in a constraint like
+          # ">= 1.12.0" breaks the post-install `packer version` check. Bump deliberately.
+          version: '1.15.4'
+
+      - name: Packer init
+        working-directory: ppg/packer-hetzner
+        run: packer init .
+
+      - name: Build candidate snapshot (${{ matrix.os || 'rocky' }} ${{ matrix.os_major }} ${{ matrix.arch }}, env=${{ env.FACTORY_ENV }})
+        id: build
+        working-directory: ppg/packer-hetzner
+        # Matrix values via env, not inline ${{ }}, so they reach packer as data
+        # (quoted shell vars) and cannot break out of the run shell.
+        env:
+          OS: ${{ matrix.os || 'rocky' }}
+          SEED: ${{ matrix.seed || false }}
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          rm -f manifest.json
+          packer build -color=false \
+            -var "os=${OS}" \
+            -var "seed=${SEED}" \
+            -var "os_major=${OS_MAJOR}" \
+            -var "arch=${ARCH}" \
+            -var "env=${FACTORY_ENV}" \
+            -var "location=${BAKE_LOCATION}" .
+          SNAPSHOT_ID=$(python3 -c "import json;print(json.load(open('manifest.json'))['builds'][-1]['artifact_id'])")
+          echo "snapshot_id=$SNAPSHOT_ID" >> "$GITHUB_OUTPUT"
+          echo "built candidate: $SNAPSHOT_ID"
+          {
+            echo "### ${OS} ${OS_MAJOR} ${ARCH}"
+            echo "- built: $SNAPSHOT_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test (fresh boot + install)
+        working-directory: ppg/packer-hetzner
+        env:
+          SNAPSHOT_ID: ${{ steps.build.outputs.snapshot_id }}
+          OS: ${{ matrix.os || 'rocky' }}
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          # Same sentinel-gated script the justfile smoke recipe runs: delete
+          # the candidate only on a genuine post-SSH boot/install failure, keep
+          # it for retry on transient infrastructure failures.
+          bash scripts/smoke-run.sh "$SNAPSHOT_ID" "$OS_MAJOR" "$ARCH" "$FACTORY_ENV" "$OS" "$BAKE_LOCATION" \
+            || { echo "- smoke: FAIL (transient failures keep the candidate, see log)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          echo "- smoke: pass" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote (env=${{ env.FACTORY_ENV }})
+        working-directory: ppg/packer-hetzner
+        env:
+          SNAPSHOT_ID: ${{ steps.build.outputs.snapshot_id }}
+        run: |
+          set -euo pipefail
+          # Promote via the SAME retried script the justfile uses: a transient
+          # label failure must NOT delete a smoke-passed snapshot.
+          bash scripts/promote.sh "$SNAPSHOT_ID" "$FACTORY_ENV" \
+            || { echo "- promote: FAILED ($SNAPSHOT_ID left for manual promote)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          promoted_role=ppg-package-test
+          if [ "$FACTORY_ENV" = "test" ]; then
+            promoted_role=ppg-test-package-test
+          fi
+          echo "- promote: $promoted_role" >> "$GITHUB_STEP_SUMMARY"
+
+  # Weekly rebakes self-prune retention (keep the newest 4 promoted snapshots
+  # per combo + drop stale candidates). Schedule-only on purpose: a manual
+  # dispatch (partial matrix, test env, seeding) must never trigger deletes.
+  prune:
+    name: Retention prune (keep 4 promoted per combo)
+    needs: bake
+    if: github.event_name == 'schedule' && success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Same environment-scoped secret as bake (protected-branch deployment rule).
+    environment: hcloud-factory
+    env:
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN_PPG_FACTORY }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install hcloud CLI (pinned, checksum-verified)
+        uses: ./.github/actions/setup-hcloud
+
+      - name: Prune (prod, apply, keep 4)
+        working-directory: ppg/packer-hetzner
+        run: |
+          set -euo pipefail
+          bash scripts/prune.sh prod 1 4 | tee -a "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    needs: [bake, prune]
+    # failure() is true when ANY ancestor failed, including a check failure on a
+    # pull_request run where bake was skipped. Never ping the webhook for PR lint.
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Job-level so the step `if` below reads it reliably. A step-scoped env can be
+    # unavailable to its own step's `if`, which would skip the alert silently.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
+    steps:
+      - name: Slack on failure
+        # Skip cleanly when the webhook secret is unset (e.g. fork tests), so a real
+        # bake failure is not masked by a second "missing webhook" failure.
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "PPG hcloud factory FAILED - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
