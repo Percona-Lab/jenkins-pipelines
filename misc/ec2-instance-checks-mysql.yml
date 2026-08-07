@@ -1,5 +1,5 @@
 - job:
-    name: ec2-instance-checks
+    name: ec2-instance-checks-mysql
     project-type: pipeline
     description: |
         Work in progress, please ignore
@@ -19,6 +19,6 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: misc/ec2-instance-checks.groovy
+        script-path: misc/ec2-instance-checks-mysql.groovy
     triggers:
-      - timed: "0 0 * * *"
+      - timed: "0 0 */2 * *"
