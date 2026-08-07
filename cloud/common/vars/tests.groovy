@@ -103,7 +103,8 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_MYSQL: "IMAGE_MYSQL${pillarVersion}"
         ],
         "pxc-operator": [
-            IMAGE_PXC: "IMAGE_PXC${pillarVersion}"
+            IMAGE_PXC   : "IMAGE_PXC${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
             IMAGE_PGBOUNCER: "IMAGE_PGBOUNCER${pillarVersion}",
@@ -239,6 +240,57 @@ List loadTestList(String testList, String testSuite, Map opts = [:]) {
     echo tests.collect { " - ${it.name}" }.join('\n')
 
     return tests
+}
+
+void initTests(List tests, Map testVariables, Map config) {
+    echo "=========================[ Initializing the tests ]========================="
+
+    echo "Populating tests into the tests array!"
+    def suiteFileName = "source/e2e-tests/${config.testSuite}"
+
+    if (config.testList?.trim()) {
+        suiteFileName = "source/e2e-tests/run-custom.csv"
+        writeFile file: suiteFileName, text: config.testList
+        sh """
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    readCSV(file: suiteFileName).each { record ->
+        tests.add([name: record[0], cluster: "NA", result: "skipped", time: "0"])
+    }
+
+    echo "Marking passed tests in the tests map!"
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        if (config.ignorePreviousRun == "NO") {
+            sh """
+                aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
+            """
+
+            tests.each { test ->
+                def file = artifactFileName(buildArtifactParams(testVariables, test.name))
+                def retFileExists = sh(
+                    script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} >/dev/null 2>&1",
+                    returnStatus: true
+                )
+                if (retFileExists == 0) {
+                    test.result = "passed"
+                }
+            }
+        } else {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" --recursive --exclude "*" --include "*-${testVariables.params_hash}" || :
+            """
+        }
+    }
+
+    withCredentials([file(credentialsId: config.cloudSecretCredentialId, variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp \$CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            ${config.secretFileMode ? "chmod ${config.secretFileMode} source/e2e-tests/conf/cloud-secret.yml" : ""}
+        """
+    }
 }
 
 String artifactFileName(Map cfg) {
@@ -405,6 +457,21 @@ Map buildPsmdbTestVariables(Map config) {
         operator               : 'psmdb-operator',
         default_operator_image : config.default_operator_image,
         test_executor_type     : 'make',
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
+Map buildPxcTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'pxc-operator',
+        default_operator_image : config.default_operator_image,
         images                 : config.images,
         extra_envs             : config.extra_envs ?: [:]
     ]
@@ -895,6 +962,32 @@ void makeReport(List tests, Map testVariables) {
         gitShortCommit: testVariables.git_short_commit,
         gitBranch     : testVariables.git_branch,
         title         : "PSMDB e2e tests - ${testVariables.git_branch ?: env.GIT_BRANCH} (${testVariables.git_short_commit})"
+    )
+}
+
+void makeReportJUnit(List tests, Map testVariables) {
+    echo "=========================[ Generating Test Report ]========================="
+    def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
+    tests.each { test ->
+        testsReport += '<testcase name="' + test.name + '" time="' + test.time + '"><' + test.result + '/></testcase>\n'
+    }
+    testsReport += '</testsuite>\n'
+
+    echo "=========================[ Generating Parameters Report ]========================="
+    def pipelineParameters = "testsuite name=${testVariables.job_name}\n"
+    testVariables.images.each { key, value ->
+        pipelineParameters += "${key}=${value ?: 'e2e_defaults'}\n"
+    }
+    pipelineParameters += "PLATFORM_VER=${testVariables.platform_version}"
+    if (testVariables.platform == "gke") {
+        pipelineParameters += "\nGKE_RELEASE_CHANNEL=${testVariables.platform_channel}"
+    }
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
     )
 }
 

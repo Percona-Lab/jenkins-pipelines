@@ -74,10 +74,7 @@ void prepareNode() {
     testVariables.cluster_name = CLUSTER_NAME
     PARAMS_HASH = testVariables.params_hash
 
-    sh """
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
-    """
+    libraries.dependencies.installOpenshiftClient(PLATFORM_VER)
 
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
