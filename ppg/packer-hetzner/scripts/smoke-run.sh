@@ -17,6 +17,11 @@
 #
 # Promotion stays the caller's separate retried step (scripts/promote.sh).
 #
+# The snapshot ID is untrusted input: a fail-closed identity guard (the
+# promote.sh pattern) describes the image before the boot and again right
+# before the delete, and refuses both unless every label of the expected
+# candidate combo matches.
+#
 # Usage (HCLOUD_TOKEN in env, run from ppg/packer-hetzner):
 #   smoke-run.sh <snapshot_id> <os_major> <arch> [prod|test] [os] [location]
 set -euo pipefail
@@ -29,12 +34,73 @@ factory_env="${4:-prod}"
 os_name="${5:-rocky}"
 location="${6:-fsn1}"
 
+case "${factory_env}" in
+  prod)
+    role_candidate="ppg-candidate"
+    source_expected="factory"
+    ;;
+  test)
+    role_candidate="ppg-test-candidate"
+    source_expected="factory-test"
+    ;;
+  *)
+    echo "${usage}" >&2
+    exit 1
+    ;;
+esac
+
+# Fail-closed identity guard, following the promote.sh pattern: describe the
+# image and require every label of the expected candidate combo before any
+# hcloud mutation. Runs BEFORE the boot and again immediately before the
+# delete, so a copied or mistyped ID (a promoted package-test snapshot, a
+# rollback, an OL base) is never booted by the smoke, let alone deleted by it.
+verify_candidate_identity() {
+  local stage="$1"
+  local image_json
+  image_json=$(hcloud image describe "${snapshot_id}" -o json)
+
+  local image_role image_env image_source image_os image_major image_arch
+  read -r image_role image_env image_source image_os image_major image_arch \
+    <<< "$(python3 -c '
+import json, sys
+labels = json.load(sys.stdin).get("labels") or {}
+keys = ("role", "factory_env", "source", "os", "os_major", "arch")
+print(" ".join(labels.get(key) or "-" for key in keys))
+' <<< "${image_json}")"
+
+  local mismatch=""
+  local check name want got
+
+  for check in \
+    "role|${role_candidate}|${image_role}" \
+    "factory_env|${factory_env}|${image_env}" \
+    "source|${source_expected}|${image_source}" \
+    "os|${os_name}|${image_os}" \
+    "os_major|${os_major}|${image_major}" \
+    "arch|${arch}|${image_arch}"; do
+
+    IFS='|' read -r name want got <<< "${check}"
+    [[ "${got}" == "-" ]] && got=""
+
+    if [[ "${got}" != "${want}" ]]; then
+      mismatch+=" ${name}=${got:-<missing>} (want ${want})"
+    fi
+  done
+
+  if [[ -n "${mismatch}" ]]; then
+    echo "FATAL: ${snapshot_id} is not the expected ${factory_env} candidate (${stage} check):${mismatch} (no hcloud mutation)" >&2
+    return 1
+  fi
+}
+
 sentinel_started="SMOKE-PROVISIONER-STARTED"
 sentinel_completed="SMOKE-PROVISIONER-COMPLETED"
 smoke_log="$(mktemp -t ppg-smoke-XXXXXX.log)"
 trap 'rm -f "${smoke_log}"' EXIT
 
 echo "smoke candidate ${snapshot_id} (${os_name}${os_major} ${arch}, env=${factory_env})"
+
+verify_candidate_identity "pre-boot"
 
 smoke_status=0
 ( cd smoke && packer init . >/dev/null && \
@@ -54,8 +120,17 @@ if [[ "${smoke_status}" -ne 0 ]]; then
   # the cheap retry for both.
   if grep -qF "${sentinel_started}" "${smoke_log}" \
     && ! grep -qF "${sentinel_completed}" "${smoke_log}"; then
-    echo "smoke (boot+install) failed after the provisioner started; deleting candidate ${snapshot_id}"
-    hcloud image delete "${snapshot_id}"
+
+    # Re-verify identity immediately before the destructive call: the pre-boot
+    # check bounds the window, this one closes it (a promote racing this run,
+    # or any label change since the boot, refuses the delete).
+    if verify_candidate_identity "pre-delete"; then
+      echo "smoke (boot+install) failed after the provisioner started; deleting candidate ${snapshot_id}"
+      hcloud image delete "${snapshot_id}"
+    else
+      echo "candidate ${snapshot_id} kept: identity guard refused the delete" >&2
+    fi
+
   else
     echo "transient failure outside the smoke provisioner, candidate ${snapshot_id} kept for retry"
   fi

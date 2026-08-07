@@ -77,6 +77,13 @@ source "hcloud" "smoke" {
   server_labels = {
     role = "ppg-smoke"
   }
+
+  # The plugin uploads a temporary packer-<uuid> SSH key per build and labels
+  # it with ONLY this map: unlabeled keys from a killed run would be invisible
+  # to the janitor's selectors and leak forever.
+  ssh_keys_labels = {
+    role = "ppg-smoke"
+  }
 }
 
 build {

@@ -1,7 +1,8 @@
 # Janitor for leaked Hetzner Cloud resources (ppg/packer-hetzner/scripts/janitor.sh):
 # factory builder/smoke servers a crashed bake left behind, molecule test servers,
-# and the per-run SSH keys the molecule create playbook uploads. Selection is
-# label-contract-only and age-bound (see the script header).
+# and leaked SSH keys: Packer's labeled per-build temp keys plus the per-run keys
+# the bootstrap and molecule producers upload. Selection is label-contract-only
+# and age-bound (see the script header).
 #
 # Triggers: hourly cron (APPLIES with a conservative 6h age floor: a leak the
 # producers' own cleanup missed for 6h is debris, and a list-only cron is pure

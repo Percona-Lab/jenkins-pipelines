@@ -111,4 +111,9 @@ if [[ "${pin_count}" -ne 2 || "${unique_pins}" -ne 1 ]]; then
   exit 1
 fi
 
+# Stubbed behavior tests (fake hcloud/packer, no API): the smoke-run identity
+# guard and the janitor's SSH-key selector coverage.
+bash tests/smoke-run-guard-test.sh
+bash tests/janitor-stub-test.sh
+
 echo "check OK"

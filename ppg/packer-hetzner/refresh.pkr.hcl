@@ -206,6 +206,18 @@ source "hcloud" "el" {
     arch        = var.arch
   }
 
+  # The plugin uploads a temporary packer-<uuid> SSH key per build and labels
+  # it with ONLY this map. Without it a killed run leaves an unlabeled key no
+  # janitor selector can positively identify, so it would leak forever. Same
+  # role contract as the builder server (the janitor sweeps both kinds).
+  ssh_keys_labels = {
+    role        = "ppg-factory-builder"
+    factory_env = var.env
+    os          = var.os
+    os_major    = var.os_major
+    arch        = var.arch
+  }
+
   # role=ppg-candidate at build time. The fresh-boot smoke test passes and the
   # caller promotes (role -> ppg-package-test, what the lineage selector and
   # the consumers select). A non-booting image therefore never becomes

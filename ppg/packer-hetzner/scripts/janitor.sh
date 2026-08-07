@@ -9,7 +9,10 @@
 #             (smoke/smoke.pkr.hcl), role=ppg-bootstrap-check
 #             (bootstrap/bootstrap-base.sh), role=ppg-molecule-test
 #             (ppg-testing playbooks/create-hetzner.yml)
-#   ssh keys: role=ppg-bootstrap-check, role=ppg-molecule-test
+#   ssh keys: the same four roles. Packer's temporary per-build keys carry
+#             role=ppg-factory-builder / role=ppg-smoke via ssh_keys_labels in
+#             the two templates; the bootstrap and molecule producers label
+#             the keys they upload themselves.
 # ppg_run (the molecule per-run label) is never a selector: it is a generic-
 # looking key another producer could plausibly use, and role=ppg-molecule-test
 # already covers everything that carries it.
@@ -36,6 +39,8 @@ readonly SERVER_SELECTORS=(
   'role=ppg-molecule-test'
 )
 readonly SSH_KEY_SELECTORS=(
+  'role=ppg-factory-builder'
+  'role=ppg-smoke'
   'role=ppg-bootstrap-check'
   'role=ppg-molecule-test'
 )
