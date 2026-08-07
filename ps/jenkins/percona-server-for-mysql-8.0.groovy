@@ -6,31 +6,31 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 
 import groovy.transform.Field
 
-void installCli(String PLATFORM) {
+void installCli() {
     sh """
-        if [ \${CLOUD} = "AWS" ]; then
-            set -o xtrace
-            if [ -d aws ]; then
-                rm -rf aws
-            fi
-            if [ ${PLATFORM} = "deb" ]; then
-                sudo apt-get update
-                sudo apt-get -y install wget curl unzip
-            elif [ ${PLATFORM} = "rpm" ]; then
-                export RHVER=\$(rpm --eval %rhel)
-                if [ \${RHVER} = "7" ]; then
-                    sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
-                    sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
-                    if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
-                        cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
-                    fi
+        free -h
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        cat /etc/os-release
+        if command -v apt-get > /dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get -y install wget curl unzip
+        elif command -v yum > /dev/null 2>&1; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
                 fi
-                sudo yum -y install wget curl unzip
             fi
-            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
-            unzip awscliv2.zip
-            sudo ./aws/install || true
-       fi
+            sudo yum -y install unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
     """
 }
 
@@ -433,7 +433,7 @@ parameters {
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "🚀 [${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("rpm")
+                installCli()
                 script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
@@ -475,7 +475,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("rpm")
+                        installCli()
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -496,7 +496,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("rpm")
+                        installCli()
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -531,7 +531,7 @@ parameters {
             }
             steps {
                 cleanUpWS()
-                installCli("rpm")
+                installCli()
                 unstash 'properties'
 
                 script {
