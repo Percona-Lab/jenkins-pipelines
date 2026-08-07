@@ -752,13 +752,13 @@ Map buildParallelClusterStages(Map testVariables) {
             stage(clusterSuffix) {
                 if (testVariables.jenkins_agent_label) {
                     node(testVariables.jenkins_agent_label) {
+                        libraries.tools.unstashClonedGitFiles()
                         libraries.dependencies.prepareNode(
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
-                            testVariables.provider
+                            testVariables.platform_provider
                         )
-                        libraries.tools.unstashClonedGitFiles()
                         clusterRunner(clusterSuffix, testVariables)
                     }
                 } else {

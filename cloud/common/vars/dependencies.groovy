@@ -117,11 +117,10 @@ void installPxcTools() {
         sudo yum install -y percona-xtrabackup-84
     '''
 }
-
-void installKuttl() {
-    sh '''
-        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-
+ 
+void installKuttl(String version = '0.25.0') {
+    sh """
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
         command -v kubectl-krew >/dev/null || {
             curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
             ./krew-linux_amd64 install krew
@@ -129,11 +128,14 @@ void installKuttl() {
 
         command -v kubectl-assert >/dev/null || kubectl krew install assert
 
-        kubectl krew install --manifest-url \
-            https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
+        dir="\$(mktemp -d)"
+        git clone -q https://github.com/kubernetes-sigs/krew-index.git "\$dir"
+        commit=\$(git -C "\$dir" log -S"v${version}" --format='%H' -- plugins/kuttl.yaml | tail -1)
+        rm -rf "\$dir"
 
+        kubectl krew install --manifest-url "https://raw.githubusercontent.com/kubernetes-sigs/krew-index/\$commit/plugins/kuttl.yaml"
         kubectl kuttl --version
-    '''
+    """
 }
 
 void installOpenshiftClient(String platformVersion) {

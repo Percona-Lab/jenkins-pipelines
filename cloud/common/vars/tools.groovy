@@ -110,7 +110,7 @@ void dockerBuildAndPush(Map cfg) {
                 cd source
 
                 sg docker -c '
-                    docker buildx create --use || true
+                    docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
                     if [[ "$cfg.operator" == "pg-operator" ]]; then
