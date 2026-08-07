@@ -206,10 +206,8 @@ source "hcloud" "el" {
     arch        = var.arch
   }
 
-  # The plugin uploads a temporary packer-<uuid> SSH key per build and labels
-  # it with ONLY this map. Without it a killed run leaves an unlabeled key no
-  # janitor selector can positively identify, so it would leak forever. Same
-  # role contract as the builder server (the janitor sweeps both kinds).
+  # Label the plugin's temporary per-build SSH key so the janitor can sweep
+  # keys leaked by killed runs (an unlabeled key matches no selector).
   ssh_keys_labels = {
     role        = "ppg-factory-builder"
     factory_env = var.env

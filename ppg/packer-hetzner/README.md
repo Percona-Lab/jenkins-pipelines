@@ -132,13 +132,15 @@ defaults to list-only, and anything listed or deleted posts a Slack alert.
 
 ## Token
 
-One project-scoped Hetzner API token, exported as `HCLOUD_TOKEN` locally and
-stored as the `HCLOUD_TOKEN_PPG_FACTORY` secret in the `hcloud-factory`
-GitHub environment for the workflows. The environment's protected-branch
-deployment rule keeps a branch-ref dispatch from ever reading the secret. It
-never appears in files or output. `check`/`fmt`/`validate` run tokenless (the
-plugin insists on a non-empty token even offline, so `check.sh` exports an
-inert placeholder).
+One project-scoped Hetzner API token, exported as `HCLOUD_TOKEN` locally. The
+workflows keep no Hetzner credential in GitHub: each token-using job assumes
+a GitHub-OIDC AWS role whose trust is pinned to master (exact-subject
+`StringEquals`, no wildcards) and reads the token from the
+`/ppg/hcloud-factory-token` SSM SecureString parameter (both defined in
+percona-cd-platform `terraform/iam-gha-ppg-hcloud-factory.tf`), so a
+branch-ref dispatch fails at AssumeRole. The token never appears in files or
+output. `check`/`fmt`/`validate` run tokenless (the plugin insists on a
+non-empty token even offline, so `check.sh` exports an inert placeholder).
 
 ## Deviations from the AWS factory
 

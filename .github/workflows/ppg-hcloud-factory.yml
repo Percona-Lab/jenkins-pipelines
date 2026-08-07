@@ -102,13 +102,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-    # The factory token secret lives in this environment, whose protected-branch
-    # deployment rule keeps a branch-ref dispatch from ever reading it.
-    environment: hcloud-factory
-    # Job-level so packer, the smoke, and the promote/delete steps all read the
-    # same project-scoped token without repeating the secret per step.
-    env:
-      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN_PPG_FACTORY }}
+      id-token: write # OIDC token for AssumeRole
     strategy:
       fail-fast: false
       max-parallel: 12
@@ -123,6 +117,24 @@ jobs:
         include: ${{ fromJSON(github.event.inputs.combos || '[{"os":"rocky","os_major":"8","arch":"x86_64"},{"os":"rocky","os_major":"9","arch":"x86_64"},{"os":"rocky","os_major":"10","arch":"x86_64"},{"os":"almalinux","os_major":"8","arch":"x86_64"},{"os":"almalinux","os_major":"9","arch":"x86_64"},{"os":"almalinux","os_major":"10","arch":"x86_64"},{"os":"oraclelinux","os_major":"9","arch":"x86_64"}]') }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      # Master-pinned OIDC trust + SSM token: a branch-ref dispatch fails at
+      # AssumeRole, and GitHub stores no Hetzner credential.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          # Fallback prod ARN; security is the master-only trust, not ARN secrecy.
+          role-to-assume: ${{ secrets.PPG_HCLOUD_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-hcloud-factory' }}
+          role-session-name: ppg-hcloud-bake-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: us-east-1
+
+      - name: Read factory token from SSM
+        run: |
+          set -euo pipefail
+          token=$(aws ssm get-parameter --name /ppg/hcloud-factory-token \
+            --with-decryption --query Parameter.Value --output text)
+          echo "::add-mask::$token"
+          echo "HCLOUD_TOKEN=$token" >> "$GITHUB_ENV"
 
       - name: Install hcloud CLI (pinned, checksum-verified)
         uses: ./.github/actions/setup-hcloud
@@ -210,12 +222,24 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    # Same environment-scoped secret as bake (protected-branch deployment rule).
-    environment: hcloud-factory
-    env:
-      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN_PPG_FACTORY }}
+      id-token: write # same OIDC trust boundary as bake
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ secrets.PPG_HCLOUD_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-hcloud-factory' }}
+          role-session-name: ppg-hcloud-prune-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: us-east-1
+
+      - name: Read factory token from SSM
+        run: |
+          set -euo pipefail
+          token=$(aws ssm get-parameter --name /ppg/hcloud-factory-token \
+            --with-decryption --query Parameter.Value --output text)
+          echo "::add-mask::$token"
+          echo "HCLOUD_TOKEN=$token" >> "$GITHUB_ENV"
 
       - name: Install hcloud CLI (pinned, checksum-verified)
         uses: ./.github/actions/setup-hcloud

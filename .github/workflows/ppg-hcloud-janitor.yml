@@ -42,17 +42,32 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    # The factory token secret lives in this environment, whose protected-branch
-    # deployment rule keeps a branch-ref dispatch from ever reading it.
-    environment: hcloud-factory
+      id-token: write # OIDC token for AssumeRole
     # Job-level so the alert step's `if` below reads SLACK_WEBHOOK reliably. A
     # step-scoped env can be unavailable to its own step's `if`, which would
     # skip the alert silently.
     env:
-      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN_PPG_FACTORY }}
       SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      # Master-pinned OIDC trust + SSM token: a branch-ref dispatch fails at
+      # AssumeRole, and GitHub stores no Hetzner credential.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          # Fallback prod ARN; security is the master-only trust, not ARN secrecy.
+          role-to-assume: ${{ secrets.PPG_HCLOUD_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-hcloud-factory' }}
+          role-session-name: ppg-hcloud-janitor-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: us-east-1
+
+      - name: Read factory token from SSM
+        run: |
+          set -euo pipefail
+          token=$(aws ssm get-parameter --name /ppg/hcloud-factory-token \
+            --with-decryption --query Parameter.Value --output text)
+          echo "::add-mask::$token"
+          echo "HCLOUD_TOKEN=$token" >> "$GITHUB_ENV"
 
       - name: Install hcloud CLI (pinned, checksum-verified)
         uses: ./.github/actions/setup-hcloud
