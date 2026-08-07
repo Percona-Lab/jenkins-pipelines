@@ -176,4 +176,38 @@ void installAzureCLI() {
     '''
 }
 
+void installExecutorDependencies(String testExecutorType) {
+    switch (testExecutorType) {
+        case 'kuttl':
+            installKuttl()
+            break
+
+        case 'make':
+            installUv()
+            syncPythonDeps()
+            break
+    }
+}
+
+void installProviderDependencies(Map libraries, String operator, String provider) {
+    // PSMDB requires Google and Azure CLIs, regardless of the provider.
+    // Rancher requires Google CLI to create cluster as GCE instances are used.
+
+    if (provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb-operator') {
+        installGoogleCLI()
+        libraries.gcloud.auth()
+    }
+
+    if (provider == 'azure' || operator == 'psmdb-operator') {
+        installAzureCLI()
+        libraries.azure.auth()
+    }
+}
+
+void prepareNode(Map libraries, String testExecutorType,String operator, String provider) {
+    install()
+    installExecutorDependencies(testExecutorType)
+    installProviderDependencies(libraries, operator, provider)
+}
+
 return this

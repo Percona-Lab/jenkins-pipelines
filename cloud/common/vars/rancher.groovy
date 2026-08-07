@@ -26,7 +26,7 @@ void createCluster(Map clusterCfg) {
         "CERT_MANAGER_VERSION=${clusterCfg.certManagerVersion ?: 'latest'}",
         "INSTALL_RKE2_CHANNEL=${clusterCfg.platformChannel ?: 'stable'}",
         "INSTALL_RKE2_VERSION=${clusterCfg.platformVersion ?: 'latest'}",
-        "KUBECONFIG=${clusterCfg.kubeconfig ?: '/tmp/kubeconfig'}"
+        "KUBECONFIG=${clusterCfg.kubeconfig}"
     ]
 
     // Default timeout for cluster creation is 60 minutes
@@ -58,8 +58,8 @@ void createCluster(Map clusterCfg) {
 void shutdownCluster(Map clusterCfg) {
     withEnv([
         "PREFIX=${cluster(clusterCfg)}",
-        "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: env.GOOGLE_REGION ?: env.ZONE ?: 'us-central1-a'}",
-        "KUBECONFIG=${ clusterCfg.kubeconfig ?: env.KUBECONFIG ?: '/tmp/kubeconfig'}"
+        "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: 'us-central1-a'}",
+        "KUBECONFIG=${ clusterCfg.kubeconfig}"
     ]) {
         sh '''
             set -euo pipefail
@@ -69,8 +69,8 @@ void shutdownCluster(Map clusterCfg) {
     }
 }
 
-def getLatestPlatformVersion(Map testVariables) {
-    def channel = testVariables.platform_channel
+String getLatestPlatformVersion(Map platformCfg) {
+    def channel = platformCfg.platform_channel
 
     return sh(
         script: """
@@ -81,7 +81,7 @@ def getLatestPlatformVersion(Map testVariables) {
     ).trim()
 }
 
-def getPlatformVersion(String prefixVersion) {
+String getPlatformVersion(String prefixVersion) {
     def parts = prefixVersion.tokenize('.')
     def channel = "v${parts[0]}.${parts[1]}"
 
@@ -98,7 +98,7 @@ def getPlatformVersion(String prefixVersion) {
     ).trim()
 }
 
-def getMachineType(String arch) {
+String getMachineType(String arch) {
     switch (arch) {
         case 'amd64':
             return 'e2-standard-4'
