@@ -48,6 +48,10 @@ pipeline {
             defaultValue: 'x86_64,arm64',
             description: 'Comma separated architectures to build',
             name: 'ARCHES')
+        string(
+            defaultValue: '2',
+            description: 'How many images packer builds at once. Lower values reduce load on the build agent.',
+            name: 'PARALLEL_BUILDS')
         booleanParam(
             defaultValue: true,
             description: 'Copy the resulting AMIs to the region list in release.pkvars.hcl',
@@ -90,6 +94,21 @@ pipeline {
             }
         }
 
+        stage('Clean up orphans') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: 're-cd-aws',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        cd valkey-packaging/images
+                        scripts/cleanup-orphans.sh ${AWS_DEFAULT_REGION} valkey-ami
+                    """
+                }
+            }
+        }
+
         stage('Validate') {
             steps {
                 sh """
@@ -115,6 +134,7 @@ pipeline {
                             set -o pipefail
                             cd valkey-packaging/images
                             ~/bin/packer build -color=false \
+                              -parallel-builds=${params.PARALLEL_BUILDS} \
                               -only='${onlyList}' \
                               -var-file=packer/release.pkvars.hcl \
                               -var valkey_version=${params.VALKEY_VERSION} \
@@ -204,9 +224,29 @@ pipeline {
             deleteDir()
         }
         always {
-            sh '''
-                sudo rm -rf ./*
-            '''
+            script {
+                // Best effort: when the agent itself was lost this cannot run,
+                // which is why the same sweep also runs at the start of a build.
+                try {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        credentialsId: 're-cd-aws',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh """
+                            cd valkey-packaging/images
+                            scripts/cleanup-orphans.sh ${AWS_DEFAULT_REGION} valkey-ami
+                        """
+                    }
+                } catch (err) {
+                    echo "Orphan cleanup skipped: ${err}"
+                }
+                try {
+                    sh 'sudo rm -rf ./*'
+                } catch (err) {
+                    echo "Workspace cleanup skipped: ${err}"
+                }
+            }
             deleteDir()
         }
     }
