@@ -217,16 +217,16 @@ pipeline {
     post {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: AMIs built for Valkey ${VALKEY_VERSION} - [${BUILD_URL}]")
-            deleteDir()
         }
         failure {
             slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: AMI build failed for Valkey ${VALKEY_VERSION} - [${BUILD_URL}]")
-            deleteDir()
         }
         always {
+            // Every step here needs a live agent, so each is guarded
+            // individually. A lost agent is exactly when this block runs and
+            // exactly when it cannot do anything, which is why the orphan sweep
+            // also runs at the start of the next build.
             script {
-                // Best effort: when the agent itself was lost this cannot run,
-                // which is why the same sweep also runs at the start of a build.
                 try {
                     withCredentials([[
                         $class: 'AmazonWebServicesCredentialsBinding',
@@ -243,11 +243,11 @@ pipeline {
                 }
                 try {
                     sh 'sudo rm -rf ./*'
+                    deleteDir()
                 } catch (err) {
                     echo "Workspace cleanup skipped: ${err}"
                 }
             }
-            deleteDir()
         }
     }
 }
