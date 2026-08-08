@@ -427,7 +427,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, "tools", COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, "pdps-8.0", COMPONENT)
             }
         }
 

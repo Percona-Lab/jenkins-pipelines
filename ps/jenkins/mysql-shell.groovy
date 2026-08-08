@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
@@ -153,21 +153,6 @@ pipeline {
         } // stage
         stage('Build MYSQL-SHELL RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
-                stage('Centos 7') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
-
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                    }
-                }
-*/
                 stage('Oracle Linux 8') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'

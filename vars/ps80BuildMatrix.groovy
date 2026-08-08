@@ -14,6 +14,7 @@
 
 void installCli() {
     sh """
+        free -h
         set -o xtrace
         if [ -d aws ]; then
             rm -rf aws
@@ -31,7 +32,7 @@ void installCli() {
                     cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
                 fi
             fi
-            sudo yum -y install wget curl unzip
+            sudo yum -y install unzip
         fi
         curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
         unzip awscliv2.zip

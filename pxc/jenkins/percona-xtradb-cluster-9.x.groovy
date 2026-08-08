@@ -80,7 +80,7 @@ pipeline {
             description: 'BIN release value',
             name: 'BIN_RELEASE')
         choice(
-            choices: 'pxc-9x-innovation\npxc-97-lts',
+            choices: 'pxc-97-lts\npxc-9x-innovation',
             description: 'PXC repo name',
             name: 'PXC_REPO')
         choice(
@@ -100,7 +100,7 @@ pipeline {
             description: 'Experimental packages only',
             name: 'EXPERIMENTALMODE')
         choice(
-            choices: 'experimental\nlaboratory\ntesting',
+            choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(

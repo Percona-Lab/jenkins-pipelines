@@ -4,28 +4,31 @@ void cleanUpWS() {
     sh 'sudo rm -rf ./*'
 }
 
-void installCli(String PLATFORM) {
+void installCli() {
     sh """
-        if [ \${CLOUD} = "AWS" ]; then
-            set -o xtrace
-            if [ -d aws ]; then
-                rm -rf aws
-            fi
-            if [ ${PLATFORM} = "deb" ]; then
-                sudo apt-get update
-                sudo apt-get -y install wget curl unzip
-            elif [ ${PLATFORM} = "rpm" ]; then
-                export RHVER=\$(rpm --eval %rhel)
-                if [ \${RHVER} = "7" ]; then
-                    sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
-                    sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+        free -h
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        cat /etc/os-release
+        if command -v apt-get > /dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get -y install wget curl unzip
+        elif command -v yum > /dev/null 2>&1; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
                 fi
-                sudo yum -y install wget curl unzip
             fi
-            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
-            unzip awscliv2.zip
-            sudo ./aws/install || true
-       fi
+            sudo yum -y install unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
     """
 }
 
@@ -80,7 +83,7 @@ def call(Map args) {
                     echo 'The step is skipped'
                 } else {
                     cleanUpWS()
-                    installCli('rpm')
+                    installCli()
                     unstash 'properties'
                     popArtifactFolder(cloud, 'srpm/', awsStashPath)
                     buildStage('oraclelinux:8', '--build_rpm=1')
@@ -101,7 +104,7 @@ def call(Map args) {
                     echo 'The step is skipped'
                 } else {
                     cleanUpWS()
-                    installCli('rpm')
+                    installCli()
                     unstash 'properties'
                     popArtifactFolder(cloud, 'srpm/', awsStashPath)
                     buildStage('oraclelinux:8', '--build_rpm=1')
@@ -119,7 +122,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'srpm/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -140,7 +143,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'srpm/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -161,7 +164,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'srpm/', awsStashPath)
                 buildStage('amazonlinux:2023', '--build_rpm=1')
@@ -178,7 +181,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'srpm/', awsStashPath)
                 buildStage('amazonlinux:2023', '--build_rpm=1')
@@ -195,7 +198,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'srpm/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -216,7 +219,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'srpm/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -239,7 +242,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -260,7 +263,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -281,7 +284,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -302,7 +305,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -323,7 +326,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -344,7 +347,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -365,7 +368,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -386,7 +389,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -407,7 +410,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -428,7 +431,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_deb/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -454,7 +457,7 @@ def call(Map args) {
                     echo 'The step is skipped'
                 } else {
                     cleanUpWS()
-                    installCli('rpm')
+                    installCli()
                     unstash 'properties'
                     popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                     buildStage('oraclelinux:8', '--build_tarball=1')
@@ -475,7 +478,7 @@ def call(Map args) {
                     echo 'The step is skipped'
                 } else {
                     cleanUpWS()
-                    installCli('rpm')
+                    installCli()
                     unstash 'properties'
                     popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                     buildStage('oraclelinux:8', '--debug=1 --build_tarball=1')
@@ -493,7 +496,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -514,7 +517,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -535,7 +538,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -556,7 +559,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -577,7 +580,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                 if (fipsMode == 'YES') {
@@ -598,7 +601,7 @@ def call(Map args) {
             }
             node(cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb') {
                 cleanUpWS()
-                installCli('rpm')
+                installCli()
                 unstash 'properties'
                 popArtifactFolder(cloud, 'source_tarball/', awsStashPath)
                 if (fipsMode == 'YES') {
