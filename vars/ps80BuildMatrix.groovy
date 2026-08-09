@@ -22,7 +22,7 @@ void installCli() {
         cat /etc/os-release
         if command -v apt-get > /dev/null 2>&1; then
             sudo apt-get update
-            sudo apt-get -y install wget curl unzip
+            sudo apt-get -y install wget unzip curl
         elif command -v yum > /dev/null 2>&1; then
             export RHVER=\$(rpm --eval %rhel)
             if [ \${RHVER} = "7" ]; then
