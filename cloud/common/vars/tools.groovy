@@ -62,9 +62,10 @@ void kubernetesCleanupCluster(String kubeconfig) {
 }
 
 void kubernetesCleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
-    def kubeconfig = getKubeconfig(testVariables, clusterSuffix)
+    def clusterName = "${testVariables.cluster_name}-${clusterSuffix}"
+    def kubeconfig = "${testVariables.kubeconfigPath}/${clusterName}"
 
-    echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    echo "Cleaning failed test namespaces for ${testName} on ${clusterName}"
 
     sh """
         set +e

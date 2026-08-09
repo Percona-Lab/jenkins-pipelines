@@ -20,10 +20,6 @@ void loadCloudSecret(String operator) {
     }
 }
 
-String getKubeconfig(Map testVariables, String clusterSuffix) {
-    return "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-}
-
 String getReleaseVersionsParam(String releaseVersions, String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
@@ -602,66 +598,72 @@ void removeCluster(List clusters, String clusterSuffix) {
 }
 
 void runTest(Map testConfig) {
-    def retryCount = 0
     def testVariables = testConfig.testVariables
     def testId = testConfig.testId
     def testName = testVariables.tests[testId].name
     def clusterSuffix = testConfig.clusterSuffix
+    def retries = (testConfig.retries ?: 1) as Integer
+    def maxAttempts = retries + 1
+    def timeStart = System.currentTimeMillis()
 
-    waitUntil {
-        def timeStart = System.currentTimeMillis()
+    updateTestResult(testVariables.tests, testId, "failure")
 
-        try {
-            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}!"
-            updateTestResult(testVariables.tests, testId, "failure")
+    try {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts})!"
 
+            def exitCode = 1
+            try {
+                timeout(time: 90, unit: 'MINUTES') {
+                    def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
+                    def command = defineTestCommand(testVariables, testName)
 
-            timeout(time: 90, unit: 'MINUTES') {
-                def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
-                def command = defineTestCommand(testVariables, testName)
-
-                sh """
-                    cd source
-                    ${exports}
-                    ${command}
-                """
+                    exitCode = sh(
+                        script: """
+                            cd source
+                            ${exports}
+                            ${command}
+                        """,
+                        returnStatus: true
+                    )
+                }
+            } catch (exc) {
+                echo "Error occurred while running test ${testName}: ${exc}"
             }
 
-            pushArtifactFile(
-                artifactFileName(testVariables, testName),
-                testVariables.git_short_commit
-            )
+            if (exitCode == 0) {
+                pushArtifactFile(
+                    artifactFileName(testVariables, testName),
+                    testVariables.git_short_commit
+                )
+                updateTestResult(testVariables.tests, testId, "passed")
+                return
+            }
 
-            updateTestResult(testVariables.tests, testId, "passed")
-            return true
-
-        } catch (exc) {
+            echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
             try {
                 testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
             }
 
-            if (retryCount >= (testConfig.retries ?: 1)) {
-                currentBuild.result = 'FAILURE'
-                return true
+            if (attempt < maxAttempts) {
+                echo "Retrying ${testName} on the same cluster"
             }
-
-            retryCount++
-            return false
-
-        } finally {
-            updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
-            try {
-                pushLogFile(testName, [
-                    sourceDir     : 'source',
-                    gitShortCommit: testVariables.git_short_commit
-                ])
-            } catch (logErr) {
-                echo "Warning: failed to push log for ${testName}: ${logErr}"
-            }
-            echo "The ${testName} test was finished!"
         }
+
+        currentBuild.result = 'FAILURE'
+    } finally {
+        updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
+        try {
+            pushLogFile(testName, [
+                sourceDir     : 'source',
+                gitShortCommit: testVariables.git_short_commit
+            ])
+        } catch (logErr) {
+            echo "Warning: failed to push log for ${testName}: ${logErr}"
+        }
+        echo "The ${testName} test was finished!"
     }
 }
 
