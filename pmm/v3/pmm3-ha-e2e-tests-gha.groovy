@@ -3,6 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 void runHAClusterCreate(String OCP_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
