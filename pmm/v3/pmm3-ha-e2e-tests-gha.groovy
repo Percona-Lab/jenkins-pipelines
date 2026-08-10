@@ -163,7 +163,7 @@ pipeline {
                  sh '''
                    echo "started client setup"
                  '''
-                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
+                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'yes', 'ha-e2e', ADMIN_PASSWORD, 'no')
                  sh '''
                    echo "installed local client"
                  '''
