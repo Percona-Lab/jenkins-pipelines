@@ -74,7 +74,8 @@ _promote ami role:
 
 # deregister an AMI + delete its backing snapshots. Idempotent (an already-gone AMI
 # is a no-op) but NOT error-masking: a genuine API failure aborts rather than silently
-# leaking a snapshot. describe-images --image-ids errors InvalidAMIID.NotFound when gone.
+# leaking a snapshot, and a non-success snapshot result exits non-zero after being
+# reported, so caller loops can count it instead of ending on a silent success.
 _deregister ami:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -100,6 +101,10 @@ _deregister ami:
       echo "  WARN snapshot cleanup for {{ami}}: $snapshot_result" >&2
     done <<< "$snapshot_failures"
 
+    if [[ -n "$snapshot_failures" ]]; then
+      exit 1
+    fi
+
 # deregister every self-owned AMI matching a tag filter (+ snapshots), with a HARD guard
 # that NEVER touches a promoted prod base (role={{role_prod}}) or an AMI it cannot classify.
 # Lists by default; deletes only on apply=1. Args after apply are the describe-images filters.
@@ -109,6 +114,7 @@ _prune-by-filter apply +filters:
     ids=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
       {{filters}} --query 'Images[].ImageId' --output text)
     [ -z "$ids" ] && { echo "  (nothing matches)"; exit 0; }
+    deregister_failures=0
     for ami in $ids; do
       role=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --image-ids "$ami" \
         --query "Images[0].Tags[?Key=='role']|[0].Value" --output text)
@@ -117,8 +123,19 @@ _prune-by-filter apply +filters:
       if [ "$role" = "{{role_prod}}" ] || [ -z "$role" ] || [ "$role" = None ]; then echo "  SKIP $ami (protected: role=${role:-<none>})"; continue; fi
       # fail-safe: deregister ONLY on an exact apply=1; any other value (incl a malformed
       # `apply=1` arg, which just passes as the literal "apply=1") lists without deleting.
-      if [ "{{apply}}" = "1" ]; then echo "  deregister $ami (role=$role)"; just _deregister "$ami"; else echo "  would deregister $ami (role=$role)"; fi
+      # || keeps the sweep going: one failed deregister must not skip the rest.
+      if [ "{{apply}}" = "1" ]; then
+        echo "  deregister $ami (role=$role)"
+        just _deregister "$ami" || deregister_failures=$((deregister_failures + 1))
+      else
+        echo "  would deregister $ami (role=$role)"
+      fi
     done
+
+    if (( deregister_failures > 0 )); then
+      echo "  ${deregister_failures} deregister(s) failed" >&2
+      exit 1
+    fi
 
 # ===========================================================================
 # packer build / validate (OL + Rocky refresh, Rocky lineage roots via seed-rocky)
@@ -286,6 +303,7 @@ prune-stale apply="0":
       --filters Name=tag:iit-billing-tag,Values={{billing_tag}} Name=tag:os,Values={{os_csv}} \
       --query "Images[].[ImageId, (Tags[?Key=='role']|[0].Value) || 'None', (Tags[?Key=='factory_env']|[0].Value) || 'None']" --output text)
     [[ -z "$candidates" ]] && { echo "  (no factory AMIs)"; exit 0; }
+    deregister_failures=0
     while IFS=$'\t' read -r ami role env; do
       [[ -z "$ami" ]] && continue
       # fail-closed: never delete the prod base, nor anything we cannot positively classify.

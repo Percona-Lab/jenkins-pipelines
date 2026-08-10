@@ -13,7 +13,9 @@
 # Fail-safe: only exact role-tag matches with the right NATIVE architecture
 # are candidates (demoted `*-superseded` roles and mistagged AMIs are never
 # seen), the newest KEEP_N always survive, and a describe failure aborts
-# rather than treating images as absent. Ordering is computed locally from a
+# rather than treating images as absent. An apply run exits non-zero when any
+# prune failed or the combo is still over KEEP_N, so the GHA step and the
+# justfile combo counter see the failure. Ordering is computed locally from a
 # plain projection because the CLI applies --query per page; the only loops
 # are per-AMI mutations, which have no bulk API.
 set -euo pipefail
@@ -193,8 +195,11 @@ for ami in "${prune_ids[@]}"; do
   done <<< "${snapshot_failures}"
 done
 
-# Report: counts always, a loud warning when the combo is still over keep
-# (the signal that the filter drifted or failures piled up).
+# Report, then return the result in the exit status: the GHA step and the
+# justfile combo counter consume the exit code, warnings alone reach neither.
+# The if-form matters, a bare `(( ... )) && exit 1` as the final command would
+# exit 1 when the condition is false. Dry runs stay exit 0 (pruned_count is 0
+# there, so residual exceeds KEEP_N whenever candidates exist).
 residual=$(( ${#ami_ids[@]} - pruned_count ))
 
 if [[ "${APPLY}" == 1 ]]; then
@@ -202,5 +207,9 @@ if [[ "${APPLY}" == 1 ]]; then
 
   if (( residual > KEEP_N )); then
     summary "::warning::${COMBO}: still ${residual} AMIs after pruning (over keep ${KEEP_N})"
+  fi
+
+  if (( prune_failures > 0 || residual > KEEP_N )); then
+    exit 1
   fi
 fi

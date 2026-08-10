@@ -194,11 +194,13 @@ jobs:
 
       - name: Prune superseded (keep last ${{ env.KEEP_GENERATIONS }})
         working-directory: ppg/packer
-        # Housekeeping must never fail an already-promoted bake, but it is not
-        # silent either: the script appends counts to $GITHUB_STEP_SUMMARY and
-        # emits ::warning:: annotations on any skipped deregister, failed
-        # snapshot cleanup, or combo left over the keep count.
-        continue-on-error: true
+        # Promote already ran, so a prune failure cannot un-ship the AMI: it
+        # fails only this leg (fail-fast is off) and pages via the notify job.
+        # No continue-on-error: a step failing under it keeps the job green
+        # (outcome=failure, conclusion=success), which makes the notify job's
+        # failure() unreachable. The script appends counts to
+        # $GITHUB_STEP_SUMMARY and exits non-zero on any failed deregister,
+        # failed snapshot cleanup, or combo left over the keep count.
         env:
           OS: ${{ matrix.os || 'oraclelinux' }}
           OS_MAJOR: ${{ matrix.os_major }}
