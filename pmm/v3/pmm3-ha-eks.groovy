@@ -189,14 +189,28 @@ EOF
                         # Granting access to SSO admin role
                         grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
 
-                        # Granting access to the pmm-qa GitHub Actions OIDC role
-                        if GHA_ROLE_ARN=$(aws iam get-role \
+                        # Granting the pmm-qa GitHub Actions OIDC role edit access scoped
+                        # to the pmm namespace. QA workflows test against the PMM HA this
+                        # job deploys. Cluster-scoped objects (operator CRDs, storage
+                        # classes, nodes) stay with this job's credentials. The role name
+                        # is defined by the gha_pmm_qa_eks module in percona-cd-platform.
+                        # No fallback on purpose: a missing role fails the stage here
+                        # instead of surfacing later as an opaque GHA auth error.
+                        GHA_ROLE_ARN=$(aws iam get-role \
                             --role-name percona-ci-platform-gha-pmm-qa-eks \
-                            --query Role.Arn --output text 2>/dev/null); then
-                            grant_admin "${GHA_ROLE_ARN}"
-                        else
-                            echo "pmm-qa GHA OIDC role not found, skipping its access entry"
-                        fi
+                            --query Role.Arn --output text)
+
+                        aws eks create-access-entry \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}"
+
+                        aws eks associate-access-policy \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}" \
+                            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy \
+                            --access-scope type=namespace,namespaces=pmm
                     '''
                 }
             }
