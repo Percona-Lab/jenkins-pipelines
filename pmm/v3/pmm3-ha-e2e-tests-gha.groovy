@@ -65,7 +65,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Optional pmm-framework arguments to provision monitored DBs on this agent (e.g. "--database ps=8.4").',
-            name: 'PMM_CLIENTS')
+            name: 'CLIENTS')
     }
     options {
         skipDefaultCheckout()
@@ -155,39 +155,42 @@ pipeline {
         }
         stage('Setup PMM Client') {
             steps {
+                 sh '''
+                   echo "started client setup"
+                 '''
+                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', ENABLE_PULL_MODE, 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
+                 sh '''
+                   echo "installed local client"
+                 '''
+                script {
+                        env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
+                }
                 sh '''
-                    set -o errexit
-                    set -o xtrace
+                        set -o errexit
+                        set -o xtrace
+                        # Exit if no CLIENTS are provided
+                        [ -z "${CLIENTS// }" ] && exit 0
 
-                    pushd /srv/pmm-qa/qa-integration/pmm_qa
-                        sudo bash -x pmm3-client-setup.sh \
-                            --pmm_server_ip "${SERVER_IP}" \
-                            --client_version "${CLIENT_VERSION}" \
-                            --admin_password "${ADMIN_PASSWORD}" \
-                            --use_metrics_mode no
-                    popd
-                '''
-            }
-        }
-        stage('Setup Databases for PMM HA Server') {
-            when {
-                expression { params.PMM_CLIENTS?.trim() }
-            }
-            steps {
-                sh '''
-                    set -o errexit
-                    set -o xtrace
+                        export PATH=$PATH:/usr/sbin
+                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
+                            export PMM_CLIENT_VERSION="3-dev-latest"
+                        fi
 
-                    mkdir -m 777 -p /tmp/backup_data || :
-                    pushd /srv/pmm-qa/qa-integration/pmm_qa
-                        ./pmm-framework/pmm-framework \
-                            --parallel \
-                            --pmm-server-ip=${SERVER_IP} \
-                            --pmm-server-password=${ADMIN_PASSWORD} \
-                            --client-version=${CLIENT_VERSION} \
-                            ${PMM_CLIENTS}
-                    popd
-                '''
+                        sudo rm -rf /srv/pmm-qa
+                        sudo mkdir -p /srv/pmm-qa
+                        sudo rsync -a ${WORKSPACE}/ /srv/pmm-qa/
+                        sudo chown -R ec2-user:ec2-user /srv/pmm-qa
+
+                        pushd /srv/pmm-qa/qa-integration/pmm_qa
+                            echo "Setting docker based PMM clients"
+
+                            ./pmm-framework/pmm-framework \
+                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${CLIENTS}
+                        popd
+                    '''
             }
         }
         stage('Install dependencies') {
