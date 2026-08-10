@@ -951,16 +951,6 @@ void publishPytestReports(Map config) {
         return
     }
 
-    def xmlReports = "${sourceDir}/e2e-tests/reports/*.xml"
-    try {
-        normalizeReports(tests, sourceDir)
-        junit testResults: xmlReports, healthScaleFactor: 1.0, allowEmptyResults: false
-        archiveArtifacts artifacts: "${xmlReports}, PipelineParameters.txt", allowEmptyArchive: false
-    } catch (err) {
-        echo "Warning: JUnit report publish failed: ${err}"
-        return
-    }
-
     try {
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"

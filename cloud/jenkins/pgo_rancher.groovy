@@ -199,7 +199,7 @@ pipeline {
                         .replace(']]', ']')
                         .replaceFirst('\\[', '')
 
-                libraries.tests.makeReport(testVariables.tests, testVariables)
+                libraries.tests.makeReportJUnit(testVariables.tests, testVariables)
 
                 try {
                     def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
@@ -238,6 +238,7 @@ pipeline {
                 libraries.tools.dockerCleanupVolumes()
             }
 
+            junit testResults: 'TestsReport.xml', healthScaleFactor: 1.0, allowEmptyResults: true
             archiveArtifacts artifacts: '*.xml,*.txt', allowEmptyArchive: true
             deleteDir()
         }
