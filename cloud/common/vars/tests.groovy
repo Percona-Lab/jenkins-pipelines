@@ -648,7 +648,13 @@ void runTest(Map testConfig) {
             }
 
             if (attempt < maxAttempts) {
-                echo "Retrying ${testName} on the same cluster"
+                catchError(
+                    buildResult: 'SUCCESS',
+                    stageResult: 'SUCCESS',
+                    message: "Retrying ${testName} on the same cluster"
+                ) {
+                    error("Retrying ${testName} on the same cluster")
+                }
             }
         }
 
