@@ -7,9 +7,6 @@
         pgbouncer, upgrade), UBI8 (postgres 14-18, upgrade; under TAG-ubi8)
         and the PostgreSQL 19 (BETA, tech preview) set: postgres19-community,
         ppg19-postgres, pgbackrest19 (2.59), pgbouncer19.
-        Runs the community unit tests and the sync.sh drift check before
-        building. Once ppg-19 is released, 19 joins pg-containers-docker-build
-        and the pg19 stage goes away.
         Do not edit this job through the web!
     concurrent: false
     properties:

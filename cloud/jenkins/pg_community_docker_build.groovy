@@ -10,10 +10,10 @@
 // until ppg-19 exists — once it is released, 19 joins the regular loop and
 // the pg19 stage here goes away.
 //
-// Before building anything the job runs the community unit tests (pytest)
-// and verifies the generated Dockerfiles are in sync with their Percona
-// sources (sync.sh): a build from stale Dockerfiles would publish images
-// that do not match the sources.
+// Before building anything the job verifies the generated Dockerfiles are in
+// sync with their Percona sources (sync.sh): a build from stale Dockerfiles
+// would publish images that do not match the sources. The community unit
+// tests (pytest) run in percona-docker's GitHub CI on every PR.
 //
 // Published tags (REGISTRY defaults to perconalab/percona-postgresql-operator):
 //   <tag>-postgres{14..18}-community        - UBI9 postgres + patroni
@@ -140,17 +140,6 @@ pipeline {
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
                 """
-            }
-        }
-
-        stage('Unit tests') {
-            steps {
-                sh '''
-                    cd ./source/postgresql-containers/community
-                    python3 -m pip install --user pytest 2>/dev/null \
-                        || python3 -m pip install --user --break-system-packages pytest
-                    python3 -m pytest tests/ -v
-                '''
             }
         }
 
