@@ -652,7 +652,13 @@ void runTest(Map testConfig) {
             }
         }
 
-        currentBuild.result = 'FAILURE'
+        catchError(
+            buildResult: 'FAILURE',
+            stageResult: 'FAILURE',
+            message: "Test ${testName} failed after ${maxAttempts} attempts"
+        ) {
+            error("Test ${testName} failed after ${maxAttempts} attempts")
+        }
     } finally {
         updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
         try {
@@ -939,9 +945,17 @@ void publishPytestReports(Map config) {
         return
     }
 
+    def xmlReports = "${sourceDir}/e2e-tests/reports/*.xml"
     try {
         normalizeReports(tests, sourceDir)
+        junit testResults: xmlReports, healthScaleFactor: 1.0, allowEmptyResults: false
+        archiveArtifacts artifacts: "${xmlReports}, PipelineParameters.txt", allowEmptyArchive: false
+    } catch (err) {
+        echo "Warning: JUnit report publish failed: ${err}"
+        return
+    }
 
+    try {
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
@@ -953,8 +967,7 @@ void publishPytestReports(Map config) {
             formatReportDuration(reportHtml)
         }
 
-        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
-        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}, PipelineParameters.txt", allowEmptyArchive: true
+        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}", allowEmptyArchive: true
 
         if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
             pushReportFile(reportHtml, gitShortCommit)
@@ -964,7 +977,7 @@ void publishPytestReports(Map config) {
             currentBuild.description = currentBuild.description ? "${currentBuild.description} | ${reportLink}" : reportLink
         }
     } catch (err) {
-        echo "Warning: pytest report publish failed: ${err}"
+        echo "Warning: optional HTML report publish failed: ${err}"
     }
 }
 
