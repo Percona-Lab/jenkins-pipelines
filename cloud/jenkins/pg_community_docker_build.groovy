@@ -30,23 +30,28 @@
 // pgbackrest and pgbouncer have no UBI8 variant (no upstream Dockerfile-ubi8)
 // and PG 19 has no UBI8 variant (the PGDG testing repository for EL8 is empty).
 
-List UBI9_SUFFIXES = [
-    'postgres14-community', 'postgres15-community', 'postgres16-community',
-    'postgres17-community', 'postgres18-community',
-    'pgbackrest-community', 'pgbouncer-community', 'upgrade-community',
-]
-List UBI8_SUFFIXES = [
-    'postgres14-community', 'postgres15-community', 'postgres16-community',
-    'postgres17-community', 'postgres18-community', 'upgrade-community',
-]
-List PG19_SUFFIXES = [
-    'postgres19-community', 'ppg19-postgres', 'pgbackrest19', 'pgbouncer19',
-]
-
-String REPO = 'perconalab/percona-postgresql-operator'
-
 String imageTag() {
     return params.GIT_PD_BRANCH.replaceAll('[/.]', '-').toLowerCase()
+}
+
+// Ask the community Makefile which image tags a build group pushes (same TAG
+// arguments as the build stages), so the summary cannot drift from percona-docker.
+// Returns '' when the revision being built predates the list-images targets:
+// a reporting gap must not fail a run whose pushes succeeded.
+String listImages(String target, String tagArg) {
+    return withEnv(["LIST_TARGET=${target}", "LIST_TAG=${tagArg}"]) {
+        sh(
+            script: '''
+                cd ./source/postgresql-containers/community
+                if make -s -n "$LIST_TARGET" >/dev/null 2>&1; then
+                    make -s "$LIST_TARGET" TAG="$LIST_TAG"
+                else
+                    echo "WARNING: $LIST_TARGET is not present on this percona-docker revision, skipping it in the summary" >&2
+                fi
+            ''',
+            returnStdout: true
+        ).trim()
+    }
 }
 
 void generateImageSummary(filePath) {
@@ -200,15 +205,18 @@ pipeline {
                     def tag = imageTag()
                     def images = []
                     if (params.BUILD_UBI9) {
-                        images += UBI9_SUFFIXES.collect { "${REPO}:${tag}-${it}" }
+                        images += listImages('list-images-all', tag).split('\n').toList()
                     }
                     if (params.BUILD_UBI8) {
-                        images += UBI8_SUFFIXES.collect { "${REPO}:${tag}-ubi8-${it}" }
+                        images += listImages('list-images-all-ubi8', "${tag}-ubi8").split('\n').toList()
                     }
                     if (params.BUILD_PG19) {
-                        images += PG19_SUFFIXES.collect { "${REPO}:${tag}-${it}" }
+                        images += listImages('list-images-pg19', tag).split('\n').toList()
                     }
-                    writeFile(file: 'list-of-images.txt', text: images.unique().join('\n') + '\n')
+                    images = images.findAll { it }
+                    if (images) {
+                        writeFile(file: 'list-of-images.txt', text: images.unique().join('\n') + '\n')
+                    }
                 }
             }
         }
