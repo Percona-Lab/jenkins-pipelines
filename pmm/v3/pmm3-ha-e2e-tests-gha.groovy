@@ -220,7 +220,6 @@ pipeline {
                     pushd /srv/pmm-qa/e2e_tests
                         export CI=true
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        export PMM_K8S_NAMESPACE=pmm
                         npx playwright test --grep "${TAGS_FOR_TESTS}"
                     popd
                 '''
@@ -234,9 +233,20 @@ pipeline {
                     curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 fi
                 tar -zcvf playwright-report.tar.gz -C /srv/pmm-qa/e2e_tests playwright-report || true
+
+                # The suite runs out of /srv/pmm-qa, but the junit step globs
+                # relative to the workspace, so the report has to come back here.
+                mkdir -p ${WORKSPACE}/output
+                cp /srv/pmm-qa/e2e_tests/output/junit.xml ${WORKSPACE}/output/ || true
             '''
             archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
             archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
+            // allowEmptyResults: a run that dies before the test phase writes no
+            // XML at all, and that should not mask the real failure.
+            // keepLongStdio: Playwright puts the whole error and code frame in
+            // the failure body, which the plugin truncates by default.
+            junit testResults: 'output/junit.xml', keepLongStdio: true, allowEmptyResults: true,
+                skipPublishingChecks: true
             script {
                 if (env.CLUSTER_NAME) {
                     build job: 'pmm3-ha-rosa-cleanup', parameters: [
