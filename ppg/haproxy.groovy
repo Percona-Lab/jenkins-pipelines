@@ -11,6 +11,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sed -i "s/^BRANCH=.*/BRANCH=${PG_BRANCH}/g" builder.sh
         VERSION=\$(echo ${PG_BRANCH} | sed 's/^v//')
         sed -i "s/^VERSION=.*/VERSION=\${VERSION}/g" builder.sh
+        HAPROXY_MAJOR_MINOR=\$(echo \${VERSION} | cut -d. -f1,2)
+        HAPROXY_REPO="http://git.haproxy.org/git/haproxy-\${HAPROXY_MAJOR_MINOR}.git/"
+        sed -i "s#^REPO=.*#REPO=\${HAPROXY_REPO}#g" builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
