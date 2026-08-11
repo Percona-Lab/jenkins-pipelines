@@ -200,7 +200,6 @@ def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
         lines.append("patroni: <OVERRIDE>")
         _add_postgis_versions(lines, versions)
         _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM")
-        _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM3")
         lines.append("cert-manager: <OVERRIDE>")
 
     return lines
