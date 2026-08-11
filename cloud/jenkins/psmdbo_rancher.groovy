@@ -14,6 +14,7 @@ def getLibraries() {
 
 pipeline {
     environment {
+        CLEAN_NAMESPACE = 1
         DB_TAG = sh(
             script: '''[[ "$IMAGE_MONGOD" ]] && echo "$IMAGE_MONGOD" | awk -F':' '{print $2}' || echo main''',
             returnStdout: true
@@ -24,7 +25,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv', 'run-backups.csv'], description: 'Choose test suite from file')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '70', '60'], description: 'Set to 60/70/80 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Set to 60/70/80/83 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description:  'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
@@ -33,15 +34,15 @@ pipeline {
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
 
-        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main')
-        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-mongod8.0')
-        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-backup')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm-server')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm3')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-pmm3-server')
-        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'Example: perconalab/fluentbit:main-logcollector')
-        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'Example: perconalab/percona-server-mongodb-operator:main-mongot')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
 
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
@@ -61,6 +62,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
+        copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
 
     stages {
@@ -85,6 +87,8 @@ pipeline {
                     libraries.dependencies.install()
                     libraries.dependencies.installGoogleCLI()
                     libraries.dependencies.installAzureCLI()
+                    libraries.dependencies.installUv()
+                    libraries.dependencies.syncPythonDeps()
 
                     libraries.gcloud.auth()
                     libraries.azure.auth()
@@ -97,7 +101,8 @@ pipeline {
                 script {
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: 'perconalab/percona-server-mongodb-operator',
-                        branch: GIT_BRANCH
+                        branch: GIT_BRANCH,
+                        platform: 'linux/amd64,linux/arm64'
                     )
                 }
             }
@@ -129,7 +134,7 @@ pipeline {
                         job_name              : JOB_NAME,
                         db_tag                : DB_TAG,
                         debug_tests           : DEBUG_TESTS,
-                        test_executor_type    : 'shell',
+                        test_executor_type    : 'make',
 
                         default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
 
@@ -231,8 +236,6 @@ pipeline {
                 libraries.tools.dockerCleanupVolumes()
             }
 
-            junit testResults: '*.xml', healthScaleFactor: 1.0, allowEmptyResults: true
-            archiveArtifacts artifacts: '*.xml,*.txt', allowEmptyArchive: true
             deleteDir()
         }
     }

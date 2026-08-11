@@ -269,14 +269,8 @@ pipeline {
                     pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
-                    python3 -m venv virtenv
-                    . virtenv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install netaddr
-                    pip install setuptools
 
-                    python pmm-framework.py --verbose \
+                    ./pmm-framework/pmm-framework \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}

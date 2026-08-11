@@ -73,12 +73,85 @@ void install(Map config = [:]) {
     }
 }
 
+void installUv() {
+    sh '''
+        set -euo pipefail
+        export PATH="$HOME/.local/bin:$PATH"
+        if command -v uv >/dev/null 2>&1; then
+            echo "uv already installed: $(uv --version)"
+        else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+        fi
+        uv --version
+    '''
+}
+
+void syncPythonDeps(String sourceDir = 'source') {
+    sh """
+        set -euo pipefail
+        export PATH="\$HOME/.local/bin:\$PATH"
+        cd ${sourceDir}
+        uv sync --locked
+    """
+}
+
 void installGoogleCLI() {
     sh '''
         sudo cp cloud/common/files/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
         command -v gsutil
         gsutil version -l | head -n1
+    '''
+}
+
+void installPxcTools() {
+    sh '''
+        # install cfssl for PXC operator tests
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssl_1.6.5_linux_amd64 -o /usr/local/bin/cfssl
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssljson_1.6.5_linux_amd64 -o /usr/local/bin/cfssljson
+        sudo chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable pxb-84-lts
+        sudo yum install -y percona-xtrabackup-84
+    '''
+}
+
+void installKuttl() {
+    sh '''
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+        kubectl krew install assert
+
+        # v0.25.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
+        echo $(kubectl kuttl --version) is installed
+    '''
+}
+
+void installOpenshiftClient(String platformVersion) {
+    withEnv(["PLATFORM_VER=${platformVersion}"]) {
+        sh '''
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+        '''
+    }
+}
+
+void installEksctl() {
+    sh '''
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+    '''
+}
+
+void installDoctl() {
+    sh '''
+        client_version=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | cut -d '"' -f4 | sed 's/^v//')
+        curl -sL "https://github.com/digitalocean/doctl/releases/download/v$client_version/doctl-$client_version-linux-amd64.tar.gz" | tar -xz && sudo mv doctl /usr/local/bin
+        doctl version
     '''
 }
 
