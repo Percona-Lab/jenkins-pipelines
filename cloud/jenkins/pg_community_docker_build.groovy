@@ -108,15 +108,15 @@ pipeline {
             name: 'GIT_PD_REPO')
         booleanParam(
             defaultValue: true,
-            description: 'Build and push the UBI9 image set (make all)',
+            description: 'Build and push the UBI9 image set: postgres 14-18, pgbackrest, pgbouncer, upgrade (make all)',
             name: 'BUILD_UBI9')
         booleanParam(
             defaultValue: true,
-            description: 'Build and push the UBI8 image set under TAG-ubi8 (make all-ubi8)',
+            description: 'Build and push the UBI8 image set: postgres 14-18, upgrade, under TAG-ubi8 (make all-ubi8)',
             name: 'BUILD_UBI8')
         booleanParam(
             defaultValue: true,
-            description: 'Build and push the PostgreSQL 19 beta image set (make pg19)',
+            description: 'Build and push the PostgreSQL 19 beta image set: postgres19, pgbackrest19, pgbouncer19 (make pg19)',
             name: 'BUILD_PG19')
     }
 
