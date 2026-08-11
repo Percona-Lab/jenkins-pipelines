@@ -1,10 +1,21 @@
 void loadCloudSecret(String operator) {
-    withCredentials([file(
-        credentialsId: "cloud-secret-file-${operator}",
-        variable: 'CLOUD_SECRET_FILE'
-    )]) {
+    def credentialsId = operator in ["pg-operator", "pxc-operator"] ? "cloud-secret-file" : "cloud-secret-file-${operator}"
+
+    withCredentials([
+        file(
+            credentialsId: credentialsId,
+            variable: 'CLOUD_SECRET_FILE'
+        ),
+        file(
+            credentialsId: 'cloud-minio-secret-file', 
+            variable: 'CLOUD_MINIO_SECRET_FILE'
+        )
+    ]) {
         sh '''
             cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
+            cp "$CLOUD_MINIO_SECRET_FILE" source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         '''
     }
 }
@@ -29,16 +40,16 @@ String getClusterFullName(String clusterName, String clusterSuffix) {
     return "${clusterName}-${clusterSuffix}"
 }
 
-String imageTag(String image, String fallback = "main") {
+String imageTag(String image) {
     if (!image?.trim()) {
-        return fallback
+        return ""
     }
 
     def parts = image.tokenize(":")
-    return parts.size() > 1 ? parts[-1] : fallback
+    return parts.size() > 1 ? parts[-1] : ""
 }
 
-String getDbTag(Map testVariables, String fallback = "main") {
+String getDbTag(Map testVariables) {
     def dbImage = [
         testVariables.images?.IMAGE_MONGOD,
         testVariables.images?.IMAGE_MYSQL,
@@ -46,7 +57,15 @@ String getDbTag(Map testVariables, String fallback = "main") {
         testVariables.images?.IMAGE_POSTGRESQL
     ].find { it?.trim() }
 
-    return imageTag(dbImage, fallback)
+    return imageTag(dbImage)
+}
+
+String getDbVersion(Map testVariables) {
+    return [
+        testVariables.pillar_version,
+        testVariables.db_version,
+        testVariables.db_tag
+    ].find { it?.toString()?.trim() && !it.toString().equalsIgnoreCase("none") } ?: ""
 }
 
 String getMinorPlatformVersion(String platformVersion) {
@@ -61,7 +80,7 @@ String buildJobDescription(Map testVariables) {
     return [
         getMinorPlatformVersion("${testVariables.platform_version}"),
         arch,
-        testVariables.db_tag ?: getDbTag(testVariables),
+        getDbVersion(testVariables),
         cw
     ].findAll { it?.trim() }.join(" ")
 }
@@ -95,7 +114,7 @@ void printTestVariables(Map testVariables) {
 }
 
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
-    def versionedImages = [
+    def operatorImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
@@ -109,12 +128,19 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_PGBOUNCER: "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pillarVersion}",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersion}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersion}"
         ]
     ]
 
-    return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
+    if (operator?.equalsIgnoreCase("pg-operator") &&
+        imageName == "IMAGE_POSTGRESQL" &&
+        pillarVersion.endsWith("-postgis")) {
+        return "IMAGE_POSTGIS${pillarVersion}"
+    }
+
+    return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
 Boolean isReleaseRun(Map testVariables) {
@@ -142,32 +168,23 @@ void resolveReleaseRunParams(Map testVariables) {
     }
 }
 
-Boolean resolveReleasePlatformVersion(Map testVariables) {
-    if (!(testVariables.platform_version?.toLowerCase() in ["min", "max"])) {
-        return false
-    }
-
-    testVariables.platform_version = getReleaseVersionsParam(
-        testVariables.release_versions,
-        "${testVariables.platform.toUpperCase()}_${testVariables.platform_version.toUpperCase()}"
-    )
-
-    testVariables.platform_version = testVariables.libraries[testVariables.platform_provider].getPlatformVersion(
-        testVariables.platform_version
-    )
-
-    return true
-}
-
-void resolvePlatformVersion(Map testVariables, Boolean platformFromReleaseVersions) {
+void resolvePlatformVersion(Map testVariables) {
     def library = testVariables.libraries[testVariables.platform_provider]
-    if (testVariables.platform_version == "latest") {
-        testVariables.platform_version = library.getLatestPlatformVersion(testVariables)
-    } else if (!platformFromReleaseVersions) {
-        testVariables.platform_version = library.getPlatformVersion(
-            testVariables.platform_version
+    def platformVersion = testVariables.platform_version
+
+    if (platformVersion?.toLowerCase() in ["min", "max"]) {
+        platformVersion = getReleaseVersionsParam(
+            testVariables.release_versions,
+            "${testVariables.platform.toUpperCase()}_${platformVersion.toUpperCase()}"
         )
+    } else if (platformVersion == "latest") {
+        platformVersion = library.getLatestPlatformVersion(testVariables)
+
+        testVariables.platform_version = platformVersion
+        return
     }
+
+    testVariables.platform_version = library.getPlatformVersion(platformVersion)
 }
 
 void resolveMachineType(Map testVariables) {
@@ -185,12 +202,11 @@ Map prepareVersions(Map testVariables) {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
-    def platformFromReleaseVersions = resolveReleasePlatformVersion(testVariables)
-    resolvePlatformVersion(testVariables, platformFromReleaseVersions)
+    resolvePlatformVersion(testVariables)
     resolveMachineType(testVariables)
 
-    if (!testVariables.db_tag || testVariables.db_tag == "main") {
-        testVariables.db_tag = getDbTag(testVariables, testVariables.db_tag ?: "main")
+    if (!testVariables.db_tag) {
+        testVariables.db_tag = getDbTag(testVariables)
     }
 
     testVariables.git_short_commit = sh(
@@ -265,7 +281,7 @@ void initTests(List tests, Map testVariables, Map config) {
             """
 
             tests.each { test ->
-                def file = artifactFileName(buildArtifactParams(testVariables, test.name))
+                def file = artifactFileName(testVariables, test.name)
                 def retFileExists = sh(
                     script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} >/dev/null 2>&1",
                     returnStatus: true
@@ -289,20 +305,16 @@ void initTests(List tests, Map testVariables, Map config) {
     }
 }
 
-String artifactFileName(Map cfg) {
-    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
-}
-
-Map buildArtifactParams(Map testVariables, String testName) {
+String artifactFileName(Map cfg, String testName) {
     return [
-        gitBranch     : testVariables.git_branch,
-        gitShortCommit: testVariables.git_short_commit,
-        testName      : testName,
-        platformVersion : testVariables.platform_version,
-        dbTag         : testVariables.db_tag,
-        clusterWide   : testVariables.cluster_wide,
-        paramsHash    : testVariables.params_hash
-    ]
+        testVariables.git_branch,
+        testVariables.git_short_commit,
+        testName,
+        testVariables.platform_version,
+        getDbVersion(testVariables),
+        "CW_${testVariables.cluster_wide}",
+        testVariables.params_hash
+    ].findAll { it?.toString()?.trim() }.join("-")
 }
 
 String buildParamsHash(Map testVariables) {
@@ -313,7 +325,7 @@ String buildParamsHash(Map testVariables) {
         testVariables.cluster_wide,
         testVariables.platform_arch,
         testVariables.platform_channel,
-        testVariables.pillar_version
+        getDbVersion(testVariables),
     ].findAll { it != null }
 
     testVariables.images.values().findAll { it }.each { imageValue ->
@@ -360,7 +372,7 @@ void updateListWithLastExecutionStatus(Map testVariables) {
         """
 
         testVariables.tests.each { test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, test.name))
+            def file = artifactFileName(testVariables, test.name)
             def retFileExists = sh(
                 script: """
                     aws s3api head-object \
@@ -494,15 +506,23 @@ Map buildPsTestVariables(Map config) {
 }
 
 String defineTestCommand(Map testVariables, String testName) {
-    if (testVariables.test_executor_type == "kuttl") {
-        return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
-    }
+    switch (testVariables.test_executor_type) {
+        case "kuttl":
+            return """
+                export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+                kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'
+            """
 
-    if (testVariables.test_executor_type == "make") {
-        return "make e2e-test TEST=${testName}"
-    }
+        case "make":
+            return """
+                mkdir -p e2e-tests/{logs,reports}
+                set -o pipefail
+                make e2e-test TEST=${testName} 2>&1 | tee e2e-tests/logs/${testName}.log
+            """
 
-    return "e2e-tests/${testName}/run"
+        default:
+            return "e2e-tests/${testName}/run"
+    }
 }
 
 void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
@@ -600,73 +620,84 @@ void removeCluster(List clusters, String clusterSuffix) {
 }
 
 void runTest(Map testConfig) {
-    def retryCount = 0
     def testVariables = testConfig.testVariables
     def testId = testConfig.testId
     def testName = testVariables.tests[testId].name
     def clusterSuffix = testConfig.clusterSuffix
+    def retries = (testConfig.retries ?: 1) as Integer
+    def maxAttempts = retries + 1
+    def timeStart = System.currentTimeMillis()
 
-    waitUntil {
-        def timeStart = System.currentTimeMillis()
+    updateTestResult(testVariables.tests, testId, "failure")
 
-        try {
-            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}!"
-            updateTestResult(testVariables.tests, testId, "failure")
+    try {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts})!"
 
+            def exitCode = 1
+            try {
+                timeout(time: 90, unit: 'MINUTES') {
+                    def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
+                    def command = defineTestCommand(testVariables, testName)
 
-            timeout(time: 90, unit: 'MINUTES') {
-                def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
-                def command = defineTestCommand(testVariables, testName)
-
-                sh """
-                    cd source
-
-                    ${exports}
-
-                    mkdir -p e2e-tests/logs e2e-tests/reports
-                    bash -o pipefail <<BASH
-                    {
-                        ${command}
-                    } 2>&1 | tee e2e-tests/logs/${testName}.log
-BASH
-                """
+                    exitCode = sh(
+                        script: """
+                            cd source
+                            ${exports}
+                            ${command}
+                        """,
+                        returnStatus: true
+                    )
+                }
+            } catch (exc) {
+                echo "Error occurred while running test ${testName}: ${exc}"
             }
 
-            pushArtifactFile(
-                artifactFileName(buildArtifactParams(testVariables, testName)),
-                testVariables.git_short_commit
-            )
+            if (exitCode == 0) {
+                pushArtifactFile(
+                    artifactFileName(testVariables, testName),
+                    testVariables.git_short_commit
+                )
+                updateTestResult(testVariables.tests, testId, "passed")
+                return
+            }
 
-            updateTestResult(testVariables.tests, testId, "passed")
-            return true
-
-        } catch (exc) {
+            echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
             try {
-                cleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
+                testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
             }
 
-            if (retryCount >= (testConfig.retries ?: 1)) {
-                currentBuild.result = 'FAILURE'
-                return true
+            if (attempt < maxAttempts) {
+                catchError(
+                    buildResult: 'SUCCESS',
+                    stageResult: 'SUCCESS',
+                    message: "Retrying ${testName} on the same cluster"
+                ) {
+                    error("Retrying ${testName} on the same cluster")
+                }
             }
-
-            retryCount++
-            return false
-
-        } finally {
-            updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
-            try {
-                pushLogFile(testName, [
-                    sourceDir     : 'source',
-                    gitShortCommit: testVariables.git_short_commit
-                ])
-            } catch (logErr) {
-                echo "Warning: failed to push log for ${testName}: ${logErr}"
-            }
-            echo "The ${testName} test was finished!"
         }
+
+        catchError(
+            buildResult: 'FAILURE',
+            stageResult: 'FAILURE',
+            message: "Test ${testName} failed after ${maxAttempts} attempts"
+        ) {
+            error("Test ${testName} failed after ${maxAttempts} attempts")
+        }
+    } finally {
+        updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
+        try {
+            pushLogFile(testName, [
+                sourceDir     : 'source',
+                gitShortCommit: testVariables.git_short_commit
+            ])
+        } catch (logErr) {
+            echo "Warning: failed to push log for ${testName}: ${logErr}"
+        }
+        echo "The ${testName} test was finished!"
     }
 }
 
@@ -741,7 +772,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     }
 }
 
-Map getParallelStages(Map testVariables) {
+Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
 
     testVariables.clusters = testVariables.clusters ?: []
@@ -755,7 +786,20 @@ Map getParallelStages(Map testVariables) {
 
         parallelStages[clusterSuffix] = {
             stage(clusterSuffix) {
-                clusterRunner(clusterSuffix, testVariables)
+                if (testVariables.jenkins_agent_label) {
+                    node(testVariables.jenkins_agent_label) {
+                        libraries.tools.unstashClonedGitFiles()
+                        libraries.dependencies.prepareNode(
+                            testVariables.libraries,
+                            testVariables.test_executor_type,
+                            testVariables.operator,
+                            testVariables.platform_provider
+                        )
+                        clusterRunner(clusterSuffix, testVariables)
+                    }
+                } else {
+                    clusterRunner(clusterSuffix, testVariables)
+                }
             }
         }
     }
@@ -930,8 +974,6 @@ void publishPytestReports(Map config) {
     }
 
     try {
-        normalizeReports(tests, sourceDir)
-
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
@@ -943,8 +985,7 @@ void publishPytestReports(Map config) {
             formatReportDuration(reportHtml)
         }
 
-        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
-        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}, PipelineParameters.txt", allowEmptyArchive: true
+        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}", allowEmptyArchive: true
 
         if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
             pushReportFile(reportHtml, gitShortCommit)
@@ -954,7 +995,7 @@ void publishPytestReports(Map config) {
             currentBuild.description = currentBuild.description ? "${currentBuild.description} | ${reportLink}" : reportLink
         }
     } catch (err) {
-        echo "Warning: pytest report publish failed: ${err}"
+        echo "Warning: optional HTML report publish failed: ${err}"
     }
 }
 
