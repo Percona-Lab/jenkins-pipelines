@@ -39,6 +39,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/binlog-server_builder.sh -O binlog-server_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
+        export VERSION=\$(grep 'semantic_version app_version' app_version.hpp | head -1 | awk -F'[{}]' '{print \$2}' | sed 's:U::g; s:, *:\\.:g')
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -46,7 +48,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=\${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -75,10 +77,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for binlog-server repository',
             name: 'GIT_BRANCH')
-        string(
-            defaultValue: '0.1.0',
-            description: 'VERSION value',
-            name: 'VERSION')
         string(
             defaultValue: '1',
             description: 'RPM release value',
@@ -161,6 +159,9 @@ pipeline {
         stage('Build binlog server RPMs/DEBs') {
             parallel {
                 stage('Oracle Linux 8') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -173,6 +174,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 8 ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -304,9 +308,33 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute(26.04)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm(12)') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -321,7 +349,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12) ARM') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -336,7 +364,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13)') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -351,7 +379,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13) ARM') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -391,14 +419,30 @@ pipeline {
                 sync2ProdAutoBuild(params.CLOUD, PBS_REPO, COMPONENT)
             }
         }
+        stage('Build docker containers') {
+            agent {
+                label 'launcher-x64'
+            }
+            steps {
+                script {
+                    def VERSION = sh(returnStdout: true, script: """
+                        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
+                        grep 'semantic_version app_version' app_version.hpp | head -1 | awk -F'[{}]' '{print \$2}' | sed 's:U::g; s:, *:\\.:g'
+                    """).trim()
+                    build job: 'hetzner-pbs-docker-build',
+                          parameters: [
+                              string(name: 'VERSION', value: VERSION),
+                              string(name: 'COMPONENT', value: params.COMPONENT)
+                          ],
+                          wait: false
+                }
+            }
+        }
 
     }
     post {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
-            }
             deleteDir()
         }
         failure {
@@ -406,6 +450,9 @@ pipeline {
             deleteDir()
         }
         always {
+            script {
+                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+            }
             sh '''
                 sudo rm -rf ./*
             '''

@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -40,10 +40,15 @@ pipeline {
                     cd percona-docker/percona-server-mongodb-\$MAJ_VER
                     sed -E "s/ENV PSMDB_VERSION (.+)/ENV PSMDB_VERSION ${params.PSMDB_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO ${params.PSMDB_REPO}/" -i Dockerfile
-                    docker build . -t percona-server-mongodb 
+                    if docker buildx version >/dev/null 2>&1; then
+                        BUILD="docker buildx build --provenance=false --sbom=false --load"
+                    else
+                        BUILD="docker build"
+                    fi
+                    \$BUILD -t percona-server-mongodb .
                     if [ ${params.DEBUG} = "yes" ]; then
                        sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
-                       docker build . -f Dockerfile.debug -t percona-server-mongodb-debug
+                       \$BUILD -f Dockerfile.debug -t percona-server-mongodb-debug .
                     fi
                     """
             }
@@ -53,11 +58,8 @@ pipeline {
              script {
               retry(3) {
                try {
+                installTrivy(method: 'binary', junitTpl: true)
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-                    wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
                     if [ ${params.PSMDB_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \

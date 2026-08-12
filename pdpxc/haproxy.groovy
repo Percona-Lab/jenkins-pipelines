@@ -159,11 +159,8 @@ pipeline {
             stage ('Docker: Run trivy analyzer') {
               steps {
                 catchError {
+                  installTrivy(method: 'binary', junitTpl: true)
                   sh """
-                      TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                      wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                      sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-                      wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
                       /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                           --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/haproxy:${HAPROXY_VERSION}
                   """

@@ -1,36 +1,36 @@
 /* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 import groovy.transform.Field
 
-void installCli(String PLATFORM) {
+void installCli() {
     sh """
-        if [ \${CLOUD} = "AWS" ]; then
-            set -o xtrace
-            if [ -d aws ]; then
-                rm -rf aws
-            fi
-            if [ ${PLATFORM} = "deb" ]; then
-                sudo apt-get update
-                sudo apt-get -y install wget curl unzip
-            elif [ ${PLATFORM} = "rpm" ]; then
-                export RHVER=\$(rpm --eval %rhel)
-                if [ \${RHVER} = "7" ]; then
-                    sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
-                    sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
-                    if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
-                        cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
-                    fi
+        free -h
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        cat /etc/os-release
+        if command -v apt-get > /dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get -y install wget curl unzip
+        elif command -v yum > /dev/null 2>&1; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
                 fi
-                sudo yum -y install wget curl unzip
             fi
-            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
-            unzip awscliv2.zip
-            sudo ./aws/install || true
-       fi
+            sudo yum -y install unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
     """
 }
 
@@ -70,13 +70,15 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   . ./test/percona-server-8.0.properties
               fi
               sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+              SBOM_PARAM=""
+              if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
               if [ ${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
-                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
               else
-                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
               fi
           else
-              docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+              docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                   set -o xtrace
                   cd \${build_dir}
                   if [ \${FIPSMODE} = "YES" ]; then
@@ -87,10 +89,12 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                       . ./test/percona-server-8.0.properties
                   fi
                   bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                  SBOM_PARAM=""
+                  if [ \"${ENABLE_SBOM}\" = \"ON\" ]; then SBOM_PARAM=\"--sbom=1\"; fi
                   if [ ${BUILD_TOKUDB_TOKUBACKUP} = \"ON\" ]; then
-                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
                   else
-                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
                   fi"
           fi
       """
@@ -151,7 +155,7 @@ def installDependencies(def nodeName) {
             echo "Unexpected node name: ${nodeName}"
         }
     } catch (Exception e) {
-        slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
+        slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ [${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
     }
 
 }
@@ -269,20 +273,9 @@ def docker_test() {
                     script{
                         sh """
                             sudo yum install -y curl wget git
-                            TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                            ARCH=\$(uname -m)
-                            if [[ "\$ARCH" == "aarch64" ]]; then
-                                ARCH_NAME="ARM64"
-                            elif [[ "\$ARCH" == "x86_64" ]]; then
-                                ARCH_NAME="64bit"
-                            else
-                                echo "Unsupported architecture: \$ARCH"
-                                exit 1
-                            fi
-                            echo "Detected architecture: \$ARCH, using Trivy for Linux-\$ARCH_NAME"
-                            wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz
-                            sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz -C /usr/local/bin/
-                            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                        """
+                        installTrivy(method: 'binary', junitTpl: true)
+                        sh """
                             /usr/local/bin/trivy image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                             --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-server:${PS_RELEASE}-arm64 || true
                             echo "Ran succesfully for arm"
@@ -336,10 +329,9 @@ def docker_test() {
                     script {
                         sh """
                             sudo yum install -y curl wget git
-                            TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                            wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                            sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-                            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                        """
+                        installTrivy(method: 'binary', junitTpl: true)
+                        sh """
                             /usr/local/bin/trivy image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                             --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-server:${PS_RELEASE}-amd64 || true
                             echo "ran succesfully for amd docker trivy"
@@ -360,7 +352,7 @@ def check_warnings = 'yes'
 def install_mysql_shell = 'no'
 def BRANCH_NAME = env.BRANCH ?: "release-8.0.43-34"
 def PS_RELEASE = BRANCH_NAME.replaceAll("release-", "")
-def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.')[0..1].join('.')
+def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.').take(2).join('.')
 def PS_VERSION_SHORT = "PS${PS_VERSION_SHORT_KEY.replace('.', '')}"
 def DOCKER_ACC = "perconalab"
 product_to_test = (PS_VERSION_SHORT == 'PS84') ? 'ps_84' : 'ps_80'
@@ -372,15 +364,15 @@ env.product_to_test = product_to_test
 
 void notifyBuildSuccess() {
     if (env.FIPSMODE == 'YES') {
-        slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build finished successfully for ${BRANCH} - [${BUILD_URL}]")
+        slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ 🔒 [${JOB_NAME}]: PRO -> build finished successfully for ${BRANCH} - [${BUILD_URL}]")
     } else {
-        slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build finished successfully for ${BRANCH} - [${BUILD_URL}]")
+        slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ [${JOB_NAME}]: build finished successfully for ${BRANCH} - [${BUILD_URL}]")
     }
 }
 
 pipeline {
     agent {
-        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
     }
     environment {
         INSTALL_MYSQL_SHELL = "${params.install_mysql_shell ?: 'no'}"
@@ -411,13 +403,21 @@ parameters {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'OFF\nON',
+            description: 'Enable SBOM generation',
+            name: 'ENABLE_SBOM')
+        choice(
+            choices: 'testing\nlaboratory\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
-            choices: '#releases\n#releases-ci',
+            choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
+        string(
+            defaultValue: '',
+            description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
+            name: 'BUILD_STAGES')
     }
     options {
         skipDefaultCheckout()
@@ -428,17 +428,17 @@ parameters {
     stages {
         stage('Create PS source tarball') {
             agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "🚀 [${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
+                installCli()
                 script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--get_sources=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--get_sources=1")
+                                buildStage("ubuntu:focal", "--get_sources=1")
                             }
                        }
                 sh '''
@@ -452,6 +452,14 @@ parameters {
                 '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                }
+                script {
+                    sh """
+                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                    """
+                    env.MYSQL_VERSION_MAJOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MAJOR=' MYSQL_VERSION | cut -d= -f2").trim()
+                    env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
+                    echo "Detected Percona Server version: ${env.MYSQL_VERSION_MAJOR}.${env.MYSQL_VERSION_MINOR}"
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 stash includes: 'test/percona-server-8.0.properties', name: 'properties'
@@ -467,7 +475,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("rpm")
+                        installCli()
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -488,7 +496,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("rpm")
+                        installCli()
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -511,7 +519,8 @@ parameters {
                     psBuildMatrix(
                         cloud: params.CLOUD,
                         awsStashPath: AWS_STASH_PATH,
-                        fipsMode: env.FIPSMODE
+                        fipsMode: env.FIPSMODE,
+                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
                     )
                 }
             }
@@ -522,19 +531,67 @@ parameters {
             }
             steps {
                 cleanUpWS()
-                installCli("rpm")
+                installCli()
                 unstash 'properties'
 
-                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
+                script {
+                    def rpmStages = [
+                        'Oracle Linux 8', 'Centos 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { rpmStages.contains(it) }) {
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                script {
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Noble(24.04)', 'Ubuntu Resolute(26.04)',
+                        'Debian Bullseye(11)', 'Debian Bookworm(12)', 'Debian Trixie(13)',
+                        'Ubuntu Jammy(22.04) ARM', 'Ubuntu Noble(24.04) ARM', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bullseye(11) ARM', 'Debian Bookworm(12) ARM', 'Debian Trixie(13) ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                script {
+                    def tarballStages = [
+                        'Oracle Linux 8 binary tarball', 'Oracle Linux 8 debug tarball',
+                        'Oracle Linux 9 tarball', 'Oracle Linux 9 ZenFS tarball', 'Oracle Linux 9 debug tarball',
+                        'Ubuntu Focal(20.04) tarball', 'Ubuntu Focal(20.04) debug tarball',
+                        'Ubuntu Jammy(22.04) tarball', 'Ubuntu Jammy(22.04) ZenFS tarball', 'Ubuntu Jammy(22.04) debug tarball'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { tarballStages.contains(it) }) {
+                        uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                script {
+                    def rpmStages = [
+                        'Oracle Linux 8', 'Centos 8 ARM', 'Oracle Linux 9', 'Oracle Linux 9 ARM',
+                        'Oracle Linux 10', 'Oracle Linux 10 ARM', 'Amazon Linux 2023', 'Amazon Linux 2023 ARM'
+                    ]
+                    def debStages = [
+                        'Ubuntu Jammy(22.04)', 'Ubuntu Noble(24.04)', 'Ubuntu Resolute(26.04)',
+                        'Debian Bullseye(11)', 'Debian Bookworm(12)', 'Debian Trixie(13)',
+                        'Ubuntu Jammy(22.04) ARM', 'Ubuntu Noble(24.04) ARM', 'Ubuntu Resolute(26.04) ARM',
+                        'Debian Bullseye(11) ARM', 'Debian Bookworm(12) ARM', 'Debian Trixie(13) ARM'
+                    ]
+                    def requestedStages = params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                    if (!requestedStages || requestedStages.any { rpmStages.contains(it) }) {
+                        signRPM()
+                    }
+                    if (!requestedStages || requestedStages.any { debStages.contains(it) }) {
+                        signDEB()
+                    }
+                }
             }
         }
         stage('Push to public repository') {
@@ -569,6 +626,9 @@ parameters {
             }
         }
         stage('Push Tarballs to TESTING download area') {
+            when {
+                expression { !params.BUILD_STAGES || params.BUILD_STAGES.split(',').any { it.trim().toLowerCase().contains('tarball') } }
+            }
             steps {
                 script {
                     try {
@@ -593,6 +653,7 @@ parameters {
                 label 'launcher-x64'
             }
             steps {
+                sleep time: 20, unit: 'MINUTES'
                 script {
                     build job: 'hetzner-ps8.0-docker-build',
                           parameters: [
@@ -600,8 +661,8 @@ parameters {
                               string(name: 'ORGANIZATION', value: 'perconalab'),
                               string(name: 'BRANCH', value: "${BRANCH}"),
                               string(name: 'RPM_RELEASE', value: '1'),
-                              string(name: 'DEB_RELEASE', value: '1'),
                               string(name: 'FIPSMODE', value: 'NO'),
+                              string(name: 'COMPONENT', value: "${COMPONENT}"),
                               booleanParam(name: 'RUN_FAST', value: true)
                           ],
                           wait: false
@@ -623,7 +684,7 @@ parameters {
                 } else {
                     error "Properties file not found: test/percona-server-8.0.properties"
                 }
-                MinitestPostSucess(
+                if (params.BRANCH.startsWith('release-')) MinitestPostSucess(
                     product_to_test: product_to_test,
                     PS_RELEASE: PS_RELEASE,
                     PS_VERSION_SHORT: PS_VERSION_SHORT,

@@ -32,6 +32,8 @@ pipeline {
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PCSM_BRANCH', defaultValue: 'main', description: 'PCSM branch')
+        string(name: 'MONGODB_SRC_IMAGE', defaultValue: 'perconalab/percona-server-mongodb:8.0', description: 'Source PSMDB docker image (full image[:tag])')
+        string(name: 'MONGODB_DST_IMAGE', defaultValue: 'perconalab/percona-server-mongodb:8.0', description: 'Target PSMDB docker image (full image[:tag])')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'ARCH', choices: ['x86','arm'], description: 'Ec2 instance type for running tests')
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
@@ -43,6 +45,7 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "${params.PCSM_BRANCH}"
+                    currentBuild.description = "PSMDB source: ${params.MONGODB_SRC_IMAGE} | target: ${params.MONGODB_DST_IMAGE}"
                 }
             }
         }
@@ -55,10 +58,6 @@ pipeline {
                     axis {
                         name 'SHARD'
                         values '0','1','2','3','4'
-                    }
-                    axis {
-                        name 'PSMDB'
-                        values '6.0', '7.0', '8.0'
                     }
                 }
                 stages {
@@ -81,7 +80,11 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/pcsm-pytest
-                                    MONGODB_IMAGE=perconalab/percona-server-mongodb:${PSMDB} docker compose build --no-cache
+                                    export MONGODB_SRC_IMAGE="${params.MONGODB_SRC_IMAGE}"
+                                    export MONGODB_DST_IMAGE="${params.MONGODB_DST_IMAGE}"
+                                    echo "SRC=\${MONGODB_SRC_IMAGE}  DST=\${MONGODB_DST_IMAGE}"
+                                    docker compose build easyrsa --no-cache
+                                    docker compose build --no-cache
                                     docker compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     if [ -n "${params.TEST_FILTER}" ]; then
@@ -90,7 +93,7 @@ pipeline {
                                         docker compose run test pytest -v -s \$JENKINS_FLAG --shard-id=${SHARD} --num-shards=5 --junitxml=junit.xml || true
                                     fi
                                     docker compose down -v --remove-orphans
-                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PCSM branch": "${PCSM_BRANCH}","PSMDB docker image": "perconalab/percona-server-mongodb:${PSMDB}"}};type=application/json' -i || true
+                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F "testCycle={\\"name\\":\\"${JOB_NAME}-${BUILD_NUMBER}\\",\\"customFields\\": { \\"PCSM branch\\": \\"${PCSM_BRANCH}\\",\\"PSMDB source image\\": \\"\${MONGODB_SRC_IMAGE}\\",\\"PSMDB target image\\": \\"\${MONGODB_DST_IMAGE}\\"}};type=application/json" -i || true
                                 """
                             }
                         }

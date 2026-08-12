@@ -30,7 +30,7 @@ execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
-bootDeadlineMap['default']            = 3
+bootDeadlineMap['default']            = 8
 bootDeadlineMap['deb12-x64-nbg1']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-x64-hel1']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-x64-fsn1']     = bootDeadlineMap['default']
@@ -73,24 +73,38 @@ labelMap['deb12-aarch64']     = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch
 labelMap['launcher-x64']      = 'launcher-x64'
 
 networkMap = [:]
-networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
+networkMap['rel.cd.percona.com'] = '11374632' // rel.cd.percona.com
 
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    # Force IPv4 early (Hetzner -> Cloudflare CDN IPv6 routing is intermittently broken, see PKG-1325)
+    sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1 || true
+    sudo sysctl -w net.ipv6.conf.eth0.disable_ipv6=1 || true
+    echo "precedence ::ffff:0:0/96 100" | sudo tee -a /etc/gai.conf
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
-    ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
     sudo swapon /swapfile
+
+    # Pin apt to deb.debian.org (avoid Hetzner mirror lottery, see PKG-1323/PKG-1324)
+    sudo tee /etc/apt/sources.list > /dev/null <<'APT_EOF'
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+APT_EOF
 
     export DEBIAN_FRONTEND=noninteractive
     until sudo apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip git; do
+    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip git qemu-user-static binfmt-support; do
         sleep 1
         echo try again
     done
@@ -113,7 +127,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
         unzip -o /tmp/awscliv2.zip -d /tmp
         cd /tmp/aws && sudo ./install
     fi
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo sysctl net.ipv4.tcp_fin_timeout=15
     sudo sysctl net.ipv4.tcp_tw_reuse=1
     sudo sysctl net.ipv6.conf.all.disable_ipv6=1
@@ -129,7 +142,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
-    sudo systemctl start sshd
 '''
 initMap['deb12-x64-nbg1']     = initMap['deb-docker']
 initMap['deb12-x64-hel1']     = initMap['deb-docker']
@@ -151,17 +163,20 @@ def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
         new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx42"),
-        new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
+        // Disabled while Hetzner CAX (ARM) capacity is exhausted across fsn1/hel1/nbg1.
+        // Tracks Hetzner status notice "Limited availability of cloud instances" (2026-04-28).
+        // Re-enable when Hetzner signals capacity restored.
+        // new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
         new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx42"),
-        new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
+        // new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
         new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx42"),
-        new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
+        // new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
         new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx62"),
-        new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
+        // new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
         new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx62"),
-        new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
+        // new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
         new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx62"),
-        new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
+        // new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
         new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx32"),
         new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx32"),
         new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx32")
@@ -176,7 +191,7 @@ templates.each { it ->
                        it.bootDeadline = bootDeadlineMap[tmplName]
                        it.remoteFs = "/mnt/jenkins/"
                        it.jvmOpts = jvmOptsMap[tmplName]
-                       it.network = networkMap['percona-vpc-eu']
+                       it.network = networkMap['rel.cd.percona.com']
                        it.userData = initMap[tmplName]
                }
 

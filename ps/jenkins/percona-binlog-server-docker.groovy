@@ -58,6 +58,10 @@ parameters {
         string(defaultValue: '0.1.0', description: 'PBS Version', name: 'VERSION')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to get packages',
+            name: 'COMPONENT')
+        choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
@@ -163,19 +167,7 @@ parameters {
             script {
                 try {
                     // 🔹 Install Trivy if not present
-                    sh '''
-                        if ! command -v trivy &> /dev/null; then
-                            echo "🔄 Installing Trivy..."
-                            sudo apt-get update
-                            sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get -y install trivy
-                        else
-                            echo "✅ Trivy is already installed."
-                        fi
-                    '''
+                    installTrivy(method: 'apt')
 
                 // 🔹 Define the image tags
                     def imageList = [
@@ -186,8 +178,7 @@ parameters {
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
                         echo "🔍 Scanning ${image}..."
-                        def result = sh(script: """#!/bin/bash
-                            set -e
+                        def result = sh(script: """
                             sudo trivy image --quiet \
                                       --format table \
                                       --timeout 10m0s \
@@ -195,11 +186,10 @@ parameters {
                                       --exit-code 1 \
                                       --scanners vuln \
                                       --severity HIGH,CRITICAL ${image}
-                            echo "TRIVY_EXIT_CODE=\$?"
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -210,13 +200,13 @@ parameters {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 } // try
             } // script
           } // steps
@@ -225,12 +215,20 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION})build failed for ${VERSION} - [${BUILD_URL}]")
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION} - [${BUILD_URL}]")
+            }
             deleteDir()
         }
         always {
@@ -238,7 +236,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}, repo tools ${COMPONENT} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }

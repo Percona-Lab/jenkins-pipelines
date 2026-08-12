@@ -14,6 +14,7 @@ pipeline {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PSMDB_VERSION', defaultValue: '7.0.26', description: 'PSMDB Version')
         string(name: 'PSMDB_RELEASE', defaultValue: '17', description: 'PSMDB Release')
+        string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch of psmdb-testing repo to use for functional tests')
     }
     options {
           disableConcurrentBuilds()
@@ -23,21 +24,20 @@ pipeline {
             steps {
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
-                    build job: 'psmdb-tarball-functional', propagate: false, wait: true, parameters: [ string(name: 'PSMDB_VERSION', value: version), string(name: 'TESTING_BRANCH', value: "main") ]
+                    build job: 'psmdb-tarball-functional', propagate: false, wait: true, parameters: [ string(name: 'PSMDB_VERSION', value: version), string(name: 'TESTING_BRANCH', value: params.TESTING_BRANCH) ]
                 }
             }
         }
         stage ('Run functional tests on packages') {
             steps {
-                build job: 'psmdb-parallel', parameters: [ string(name: 'REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: params.PSMDB_VERSION), string(name: 'ENABLE_TOOLKIT', value: "false"), string(name: 'TESTING_BRANCH', value: "main") ]
+                build job: 'psmdb-parallel', parameters: [ string(name: 'REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: params.PSMDB_VERSION), string(name: 'ENABLE_TOOLKIT', value: "false"), string(name: 'TESTING_BRANCH', value: params.TESTING_BRANCH) ]
             }
         }
         stage ('Build docker images and check for vulnerabilities') {
             steps {
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
-                    build job: 'hetzner-psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
-                    build job: 'hetzner-psmdb-docker-arm', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
+                    build job: 'hetzner-psmdb-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'IMAGE_TYPE', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'DEBUG', value: "no"), string(name: 'TESTS', value: "no") ]
                 }
             }
         }

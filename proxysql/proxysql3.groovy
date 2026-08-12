@@ -6,11 +6,13 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
+        uname -a
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/scripts/proxysql_builder.sh -O proxysql_builder.sh
         pwd -P
         export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+        ls -la /var/run/docker.sock
+        sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             sed -i "s/^RPM_RELEASE=.*/RPM_RELEASE=${RPM_RELEASE}/g" proxysql_builder.sh
@@ -93,7 +95,7 @@ pipeline {
                 label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
             }
             steps {
-                // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "🚀 [${JOB_NAME}]: starting build for ${GIT_BRANCH}, ${PROXYSQL_BRANCH}, ${PAT_TAG} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("oraclelinux:9", "--get_sources=1")
                 sh '''
@@ -274,6 +276,32 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute(26.04)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute-20260627", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm(12)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -380,6 +408,19 @@ pipeline {
                 sync2ProdAutoBuild(params.CLOUD, PROXYSQL_DEST_REPO, COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting(params.CLOUD, "proxysql", "${PROXYSQL_BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
         stage('Build docker containers') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -405,7 +446,7 @@ pipeline {
                         sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                         export DOCKER_CLI_EXPERIMENTAL=enabled
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo systemctl restart docker
                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -454,14 +495,14 @@ pipeline {
     }
     post {
         success {
-            // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "✅ [${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}, ${PROXYSQL_BRANCH}, ${PAT_TAG} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${BUILD_URL}]"
             }
             deleteDir()
         }
         failure {
-           // slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "❌ [${JOB_NAME}]: build failed for ${GIT_BRANCH}, ${PROXYSQL_BRANCH}, ${PAT_TAG} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
@@ -469,7 +510,7 @@ pipeline {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${AWS_STASH_PATH}]"
+                currentBuild.description = "Built on ${GIT_BRANCH} + ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${AWS_STASH_PATH}]"
             }
             deleteDir()
         }

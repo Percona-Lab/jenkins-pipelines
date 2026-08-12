@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
@@ -92,11 +92,11 @@ pipeline {
                 script {
                     cleanUpWS()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                    //if ("${PS_MAJOR_RELEASE}" == "80") {
-                    //    buildStage("debian:buster", "--get_sources=1")
-                    //} else {
-                    buildStage("ubuntu:focal", "--get_sources=1")
-                    //}
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                        buildStage("ubuntu:focal", "--get_sources=1")
+                    } else {
+                    buildStage("debian:bookworm", "--get_sources=1")
+                    }
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/mysql-shell.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -123,7 +123,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -136,7 +136,14 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_source_deb=1")
+                        script {
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                buildStage("ubuntu:focal", "--build_source_deb=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_source_deb=1")
+                            }
+                        }
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -146,21 +153,6 @@ pipeline {
         } // stage
         stage('Build MYSQL-SHELL RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
-                stage('Centos 7') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
-
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                    }
-                }
-*/
                 stage('Oracle Linux 8') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -357,6 +349,38 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute (26.04)') {
+                    when {
+                        expression { true }
+                    }
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute (26.04) ARM') {
+                    when {
+                        expression { true }
+                    }
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bullseye (11)') {
                     when {
                         expression { env.PS_MAJOR_RELEASE == "80" || env.PS_MAJOR_RELEASE == "84" }
@@ -441,19 +465,6 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_tarball=1")
-
-                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
                 stage('Oracle Linux 9 tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -467,14 +478,40 @@ pipeline {
                         uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Debian Bullseye (11) tarball') {
+                stage('Oracle Linux 9 ARM tarball') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_tarball=1")
+
+                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy (22.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_tarball=1")
+                        buildStage("ubuntu:jammy", "--build_tarball=1")
+
+                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Jammy (22.04) ARM tarball') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_tarball=1")
 
                         pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')

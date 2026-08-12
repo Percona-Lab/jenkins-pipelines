@@ -1,0 +1,19 @@
+- job:
+    name: hetzner-valkey-ALL
+    project-type: pipeline
+    description: |
+        Orchestrator for the full Valkey release run. In order:
+          1. builds all packages in parallel (server + json/bloom/search/ldap/audit/bundle),
+          2. builds the Docker images (valkey, bundle, modules),
+          3. runs the package tests.
+        Triggers the individual hetzner-valkey-* jobs; does no building itself.
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: rel/jenkins/valkey-all.groovy

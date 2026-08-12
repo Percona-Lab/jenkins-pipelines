@@ -63,7 +63,7 @@ def call(Map args = [:]) {
                     git add -A
                     git commit -m "Autocommit: add ${PS_REVISION} and ${PS_RELEASE} for ${PS_VERSION_SHORT} package testing VERSIONS file."
                     git remote set-url origin https://jenkins-pxc-cd:\${TOKEN}@github.com/Percona-QA/package-testing.git
-                    git push origin testing-branch
+                    git push
                 fi
             """
         }

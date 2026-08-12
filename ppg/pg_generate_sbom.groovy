@@ -17,9 +17,19 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} -e SNYK_TOKEN=${SNYK_TOKEN} -e SNYK_ORG_TOKEN=${SNYK_ORG_TOKEN} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}"
-            curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
-            bash sbom_verifier.sh pg_sbom/*.json
+            bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}
+            if command -v apt-get >/dev/null 2>&1; then
+                apt-get update && apt-get install -y --no-install-recommends curl jq libxml2-utils file ca-certificates;
+            elif command -v dnf >/dev/null 2>&1; then
+                dnf install -y curl jq libxml2 file ca-certificates;
+            elif command -v yum >/dev/null 2>&1; then
+                yum install -y curl jq libxml2 file ca-certificates;
+            fi
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+            trivy image --download-db-only harbor-docker.int.percona.com/dockerhub-cache/aquasec/trivy-db:2 >/dev/null 2>&1 || true
+            curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/sbom_verifier.sh -o /usr/local/bin/sbom_verifier.sh
+            chmod +x /usr/local/bin/sbom_verifier.sh
+            bash /usr/local/bin/sbom_verifier.sh --trivy-only pg_sbom/*.json"
 
     """
     }
@@ -310,6 +320,48 @@ pipeline {
                         }
                     }
                 }
+                stage('Generate PG SBOM resolute AMD') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        script {
+                                unstash 'timestamp'
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
+                                        cat uploadPath-${PG_VERSION}
+                                """
+                                stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
+                                buildStage("ubuntu:resolute", "")
+                                pushArtifactFolder(params.CLOUD, "pg_sbom/", AWS_STASH_PATH)
+                                uploadSBOMfromAWS(params.CLOUD, "pg_sbom/", AWS_STASH_PATH, "json", "${PG_VERSION}")
+                                uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
+                        }
+                    }
+                }
+                stage('Generate PG SBOM Resolute ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        script {
+                                unstash 'timestamp'
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
+                                        cat uploadPath-${PG_VERSION}
+                                """
+                                stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
+                                buildStage("ubuntu:resolute", "")
+                                pushArtifactFolder(params.CLOUD, "pg_sbom/", AWS_STASH_PATH)
+                                uploadSBOMfromAWS(params.CLOUD, "pg_sbom/", AWS_STASH_PATH, "json", "${PG_VERSION}")
+                                uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
+                        }
+                    }
+                }
                 stage('Generate PG SBOM Bullseye AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -394,7 +446,7 @@ pipeline {
                         }
                     }
                 }
-				stage('Generate PG SBOM Trixie AMD') {
+		stage('Generate PG SBOM Trixie AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -415,7 +467,7 @@ pipeline {
                         }
                     }
                 }
-				stage('Generate PG SBOM Trixie ARM') {
+		stage('Generate PG SBOM Trixie ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }

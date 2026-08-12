@@ -8,7 +8,7 @@ pipeline_timeout = 10
 pipeline {
     parameters {
         choice(
-            choices: [ 'AWS','Hetzner' ],
+            choices: [ 'Hetzner','AWS' ],
             description: 'Cloud infra for build',
             name: 'CLOUD' )
         string(
@@ -42,11 +42,11 @@ pipeline {
             name: 'PAT_TAG',
             trim: true)
        choice(
-            choices: 'PXC84\nPXC80\nPXC57',
+            choices: 'PXC96\nPXC84\nPXC80\nPXC57',
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'oraclelinux:9\nubuntu:noble\nubuntu:jammy\ndebian:bookworm',
+            choices: 'oraclelinux:9\noraclelinux:10\nubuntu:noble\nubuntu:jammy\ndebian:bookworm\ndebian:trixie',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -123,6 +123,8 @@ pipeline {
                     echo 'Test ProxySQL'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
+                            mkdir -p ./proxysql/sources/proxysql/results
+                            rm -f ./proxysql/sources/proxysql/results/*.tar.gz
                             until aws s3 cp --no-progress s3://pxc-build-cache/${BUILD_TAG}/proxysql-${BRANCH}.tar.gz ./proxysql/sources/proxysql/results/proxysql-${BRANCH}.tar.gz; do
                                 sleep 5
                             done

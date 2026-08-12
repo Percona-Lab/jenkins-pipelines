@@ -56,11 +56,23 @@ parameters {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: '3.2.6', description: 'Orchestrator Version', name: 'VERSION')
-        string(defaultValue: '20', description: 'RPM version', name: 'RPM_RELEASE')
+        string(defaultValue: '23', description: 'RPM version', name: 'RPM_RELEASE')
+        choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to get packages',
+            name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
+        booleanParam(
+            defaultValue: false,
+            description: 'Add a date-based postfix to image tags (dayWeekInMonthMonthYear, e.g. -15020726)',
+            name: 'WEEKLY_UPDATE')
+        string(
+            defaultValue: '',
+            description: 'Custom tag postfix. If provided, overrides the WEEKLY_UPDATE generated postfix (e.g. "15020726")',
+            name: 'TAG')
     }
     options {
         skipDefaultCheckout()
@@ -76,6 +88,31 @@ parameters {
             }
             steps {
                 script {
+                        if (params.WEEKLY_UPDATE) {
+                            def versionInfo = sh(script: '''
+                                LATEST_TAG=$(curl -s https://api.github.com/repos/percona/orchestrator/tags | grep '"name"' | grep -E '"v[0-9]+[.][0-9]+[.][0-9]+-[0-9]+"' | head -1 | sed 's/.*"name": "//; s/".*//')
+                                VERSION=$(echo "${LATEST_TAG}" | sed 's/^v//' | cut -d'-' -f1)
+                                RPM_RELEASE=$(echo "${LATEST_TAG}" | cut -d'-' -f2)
+                                echo "${VERSION} ${RPM_RELEASE}"
+                            ''', returnStdout: true).trim()
+                            def parts = versionInfo.split(' ')
+                            env.VERSION = parts[0]
+                            env.RPM_RELEASE = parts[1]
+                        }
+                        if (params.TAG) {
+                            env.TAG_POSTFIX = "-${params.TAG}"
+                        } else if (params.WEEKLY_UPDATE) {
+                            def postfix = sh(script: '''
+                                DAY=$(date +%d)
+                                WEEK=$(printf "%02d" $(( ($(date +%d) - 1) / 7 )))
+                                MONTH=$(date +%m)
+                                YEAR=$(date +%y)
+                                printf "%s%s%s%s" "$DAY" "$WEEK" "$MONTH" "$YEAR"
+                            ''', returnStdout: true).trim()
+                            env.TAG_POSTFIX = "-${postfix}"
+                        } else {
+                            env.TAG_POSTFIX = ""
+                        }
                         sh '''
                             Dockerfile="Dockerfile"
                             sudo dpkg --configure -a
@@ -87,7 +124,7 @@ parameters {
                             sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                             export DOCKER_CLI_EXPERIMENTAL=enabled
                             sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo systemctl restart docker
                             sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -102,13 +139,13 @@ parameters {
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
+                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
+                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
+                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
                             fi
                             sudo docker images
                         '''
@@ -119,20 +156,20 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
+                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64${TAG_POSTFIX}
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX}
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64${TAG_POSTFIX}
+                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64${TAG_POSTFIX}
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
+                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64${TAG_POSTFIX}
                        '''
                        }
                        sh '''
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} \
+                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX}
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${TAG_POSTFIX} --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${TAG_POSTFIX} --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
@@ -165,31 +202,19 @@ parameters {
             script {
                 try {
                     // 🔹 Install Trivy if not present
-                    sh '''
-                        if ! command -v trivy &> /dev/null; then
-                            echo "🔄 Installing Trivy..."
-                            sudo apt-get update
-                            sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get -y install trivy
-                        else
-                            echo "✅ Trivy is already installed."
-                        fi
-                    '''
+                    installTrivy(method: 'apt')
 
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64${env.TAG_POSTFIX ?: ''}",
+                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64${env.TAG_POSTFIX ?: ''}"
                     ]
+                    env.IMAGE_LIST = imageList.join(', ')
 
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
                         echo "🔍 Scanning ${image}..."
-                        def result = sh(script: """#!/bin/bash
-                            set -e
+                        def result = sh(script: """
                             sudo trivy image --quiet \
                                       --format table \
                                       --timeout 10m0s \
@@ -197,11 +222,10 @@ parameters {
                                       --exit-code 1 \
                                       --scanners vuln \
                                       --severity HIGH,CRITICAL ${image}
-                            echo "TRIVY_EXIT_CODE=\$?"
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -212,13 +236,13 @@ parameters {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 } // try
             } // script
           } // steps
@@ -227,12 +251,20 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'} - [${BUILD_URL}]")
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION})build failed for ${VERSION} - [${BUILD_URL}]")
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'} - [${BUILD_URL}]")
+            }
             deleteDir()
         }
         always {
@@ -240,7 +272,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }

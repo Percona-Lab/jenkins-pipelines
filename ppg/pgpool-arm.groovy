@@ -229,7 +229,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, "ppg-${PG_RELEASE}", COMPONENT)
+                sync2ProdAutoBuildPG(params.CLOUD, "ppg-${PG_RELEASE}", COMPONENT)
             }
         }
 

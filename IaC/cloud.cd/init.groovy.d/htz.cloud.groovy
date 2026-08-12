@@ -7,8 +7,8 @@ import java.util.logging.Logger
 def cloudName = "cloud-htz"
 
 imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION          ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
-imageMap['fedora42-x64']     = '232895138' // 232895138   system   fedora-42            Fedora 42            x86            -            5 GB        Thu Apr 24 10:00:32 EEST 2025   -
-imageMap['fedora42-aarch64'] = '232895264' // 232895264   system   fedora-42            Fedora 42            arm            -            5 GB        Thu Apr 24 10:01:01 EEST 2025   -
+imageMap['fedora42-x64']     = '342035601' // 342035601   system   fedora-43            Fedora 43            x86
+imageMap['fedora42-aarch64'] = '342035605' // 342035605   system   fedora-43            Fedora 43            arm
 imageMap['launcher-x64']  = imageMap['fedora42-x64']
 
 execMap = [:]
@@ -79,7 +79,8 @@ initMap = [:]
 initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
-    ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
@@ -88,7 +89,7 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
         sleep 1
         echo "try again"
     done
-    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc npm make; do
+    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc npm make qemu-user-static; do
         sleep 1
         echo "try again"
     done
@@ -106,7 +107,6 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
         unzip -o /tmp/awscliv2.zip -d /tmp
         cd /tmp/aws && sudo ./install
     fi
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo sysctl net.ipv4.tcp_fin_timeout=15
     sudo sysctl net.ipv4.tcp_tw_reuse=1
     sudo sysctl net.ipv6.conf.all.disable_ipv6=1
@@ -124,7 +124,6 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    sudo systemctl start sshd
 '''
 initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
 initMap['fedora42-x64-hel1']     = initMap['fedora-docker']

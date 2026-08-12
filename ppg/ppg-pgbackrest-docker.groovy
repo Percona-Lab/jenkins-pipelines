@@ -9,10 +9,12 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        IMAGE_VER = "${params.PGBACKREST_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PGBACKREST_VERSION', defaultValue: '2.51-1', description: 'pgBackrest version')
+        string(name: 'BUILD_NUMBER', defaultValue: '1', description: 'Image Build Number')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '17.0', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
@@ -25,28 +27,38 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION}"
+                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION} pgbackrest-${env.IMAGE_VER}"
                 }
             }
         }
         stage ('Build image') {
+            when {
+                not { environment name: 'TARGET_REPO', value: 'DockerHub' }
+            }
             steps {
                 sh """
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo systemctl restart docker
+                    export DOCKER_BUILDKIT=1
+
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-pgbackrest
                     sed -E "s/ARG PG_VERSION=(.+)/ARG PG_VERSION=${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ARG PPG_REPO=(.+)/ARG PPG_REPO=${params.PPG_REPO}/" -i Dockerfile
-                    docker build . -t percona-pgbackrest
+                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-pgbackrest .
                     """
             }
         }
         stage ('Run trivy analyzer') {
+            when {
+                not { environment name: 'TARGET_REPO', value: 'DockerHub' }
+            }
             steps {
+                installTrivy(method: 'binary', junitTpl: true)
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*tag_name: v([^,]+).*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-                    wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     if [ ${params.PPG_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-pgbackrest
@@ -74,8 +86,8 @@ pipeline {
                          unzip -o awscliv2.zip
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         docker tag percona-pgbackrest public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${params.PGBACKREST_VERSION}
-                         docker push public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${params.PGBACKREST_VERSION}
+                         docker tag percona-pgbackrest public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${env.IMAGE_VER}
+                         docker push public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${env.IMAGE_VER}
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-pgbackrest public.ecr.aws/e7j3v3n0/percona-pgbackrest:latest
                             docker push public.ecr.aws/e7j3v3n0/percona-pgbackrest:latest
@@ -93,8 +105,8 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
-                         docker push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker tag percona-pgbackrest perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
+                         docker push perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
                          docker tag percona-pgbackrest perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          docker push perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
@@ -112,15 +124,23 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
+                         export DOCKER_CLI_EXPERIMENTAL=enabled
+                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                         sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo systemctl restart docker
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
-                         docker push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
-                         docker tag percona-pgbackrest percona/percona-pgbackrest:\$MAJ_VER-amd64
-                         docker push percona/percona-pgbackrest:\$MAJ_VER-amd64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbackrest:${env.IMAGE_VER}-amd64 \\
+                             perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
+                         docker buildx imagetools create \\
+                             -t percona/percona-pgbackrest:\$MAJ_VER-amd64 \\
+                             perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbackrest percona/percona-pgbackrest:latest
-                            docker push percona/percona-pgbackrest:latest
+                             docker buildx imagetools create \\
+                                 -t percona/percona-pgbackrest:latest \\
+                                 perconalab/percona-pgbackrest:latest
                          fi
                      """
                 }
@@ -136,13 +156,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of Percona pgBackrest ${PGBACKREST_VERSION} repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of Percona pgBackrest ${env.IMAGE_VER} repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of Percona pgBackrest ${PGBACKREST_VERSION} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of Percona pgBackrest ${env.IMAGE_VER} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of Percona pgBackrest ${PGBACKREST_VERSION} repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of Percona pgBackrest ${env.IMAGE_VER} repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }

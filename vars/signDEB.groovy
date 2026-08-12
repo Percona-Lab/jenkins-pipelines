@@ -7,6 +7,10 @@ def call(String CLOUD_NAME = 'default') {
                 sh """
                     export path_to_build=`cat uploadPath`
 
+                    cat /etc/hosts > hosts
+                    echo '10.30.6.9 repo.ci.percona.com' >> hosts
+                    sudo cp ./hosts /etc || true
+
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com " \
                         ls \${path_to_build}/binary/debian/*/*/*.deb \
                             | xargs -n 1 signpackage --verbose --password ${SIGN_PASSWORD} --deb

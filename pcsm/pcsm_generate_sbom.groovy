@@ -63,7 +63,7 @@ pipeline {
             description: 'URL for pcsm_sbom repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '0.5.0',
+            defaultValue: '0.9.0',
             description: 'Version of Percona ClusterSync for MongoDB',
             name: 'PCSM_VERSION')
         string(

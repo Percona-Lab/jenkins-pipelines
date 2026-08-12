@@ -25,15 +25,8 @@ pipeline {
         stage('Prepare') {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                installTrivy(method: 'binary', junitTpl: true)
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
-
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git config --global --add safe.directory '*'
@@ -54,7 +47,7 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh """
                                 docker login -u '${USER}' -p '${PASS}'
-                                docker buildx create --use
+                                docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                                 cd ./source/
                                 DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
                                 sudo rm -rf ./build

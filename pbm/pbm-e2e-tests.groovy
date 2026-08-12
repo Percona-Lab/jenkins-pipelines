@@ -35,7 +35,8 @@ void prepareCluster(String TEST_TYPE) {
                     file(credentialsId: 'PBM-GCS-HMAC-S3-EU', variable: 'PBM_GCS_HMAC_S3_YML'),
                     file(credentialsId: 'PBM-MINIO-S3-EU', variable: 'PBM_MINIO_S3_YML'),
                     file(credentialsId: 'PBM-AZURE-EU', variable: 'PBM_AZURE_YML'),
-                    file(credentialsId: 'PBM-OSS-EU', variable: 'PBM_OSS_YML')]) {
+                    file(credentialsId: 'PBM-OSS-EU', variable: 'PBM_OSS_YML'),
+                    file(credentialsId: 'PBM-OCI-EU', variable: 'PBM_OCI_YML')]) {
     sh """
         cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
         cp $PBM_MINIO_S3_YML ./e2e-tests/docker/conf/aws_minio.yaml
@@ -43,12 +44,14 @@ void prepareCluster(String TEST_TYPE) {
         cp $PBM_GCS_HMAC_S3_YML ./e2e-tests/docker/conf/gcs_hmac.yaml
         cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
         cp $PBM_OSS_YML ./e2e-tests/docker/conf/oss.yaml
+        cp $PBM_OCI_YML ./e2e-tests/docker/conf/oci.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws_minio.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs_hmac.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/oss.yaml
+        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/oci.yaml
 
         chmod 664 ./e2e-tests/docker/conf/aws.yaml
         chmod 664 ./e2e-tests/docker/conf/aws_minio.yaml
@@ -56,6 +59,7 @@ void prepareCluster(String TEST_TYPE) {
         chmod 664 ./e2e-tests/docker/conf/gcs_hmac.yaml
         chmod 664 ./e2e-tests/docker/conf/azure.yaml
         chmod 664 ./e2e-tests/docker/conf/oss.yaml
+        chmod 664 ./e2e-tests/docker/conf/oci.yaml
 
 
         openssl rand -base64 756 > ./e2e-tests/docker/keyFile

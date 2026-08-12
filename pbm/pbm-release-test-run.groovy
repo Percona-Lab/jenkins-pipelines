@@ -33,7 +33,14 @@ pipeline {
             steps { 
                 script {
                     def version = params.PBM_VERSION + '-1'
-                    build job: 'hetzner-pbm-docker', parameters: [string(name: 'PBM_REPO_CH', value: "testing"), string(name: 'PBM_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
+                    build job: 'hetzner-pbm-docker-multiarch', parameters: [string(name: 'CLOUD', value: params.CLOUD), string(name: 'PBM_REPO_CH', value: "testing"), string(name: 'PBM_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
+                }
+            }
+        }
+        stage ('Run PCSM tarball/docker SBOM tests') {
+            steps {
+                script {
+                    build job: 'hetzner-pbm-sbom-tests', parameters: [string(name: 'PBM_VERSION', value: params.PBM_VERSION), string(name: 'install_repo', value: "testing")]
                 }
             }
         }

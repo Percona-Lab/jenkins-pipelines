@@ -45,14 +45,15 @@ for REPOPATH in $REPOPATH_TMP; do
         echo "<*> reprepro binary is $(which reprepro)"
         pushd /srv/UPLOAD/$dir/binary/debian
         echo "Looking for Debian build directories..."
-        if [[ "${PUSHFOCAL}" == "YES" ]] && [[ "${PUSHTRIXIE}" == "YES" ]]; then
-            CODENAMES=$(ls -1)
-        elif [[ "${PUSHFOCAL}" == "YES" ]]; then
-            CODENAMES=$(ls -1 | grep -v trixie)
-        elif [[ "${PUSHTRIXIE}" == "YES" ]]; then
-            CODENAMES=$(ls -1 | grep -v focal)
-        else
-            CODENAMES=$(ls -1 | grep -v focal | grep -v trixie)
+        CODENAMES=$(ls -1)
+        if [[ "${PUSHFOCAL}" != "YES" ]]; then
+            CODENAMES=$(echo "${CODENAMES}" | grep -v focal)
+        fi
+        if [[ "${PUSHRESOLUTE}" != "YES" ]]; then
+            CODENAMES=$(echo "${CODENAMES}" | grep -v resolute)
+        fi
+        if [[ "${PUSHTRIXIE}" != "YES" ]]; then
+            CODENAMES=$(echo "${CODENAMES}" | grep -v trixie)
         fi
         echo Distributions are: "${CODENAMES}"
         popd
@@ -76,7 +77,12 @@ for REPOPATH in $REPOPATH_TMP; do
                     echo "DSC file is ${DSC_FILE}"
                     for _codename in ${CODENAMES}; do
                         echo "===>DSC $DSC_FILE"
-                        repopush --gpg-pass=${SIGN_PASSWORD} --package=${DSC_FILE} --repo-path=${REPOPATH} --component=${REPOCOMP}  --codename=${_codename} --verbose ${REPOPUSH_ARGS}
+                        REPOPUSH_OUTPUT=$(repopush --gpg-pass=${SIGN_PASSWORD} --package=${DSC_FILE} --repo-path=${REPOPATH} --component=${REPOCOMP}  --codename=${_codename} --verbose ${REPOPUSH_ARGS} 2>&1)
+                        echo "${REPOPUSH_OUTPUT}"
+                        if echo "${REPOPUSH_OUTPUT}" | grep -q "There have been errors!"; then
+                            echo "ERROR: repopush encountered errors pushing ${DSC_FILE} to ${_codename}"
+                            exit 1
+                        fi
                         sleep 1
                     done
                 done
@@ -93,7 +99,12 @@ for REPOPATH in $REPOPATH_TMP; do
             pushd ${_codename}
                 DEBS=$(find . -type f -name '*.*deb' )
                 for _deb in ${DEBS}; do
-                    repopush --gpg-pass=${SIGN_PASSWORD} --package=${_deb} --repo-path=${REPOPATH} --component=${REPOCOMP} --codename=${_codename} --verbose ${REPOPUSH_ARGS}
+                    REPOPUSH_OUTPUT=$(repopush --gpg-pass=${SIGN_PASSWORD} --package=${_deb} --repo-path=${REPOPATH} --component=${REPOCOMP} --codename=${_codename} --verbose ${REPOPUSH_ARGS} 2>&1)
+                    echo "${REPOPUSH_OUTPUT}"
+                    if echo "${REPOPUSH_OUTPUT}" | grep -q "There have been errors!"; then
+                        echo "ERROR: repopush encountered errors pushing ${_deb} to ${_codename}"
+                        exit 1
+                    fi
                 done
             #
             popd

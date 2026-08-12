@@ -1,0 +1,130 @@
+def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
+    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
+    node(nodeLabel) {
+        unstash 'uploadPath'
+        def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+
+        withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
+            withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                sh """
+                    cat /etc/hosts > ./hosts
+                    echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
+                    sudo cp ./hosts /etc || true
+
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
+                        set -o errexit
+                        set -o xtrace
+
+                        pushd ${path_to_build}/binary
+                            if [ "x${REPO_NAME}" == "xpsmdb-50" -o "x${REPO_NAME}" == "xpsmdb-60" ]; then
+                                createrepo_opts=" --no-database "
+                            fi
+
+                            for rhel in `ls -1 redhat`; do
+                                export rpm_dest_path=/srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/\${rhel}
+
+                                # noarch packages are architecture-independent and need to live in every per-arch repo.
+                                # Filter strictly by the el<rhel>/amzn<rhel> tag in the filename so each repo only gets
+                                # the noarch packages tagged for the rhel version being processed. Restrict find to the
+                                # current rhel subtree to avoid picking up duplicate copies of the same RPM that the
+                                # build may have placed under sibling rhel noarch/ directories.
+                                NOARCH_RPMS=`find redhat/\${rhel} -name "*.el\${rhel}.noarch.rpm" -o -name "*.amzn\${rhel}.noarch.rpm" 2>/dev/null | sort -u`
+                                echo "noarch packages selected for el\${rhel}:"
+                                echo "\${NOARCH_RPMS:-NONE}"
+
+                                # RPMS - iterate the union of source arch dirs (what this build delivers) and existing
+                                # destination arch dirs (from previous builds). Without this, a build that ships only
+                                # noarch packages would never refresh the existing x86_64/aarch64 repos with the new
+                                # noarch RPMs, because the per-arch source directories simply do not exist.
+                                mkdir -p \${rpm_dest_path}/RPMS
+                                ALL_ARCHES=`(ls -1 redhat/\${rhel} 2>/dev/null; ls -1 \${rpm_dest_path}/RPMS 2>/dev/null) | sort -u`
+                                echo "arch dirs to process for el\${rhel}: \${ALL_ARCHES}"
+                                for arch in \${ALL_ARCHES}; do
+                                    repo_path=\${rpm_dest_path}/RPMS/\${arch}
+                                    mkdir -p \${repo_path}
+                                    if [ -d redhat/\${rhel}/\${arch} ] && [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
+                                        rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
+                                    fi
+                                    # also copy noarch packages for the current rhel into every non-noarch arch repo
+                                    if [ "\${arch}" != "noarch" ] && [ -n "\${NOARCH_RPMS}" ]; then
+                                        echo "Copying noarch packages into \${repo_path}"
+                                        echo "\${NOARCH_RPMS}" | xargs -I{} rsync -aHv {} \${repo_path}/
+                                    fi
+                                    createrepo --update \${createrepo_opts} \${repo_path}
+                                    if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
+                                        rm -f \${repo_path}/repodata/repomd.xml.asc
+                                    fi
+                                    gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${repo_path}/repodata/repomd.xml 
+                                done
+
+                                # SRPMS
+                                mkdir -p \${rpm_dest_path}/SRPMS
+                                if [ `find ../source/redhat -name '*.src.rpm' | wc -l` -gt 0 ]; then
+                                    cp -v `find ../source/redhat -name '*.src.rpm' \${find_exclude}` \${rpm_dest_path}/SRPMS/
+                                fi
+                                createrepo --update \${createrepo_opts} \${rpm_dest_path}/SRPMS
+                                if [ -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc ]; then
+                                    rm -f \${rpm_dest_path}/SRPMS/repodata/repomd.xml.asc
+                                fi
+                                gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${rpm_dest_path}/SRPMS/repodata/repomd.xml 
+                            done
+
+                            if [ "x${DESTINATION}" == "xrelease" ]; then
+                                DESTINATION=main
+                            fi
+                            for dist in `ls -1 debian`; do
+                                for deb in `find debian/\${dist} -name '*.deb'`; do
+                                 pkg_fname=\$(basename \${deb})
+                                 EC=0
+                                 /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | sed -re "s|[0-9]:||" | grep ^\${pkg_fname} > /dev/null || EC=\$?
+                                 REPOPUSH_ARGS=""
+                                 if [ \${EC} -eq 0 ]; then
+                                     REPOPUSH_ARGS=" --remove-package "
+                                 fi
+                                 # Skip the dsc push when the source package is already in the
+                                 # destination component pool.
+                                 for dsc in \$(find ../source/debian -name '*.dsc' 2>/dev/null); do
+                                    SRCNAME=\$(grep -m1 "^Source:" \${dsc}  | sed "s/^Source: *//")
+                                    FULLVER=\$(grep -m1 "^Version:" \${dsc} | sed "s/^Version: *//")
+                                    UPVER="\${FULLVER%-*}"
+                                    POOL_DIR=/srv/repo-copy/${REPO_NAME}/apt/pool/${DESTINATION}
+                                    EXISTING_DSC=\$(find \${POOL_DIR} -type f -name "\$(basename \${dsc})" 2>/dev/null | head -1)
+                                    if [ -n "\${EXISTING_DSC}" ]; then
+                                        echo "Skipping \${SRCNAME} \${FULLVER} source push: dsc already in pool (\${EXISTING_DSC})"
+                                        continue
+                                    fi
+                                    EXISTING_ORIG=\$(find \${POOL_DIR} -type f -name "\${SRCNAME}_\${UPVER}.orig.tar.gz" 2>/dev/null | head -1)
+                                    if [ -n "\${EXISTING_ORIG}" ]; then
+                                        echo "Skipping \${SRCNAME} \${UPVER} source push: orig tarball already in pool (\${EXISTING_ORIG})"
+                                        continue
+                                    fi
+                                    echo "Pushing \${SRCNAME} \${FULLVER} source (not yet in pool)"
+                                    env PATH=/usr/local/reprepro5/bin:${PATH} repopush --gpg-pass ${SIGN_PASSWORD} --package \${dsc} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
+                                done
+                                env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
+                                done
+                            done
+                        popd
+
+                        if [ "x${DESTINATION}" == "xmain" ]; then
+                            DESTINATION=release
+                        fi
+
+                        # Update /srv/repo-copy/version
+                        date +%s > /srv/repo-copy/version
+
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
+                            /srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/ \
+                            10.30.9.32:/www/repo.percona.com/htdocs/${REPO_NAME}/yum/${DESTINATION}/
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
+                            /srv/repo-copy/${REPO_NAME}/apt/ \
+                            10.30.9.32:/www/repo.percona.com/htdocs/${REPO_NAME}/apt/
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
+                            /srv/repo-copy/version \
+                            10.30.9.32:/www/repo.percona.com/htdocs/
+                    '
+                """
+            }
+        }
+    }
+}

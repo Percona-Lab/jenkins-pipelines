@@ -17,17 +17,29 @@ pipeline {
             description: 'Repo components to create(coma separated)',
             name: 'COMPONENTS')
         string(
-            defaultValue: '7,8,9',
+            defaultValue: '8,9,10',
             description: 'Centos versions(coma separated)',
             name: 'CENTOS_VERSIONS')
         string(
-            defaultValue: 'bullseye,bookworm,focal,jammy,noble',
+            defaultValue: 'bookworm,jammy,noble,trixie,resolute',
             description: 'Debian and Ubuntu release codenames(coma separated)',
             name: 'DEB_CODE_NAMES')
         string(
             defaultValue: '5',
             description: 'Limit',
             name: 'LIMIT')
+        choice(
+            choices: 'NO\nYES',
+            description: 'PRO build repo',
+            name: 'PROBUILD')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Create YUM repo',
+            name: 'CREATEYUM')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Create APT repo',
+            name: 'CREATEAPT')
     }
     options {
         skipDefaultCheckout()
@@ -37,18 +49,24 @@ pipeline {
     }
     stages {
         stage('Create YUM repo') {
+            when {
+                expression { env.CREATEYUM == 'YES' }
+            }
             steps {
-                createRepo(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                createRepo(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT, PROBUILD)
             }
         }
         stage('Create APT repo') {
+            when {
+                expression { env.CREATEAPT == 'YES' }
+            }
             steps {
-                createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT, PROBUILD)
             }
         }
         stage('Sync repo to production') {
             steps {
-                syncRepo(REPO_NAME)
+                syncRepo(REPO_NAME, PROBUILD)
             }
         }
 

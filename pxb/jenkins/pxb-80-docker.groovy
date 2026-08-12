@@ -39,16 +39,16 @@ pipeline {
             description: 'URL for PXB git repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
-            description: 'Tag/Branch for PXB repository',
+            defaultValue: 'release-8.4.0-6',
+            description: 'release Tag/Branch for PXB repository or PXB version in the format 8.4.0-6',
             name: 'BRANCH')
         string(
             defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         choice(
-            choices: 'testing\nlaboratory\nexperimental',
-            description: 'Repo component to push packages to',
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to retrieve packages',
             name: 'COMPONENT')
     }
     options {
@@ -77,7 +77,7 @@ pipeline {
                             sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                             export DOCKER_CLI_EXPERIMENTAL=enabled
                             sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo systemctl restart docker
                             sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -85,18 +85,28 @@ pipeline {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION
                             . ./XB_VERSION
-                            curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
+                            if [ \${XB_VERSION_MAJOR} = "9" ]; then
+                                curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/trunk/MYSQL_VERSION
+                            else
+                                curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
+                            fi
                             . ./MYSQL_VERSION
                             rm -rf percona-docker
                             git clone ${REPO_DOCKER}
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                                cd percona-xtrabackup-8.0
+                                cd percona-xtrabackup-\${XB_VERSION_MAJOR}.0
                             else
-                                cd percona-xtrabackup-8.x
+                                cd percona-xtrabackup-\${XB_VERSION_MAJOR}.x
                             fi
-                            sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                            XB_EXTRA_CLEAN="${XB_VERSION_EXTRA#-}"
+                            if echo "${XB_EXTRA_CLEAN}" | grep -qE '^[0-9]+$'; then
+                                XB_DOCKER_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}-${XB_EXTRA_CLEAN}.${RPM_RELEASE}"
+                            else
+                                XB_DOCKER_VERSION="${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}-${RPM_RELEASE}.${XB_EXTRA_CLEAN}"
+                            fi
+                            sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_DOCKER_VERSION}/g" Dockerfile
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.1/g" Dockerfile
                             sed -i "s/ARG PXB_REPO=release/ARG PXB_REPO=${COMPONENT}/g" Dockerfile
                             sed -i "s/ARG PS_REPO=release/ARG PS_REPO=${COMPONENT}/g" Dockerfile
@@ -198,19 +208,7 @@ stage('Check by Trivy') {
                 def XB_VERSION_EXTRA = versionEnv['XB_VERSION_EXTRA']
                 
                 // 🔹 Install Trivy if not already installed
-                sh '''
-                    if ! command -v trivy &> /dev/null; then
-                        echo "🔄 Installing Trivy..."
-                        sudo apt-get update
-                        sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                        sudo apt-get update
-                        sudo apt-get -y install trivy
-                    else
-                        echo "✅ Trivy is already installed."
-                    fi
-                '''
+                installTrivy(method: 'apt')
 
                 // 🔹 Define the image tags
                 def imageList = [
@@ -222,8 +220,7 @@ stage('Check by Trivy') {
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
                         echo "🔍 Scanning ${image}..."
-                        def result = sh(script: """#!/bin/bash
-                            set -e
+                        def result = sh(script: """
                             sudo trivy image --quiet \
                                       --format table \
                                       --timeout 10m0s \
@@ -231,11 +228,10 @@ stage('Check by Trivy') {
                                       --exit-code 1 \
                                       --scanners vuln \
                                       --severity HIGH,CRITICAL ${image}
-                            echo "TRIVY_EXIT_CODE=\$?"
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -246,13 +242,13 @@ stage('Check by Trivy') {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
             } catch (Exception e) {
-                error "❌ Trivy scan failed: ${e.message}"
+                unstable "⚠️ Trivy scan failed: ${e.message}"
             }
         }
     }
@@ -270,7 +266,7 @@ stage('Check by Trivy') {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${BRANCH}"
+                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }

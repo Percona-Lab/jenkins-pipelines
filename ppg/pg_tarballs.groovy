@@ -183,7 +183,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = "release-18.3.1"
+                                def BRANCH_NAME = "release-18.4.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -196,7 +196,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1 --include_liburing=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -212,7 +212,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = "release-18.3.1"
+                                def BRANCH_NAME = "release-18.4.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -225,7 +225,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --include_liburing=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -241,7 +241,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = 'release-18.3.1'
+                                def BRANCH_NAME = 'release-18.4.1'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -254,7 +254,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1 --include_liburing=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -270,7 +270,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.9.1"
+                                def BRANCH_NAME = "release-17.10.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -283,7 +283,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -299,7 +299,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.9.1"
+                                def BRANCH_NAME = "release-17.10.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -312,7 +312,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -328,7 +328,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = 'release-17.9.1'
+                                def BRANCH_NAME = 'release-17.10.1'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -341,7 +341,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -370,7 +370,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -399,7 +399,7 @@ pipeline {
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
-				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}", true)
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
@@ -428,7 +428,7 @@ pipeline {
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
-				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}", true)
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
@@ -457,7 +457,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -486,7 +486,7 @@ pipeline {
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
-				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}", true)
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
@@ -515,7 +515,7 @@ pipeline {
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
-				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}", true)
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
@@ -544,7 +544,7 @@ pipeline {
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}", true)
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -573,7 +573,7 @@ pipeline {
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
-				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}", true)
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
@@ -602,7 +602,7 @@ pipeline {
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
-				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}", true)
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }

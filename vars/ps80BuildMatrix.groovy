@@ -1,0 +1,375 @@
+/**
+ * psBuildMatrix.groovy - PS build matrix shared library
+ *
+ * Runs parallel build stages for Percona Server packages.
+ * Handles agent label selection, FIPS mode, and artifact folder routing.
+ *
+ * Usage:
+ *   psBuildMatrix(
+ *       cloud: params.CLOUD,
+ *       awsStashPath: AWS_STASH_PATH,
+ *       fipsMode: env.FIPSMODE
+ *   )
+ */
+
+void installCli() {
+    sh """
+        free -h
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        cat /etc/os-release
+        if command -v apt-get > /dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get -y install wget unzip curl
+        elif command -v yum > /dev/null 2>&1; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                fi
+            fi
+            sudo yum -y install unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
+    """
+}
+
+void cleanUpWS() {
+    sh """
+        sudo rm -rf ./*
+    """
+}
+
+void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+      sh """
+          set -o xtrace
+          mkdir -p test
+          wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-8.0_builder.sh?ref=${BRANCH}
+          sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+          ls -la
+          grep "git clone" ps_builder.sh
+          export build_dir=\$(pwd -P)
+          if [ "$DOCKER_OS" = "none" ]; then
+              set -o xtrace
+              cd \${build_dir}
+              if [ \${FIPSMODE} = "YES" ]; then
+                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
+                  mv -f \${build_dir}/percona-server-private-build/build-ps \${build_dir}/test/.
+              fi
+              if [ -f ./test/percona-server-8.0.properties ]; then
+                  . ./test/percona-server-8.0.properties
+              fi
+              sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+              bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+          else
+              docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                  set -o xtrace
+                  cd \${build_dir}
+                  if [ \${FIPSMODE} = "YES" ]; then
+                      git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
+                      mv -f \${build_dir}/percona-server-private-build/build-ps \${build_dir}/test/.
+                  fi
+                  if [ -f ./test/percona-server-8.0.properties ]; then
+                      . ./test/percona-server-8.0.properties
+                  fi
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                  "
+          fi
+      """
+    }
+}
+
+def call(Map args = [:]) {
+    def cloud         = args.get('cloud', '')
+    def awsStashPath  = args.get('awsStashPath', '')
+    def fipsMode      = args.get('fipsMode', 'NO')
+    def onlyStages    = args.get('onlyStages', [])
+
+    // Build type -> [sourceFolder, targetFolder]
+    def artifactFolders = [
+        rpm:     ['srpm/',           'rpm/'],
+        deb:     ['source_deb/',     'deb/'],
+        tarball: ['source_tarball/', 'tarball/'],
+    ]
+
+    // All build stage definitions, faithfully matching the original pipeline.
+    // Each map: name, image, arch, buildType, flags, fipsFlags (null = no FIPS variant),
+    //           skipInFips (true = skip when FIPSMODE==YES)
+    def stages = [
+        // ---- RPM stages ----
+        [
+            name: 'Oracle Linux 8',
+            image: 'oraclelinux:8', arch: 'x64', buildType: 'rpm',
+            flags: '--build_rpm=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Centos 8 ARM',
+            image: 'centos:8', arch: 'aarch64', buildType: 'rpm',
+            flags: '--build_rpm=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Oracle Linux 9',
+            image: 'oraclelinux:9', arch: 'x64', buildType: 'rpm',
+            flags: '--build_rpm=1 --with_zenfs=1',
+            fipsFlags: '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Oracle Linux 9 ARM',
+            image: 'oraclelinux:9', arch: 'aarch64', buildType: 'rpm',
+            flags: '--build_rpm=1',
+            fipsFlags: '--build_rpm=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Oracle Linux 10',
+            image: 'oraclelinux:10', arch: 'x64', buildType: 'rpm',
+            flags: '--build_rpm=1 --with_zenfs=1',
+            fipsFlags: '--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
+        ],
+        [
+            name: 'Oracle Linux 10 ARM',
+            image: 'oraclelinux:10', arch: 'aarch64', buildType: 'rpm',
+            flags: '--build_rpm=1',
+            fipsFlags: '--build_rpm=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
+        ],
+        [
+            name: 'Amazon Linux 2023',
+            image: 'amazonlinux:2023', arch: 'x64', buildType: 'rpm',
+            flags: '--build_rpm=1',
+            fipsFlags: null, skipInFips: false,
+        ],
+        [
+            name: 'Amazon Linux 2023 ARM',
+            image: 'amazonlinux:2023', arch: 'aarch64', buildType: 'rpm',
+            flags: '--build_rpm=1',
+            fipsFlags: null, skipInFips: false,
+        ],
+        // ---- DEB stages (x64) ----
+        [
+            name: 'Ubuntu Jammy(22.04)',
+            image: 'ubuntu:jammy', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Noble(24.04)',
+            image: 'ubuntu:noble', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Resolute(26.04)',
+            image: 'ubuntu:resolute', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
+        ],
+        [
+            name: 'Debian Bullseye(11)',
+            image: 'debian:bullseye', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Debian Bookworm(12)',
+            image: 'debian:bookworm', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Debian Trixie(13)',
+            image: 'debian:trixie', arch: 'x64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
+        ],
+
+        // ---- DEB stages (ARM) ----
+        //[
+        //    name: 'Ubuntu Focal(20.04) ARM',
+        //    image: 'ubuntu:focal', arch: 'aarch64', buildType: 'deb',
+        //    flags: '--build_deb=1 --with_zenfs=1',
+        //    fipsFlags: null, skipInFips: true,
+        //],
+        [
+            name: 'Ubuntu Jammy(22.04) ARM',
+            image: 'ubuntu:jammy', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Noble(24.04) ARM',
+            image: 'ubuntu:noble', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Resolute(26.04) ARM',
+            image: 'ubuntu:resolute', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
+        ],
+        [
+            name: 'Debian Bullseye(11) ARM',
+            image: 'debian:bullseye', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Debian Bookworm(12) ARM',
+            image: 'debian:bookworm', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Debian Trixie(13) ARM',
+            image: 'debian:trixie', arch: 'aarch64', buildType: 'deb',
+            flags: '--build_deb=1 --with_zenfs=1',
+            fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
+            versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']],
+        ],
+
+        // ---- Tarball stages ----
+        [
+            name: 'Oracle Linux 8 binary tarball',
+            image: 'oraclelinux:8', arch: 'x64', buildType: 'tarball',
+            flags: '--build_tarball=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Oracle Linux 8 debug tarball',
+            image: 'oraclelinux:8', arch: 'x64', buildType: 'tarball',
+            flags: '--debug=1 --build_tarball=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Oracle Linux 9 tarball',
+            image: 'oraclelinux:9', arch: 'x64', buildType: 'tarball',
+            flags: '--build_tarball=1',
+            fipsFlags: '--build_tarball=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Oracle Linux 9 ZenFS tarball',
+            image: 'oraclelinux:9', arch: 'x64', buildType: 'tarball',
+            flags: '--build_tarball=1 --with_zenfs=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Oracle Linux 9 debug tarball',
+            image: 'oraclelinux:9', arch: 'x64', buildType: 'tarball',
+            flags: '--debug=1 --build_tarball=1',
+            fipsFlags: '--debug=1 --build_tarball=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Focal(20.04) tarball',
+            image: 'ubuntu:focal', arch: 'x64', buildType: 'tarball',
+            flags: '--build_tarball=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Ubuntu Focal(20.04) debug tarball',
+            image: 'ubuntu:focal', arch: 'x64', buildType: 'tarball',
+            flags: '--debug=1 --build_tarball=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Ubuntu Jammy(22.04) tarball',
+            image: 'ubuntu:jammy', arch: 'x64', buildType: 'tarball',
+            flags: '--build_tarball=1',
+            fipsFlags: '--build_tarball=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+        [
+            name: 'Ubuntu Jammy(22.04) ZenFS tarball',
+            image: 'ubuntu:jammy', arch: 'x64', buildType: 'tarball',
+            flags: '--build_tarball=1 --with_zenfs=1',
+            fipsFlags: null, skipInFips: true,
+        ],
+        [
+            name: 'Ubuntu Jammy(22.04) debug tarball',
+            image: 'ubuntu:jammy', arch: 'x64', buildType: 'tarball',
+            flags: '--debug=1 --build_tarball=1',
+            fipsFlags: '--debug=1 --build_tarball=1 --enable_fipsmode=1', skipInFips: false,
+        ],
+    ]
+
+    // Build the parallel branches map
+    def branches = [:]
+
+    stages.each { s ->
+        def stageName  = s.name
+        def image      = s.image
+        def arch       = s.arch
+        def buildType  = s.buildType
+        def flags      = s.flags
+        def fipsFl     = s.fipsFlags
+        def skip       = s.skipInFips
+
+        def sourceFolder = artifactFolders[buildType][0]
+        def targetFolder = artifactFolders[buildType][1]
+        def versionConstraint = s.get('versionConstraint', null)
+
+        // Determine agent label based on arch and cloud
+        def agentLabel = arch == 'aarch64'
+            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64')
+            : (cloud == 'Hetzner' ? 'docker-x64'     : 'docker-32gb')
+
+        branches[stageName] = {
+            stage(stageName) {
+                // Skip stages not in the BUILD_STAGES filter
+                if (onlyStages && !onlyStages.contains(stageName)) {
+                    echo "Skipped: not in BUILD_STAGES filter"
+                    return
+                }
+
+                // Skip stages marked skipInFips when FIPS mode is active
+                if (skip && fipsMode == 'YES') {
+                    echo "Skipping '${stageName}' (not supported in FIPS mode)"
+                    return
+                }
+
+                // Skip stages with a version constraint if the current PS version doesn't match
+                if (versionConstraint) {
+                    def major = env.MYSQL_VERSION_MAJOR
+                    def minor = env.MYSQL_VERSION_MINOR
+                    def allowed = versionConstraint.any { vc -> vc.major == major && vc.minor == minor }
+                    if (!allowed) {
+                        echo "Skipping '${stageName}' (requires PS version 8.4.x or 9.7.x, detected ${major}.${minor})"
+                        return
+                    }
+                }
+
+                node(agentLabel) {
+                    cleanUpWS()
+                    installCli()
+                    unstash 'properties'
+                    popArtifactFolder(cloud, sourceFolder, awsStashPath)
+
+                    // Determine final build flags
+                    def buildFlags
+                    if (fipsMode == 'YES' && fipsFl != null) {
+                        buildFlags = fipsFl
+                    } else {
+                        buildFlags = flags
+                    }
+
+                    buildStage(image, buildFlags)
+                    pushArtifactFolder(cloud, targetFolder, awsStashPath)
+                }
+            }
+        }
+    }
+
+    parallel branches
+}

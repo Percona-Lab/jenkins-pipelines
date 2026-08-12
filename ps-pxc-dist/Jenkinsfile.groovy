@@ -1,3 +1,11 @@
+/* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
+]) _
+
+import groovy.transform.Field
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -114,6 +122,10 @@ pipeline {
             description: "Skips checking CVE stage",
             name: 'SKIP_CVE_TEST'
         )
+        string(
+            defaultValue: '---------───────── Push Options ─────────----------',
+            description: '',
+            name: 'SEPARATOR_PUSH_OPTIONS')
         choice(
             choices: 'YES\nNO',
             description: 'Push amazonlinux 2023 packages',
@@ -125,14 +137,19 @@ pipeline {
             name: 'PUSHRHEL10'
         )
         choice(
+            choices: 'NO\nYES',
+            description: 'Push focal packages',
+            name: 'PUSHFOCAL'
+        )
+        choice(
             choices: 'YES\nNO',
             description: 'Push trixie packages',
             name: 'PUSHTRIXIE'
         )
         choice(
-            choices: 'NO\nYES',
-            description: 'Push focal packages',
-            name: 'PUSHFOCAL'
+            choices: 'YES\nNO',
+            description: 'Push resolute packages',
+            name: 'PUSHRESOLUTE'
         )
     }
     options {
@@ -165,13 +182,14 @@ pipeline {
                             echo "PUSHAMAZONLINUX=\${PUSHAMAZONLINUX}" >> args_pipeline
                             echo "PUSHRHEL10=\${PUSHRHEL10}" >> args_pipeline
                             echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHRESOLUTE=\${PUSHRESOLUTE}" >> args_pipeline
                             echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
-                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/rpm_release.sh -O rpm_release.sh
+                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/hetzner/ps-pxc-dist/rpm_release.sh -O rpm_release.sh
                                 bash -xe rpm_release.sh
                             "
                         """
@@ -203,13 +221,14 @@ pipeline {
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
                             echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHRESOLUTE=\${PUSHRESOLUTE}" >> args_pipeline
                             echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
-                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/apt_release.sh -O apt_release.sh
+                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/hetzner/ps-pxc-dist/apt_release.sh -O apt_release.sh
                                 bash -xe apt_release.sh
                             "
                         """
@@ -236,6 +255,7 @@ pipeline {
                                 bash -x /tmp/args_pipeline
                                 wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/sync_repos_prod.sh -O sync_repos_prod.sh
                                 bash -xe sync_repos_prod.sh
+                                date +%s > /srv/repo-copy/version
                         "
                 """
                 }
@@ -283,7 +303,12 @@ pipeline {
                     sh """
                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                            if [ ${COMPONENT} = RELEASE ]; then
-                               curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                               CRAWL_RESPONSE=\$(curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory)
+                               echo "Crawl response: \${CRAWL_RESPONSE}"
+                               if ! echo "\${CRAWL_RESPONSE}" | grep -qE '"status":"(running|queued)"'; then
+                                   echo "ERROR: crawl_directory did not return running or queued status. Response: \${CRAWL_RESPONSE}"
+                                   exit 1
+                               fi
                            fi
 ENDSSH
                     """
@@ -302,20 +327,7 @@ ENDSSH
                 script {
                     try {
                         // 🔹 Install Trivy if not already installed
-                        sh '''
-                            if ! command -v trivy &> /dev/null; then
-                                echo "🔄 Installing Trivy..."
-                                sudo apt-get update
-                                sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                                echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                                sudo apt-get update
-                                sudo apt-get -y install trivy
-                                trivy --version
-                            else
-                                echo "✅ Trivy is installed."
-                            fi
-                        '''
+                        installTrivy(method: 'apt')
                         // 🔹 Define the image tags
                         def imageList = [
                             "perconalab/haproxy:latest",
@@ -327,32 +339,32 @@ ENDSSH
                             "perconalab/percona-orchestrator:latest"
                         ]
                         // 🔹 Scan images and store logs
+                            def anyVulnerabilities = false
                             imageList.each { image ->
                                 echo "🔍 Scanning ${image}..."
-                                def result = sh(script: """#!/bin/bash
-                                    set -e
+                                def trivyExitCode = sh(script: """
                                     trivy image --quiet \
                                       --format table --timeout 10m0s --ignore-unfixed --exit-code 1 --scanners vuln --severity HIGH,CRITICAL ${image}
-                                    echo "TRIVY_EXIT_CODE=\$?"
                                 """, returnStatus: true)
-                                echo "Actual Trivy exit code: ${result}"
-                            // 🔴 Fail the build if vulnerabilities are found
-                                if (result != 0) {
+                                echo "Actual Trivy exit code: ${trivyExitCode}"
+                            // 🟡 Mark build as unstable if vulnerabilities are found
+                                if (trivyExitCode != 0) {
+                                    anyVulnerabilities = true
                                     sh """
                                         trivy image --quiet \
                                           --format table --timeout 10m0s --ignore-unfixed --exit-code 0 --scanners vuln \
                                           --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                                     """
-                                    echo "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                                    echo "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                                 } else {
                                     echo "✅ No critical vulnerabilities found in ${image}."
                                 }
                             }
-                            if (result != 0) {
-                                    error "❌ Trivy detected vulnerabilities in images. See ${TRIVY_LOG} for details."
+                            if (anyVulnerabilities) {
+                                    unstable "⚠️ Trivy detected vulnerabilities in images. See ${TRIVY_LOG} for details."
                             }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 }
             }
             }
@@ -361,16 +373,23 @@ ENDSSH
 
     post {
         success {
-            slackSend channel: '#releases-ci', color: '#00FF00', message: "${REPOSITORY} distribution: job finished"
+            slackSend channel: '#releases-ci', color: '#00FF00', message: "✅ ${REPOSITORY} distribution: job finished"
+        }
+        unstable {
+            slackSend channel: '#releases-ci', color: '#FFFF00', message: "⚠️ ${REPOSITORY} distribution: job finished with warnings (Trivy)"
         }
         failure {
-            slackSend channel: '#releases-ci', color: '#FF0000', message: "${REPOSITORY} distribution: job failed"
+            slackSend channel: '#releases-ci', color: '#FF0000', message: "❌ ${REPOSITORY} distribution: job failed"
         }
         always {
             script {
                 currentBuild.description = "Repo: ${REPOSITORY}-${REPOSITORY_VERSION}/${COMPONENT}"
+                try {
+                    deleteDir()
+                } catch (Exception e) {
+                    echo "Warning: Could not delete workspace (agent may have been removed): ${e.message}"
+                }
             }
-            deleteDir()
         }
     }
 }

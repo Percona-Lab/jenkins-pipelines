@@ -326,6 +326,32 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute(26.04)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -483,7 +509,7 @@ pipeline {
                         sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                         export DOCKER_CLI_EXPERIMENTAL=enabled
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo systemctl restart docker
                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static

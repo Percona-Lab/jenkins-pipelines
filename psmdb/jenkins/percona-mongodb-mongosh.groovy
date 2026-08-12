@@ -54,7 +54,7 @@ pipeline {
             description: 'Tag/Branch for build script repository',
             name: 'BUILD_GIT_BRANCH')
         string(
-            defaultValue: '2.2.10',
+            defaultValue: '2.8.3',
             description: 'VERSION value',
             name: 'VERSION')
         string(
@@ -147,7 +147,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-                /* stage('Oracle Linux 10(x86_64)') {
+                stage('Oracle Linux 10(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -158,8 +158,8 @@ pipeline {
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                } */ // Commented out in scope of PKG-1083
-                /* stage('Oracle Linux 10(aarch64)') {
+                }
+                stage('Oracle Linux 10(aarch64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
@@ -170,7 +170,7 @@ pipeline {
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                } */ // Commented out in scope of PKG-1083
+                }
                 stage('Amazon Linux 2023(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
@@ -263,6 +263,30 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_mongosh=1 --build_variant=deb-x64")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie (13)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_mongosh=1 --build_variant=deb-x64")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie (13)(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_mongosh=1 --build_variant=deb-arm64")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }

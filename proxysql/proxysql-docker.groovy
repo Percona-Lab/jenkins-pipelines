@@ -1,7 +1,7 @@
 /* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 import groovy.transform.Field
@@ -56,7 +56,11 @@ parameters {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: '2.7.3', description: 'Proxysql Version', name: 'VERSION')
-        string(defaultValue: '1.3', description: 'RPM version', name: 'RPM_RELEASE')
+        string(defaultValue: '1.5', description: 'RPM version', name: 'RPM_RELEASE')
+        choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to get packages',
+            name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
@@ -77,7 +81,7 @@ parameters {
             steps {
                 script {
                         sh '''
-                            Dockerfile="Dockerfile-proxysql2"
+                            Dockerfile="Dockerfile-proxysql${VERSION%%.*}"
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -98,17 +102,17 @@ parameters {
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             cd proxysql
-                            sed -i "s/ENV PBS_VERSION.*/ENV PBS_VERSION ${VERSION}-${RPM_RELEASE}.el9/g" ${Dockerfile}
+                            sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" ${Dockerfile}
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker tag perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker pull perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker tag perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
                             fi
                             sudo docker images
                         '''
@@ -119,21 +123,21 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/proxysql2:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/proxysql2:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-arm64
+                            sudo docker tag ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-amd64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-amd64
+                            sudo docker tag ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-arm64
                        '''
                        }
                        sh '''
-                           sudo docker manifest create --amend ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
-                           sudo docker manifest inspect ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest create --amend ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE} \
+                               ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 \
+                               ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -144,11 +148,11 @@ parameters {
                            PROXYSQL_MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 1)}')
                            PROXYSQL_MAJOR_FULL_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           sudo docker manifest push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${VERSION} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${PROXYSQL_MAJOR_FULL_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${PROXYSQL_MAJOR_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:latest ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:${PROXYSQL_MAJOR_FULL_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:${PROXYSQL_MAJOR_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:latest ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
                        '''
                        }
                 }
@@ -165,31 +169,21 @@ parameters {
             script {
                 try {
                     // 🔹 Install Trivy if not present
-                    sh '''
-                        if ! command -v trivy &> /dev/null; then
-                            echo "🔄 Installing Trivy..."
-                            sudo apt-get update
-                            sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get -y install trivy
-                        else
-                            echo "✅ Trivy is already installed."
-                        fi
-                    '''
+                    installTrivy(method: 'apt')
+
+                // 🔹 Extract major version (equivalent of ${VERSION%%.*} in bash)
+                def majorVersion = VERSION.split('\\.')[0]
 
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/proxysql${majorVersion}:${VERSION}-${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/proxysql${majorVersion}:${VERSION}-${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
                         echo "🔍 Scanning ${image}..."
-                        def result = sh(script: """#!/bin/bash
-                            set -e
+                        def result = sh(script: """
                             sudo trivy image --quiet \
                                       --format table \
                                       --timeout 10m0s \
@@ -197,11 +191,10 @@ parameters {
                                       --exit-code 1 \
                                       --scanners vuln \
                                       --severity HIGH,CRITICAL ${image}
-                            echo "TRIVY_EXIT_CODE=\$?"
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -212,13 +205,13 @@ parameters {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
                 } catch (Exception e) {
-                    error "❌ Trivy scan failed: ${e.message}"
+                    unstable "⚠️ Trivy scan failed: ${e.message}"
                 } // try
             } // script
           } // steps
@@ -227,12 +220,20 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]")
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: (${ORGANIZATION})build failed for ${VERSION} - [${BUILD_URL}]")
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]")
+            }
             deleteDir()
         }
         always {
@@ -240,7 +241,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE} for ${ORGANIZATION} organization"
             }
             deleteDir()
         }

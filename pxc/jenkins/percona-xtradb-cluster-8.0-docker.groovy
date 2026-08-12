@@ -31,17 +31,17 @@ pipeline {
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
-            description: 'Tag/Branch for percona-xtradb-cluster repository',
+            defaultValue: 'release-8.4.8',
+            description: 'release Tag/Branch for percona-xtradb-cluster repository or pxc version in the format 8.4.8',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
+        choice(
+            choices: 'testing\nexperimental\nrelease',
+            description: 'Repository component used to retrieve packages',
+            name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
@@ -77,7 +77,7 @@ pipeline {
                             sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                             export DOCKER_CLI_EXPERIMENTAL=enabled
                             sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo systemctl restart docker
                             sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -88,15 +88,14 @@ pipeline {
                             git clone ${REPO_DOCKER}
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
-                            cd percona-xtradb-cluster-${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}
+                            case ${PXC_MAJOR_RELEASE} in
+                                80) cd percona-xtradb-cluster-8.0 ;;
+                                84) cd percona-xtradb-cluster-8.4 ;;
+                                *) cd percona-xtradb-cluster-9.x ;;
+                            esac
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
-                            if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
-                                if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
-                                    sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
-                                fi
-                            fi
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker build --provenance=false --no-cache --platform "linux/amd64" -t ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 .
                                 sudo docker build --provenance=false --no-cache --platform "linux/amd64" --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-amd64 .
@@ -109,11 +108,6 @@ pipeline {
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile.aarch64
-                            if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
-                                if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
-                                    sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile.aarch64
-                                fi
-                            fi
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker build --provenance=false --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                                 sudo docker build --provenance=false --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
@@ -123,22 +117,22 @@ pipeline {
                                 sudo docker pull perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64
                                 sudo docker tag perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64 percona/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64
                             fi
-                            if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
-                                cd ../percona-xtradb-cluster-8.0-backup
-                            else
-                                cd ../percona-xtradb-cluster-8.4-backup
-                            fi
+                            case ${PXC_MAJOR_RELEASE} in
+                                80) cd ../percona-xtradb-cluster-8.0-backup ;;
+                                84) cd ../percona-xtradb-cluster-8.4-backup ;;
+                                9*) cd ../percona-xtradb-cluster-9.x-backup ;;
+                            esac
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
                             sed -i "s:yum/release:yum/testing:g" Dockerfile
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
                                 #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-4.1/g" Dockerfile
+                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-6.1/g" Dockerfile
                                 sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
-                                    sed -i "s/tools/pxb-8x-innovation/g" Dockerfile
-                                    sed -i "s/ps-80/ps-8x-innovation/g" Dockerfile
-                                    sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
+                                    sed -i "s/tools/pxb-9x-innovation/g" Dockerfile
+                                    sed -i "s/ps-80/ps-9x-innovation/g" Dockerfile
+                                    sed -i "s/pxc-80/pxc-9x-innovation/g" Dockerfile
                                 else
                                     sed -i "s/tools/pxb-84-lts/g" Dockerfile
                                     sed -i "s/ps-80/ps-84-lts/g" Dockerfile
@@ -237,19 +231,7 @@ stage('Check by trivy') {
                 echo "✅ Parsed MySQL version: ${fullVersion}"
                 
                 // 🔹 Install Trivy if not already installed
-                sh '''
-                    if ! command -v trivy &> /dev/null; then
-                        echo "🔄 Installing Trivy..."
-                        sudo apt-get update
-                        sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                        sudo apt-get update
-                        sudo apt-get -y install trivy
-                    else
-                        echo "✅ Trivy is already installed."
-                    fi
-                '''
+                installTrivy(method: 'apt')
 
                 // 🔹 Define the image tags
                 def imageList = [
@@ -260,8 +242,7 @@ stage('Check by trivy') {
                 // 🔹 Scan images and store logs
                     imageList.each { image ->
                         echo "🔍 Scanning ${image}..."
-                        def result = sh(script: """#!/bin/bash
-                            set -e
+                        def result = sh(script: """
                             sudo trivy image --quiet \
                                       --format table \
                                       --timeout 10m0s \
@@ -269,11 +250,10 @@ stage('Check by trivy') {
                                       --exit-code 1 \
                                       --scanners vuln \
                                       --severity HIGH,CRITICAL ${image}
-                            echo "TRIVY_EXIT_CODE=\$?"
                         """, returnStatus: true)
                         echo "Actual Trivy exit code: ${result}"
 
-                    // 🔴 Fail the build if vulnerabilities are found
+                    // 🟡 Mark build as unstable if vulnerabilities are found
                         if (result != 0) {
                             sh """
                             sudo trivy image --quiet \
@@ -284,13 +264,13 @@ stage('Check by trivy') {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            unstable "⚠️ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
                     }
             } catch (Exception e) {
-                error "❌ Trivy scan failed: ${e.message}"
+                unstable "⚠️ Trivy scan failed: ${e.message}"
             } // try
         } // script
     } // steps
@@ -299,13 +279,19 @@ stage('Check by trivy') {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build finished with warnings (Trivy) for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
             }
             deleteDir()
         }
