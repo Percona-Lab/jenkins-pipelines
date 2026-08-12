@@ -88,7 +88,7 @@ pipeline {
             description: 'HA setup branch of percona-helm-charts repo',
             name: 'HELM_CHART_BRANCH')
         choice(
-            choices: ['EKS', 'OpenShift'],
+            choices: ['OpenShift', 'EKS'],
             description: 'Kubernetes platform to provision for the PMM HA cluster (EKS via pmm3-ha-eks, OpenShift via pmm3-ha-rosa).',
             name: 'CLUSTER_TYPE')
         choice(
