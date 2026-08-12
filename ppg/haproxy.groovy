@@ -79,7 +79,7 @@ pipeline {
     stages {
         stage('Create haproxy source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "🚀 [${JOB_NAME}]: starting build for ${PG_BRANCH} by ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
@@ -383,14 +383,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "✅ [${JOB_NAME}]: build has been finished successfully for ${PG_BRANCH} - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "❌ [${JOB_NAME}]: build failed for ${PG_BRANCH} - [${BUILD_URL}]")
         }
         always {
             script {
-                currentBuild.description = "Built on ${PG_BRANCH}"
+                currentBuild.description = "Built on ${PG_BRANCH} by ${GIT_BRANCH}"
             }
             sh '''
                 sudo rm -rf ./*
