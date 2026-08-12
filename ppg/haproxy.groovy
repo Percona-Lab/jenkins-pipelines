@@ -47,13 +47,13 @@ pipeline {
             description: 'URL for haproxy repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v2.8.10',
-            description: 'Tag/Branch for haproxy repository',
-            name: 'PG_BRANCH')
-        string(
             defaultValue: 'main',
             description: 'Tag/Branch for haproxy packaging repository',
             name: 'GIT_BRANCH')
+        string(
+            defaultValue: 'v2.8.27',
+            description: 'Tag/Branch for haproxy repository',
+            name: 'PG_BRANCH')
         string(
             defaultValue: '1',
             description: 'RPM release value',
@@ -384,16 +384,14 @@ pipeline {
     post {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${PG_BRANCH}"
-            }
-            deleteDir()
         }
         failure {
             slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
-            deleteDir()
         }
         always {
+            script {
+                currentBuild.description = "Built on ${PG_BRANCH}"
+            }
             sh '''
                 sudo rm -rf ./*
             '''
