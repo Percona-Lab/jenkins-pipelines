@@ -96,7 +96,6 @@ pipeline {
                     bash -x /srv/pmm-qa/k8s/install_k8s_tools.sh --kubectl --sudo
                     kubectl version --client
                 '''
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Start PMM HA Server') {
@@ -147,55 +146,38 @@ pipeline {
                 '''
             }
         }
-        stage('Disable upgrade on HA PMM instance') {
-            steps {
-                sh '''
-                    curl --location -i --insecure --request PUT \
-                        --user "admin:${ADMIN_PASSWORD}" \
-                        "${PMM_UI_URL}v1/server/settings" \
-                        --header "Content-Type: application/json" \
-                        --data '{ "enable_updates": false }'
-                '''
-            }
-        }
         stage('Setup PMM Client') {
             steps {
-                 sh '''
-                   echo "started client setup"
-                 '''
-                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'yes', 'ha-e2e', ADMIN_PASSWORD, 'no')
-                 sh '''
-                   echo "installed local client"
-                 '''
+                setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'yes', 'ha-e2e', ADMIN_PASSWORD, 'no')
                 script {
-                        env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
+                    env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                 }
                 sh '''
-                        set -o errexit
-                        set -o xtrace
-                        # Exit if no CLIENTS are provided
-                        [ -z "${CLIENTS// }" ] && exit 0
+                    set -o errexit
+                    set -o xtrace
+                    # Exit if no CLIENTS are provided
+                    [ -z "${CLIENTS// }" ] && exit 0
 
-                        export PATH=$PATH:/usr/sbin
-                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
-                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                            export PMM_CLIENT_VERSION="3-dev-latest"
-                        fi
+                    export PATH=$PATH:/usr/sbin
+                    export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+                    if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
+                        export PMM_CLIENT_VERSION="3-dev-latest"
+                    fi
 
-                        sudo rm -rf /srv/pmm-qa
-                        sudo mkdir -p /srv/pmm-qa
-                        sudo rsync -a ${WORKSPACE}/ /srv/pmm-qa/
-                        sudo chown -R ec2-user:ec2-user /srv/pmm-qa
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
+                    sudo rsync -a ${WORKSPACE}/ /srv/pmm-qa/
+                    sudo chown -R ec2-user:ec2-user /srv/pmm-qa
 
-                        pushd /srv/pmm-qa/qa-integration/pmm_qa
-                            echo "Setting docker based PMM clients"
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
+                        echo "Setting docker based PMM clients"
 
-                            ./pmm-framework/pmm-framework \
-                                --pmm-server-password=${ADMIN_PASSWORD} \
-                                --client-version=${PMM_CLIENT_VERSION} \
-                                ${CLIENTS}
-                        popd
-                    '''
+                        ./pmm-framework/pmm-framework \
+                            --pmm-server-password=${ADMIN_PASSWORD} \
+                            --client-version=${PMM_CLIENT_VERSION} \
+                            ${CLIENTS}
+                    popd
+                '''
             }
         }
         stage('Install dependencies') {
@@ -213,9 +195,6 @@ pipeline {
                 timeout(time: 60, unit: "MINUTES")
             }
             steps {
-                // KUBECONFIG is what lets K8sHelper drive the failover steps;
-                // without it the cluster-level HA tests skip themselves
-                // instead of failing.
                 sh '''
                     pushd /srv/pmm-qa/e2e_tests
                         export CI=true
@@ -254,18 +233,6 @@ pipeline {
                         string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
                     ]
                 }
-            }
-        }
-        success {
-            script {
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00',
-                    message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-            }
-        }
-        failure {
-            script {
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000',
-                    message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }
