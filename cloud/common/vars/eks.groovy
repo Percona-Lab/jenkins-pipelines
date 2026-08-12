@@ -19,6 +19,12 @@ void createCluster(Map clusterCfg) {
     def clusterSuffix = clusterCfg.clusterSuffix
     def clusterFullName = "${clusterCfg.clusterName}-${clusterSuffix}"
 
+    def preBootstrapCommands = clusterCfg.hugepages ? """  preBootstrapCommands:
+    - "echo 'vm.nr_hugepages=1024' >> /etc/sysctl.conf"
+    - "echo 'vm.hugetlb_shm_group=26' >> /etc/sysctl.conf"
+    - "sysctl -p"
+""" : ""
+
     timeout(time: 30, unit: 'MINUTES') {
         sh """
             timestamp="\$(date +%s)"
@@ -52,7 +58,7 @@ nodeGroups:
     - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
   instancesDistribution:
     instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-  tags:
+${preBootstrapCommands}  tags:
     'iit-billing-tag': 'jenkins-eks'
     'delete-cluster-after-hours': '6'
     'team': 'cloud'

@@ -38,12 +38,20 @@ void createCluster(Map clusterCfg) {
                 "GKE_RELEASE_CHANNEL=${clusterCfg.platformChannel}",
                 "GKE_REGION=${clusterCfg.zone}",
                 "PLATFORM_VER=${clusterCfg.platformVersion}",
-                "MACHINE_TYPE=${clusterCfg.machineType}"
+                "MACHINE_TYPE=${clusterCfg.machineType}",
+                "HUGEPAGES=${clusterCfg.hugepages ? '1' : ''}"
             ]) {
                 sh '''
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
                     maxRetries=15
                     exitCode=1
+
+                    SYSTEM_CONFIG_FLAG=""
+                    SYSTEM_CONFIG_FILE="$WORKSPACE/hugepages-config-$CLUSTER_SUFFIX.yaml"
+                    if [[ -n "$HUGEPAGES" ]]; then
+                        printf 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n' > "$SYSTEM_CONFIG_FILE"
+                        SYSTEM_CONFIG_FLAG="--system-config-from-file=$SYSTEM_CONFIG_FILE"
+                    fi
 
                     while [[ $exitCode != 0 && $maxRetries > 0 ]]; do
                         gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
@@ -63,6 +71,7 @@ void createCluster(Map clusterCfg) {
                             --logging=NONE \
                             --no-enable-managed-prometheus \
                             --workload-pool=cloud-dev-112233.svc.id.goog \
+                            $SYSTEM_CONFIG_FLAG \
                             --quiet &&\
                         kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
                         exitCode=$?
@@ -70,6 +79,7 @@ void createCluster(Map clusterCfg) {
                         (( maxRetries -- ))
                         sleep 1
                     done
+                    rm -f "$SYSTEM_CONFIG_FILE"
                     if [[ $exitCode != 0 ]]; then exit $exitCode; fi
 
                     CURRENT_TIME=$(date --rfc-3339=seconds)

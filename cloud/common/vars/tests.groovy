@@ -95,6 +95,9 @@ void printTestVariables(Map testVariables) {
 }
 
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
+    def pgVersionKey = pillarVersion?.replace('-postgis', '')
+    def pgPostgresKey = pillarVersion?.endsWith('-postgis') ? "IMAGE_POSTGIS${pgVersionKey}" : "IMAGE_POSTGRESQL${pgVersionKey}"
+
     def versionedImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
@@ -109,8 +112,9 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_PGBOUNCER: "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: pgPostgresKey,
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersionKey}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersionKey}"
         ]
     ]
 
@@ -472,6 +476,22 @@ Map buildPxcTestVariables(Map config) {
         cluster_wide           : config.cluster_wide,
         operator               : 'pxc-operator',
         default_operator_image : config.default_operator_image,
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
+Map buildPgTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'pg-operator',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'kuttl',
         images                 : config.images,
         extra_envs             : config.extra_envs ?: [:]
     ]
