@@ -157,6 +157,7 @@ pipeline {
 
     options {
         skipDefaultCheckout()
+        retry(count: 2, conditions: [agent()])
     }
 
     environment {
