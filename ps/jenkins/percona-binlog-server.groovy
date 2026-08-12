@@ -160,7 +160,7 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8') {
                     when {
-                        expression { false }
+                        expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -175,7 +175,7 @@ pipeline {
                 }
                 stage('Oracle Linux 8 ARM') {
                     when {
-                        expression { false }
+                        expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
