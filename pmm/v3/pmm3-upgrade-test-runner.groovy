@@ -152,8 +152,6 @@ pipeline {
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
-                    pwd
-                    ls
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -252,7 +250,7 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    npm install --no-audit --no-fund
+                    npm ci
                     npx playwright install chromium
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
@@ -269,13 +267,13 @@ pipeline {
                     set -o xtrace
 
                     pushd /srv/pmm-qa/qa-integration/pmm_qa
-                        echo "Setting docker based PMM clients"
-                        mkdir -m 777 -p /tmp/backup_data
-                        ./pmm-framework/pmm-framework --parallel \
-                            --verbose \
-                            --client-version=\${CLIENT_VERSION} \
-                            --pmm-server-password=\${ADMIN_PASSWORD} \
-                            \${PMM_CLIENTS}
+                    echo "Setting docker based PMM clients"
+                    mkdir -m 777 -p /tmp/backup_data
+
+                    ./pmm-framework/pmm-framework --parallel \
+                        --client-version=\${CLIENT_VERSION} \
+                        --pmm-server-password=\${ADMIN_PASSWORD} \
+                        \${PMM_CLIENTS}
                     popd
                 '''
             }
@@ -412,7 +410,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
-                            npm install --no-audit --no-fund
+                            npm ci
                         popd
                     '''
                     sh '''
@@ -578,7 +576,7 @@ pipeline {
                         sh '''
                             pushd /srv/pmm-qa/e2e_tests/
                                 export CI=true
-                                sudo npm ci --omit=optional
+                                sudo npm ci
                                 sudo npx playwright install chromium
                                 sudo CI=true npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
                             popd

@@ -73,7 +73,7 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh """
                                 echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                                docker buildx create --use
+                                docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                                 cd ./source/
                                 DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
                                 docker logout
