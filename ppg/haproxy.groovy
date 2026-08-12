@@ -11,6 +11,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sed -i "s/^BRANCH=.*/BRANCH=${PG_BRANCH}/g" builder.sh
         VERSION=\$(echo ${PG_BRANCH} | sed 's/^v//')
         sed -i "s/^VERSION=.*/VERSION=\${VERSION}/g" builder.sh
+        HAPROXY_MAJOR_MINOR=\$(echo \${VERSION} | cut -d. -f1,2)
+        HAPROXY_REPO="http://git.haproxy.org/git/haproxy-\${HAPROXY_MAJOR_MINOR}.git/"
+        sed -i "s#^REPO=.*#REPO=\${HAPROXY_REPO}#g" builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -18,7 +21,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${PG_BRANCH} --build_branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${PG_BRANCH} --build_repo=${GIT_REPO} --build_branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -44,13 +47,13 @@ pipeline {
             description: 'URL for haproxy repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v2.8.10',
-            description: 'Tag/Branch for haproxy repository',
-            name: 'PG_BRANCH')
-        string(
             defaultValue: 'main',
             description: 'Tag/Branch for haproxy packaging repository',
             name: 'GIT_BRANCH')
+        string(
+            defaultValue: 'v2.8.27',
+            description: 'Tag/Branch for haproxy repository',
+            name: 'PG_BRANCH')
         string(
             defaultValue: '1',
             description: 'RPM release value',
@@ -76,7 +79,7 @@ pipeline {
     stages {
         stage('Create haproxy source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "🚀 [${JOB_NAME}]: starting build for ${PG_BRANCH} by ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
@@ -380,17 +383,15 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${PG_BRANCH}"
-            }
-            deleteDir()
+            slackNotify("#releases-ci", "#00FF00", "✅ [${JOB_NAME}]: build has been finished successfully for ${PG_BRANCH} - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
-            deleteDir()
+            slackNotify("#releases-ci", "#FF0000", "❌ [${JOB_NAME}]: build failed for ${PG_BRANCH} - [${BUILD_URL}]")
         }
         always {
+            script {
+                currentBuild.description = "Built on ${PG_BRANCH} by ${GIT_BRANCH}"
+            }
             sh '''
                 sudo rm -rf ./*
             '''

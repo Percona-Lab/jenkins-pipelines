@@ -166,9 +166,9 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("centos:8", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_src_rpm=1")
+                                buildStage("centos:8", "--build_src_rpm=1")
                             }
                         }
                         stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
@@ -191,6 +191,12 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_source_deb=1")
                             }
                         }
+                        sh '''
+                            if [ -z "$(find test -name "*.dsc" 2>/dev/null)" ]; then
+                                echo "ERROR: No source deb packages (.dsc) were produced"
+                                exit 1
+                            fi
+                        '''
                         stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
