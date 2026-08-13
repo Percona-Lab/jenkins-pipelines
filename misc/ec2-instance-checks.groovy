@@ -157,17 +157,28 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
 
                     // Terminate PGSQL instances (>6 hrs)
+                    // Wrap each call so a single failed instance (already-terminated,
+                    // throttled, wrong region) can't skip the remaining pairs, the stop
+                    // loop below, or the Slack notifications.
                     pgsqlTerminatePairs.each { pair ->
-                        echo "Terminating PGSQL instance ${pair.id} in region ${pair.region}"
-                        sh "aws ec2 terminate-instances --instance-ids ${pair.id} --region ${pair.region}"
-                        echo "PGSQL instance ${pair.id} in region ${pair.region} terminated."
+                        try {
+                            echo "Terminating PGSQL instance ${pair.id} in region ${pair.region}"
+                            sh "aws ec2 terminate-instances --instance-ids ${pair.id} --region ${pair.region}"
+                            echo "PGSQL instance ${pair.id} in region ${pair.region} terminated."
+                        } catch (err) {
+                            echo "WARNING: failed to terminate PGSQL instance ${pair.id} in region ${pair.region}: ${err}"
+                        }
                     }
 
                     // Stop PGSQL instances (>12 hrs)
                     pgsqlStopPairs.each { pair ->
-                        echo "Stopping PGSQL instance ${pair.id} in region ${pair.region}"
-                        sh "aws ec2 stop-instances --instance-ids ${pair.id} --region ${pair.region}"
-                        echo "PGSQL instance ${pair.id} in region ${pair.region} stopped."
+                        try {
+                            echo "Stopping PGSQL instance ${pair.id} in region ${pair.region}"
+                            sh "aws ec2 stop-instances --instance-ids ${pair.id} --region ${pair.region}"
+                            echo "PGSQL instance ${pair.id} in region ${pair.region} stopped."
+                        } catch (err) {
+                            echo "WARNING: failed to stop PGSQL instance ${pair.id} in region ${pair.region}: ${err}"
+                        }
                     }
 
                     // === EC2 General: Runs every 4th build (every 24 hrs) ===
@@ -189,9 +200,13 @@ pipeline {
                         }
 
                         instanceIdRegionPairs.each { pair ->
-                            echo "Terminating instance ${pair.id} in region ${pair.region}"
-                            sh "aws ec2 terminate-instances --instance-ids ${pair.id} --region ${pair.region}"
-                            echo "Instance ${pair.id} in region ${pair.region} terminated."
+                            try {
+                                echo "Terminating instance ${pair.id} in region ${pair.region}"
+                                sh "aws ec2 terminate-instances --instance-ids ${pair.id} --region ${pair.region}"
+                                echo "Instance ${pair.id} in region ${pair.region} terminated."
+                            } catch (err) {
+                                echo "WARNING: failed to terminate instance ${pair.id} in region ${pair.region}: ${err}"
+                            }
                         }
                     }
                 }
