@@ -777,24 +777,44 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 createCluster.call()
             }
 
-            runTest(
-                testId: testId,
-                clusterSuffix: clusterSuffix,
-                testVariables: testVariables,
-                retries: testVariables.retries ?: 1
-            )
+            withKubeCredentials(testVariables) {
+                runTest(
+                    testId: testId,
+                    clusterSuffix: clusterSuffix,
+                    testVariables: testVariables,
+                    retries: testVariables.retries ?: 1
+                )
+            }
         }
     } finally {
-        // Each cluster contains only suffix
         createdClusters.each { cluster ->
             try {
-                clusterCleanup.call()
+                withKubeCredentials(testVariables) {
+                    clusterCleanup.call()
+                }
                 shutdownCluster.call()
                 removeCluster(testVariables.clusters, cluster)
             } catch (Exception e) {
                 echo "Warning: Error cleaning up cluster ${cluster}: ${e.getMessage()}"
             }
         }
+    }
+}
+
+void withKubeCredentials(Map testVariables, Closure body) {
+    switch (testVariables.platform_provider) {
+        case 'doks':
+            withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                body()
+            }
+            return
+        case 'eks':
+            withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                body()
+            }
+            return
+        default:
+            body()
     }
 }
 
