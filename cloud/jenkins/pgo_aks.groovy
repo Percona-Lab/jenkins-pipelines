@@ -1,5 +1,6 @@
 import groovy.transform.Field
 
+@Field Integer numClusters = 5
 @Field def location = ""
 @Field def tests = []
 @Field def clusters = []
@@ -163,7 +164,7 @@ void runTest(Integer TEST_ID) {
 
                     ${exports}
 
-                    mkdir -p e2e-tests/logs e2e-tests/reports
+                    mkdir -p e2e-tests/logs
                     bash -o pipefail <<BASH
                     {
                         ${testCmd}
@@ -222,8 +223,8 @@ pipeline {
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
         string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbackrest')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
@@ -268,50 +269,23 @@ pipeline {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            parallel {
-                stage('cluster1') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+            steps {
+                script {
+                    def agentLabel = params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    def parallelStages = [:]
+                    for (int i = 1; i <= numClusters; i++) {
+                        def clusterName = "cluster${i}"
+                        parallelStages[clusterName] = {
+                            stage(clusterName) {
+                                node(agentLabel) {
+                                    prepareAgent()
+                                    unstash "sourceFILES"
+                                    clusterRunner(clusterName)
+                                }
+                            }
+                        }
                     }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster1')
-                    }
-                }
-                stage('cluster2') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster4')
-                    }
+                    parallel parallelStages
                 }
             }
         }

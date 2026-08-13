@@ -117,7 +117,7 @@ void runTest(Integer TEST_ID) {
 
                     ${exports}
 
-                    mkdir -p e2e-tests/logs e2e-tests/reports
+                    mkdir -p e2e-tests/logs
                     bash -o pipefail <<BASH
                     {
                         ${testCmd}

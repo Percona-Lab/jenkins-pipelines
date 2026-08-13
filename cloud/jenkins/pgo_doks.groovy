@@ -1,5 +1,6 @@
 import groovy.transform.Field
 
+@Field Integer numClusters = 5
 @Field def tests = []
 @Field def clusters = []
 @Field def release_versions = "source/e2e-tests/release_versions"
@@ -152,7 +153,7 @@ void runTest(Integer TEST_ID) {
 
                         ${exports}
 
-                        mkdir -p e2e-tests/logs e2e-tests/reports
+                        mkdir -p e2e-tests/logs
                         bash -o pipefail <<BASH
                         {
                             ${testCmd}
@@ -202,7 +203,7 @@ pipeline {
         DB_TAG = sh(script: "[[ \"$IMAGE_POSTGRESQL\" ]] && echo $IMAGE_POSTGRESQL | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-pr.csv', 'run-minikube.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
@@ -219,8 +220,8 @@ pipeline {
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
         string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital Ocean region to use for cluster')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
         choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -229,6 +230,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timeout(time: 6, unit: 'HOURS')
         copyArtifactPermission('weekly-pgo');
     }
     stages {
@@ -258,50 +260,23 @@ pipeline {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            parallel {
-                stage('cluster1') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+            steps {
+                script {
+                    def agentLabel = params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    def parallelStages = [:]
+                    for (int i = 1; i <= numClusters; i++) {
+                        def clusterName = "cluster${i}"
+                        parallelStages[clusterName] = {
+                            stage(clusterName) {
+                                node(agentLabel) {
+                                    prepareAgent()
+                                    unstash "sourceFILES"
+                                    clusterRunner(clusterName)
+                                }
+                            }
+                        }
                     }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster1')
-                    }
-                }
-                stage('cluster2') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        checkout scm
-                        prepareAgent()
-                        unstash "sourceFILES"
-                        clusterRunner('cluster4')
-                    }
+                    parallel parallelStages
                 }
             }
         }
