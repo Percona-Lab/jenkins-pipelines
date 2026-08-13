@@ -143,7 +143,7 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
         return "IMAGE_POSTGIS${pillarVersion}"
     }
 
-    return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
+    return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
 Boolean isReleaseRun(Map testVariables) {
@@ -734,6 +734,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         workerCountMax  : testVariables.worker_max_count ?: 6,
         region          : testVariables.region ?: "",
         zone            : testVariables.zone ?: "",
+        hugepages       : testVariables.hugepages ?: false,
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
         debug           : testVariables.debug
     ]
@@ -807,8 +808,8 @@ Map buildParallelClusterStages(Map testVariables) {
             stage(clusterSuffix) {
                 if (testVariables.jenkins_agent_label) {
                     node(testVariables.jenkins_agent_label) {
-                        libraries.tools.unstashClonedGitFiles()
-                        libraries.dependencies.prepareNode(
+                        testVariables.libraries.tools.unstashClonedGitFiles()
+                        testVariables.libraries.dependencies.prepareNode(
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
