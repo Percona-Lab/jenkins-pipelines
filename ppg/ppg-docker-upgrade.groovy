@@ -66,13 +66,13 @@ pipeline {
                             sed -i "s|ppg-\\\${pg_version} release|ppg-\\\${pg_version} ${params.PPG_REPO}|g" Dockerfile-custom
 
                             if [ "${params.IMAGE_TYPE}" = "both" ] || [ "${params.IMAGE_TYPE}" = "regular" ]; then
-                                docker build --platform=linux/amd64 --no-cache --provenance=false \\
+                                docker buildx build --platform=linux/amd64 --no-cache --provenance=false --sbom=false --output type=docker,oci-mediatypes=true \\
                                     --build-arg PG_MAJOR=\$PG_MAJOR \\
                                     -t percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} \\
                                     -f Dockerfile .
                             fi
                             if [ "${params.IMAGE_TYPE}" = "both" ] || [ "${params.IMAGE_TYPE}" = "custom" ]; then
-                                docker build --platform=linux/amd64 --no-cache --provenance=false \\
+                                docker buildx build --platform=linux/amd64 --no-cache --provenance=false --sbom=false --output type=docker,oci-mediatypes=true \\
                                     --build-arg PG_MAJOR=\$PG_MAJOR \\
                                     -t percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG} \\
                                     -f Dockerfile-custom .
@@ -89,7 +89,7 @@ pipeline {
                             sed -i "s|ppg-\\\${pg_version} release|ppg-\\\${pg_version} ${params.PPG_REPO}|g" Dockerfile-ubi8
 
                             if [ "${params.IMAGE_TYPE}" = "both" ] || [ "${params.IMAGE_TYPE}" = "regular" ]; then
-                                docker build --platform=linux/amd64 --no-cache --provenance=false \\
+                                docker buildx build --platform=linux/amd64 --no-cache --provenance=false --sbom=false --output type=docker,oci-mediatypes=true \\
                                     --build-arg PG_MAJOR=\$PG_MAJOR \\
                                     -t percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 \\
                                     -f Dockerfile-ubi8 .
@@ -106,7 +106,7 @@ pipeline {
                             sed -i "s|ppg-\\\${pg_version} release|ppg-\\\${pg_version} ${params.PPG_REPO}|g" Dockerfile-ubi10
 
                             if [ "${params.IMAGE_TYPE}" = "both" ] || [ "${params.IMAGE_TYPE}" = "regular" ]; then
-                                docker build --platform=linux/amd64 --no-cache --provenance=false \\
+                                docker buildx build --platform=linux/amd64 --no-cache --provenance=false --sbom=false --output type=docker,oci-mediatypes=true \\
                                     --build-arg PG_MAJOR=\$PG_MAJOR \\
                                     -t percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10 \\
                                     -f Dockerfile-ubi10 .
@@ -189,23 +189,37 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     script {
-                        sh "docker login -u '${USER}' -p '${PASS}'"
+                        sh """
+                        docker login -u '${USER}' -p '${PASS}'
+                        cat > /tmp/push_oci.sh << 'EOS'
+#!/bin/bash
+set -euo pipefail
+SRC="\$1"
+DEST="\$2"
+docker tag "\$SRC" "\$DEST"
+docker push "\$DEST"
+docker buildx inspect ppg-oci >/dev/null 2>&1 || docker buildx create --name ppg-oci --driver docker-container --bootstrap
+printf 'FROM %s\\n' "\$DEST" > Dockerfile.ppg-oci-push
+docker buildx build --builder ppg-oci --provenance=false --sbom=false \\
+  --output type=registry,name="\$DEST",oci-mediatypes=true,compression=gzip,force-compression=true \\
+  -f Dockerfile.ppg-oci-push .
+rm -f Dockerfile.ppg-oci-push
+EOS
+                        chmod +x /tmp/push_oci.sh
+                    """
                         if (params.BUILD_UBI9) {
                             sh """
-                                docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64
-                                docker push perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64
+                                /tmp/push_oci.sh percona-distribution-postgresql-upgrade:${params.IMAGE_TAG} perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-amd64
                             """
                         }
                         if (params.BUILD_UBI8) {
                             sh """
-                                docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64
-                                docker push perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64
+                                /tmp/push_oci.sh percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8 perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi8-amd64
                             """
                         }
                         if (params.BUILD_UBI10) {
                             sh """
-                                docker tag percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10 perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64
-                                docker push perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64
+                                /tmp/push_oci.sh percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10 perconalab/percona-distribution-postgresql-upgrade:${params.IMAGE_TAG}-ubi10-amd64
                             """
                         }
                     }
@@ -263,8 +277,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG} perconalab/percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG}-amd64
-                         docker push perconalab/percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG}-amd64
+                         /tmp/push_oci.sh percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG} perconalab/percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG}-amd64
                      """
                 }
             }
