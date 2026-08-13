@@ -7,6 +7,7 @@ import groovy.transform.Field
 @Field Map testVariables = [:]
 
 void prepareAgent() {
+    checkout scm
     def libraries = load('cloud/common/libraries.groovy').loadLibraries()
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
