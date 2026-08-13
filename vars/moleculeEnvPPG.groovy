@@ -41,7 +41,7 @@ def call() {
         export region=eu-central-1
         export vpc_subnet_id_aws1=subnet-0775d65ad1e9703bc
         export vpc_subnet_id_aws2=subnet-09947b46d69590c50
-        export vpc_subnet_id_aws3=subnet-0fad4db6fdd8025b6
+        export vpc_subnet_id_aws3=subnet-0c72f5b07120e4805
         export driver=ec2
     """
 }
