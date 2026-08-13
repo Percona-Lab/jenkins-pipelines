@@ -120,7 +120,10 @@ void printTestVariables(Map testVariables) {
 }
 
 String getReleaseParamName(String imageName, String pillarVersion, String operator) {
-    def operatorImages = [
+    def pgVersionKey = pillarVersion?.replace('-postgis', '')
+    def pgPostgresKey = pillarVersion?.endsWith('-postgis') ? "IMAGE_POSTGIS${pgVersionKey}" : "IMAGE_POSTGRESQL${pgVersionKey}"
+
+    def versionedImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
@@ -134,9 +137,9 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pillarVersion}",
-            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: pgPostgresKey,
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersionKey}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersionKey}"
         ]
     ]
 
@@ -146,7 +149,7 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
         return "IMAGE_POSTGIS${pillarVersion}"
     }
 
-    return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
+    return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
 }
 
 Boolean isReleaseRun(Map testVariables) {
@@ -495,6 +498,22 @@ Map buildPxcTestVariables(Map config) {
     ]
 }
 
+Map buildPgTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'pg-operator',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'kuttl',
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
 Map buildPsTestVariables(Map config) {
     return [
         cluster_name           : config.cluster_name,
@@ -721,6 +740,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         workerCountMax  : testVariables.worker_max_count ?: 6,
         region          : testVariables.region ?: "",
         zone            : testVariables.zone ?: "",
+        hugepages       : testVariables.hugepages ?: false,
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
         debug           : testVariables.debug
     ]
@@ -757,24 +777,44 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 createCluster.call()
             }
 
-            runTest(
-                testId: testId,
-                clusterSuffix: clusterSuffix,
-                testVariables: testVariables,
-                retries: testVariables.retries ?: 1
-            )
+            withKubeCredentials(testVariables) {
+                runTest(
+                    testId: testId,
+                    clusterSuffix: clusterSuffix,
+                    testVariables: testVariables,
+                    retries: testVariables.retries ?: 1
+                )
+            }
         }
     } finally {
-        // Each cluster contains only suffix
         createdClusters.each { cluster ->
             try {
-                clusterCleanup.call()
+                withKubeCredentials(testVariables) {
+                    clusterCleanup.call()
+                }
                 shutdownCluster.call()
                 removeCluster(testVariables.clusters, cluster)
             } catch (Exception e) {
                 echo "Warning: Error cleaning up cluster ${cluster}: ${e.getMessage()}"
             }
         }
+    }
+}
+
+void withKubeCredentials(Map testVariables, Closure body) {
+    switch (testVariables.platform_provider) {
+        case 'doks':
+            withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                body()
+            }
+            return
+        case 'eks':
+            withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                body()
+            }
+            return
+        default:
+            body()
     }
 }
 

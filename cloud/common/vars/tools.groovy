@@ -114,11 +114,8 @@ void dockerBuildAndPush(Map cfg) {
                     docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
-                    if [[ "$cfg.operator" == "pg-operator" ]]; then
-                        DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 make build
-                    else
-                        DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
-                    fi
+                    export DOCKER_DEFAULT_PLATFORM=${cfg.platform ?: 'linux/amd64,linux/arm64'}
+                    ${cfg.buildCommand ?: "e2e-tests/build"}
                     docker logout
                 '
 
