@@ -136,7 +136,11 @@ void shutdownCluster(Map clusterCfg) {
                     for loadbal in \$LOADBALS; do
                         aws elb delete-load-balancer --load-balancer-name \$loadbal --region ${region}
                     done
-                    eksctl delete cluster -f cluster-${clusterSuffix}.yaml --wait --force --disable-nodegroup-eviction || true
+                    if [ -f cluster-${clusterSuffix}.yaml ]; then
+                        eksctl delete cluster -f cluster-${clusterSuffix}.yaml --wait --force --disable-nodegroup-eviction || true
+                    else
+                        eksctl delete cluster --name ${clusterFullName} --region ${region} --wait --force --disable-nodegroup-eviction || true
+                    fi
 
                     VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${region} || true)
                     if [ -n "\$VPC_DESC" ]; then

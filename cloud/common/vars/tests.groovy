@@ -813,7 +813,8 @@ Map buildParallelClusterStages(Map testVariables) {
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
-                            testVariables.platform_provider
+                            testVariables.platform_provider,
+                            testVariables.platform_version
                         )
                         clusterRunner(clusterSuffix, testVariables)
                     }
