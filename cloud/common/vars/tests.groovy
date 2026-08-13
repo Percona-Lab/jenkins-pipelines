@@ -1,5 +1,11 @@
 void loadCloudSecret(String operator) {
-    def credentialsId = operator in ["pg-operator", "pxc-operator"] ? "cloud-secret-file" : "cloud-secret-file-${operator}"
+    def credentialsByOperator = [
+        'pg-operator'   : 'cloud-secret-file',
+        'pxc-operator'  : 'cloud-secret-file',
+        'ps-operator'   : 'cloud-secret-file-ps',
+        'psmdb-operator': 'cloud-secret-file-psmdb'
+    ]
+    def credentialsId = credentialsByOperator[operator] ?: "cloud-secret-file-${operator}"
 
     withCredentials([
         file(
@@ -788,12 +794,13 @@ Map buildParallelClusterStages(Map testVariables) {
             stage(clusterSuffix) {
                 if (testVariables.jenkins_agent_label) {
                     node(testVariables.jenkins_agent_label) {
-                        libraries.tools.unstashClonedGitFiles()
-                        libraries.dependencies.prepareNode(
+                        testVariables.libraries.tools.unstashClonedGitFiles()
+                        testVariables.libraries.dependencies.prepareNode(
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
-                            testVariables.platform_provider
+                            testVariables.platform_provider,
+                            testVariables.platform_version
                         )
                         clusterRunner(clusterSuffix, testVariables)
                     }

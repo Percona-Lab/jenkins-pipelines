@@ -191,7 +191,7 @@ void installExecutorDependencies(String testExecutorType) {
     }
 }
 
-void installProviderDependencies(Map libraries, String operator, String provider) {
+void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
     // PSMDB requires Google and Azure CLIs, regardless of the provider.
     // Rancher requires Google CLI to create cluster as GCE instances are used.
 
@@ -204,12 +204,24 @@ void installProviderDependencies(Map libraries, String operator, String provider
         installAzureCLI()
         libraries.azure.auth()
     }
+
+    if (provider == 'eks') {
+        installEksctl()
+    }
+
+    if (provider == 'doks') {
+        installDoctl()
+    }
+
+    if (provider == 'openshift') {
+        installOpenshiftClient(platformVersion ?: 'latest')
+    }
 }
 
-void prepareNode(Map libraries, String testExecutorType,String operator, String provider) {
+void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
     install()
     installExecutorDependencies(testExecutorType)
-    installProviderDependencies(libraries, operator, provider)
+    installProviderDependencies(libraries, operator, provider, platformVersion)
 }
 
 return this

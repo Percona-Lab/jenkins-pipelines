@@ -17,7 +17,7 @@ void gitClone(Map cfg) {
         '''
     }
 
-    stash name: 'sourceFILES', includes: 'source/**'
+    stash name: 'sourceFILES', includes: 'source/**', useDefaultExcludes: false
 }
 
 void unstashClonedGitFiles() {
