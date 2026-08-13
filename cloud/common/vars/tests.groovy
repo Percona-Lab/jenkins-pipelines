@@ -1,5 +1,11 @@
 void loadCloudSecret(String operator) {
-    def credentialsId = operator in ["pg-operator", "pxc-operator"] ? "cloud-secret-file" : "cloud-secret-file-${operator}"
+    def credentialsByOperator = [
+        'pg-operator'   : 'cloud-secret-file',
+        'pxc-operator'  : 'cloud-secret-file',
+        'ps-operator'   : 'cloud-secret-file-ps',
+        'psmdb-operator': 'cloud-secret-file-psmdb'
+    ]
+    def credentialsId = credentialsByOperator[operator] ?: "cloud-secret-file-${operator}"
 
     withCredentials([
         file(
