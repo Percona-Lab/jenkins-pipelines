@@ -72,6 +72,12 @@ pipeline {
     stages {
         stage('Write Cluster Config') {
             steps {
+                script {
+                    // environment{} block vars are applied via withEnv and are only visible to steps in
+                    // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
+                    // via buildVariables to any caller using build job: 'pmm3-ha-eks'.
+                    env.CLUSTER_NAME = env.CLUSTER_NAME
+                }
                 sh '''
                     cat > cluster-config.yaml <<EOF
 apiVersion: eksctl.io/v1alpha5

@@ -154,6 +154,12 @@ pipeline {
     stages {
         stage('Install CLI Tools') {
             steps {
+                script {
+                    // environment{} block vars are applied via withEnv and are only visible to steps in
+                    // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
+                    // via buildVariables to any caller using build job: 'pmm3-ha-rosa'.
+                    env.CLUSTER_NAME = env.CLUSTER_NAME
+                }
                 withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
                     sh '''
                         mkdir -p $HOME/.local/bin
