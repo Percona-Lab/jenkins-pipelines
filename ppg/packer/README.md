@@ -81,13 +81,22 @@ is the newest `role=ppg-package-test` AMI by `CreationDate` (no SSM parameter).
 
 ## Housekeeping (all via `just`, fail-safe)
 
-Cleanup is recipes too. Every prune recipe **lists by default** and deregisters
-only on an explicit `1`; the guard **never deletes a promoted prod base** and
-fail-closes on an AMI it cannot positively classify.
+Superseded prod bases are pruned **automatically**: after each successful promote the
+workflow runs `scripts/prune-superseded.sh` for that combo, keeping the last
+`KEEP_GENERATIONS` (default 2, newest + one rollback). `deprecate_at` only marks an AMI
+deprecated, it never deletes, so without this the inventory grows with every refresh.
+The `just prune-superseded` recipe shares that same script for ad-hoc / backfill cleanup.
+
+Every prune recipe **lists by default** and deregisters only on an explicit `1`; the guard
+**never deletes the newest-per-combo base** and fail-closes on an AMI it cannot classify.
+Demoted rollback AMIs (`role=*-superseded*`) are never touched by any recipe. The
+post-promote prune additionally refuses to act while the just-promoted AMI is not yet
+visible as the newest of its combo, and reports every skipped deregister, failed
+snapshot cleanup, or over-keep residue as a workflow warning + step-summary line.
 
 ```bash
 just list                # current factory AMIs (prod|test)
-just prune-superseded    # older prod dups (keeps newest per combo); add 1 to delete
+just prune-superseded    # older prod dups (keeps newest 2 per combo); add 1 to delete
 just prune-test          # isolated env=test AMIs;                   add 1 to delete
 just prune-stale         # raw/candidate intermediates + orphans;    add 1 to delete
 just prune-all           # prune-test + prune-stale
