@@ -180,6 +180,48 @@ jobs:
           done
           echo "- promote: $pr" >> "$GITHUB_STEP_SUMMARY"
 
+  update-molecule-env:
+    name: Update moleculeEnvPPG.groovy (OL/Rocky AMI IDs)
+    needs: bake
+    # Only after a real weekly rebake — never on manual/PR/push runs, where a
+    # partial or test-env combo list must not overwrite the pinned AMI IDs.
+    if: success() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: master
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ secrets.PPG_AMI_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-ami-factory' }}
+          role-session-name: ppg-ami-factory-update-env-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve latest OL/Rocky AMIs and rewrite moleculeEnvPPG.groovy
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet boto3
+          python3 ppg/packer/scripts/update_molecule_env.py
+
+      - name: Commit and push if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- vars/moleculeEnvPPG.groovy; then
+            echo "no AMI ID changes; nothing to commit"
+            exit 0
+          fi
+          git config user.name "ppg-ami-factory-bot"
+          git config user.email "actions@github.com"
+          git add vars/moleculeEnvPPG.groovy
+          git commit -m "Auto-update OL/Rocky molecule AMI IDs (weekly ppg-ami-factory refresh)"
+          git push origin HEAD:master
+
   notify:
     needs: bake
     # failure() is true when ANY ancestor failed, including a check failure on a
