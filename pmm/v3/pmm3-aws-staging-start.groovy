@@ -70,7 +70,7 @@ pipeline {
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.0', '8.4', '5.7', '5.6'],
+            choices: ['8.0', '8.4', '9.7', '5.7', '5.6'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
