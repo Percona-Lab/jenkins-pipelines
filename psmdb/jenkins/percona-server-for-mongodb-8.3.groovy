@@ -156,7 +156,7 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.15.0',
+            defaultValue: '100.18.0',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
@@ -343,6 +343,38 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 10(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_rpm=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 10(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_rpm=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Amazon Linux 2023(x86_64)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -455,6 +487,38 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Trixie(13)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_deb=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie(13)(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_deb=1", true)
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Oracle Linux 8 binary tarball(glibc2.28)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -482,6 +546,22 @@ pipeline {
                         withRBE {
                             script {
                                 buildStage(runnerImage('oraclelinux-9'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Oracle Linux 10 binary tarball(glibc2.39)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('oraclelinux-10'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
@@ -546,6 +626,22 @@ pipeline {
                         withRBE {
                             script {
                                 buildStage(runnerImage('debian-bookworm'), "--build_tarball=1", true)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Debian Trixie(13) binary tarball(glibc2.41)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'psmdb-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        withRBE {
+                            script {
+                                buildStage(runnerImage('debian-trixie'), "--build_tarball=1", true)
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
