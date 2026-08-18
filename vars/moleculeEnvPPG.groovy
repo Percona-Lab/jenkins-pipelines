@@ -1,8 +1,8 @@
 def call() {
     return """
-        export ami_debian11_x86_64=ami-009e9420630204b5d
-        export ami_debian12_x86_64=ami-09ca7bd4727fb280b
-        export ami_debian13_x86_64=ami-0da1f66573556d917
+        export ami_debian11_x86_64=ami-06687054858616b40
+        export ami_debian12_x86_64=ami-0fe0ff90aca4c9a3d
+        export ami_debian13_x86_64=ami-00baf448a290e0604
         # Oracle Linux + Rocky Linux AMIs: resolved dynamically to the newest
         # factory-built base per os+major+arch (tag role=ppg-package-test) so they
         # auto-update on each rebake instead of being hand-pinned. boto3 (not the aws CLI):
@@ -14,30 +14,30 @@ def call() {
         ami_ol8_x86_64=\$(_ppg_ami 8 x86_64 oraclelinux) || exit 1; export ami_ol8_x86_64
         ami_ol9_x86_64=\$(_ppg_ami 9 x86_64 oraclelinux) || exit 1; export ami_ol9_x86_64
         ami_ol10_x86_64=\$(_ppg_ami 10 x86_64 oraclelinux) || exit 1; export ami_ol10_x86_64
-        export ami_rhel8_x86_64=ami-0d38405c22c6dfaf3
-        export ami_rhel9_x86_64=ami-01ea92f779cc1c71f
-        export ami_rhel10_x86_64=ami-01777900cf626c469
+        export ami_rhel8_x86_64=ami-07a95227ea69ac5a7
+        export ami_rhel9_x86_64=ami-035f430eefe0c383c
+        export ami_rhel10_x86_64=ami-0ef84e5fc5f7d6606
         ami_rocky8_x86_64=\$(_ppg_ami 8 x86_64 rocky) || exit 1; export ami_rocky8_x86_64
         ami_rocky9_x86_64=\$(_ppg_ami 9 x86_64 rocky) || exit 1; export ami_rocky9_x86_64
         ami_rocky10_x86_64=\$(_ppg_ami 10 x86_64 rocky) || exit 1; export ami_rocky10_x86_64
-        export ami_ubuntu22_x86_64=ami-0b3a21dbff1fffb4c
-        export ami_ubuntu24_x86_64=ami-0596cf3199908321b
-        export ami_ubuntu26_x86_64=ami-051eaec1417c5d4ae
-        export ami_debian11_arm64=ami-08bb051b83411b514
-        export ami_debian12_arm64=ami-04991928175cf27a1
-        export ami_debian13_arm64=ami-08241d277446b81d7
+        export ami_ubuntu22_x86_64=ami-0ae88d5843aab690d
+        export ami_ubuntu24_x86_64=ami-04bc554a9635a77c8
+        export ami_ubuntu26_x86_64=ami-0f60f7b735e5e576c
+        export ami_debian11_arm64=ami-08e24dd64c14e3365
+        export ami_debian12_arm64=ami-03737899470c20c63
+        export ami_debian13_arm64=ami-009aa536d30f23947
         ami_ol8_arm64=\$(_ppg_ami 8 arm64 oraclelinux) || exit 1; export ami_ol8_arm64
         ami_ol9_arm64=\$(_ppg_ami 9 arm64 oraclelinux) || exit 1; export ami_ol9_arm64
         ami_ol10_arm64=\$(_ppg_ami 10 arm64 oraclelinux) || exit 1; export ami_ol10_arm64
-        export ami_rhel8_arm64=ami-05796f88f5487ea38
-        export ami_rhel9_arm64=ami-024a0efb56778bc6b
-        export ami_rhel10_arm64=ami-0ad16a1fbf63249be
+        export ami_rhel8_arm64=ami-04621017594ba750b
+        export ami_rhel9_arm64=ami-094c0b306a78f3e3a
+        export ami_rhel10_arm64=ami-05d5565696a1fbcc5
         ami_rocky8_arm64=\$(_ppg_ami 8 arm64 rocky) || exit 1; export ami_rocky8_arm64
         ami_rocky9_arm64=\$(_ppg_ami 9 arm64 rocky) || exit 1; export ami_rocky9_arm64
         ami_rocky10_arm64=\$(_ppg_ami 10 arm64 rocky) || exit 1; export ami_rocky10_arm64
-        export ami_ubuntu22_arm64=ami-0e61fa0475e5cdf7d
-        export ami_ubuntu24_arm64=ami-0abed25eed793978d
-        export ami_ubuntu26_arm64=ami-042f11a836094cda0
+        export ami_ubuntu22_arm64=ami-002da4b711811778d
+        export ami_ubuntu24_arm64=ami-0c355ec49d386672d
+        export ami_ubuntu26_arm64=ami-0f89bfe113307ab25
         export region=eu-central-1
         export vpc_subnet_id_aws1=subnet-0775d65ad1e9703bc
         export vpc_subnet_id_aws2=subnet-09947b46d69590c50
