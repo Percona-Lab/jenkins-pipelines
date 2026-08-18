@@ -289,18 +289,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Start PMM3 Watchtower Autobuild') {
-                    steps {
-                        script {
-                            def pmmWatchtower = build job: 'pmm3-watchtower-autobuild', parameters: [
-                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'TAG_TYPE', value: 'rc'),
-                                booleanParam(name: 'USE_ONDEMAND', value: true)
-                            ]
-                            env.WATCHTOWER_IMAGE = pmmWatchtower.buildVariables.TIMESTAMP_TAG
-                        }
-                    }
-                }
             }
         }
         stage('Start AMI RC Build') {
@@ -312,7 +300,6 @@ pipeline {
                     def pmmAMI = build job: 'pmm3-ami', parameters: [
                         string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
                         string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
-                        string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
                         string(name: 'RELEASE_CANDIDATE', value: "yes"),
                         booleanParam(name: 'USE_ONDEMAND', value: true)
                     ]

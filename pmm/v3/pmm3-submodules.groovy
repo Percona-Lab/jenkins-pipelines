@@ -43,7 +43,6 @@ pipeline {
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
-        PATH_TO_WATCHTOWER = 'sources/watchtower/src/github.com/percona/watchtower'
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -227,63 +226,6 @@ pipeline {
             }
         }
 
-        stage('Watchtower prepare') {
-            steps {
-
-                script {
-                    // Extract the branch for 'watchtower' from the ci.yml file using yq
-                    env.WATCHTOWER_BRANCH = sh(script: "yq e '.deps[] | select(.name == \"watchtower\") | .branch' ci.yml", returnStdout: true).trim()
-                    echo "Watchtower branch: ${WATCHTOWER_BRANCH}"
-                }
-
-                script {
-                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                }
-
-                sh '''
-                    if [ -n ${WATCHTOWER_BRANCH} ]; then
-                        git -C ${PATH_TO_WATCHTOWER} fetch
-                        git -C ${PATH_TO_WATCHTOWER} checkout ${WATCHTOWER_BRANCH}
-                    fi
-                '''
-
-                script {
-                    env.WATCHTOWER_LATEST_TAG = "perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}"
-                }
-            }
-        }
-
-        stage('Build watchtower binary') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        docker run --rm \
-                            -v ${WORKSPACE}/${PATH_TO_WATCHTOWER}:/watchtower \
-                            public.ecr.aws/e7j3v3n0/rpmbuild:3 \
-                            make -C /watchtower build
-                    '''
-                }
-            }
-        }
-
-        stage('Build watchtower container') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                        sh '''
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                        '''
-                }
-                sh '''
-                    set -o xtrace
-
-                    cd ${PATH_TO_WATCHTOWER}
-                    docker build -t ${WATCHTOWER_LATEST_TAG} -f dockerfiles/Dockerfile .
-                    docker push ${WATCHTOWER_LATEST_TAG}
-                '''
-            }
-        }
-
         stage('Trigger workflows in GH') {
             steps {
                 script {
@@ -311,7 +253,7 @@ pipeline {
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
 
                         def message = "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\n"
-                        message += "Watchtower docker: ${WATCHTOWER_LATEST_TAG}\nClient tarball: ${CLIENT_URL}"
+                        message += "Client tarball: ${CLIENT_URL}"
                         if (params.GSSAPI_DYNAMIC_TARBALLS && env.CLIENT_URL_DYNAMIC_OL8) {
                           message += "\nClient dynamic OL8 tarball: ${CLIENT_URL_DYNAMIC_OL8}"
                         }
