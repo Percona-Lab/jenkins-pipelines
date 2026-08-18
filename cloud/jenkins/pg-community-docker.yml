@@ -1,0 +1,47 @@
+- job:
+    name: pg-community-docker-build
+    project-type: pipeline
+    description: |
+        Build and push the community PostgreSQL image set from percona-docker
+        postgresql-containers/community: UBI9 (postgres 14-18, pgbackrest,
+        pgbouncer, upgrade), UBI8 (postgres 14-18, upgrade; under TAG-ubi8)
+        and the PostgreSQL 19 (BETA, tech preview) set: postgres19-community,
+        ppg19-postgres, pgbackrest19 (2.59), pgbouncer19.
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - master
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/pg_community_docker_build.groovy
+    parameters:
+    - string:
+        name: GIT_PD_BRANCH
+        default: main
+        description: Tag/Branch for percona/percona-docker repository
+    - string:
+        name: GIT_PD_REPO
+        default: https://github.com/percona/percona-docker
+        description: percona/percona-docker repository
+    - bool:
+        name: BUILD_UBI9
+        default: true
+        description: 'Build and push the UBI9 image set: postgres 14-18, pgbackrest, pgbouncer, upgrade (make all)'
+    - bool:
+        name: BUILD_UBI8
+        default: true
+        description: 'Build and push the UBI8 image set: postgres 14-18, upgrade, under TAG-ubi8 (make all-ubi8)'
+    - bool:
+        name: BUILD_PG19
+        default: true
+        description: 'Build and push the PostgreSQL 19 beta image set: postgres19, pgbackrest19, pgbouncer19 (make pg19)'
