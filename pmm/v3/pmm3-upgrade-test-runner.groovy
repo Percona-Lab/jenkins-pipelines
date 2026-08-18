@@ -411,6 +411,7 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             npm ci
+                            npx playwright install --with-deps
                         popd
                     '''
                     sh '''
