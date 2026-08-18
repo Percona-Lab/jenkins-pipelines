@@ -9,8 +9,8 @@ def call() {
             python -m pip install \
                 "molecule==26.6.0" \
                 "molecule-plugins[ec2]==26.7.15" \
-                "ansible==12.3.0" \
-                "ansible-core==2.19.11" \
+                "ansible==9.13.0" \
+                "ansible-core==2.16.19" \
                 "ansible-lint==26.6.0" \
                 "PyYAML==6.0.3" \
                 "pytest==9.1.1" \
