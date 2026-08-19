@@ -50,11 +50,11 @@ pipeline {
             description: 'URL for proxysql repository',
             name: 'PROXYSQL_REPO')
         string(
-            defaultValue: 'v2.6.2',
+            defaultValue: 'v2.7.3',
             description: 'Tag/Branch for proxysql repository',
             name: 'PROXYSQL_BRANCH')  
         string(
-            defaultValue: '2.6.2',
+            defaultValue: '2.7.3',
             description: 'PROXYSQL release value',
             name: 'VERSION')  
         string(
@@ -78,7 +78,7 @@ pipeline {
             description: 'PROXYSQL repo name',
             name: 'PROXYSQL_DEST_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nexperimental\nlaboratory',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
