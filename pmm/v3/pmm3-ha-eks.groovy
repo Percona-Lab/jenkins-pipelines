@@ -44,7 +44,7 @@ pipeline {
         string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc"' for feature builds
+            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
         )
         choice(
             name: 'RETENTION_DAYS',
