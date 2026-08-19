@@ -126,14 +126,15 @@ pipeline {
                             sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=${COMPONENT}/g" Dockerfile
                             sed -i "s:yum/release:yum/${COMPONENT}:g" Dockerfile
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
-                                #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-6.1/g" Dockerfile
+                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                                 sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
+                                    sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 9.7.1-1.rc1/g" Dockerfile
                                     sed -i "s/tools/pxb-97-lts/g" Dockerfile
                                     sed -i "s/ps-80/ps-97-lts/g" Dockerfile
                                     sed -i "s/pxc-80/pxc-97-lts/g" Dockerfile
                                 else
+                                    sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-6.1/g" Dockerfile
                                     sed -i "s/tools/pxb-84-lts/g" Dockerfile
                                     sed -i "s/ps-80/ps-84-lts/g" Dockerfile
                                     sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile
