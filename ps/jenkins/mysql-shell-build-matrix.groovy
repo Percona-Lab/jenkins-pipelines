@@ -50,7 +50,7 @@ void runBuild(String dockerImage, String pkgType) {
         docker run --rm -u root -v \${build_dir}:\${build_dir} ${dockerImage} sh -c "
             set -o xtrace
             cd \${build_dir}/packaging
-            ./mysql-shell_builder.sh \
+            bash ./mysql-shell_builder.sh \
                 --builddir=\${build_dir}/build \
                 --install_deps=1 \
                 --get_sources=1 \
