@@ -231,7 +231,28 @@ void runNodeBuild(String node_to_test) {
         }
 
 
-    } else {
+    } else if (params.product_to_test == "pxc97") {
+        echo "Testing PXC-9.7 Non Pro packages"
+        job = "pxc-package-testing-test"
+        env.JOB_TO_RUN = "${job}"
+        test_type = params.test_type
+
+        build(
+            job: "${job}",
+            parameters: [
+                string(name: "product_to_test", value: params.product_to_test),
+                string(name: "node_to_test", value: node_to_test),
+                string(name: "test_repo", value: params.test_repo),
+                string(name: "test_type", value: "${test_type}"),
+                string(name: "pxc57_repo", value: params.pxc57_repo),
+                string(name: "git_repo", value: params.git_repo),
+                string(name: "BRANCH", value: params.BRANCH)
+            ],
+            propagate: true,
+            wait: true
+        )
+    } 
+    else {
         error("Unsupported product_to_test for PRO testing: ${params.product_to_test}")
     }
     echo "inside runNodeBuild job_to_run is ${env.JOB_TO_RUN}"
