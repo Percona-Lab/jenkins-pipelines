@@ -281,10 +281,7 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             npm ci
-                        popd
-                    '''
-                    sh '''
-                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npx playwright install
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
                         popd
                     '''
@@ -345,10 +342,7 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             npm ci
-                        popd
-                    '''
-                    sh '''
-                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npx playwright install
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
                         popd
                     '''
