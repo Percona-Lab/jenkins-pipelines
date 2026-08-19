@@ -4,7 +4,7 @@ void buildUpgrade(String IMAGE_POSTFIX){
         IMAGE_POSTFIX='upgrade'
         cd ./source/
         docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
-          -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+          -t perconalab/percona-postgresql-operator:${IMAGE_TAG_PREFIX}-${IMAGE_POSTFIX} \
           -f ./percona-distribution-postgresql-upgrade/Dockerfile ./percona-distribution-postgresql-upgrade
     """
 }
@@ -19,11 +19,11 @@ void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                    docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
-                    docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
-                    docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
+                    docker push perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}
+                    docker tag perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}
+                    docker push $ECR/perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}
                     docker logout
-                    echo "perconalab/\\$IMAGE_NAME:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}" >> list-of-images.txt
+                    echo "perconalab/\\$IMAGE_NAME:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}" >> list-of-images.txt
                 "
             '''
         }
@@ -34,20 +34,20 @@ void build(String IMAGE_POSTFIX){
         cd ./source/
         for PG_VER in 18 17 16 15 14; do
             if [ ${IMAGE_POSTFIX} = pgbouncer ]; then
-                docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
-                  -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
+                docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${IMAGE_TAG_PREFIX} \
+                  -t perconalab/percona-postgresql-operator:${IMAGE_TAG_PREFIX}-${IMAGE_POSTFIX}\${PG_VER} \
                   -f ./percona-pgbouncer/Dockerfile ./percona-pgbouncer
             elif [ ${IMAGE_POSTFIX} = pgbackrest ]; then
-                docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
-                  -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
+                docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${IMAGE_TAG_PREFIX} \
+                  -t perconalab/percona-postgresql-operator:${IMAGE_TAG_PREFIX}-${IMAGE_POSTFIX}\${PG_VER} \
                   -f ./percona-pgbackrest/Dockerfile ./percona-pgbackrest
             elif [ ${IMAGE_POSTFIX} = postgres-gis ]; then
-                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
-                  -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
+                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${IMAGE_TAG_PREFIX} \
+                  -t perconalab/percona-postgresql-operator:${IMAGE_TAG_PREFIX}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                   -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
             else
-                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
-                    -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
+                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${IMAGE_TAG_PREFIX} \
+                    -t perconalab/percona-postgresql-operator:${IMAGE_TAG_PREFIX}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                     -f ./percona-distribution-postgresql-\${PG_VER}/Dockerfile ./percona-distribution-postgresql-\${PG_VER}
             fi
         done
@@ -66,17 +66,17 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
                     for PG_VER in 18 17 16 15 14; do
                         if [ \\${SOME_IMAGE_POSTFIX} = pgbouncer ] || [ \\${SOME_IMAGE_POSTFIX} = pgbackrest ]; then
-                            docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
-                            echo "perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}" >> list-of-images.txt
+                            docker push perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
+                            echo "perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}" >> list-of-images.txt
 
-                            docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
-                            docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
+                            docker tag perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER} $ECR/perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
+                            docker push $ECR/perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
                         else
-                            docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
-                            echo "perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}" >> list-of-images.txt
+                            docker push perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                            echo "perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}" >> list-of-images.txt
 
-                            docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
-                            docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                            docker tag perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
+                            docker push $ECR/perconalab/\\${IMAGE_NAME}:${IMAGE_TAG_PREFIX}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
                         fi
                     done
                     docker logout
@@ -125,8 +125,12 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-docker repository',
+            description: 'Branch for percona/percona-docker repository',
             name: 'GIT_PD_BRANCH')
+        string(
+            defaultValue: '',
+            description: 'Prefix used in Docker image tags; defaults to GIT_PD_BRANCH when empty',
+            name: 'IMAGE_TAG_PREFIX')
         string(
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
@@ -176,6 +180,7 @@ pipeline {
         stage('Build PG database related docker images') {
             steps {
                 script {
+                    env.IMAGE_TAG_PREFIX = params.IMAGE_TAG_PREFIX?.trim() ?: params.GIT_PD_BRANCH
                     def images = selectedImages()
 
                     if (images.isEmpty()) {
@@ -204,6 +209,7 @@ pipeline {
         stage('Push Images to Docker registry') {
             steps {
                 script {
+                    env.IMAGE_TAG_PREFIX = params.IMAGE_TAG_PREFIX?.trim() ?: params.GIT_PD_BRANCH
                     def images = selectedImages()
 
                     if (images.isEmpty()) {
