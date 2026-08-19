@@ -82,6 +82,33 @@ List non_pro_pxc84 = [
                 'amazon-linux-2023-arm'
 ]
 
+List non_pro_pxc97 = [
+                'ubuntu-noble',
+                'ubuntu-jammy',
+                'ubuntu-noble-arm',
+                'ubuntu-jammy-arm',
+                'debian-13',
+                'debian-12',
+                'debian-11',
+                'debian-13-arm',
+                'debian-12-arm',
+                'debian-11-arm',
+                'ol-8',
+                'ol-9',
+                'rhel-8',
+                'rhel-9',
+                'rhel-10',
+                'rhel-8-arm',
+                'rhel-9-arm',
+                'rhel-10-arm',
+                'rocky-linux-8',
+                'rocky-linux-8-arm',
+                'rocky-linux-9',
+                'rocky-linux-9-arm',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
+]
+
 List pxc_innovation = [
                 'ubuntu-noble',
                 'ubuntu-jammy',
@@ -182,7 +209,7 @@ void runNodeBuild(String node_to_test) {
 
         } else {
             echo "Testing Non Pro packages"
-            job = "pxc-package-testing"
+            job = "pxc-package-testing-test"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
@@ -222,7 +249,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc_innovation"]'
+                    script: 'return ["pxc97","pxc84", "pxc80", "pxc57", "pxc_innovation"]'
                 ]
             ]
         ],
@@ -383,6 +410,10 @@ pipeline {
                     if (params.product_to_test == "pxc57") {
                         selectedNodes = pxc57_nodes
                         jobType = "PXC 5.7"
+                        allPossibleNodes = all_possible_nodes
+                    } else if (params.product_to_test == "pxc97") {
+                        selectedNodes = non_pro_pxc97
+                        jobType = "PXC 9.7"
                         allPossibleNodes = all_possible_nodes
                     } else if (params.product_to_test == "pxc80") {
                         selectedNodes = (params.pro_repo == "yes") ? pro_pxc80 : non_pro_pxc80
