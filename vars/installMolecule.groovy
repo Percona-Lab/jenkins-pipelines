@@ -6,8 +6,16 @@ def call() {
             . virtenv/bin/activate
             python3 --version
             python3 -m pip install --upgrade pip
-            python3 -m pip install --upgrade "setuptools<81"
-            python3 -m pip install --upgrade setuptools-rust
-            python3 -m pip install --upgrade molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] boto3 boto
+            python -m pip install \
+                "molecule==26.6.0" \
+                "molecule-plugins[ec2]==26.7.15" \
+                "ansible==9.13.0" \
+                "ansible-core==2.16.19" \
+                "ansible-lint==26.6.0" \
+                "PyYAML==6.0.3" \
+                "pytest==9.1.1" \
+                "pytest-testinfra==10.2.2" \
+                "boto3==1.43.53" \
+                "botocore==1.43.53"
         """
 }
