@@ -3,17 +3,6 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-// Test matrix for the mysql-shell packaging builder.
-//
-// Unlike the release job this does not stash artifacts between stages, sign or
-// publish anything. Every OS runs the full pipeline standalone -- source
-// tarball, source package and binary package -- so a failure is attributable to
-// one OS and one OS only. A failing cell marks the build UNSTABLE and lets the
-// rest of the matrix finish, and the summary at the end lists every cell.
-//
-// The builder is used from a git checkout rather than a single downloaded file
-// because it needs the patches/ directory next to it.
-
 def RESULTS = java.util.Collections.synchronizedMap([:])
 
 def osMatrix() {
@@ -69,14 +58,8 @@ void runBuild(String dockerImage, String pkgType) {
     """
 }
 
-// Verification deliberately runs on the agent rather than inside the build
-// container: the package must be installed into an image that has never seen
-// the build tree, otherwise build-time RPATHs still resolve and a package that
-// cannot start on a user's machine passes every check.
 void verifyPackage(String dockerImage, String pkgType) {
     def pkgDir = (pkgType == 'rpm') ? 'packaging/rpm' : 'packaging/deb'
-    // debug symbol packages are not what users install and add hundreds of
-    // megabytes to the check, so verify only the shipped packages
     def installCmd = (pkgType == 'rpm') ?
         'dnf -y install $(ls /pkg/*.rpm | grep -vE "debuginfo|debugsource")' :
         'apt-get update -qq && apt-get -y install $(ls /pkg/*.deb | grep -v dbgsym)'
@@ -251,7 +234,6 @@ pipeline {
                                         RESULTS[cell] = [status: 'FAIL',
                                                          minutes: ((System.currentTimeMillis() - started) / 60000) as int,
                                                          error: err.getMessage()]
-                                        // keep the rest of the matrix running
                                         unstable("${cell} failed: ${err.getMessage()}")
                                     } finally {
                                         cleanUpWS()
