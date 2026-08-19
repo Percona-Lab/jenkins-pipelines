@@ -1,0 +1,19 @@
+- job:
+    name: hetzner-mysql-shell-build-matrix
+    project-type: pipeline
+    description: |
+        Build mysql-shell packages on every supported OS in parallel and report
+        a pass/fail matrix. Used to validate changes to the packaging builder
+        before they are merged; does not sign or publish anything.
+
+        Do not edit this job through the web!
+    concurrent: false
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/mysql-shell-build-matrix.groovy
