@@ -13,8 +13,9 @@ firewall-cmd --permanent --add-port=9345/tcp || true
 firewall-cmd --permanent --add-port=10250/tcp || true
 firewall-cmd --permanent --add-port=8472/udp || true
 
-# Let pod traffic be masqueraded/forwarded by the CNI.
-firewall-cmd --permanent --add-masquerade || true
+# Canal manages pod egress NAT with scoped rules. Global firewalld masquerading
+# hides pod source IPs across nodes and breaks selector-based NetworkPolicies.
+firewall-cmd --permanent --remove-masquerade || true
 
 cat >/etc/sysctl.d/99-rke2.conf <<EOF
 net.ipv4.ip_forward=1

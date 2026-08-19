@@ -116,12 +116,12 @@ pipeline {
         string(
             name: 'PMM_IMAGE_REPOSITORY',
             defaultValue: '',
-            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
+            description: 'PMM image repository override (initial value is pulled from the Helm chart), i.e. "perconalab/pmm-server-fb" for feature builds'
         )
         string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM image tag override (initial value is pulled from the Helm chart)'
+            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc"' for feature builds'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -154,6 +154,12 @@ pipeline {
     stages {
         stage('Install CLI Tools') {
             steps {
+                script {
+                    // environment{} block vars are applied via withEnv and are only visible to steps in
+                    // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
+                    // via buildVariables to any caller using build job: 'pmm3-ha-rosa'.
+                    env.CLUSTER_NAME = env.CLUSTER_NAME
+                }
                 withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
                     sh '''
                         mkdir -p $HOME/.local/bin

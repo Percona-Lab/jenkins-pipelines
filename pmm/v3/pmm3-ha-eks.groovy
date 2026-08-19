@@ -39,12 +39,12 @@ pipeline {
         string(
             name: 'PMM_IMAGE_REPOSITORY',
             defaultValue: '',
-            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
+            description: 'PMM image repository override (initial value is pulled from the Helm chart), i.e. "perconalab/pmm-server-fb" for feature builds'
         )
         string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM image tag override (initial value is pulled from the Helm chart)'
+            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc"' for feature builds
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -72,6 +72,12 @@ pipeline {
     stages {
         stage('Write Cluster Config') {
             steps {
+                script {
+                    // environment{} block vars are applied via withEnv and are only visible to steps in
+                    // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
+                    // via buildVariables to any caller using build job: 'pmm3-ha-eks'.
+                    env.CLUSTER_NAME = env.CLUSTER_NAME
+                }
                 sh '''
                     cat > cluster-config.yaml <<EOF
 apiVersion: eksctl.io/v1alpha5
@@ -188,6 +194,29 @@ EOF
 
                         # Granting access to SSO admin role
                         grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
+
+                        # Granting the pmm-qa GitHub Actions OIDC role edit access scoped
+                        # to the pmm namespace. QA workflows test against the PMM HA this
+                        # job deploys. Cluster-scoped objects (operator CRDs, storage
+                        # classes, nodes) stay with this job's credentials. The role name
+                        # is defined by the gha_pmm_qa_eks module in percona-cd-platform.
+                        # No fallback on purpose: a missing role fails the stage here
+                        # instead of surfacing later as an opaque GHA auth error.
+                        GHA_ROLE_ARN=$(aws iam get-role \
+                            --role-name percona-ci-platform-gha-pmm-qa-eks \
+                            --query Role.Arn --output text)
+
+                        aws eks create-access-entry \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}"
+
+                        aws eks associate-access-policy \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}" \
+                            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy \
+                            --access-scope type=namespace,namespaces=pmm
                     '''
                 }
             }

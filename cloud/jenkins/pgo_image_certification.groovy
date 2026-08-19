@@ -2,7 +2,7 @@ def certificationTests = []
 def certification
 def certifiableImages = [
     'IMAGE_OPERATOR',
-    'IMAGE_PMM3_CLIENT',
+    'IMAGE_PMM_CLIENT',
     'IMAGE_UPGRADE',
     'IMAGE_POSTGRESQL14',
     'IMAGE_POSTGRESQL15',
@@ -49,7 +49,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_OPERATOR':
             return target(image, operatorProjectId, params.RELEASE, operatorCredentials)
 
-        case 'IMAGE_PMM3_CLIENT':
+        case 'IMAGE_PMM_CLIENT':
             return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
 
         case 'IMAGE_UPGRADE':
@@ -105,7 +105,7 @@ pipeline {
         )
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
-        booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
+        booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
         booleanParam(name: 'IMAGE_UPGRADE', defaultValue: true, description: 'Certify IMAGE_UPGRADE')
         booleanParam(name: 'IMAGE_POSTGRESQL14', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL14')
         booleanParam(name: 'IMAGE_POSTGRESQL15', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL15')

@@ -51,8 +51,8 @@ pipeline {
         )
     }
     triggers {
-        // Hourly on months 1,4,7,10 from 2nd week to 4th week (days 8-28)
-        cron('H * 8-28 1,4,7,10 *')
+        // Hourly every month from 2nd week to 4th week (days 8-28)
+        cron('H * 8-28 * *')
     }
     options {
         disableConcurrentBuilds()
