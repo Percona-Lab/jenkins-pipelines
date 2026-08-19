@@ -3,17 +3,19 @@
 os+major+arch combo and rewrite vars/moleculeEnvPPG.groovy's static
 export lines to match.
 
-Run weekly by the update-molecule-env job in ppg-ami-factory.yml,
-after a fully successful bake — this replaces the dynamic
-DescribeImages-at-test-time resolution (which every parallel molecule
-job used to do independently, and which could trip the account-wide
-DescribeImages rate limit under load) with a single resolution done
-once here, matching how RHEL/Ubuntu/Debian are already hand-pinned.
+Run weekly by the update-molecule-env job in ppg-ami-factory.yml.
+This replaces the dynamic DescribeImages-at-test-time resolution
+(which every parallel molecule job used to do independently, and
+which could trip the account-wide DescribeImages rate limit under
+load) with a single resolution done once here, matching how
+RHEL/Ubuntu/Debian are already hand-pinned. It runs even after a
+partial bake: each combo resolves to its newest promoted AMI, so a
+failed combo keeps last week's image while the others advance.
 
 Fails closed: if any combo fails to resolve, exits non-zero without
-writing anything, so a partial factory failure (or a transient API
-error) never corrupts the file — last week's still-valid AMI IDs are
-left in place untouched, and this job simply tries again next week.
+writing anything, so a wiped-out factory (or a transient API error)
+never corrupts the file: last week's still-valid AMI IDs are left in
+place untouched, and this job simply tries again next week.
 """
 import re
 import sys
@@ -74,8 +76,8 @@ def resolve_all(client):
 def rewrite_file(content, resolved):
     """Pure text transform: given the current file content and a dict of
     {var_name: ami_id}, return the new content. Raises ValueError if any
-    var's line can't be found/replaced exactly once, or if the helper
-    block removal is ambiguous — never silently do a partial rewrite."""
+    var's line can't be found/replaced exactly once, so a partial rewrite
+    is never written. Helper-block removal is a no-op once already gone."""
     content = _HELPER_BLOCK_RE.sub("", content, count=1)
 
     for var, ami in resolved.items():
