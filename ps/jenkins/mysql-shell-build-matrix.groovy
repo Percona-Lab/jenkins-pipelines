@@ -75,14 +75,16 @@ void runBuild(String dockerImage, String pkgType) {
 // cannot start on a user's machine passes every check.
 void verifyPackage(String dockerImage, String pkgType) {
     def pkgDir = (pkgType == 'rpm') ? 'packaging/rpm' : 'packaging/deb'
+    // debug symbol packages are not what users install and add hundreds of
+    // megabytes to the check, so verify only the shipped packages
     def installCmd = (pkgType == 'rpm') ?
-        'dnf -y install /pkg/*.rpm' :
-        'apt-get update -qq && apt-get -y install /pkg/*.deb'
+        'dnf -y install $(ls /pkg/*.rpm | grep -vE "debuginfo|debugsource")' :
+        'apt-get update -qq && apt-get -y install $(ls /pkg/*.deb | grep -v dbgsym)'
 
     writeFile file: 'verify.sh', text: """#!/bin/sh
 set -x
 export DEBIAN_FRONTEND=noninteractive
-if ! ${installCmd} >/tmp/install.log 2>&1; then
+if ! { ${installCmd} ; } >/tmp/install.log 2>&1; then
     echo "FAIL: package does not install"
     tail -20 /tmp/install.log
     exit 1
@@ -98,9 +100,15 @@ if [ "${WITH_JS}" != "0" ]; then
     mysqlsh --js -e 'println("JSOK")' 2>&1 | grep -q JSOK || { echo "FAIL: javascript mode"; rc=1; }
 fi
 
-unresolved=\$(ldd \$(command -v mysqlsh) 2>&1 | grep -c "not found")
-echo "unresolved shared libraries: \$unresolved"
-[ "\$unresolved" = "0" ] || { echo "FAIL: mysqlsh has unresolved shared libraries"; rc=1; }
+shell_bin=\$(command -v mysqlsh || true)
+if [ -n "\$shell_bin" ]; then
+    unresolved=\$(ldd "\$shell_bin" 2>&1 | grep -c "not found")
+    echo "unresolved shared libraries: \$unresolved"
+    [ "\$unresolved" = "0" ] || { echo "FAIL: mysqlsh has unresolved shared libraries"; rc=1; }
+else
+    echo "FAIL: mysqlsh is not on PATH"
+    rc=1
+fi
 
 for b in /usr/libexec/mysqlsh/mysqlbinlog /usr/lib/mysqlsh/mysqlbinlog; do
     if [ -x "\$b" ]; then
