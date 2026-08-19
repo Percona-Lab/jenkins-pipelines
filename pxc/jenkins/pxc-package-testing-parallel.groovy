@@ -136,7 +136,7 @@ void runNodeBuild(String node_to_test) {
             echo "PRO is not supported for PXC-5.7 or PXC-innovation testing"
         } else {
             echo "Normal testing"
-            job = "pxc-package-testing"
+            job = "pxc-package-testing-test"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
