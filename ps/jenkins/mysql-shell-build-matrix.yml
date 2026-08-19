@@ -13,7 +13,9 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'hetzner'
+            # TESTING: tracking the feature branch while the pipeline is being
+            # iterated on. Switch back to 'hetzner' before merging.
+            - 'mysql-shell-build-matrix'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: ps/jenkins/mysql-shell-build-matrix.groovy
