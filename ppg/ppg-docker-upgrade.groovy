@@ -277,6 +277,21 @@ EOS
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
+                         cat > /tmp/push_oci.sh << 'EOS'
+#!/bin/bash
+set -euo pipefail
+SRC="\$1"
+DEST="\$2"
+docker tag "\$SRC" "\$DEST"
+docker push "\$DEST"
+docker buildx inspect ppg-oci >/dev/null 2>&1 || docker buildx create --name ppg-oci --driver docker-container --bootstrap
+printf 'FROM %s\\n' "\$DEST" > Dockerfile.ppg-oci-push
+docker buildx build --builder ppg-oci --provenance=false --sbom=false \\
+  --output type=registry,name="\$DEST",oci-mediatypes=true,compression=gzip,force-compression=true \\
+  -f Dockerfile.ppg-oci-push .
+rm -f Dockerfile.ppg-oci-push
+EOS
+                         chmod +x /tmp/push_oci.sh
                          /tmp/push_oci.sh percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG} perconalab/percona-distribution-postgresql-upgrade-custom:${params.IMAGE_TAG}-amd64
                      """
                 }
