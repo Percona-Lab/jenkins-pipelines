@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
         string(
@@ -13,9 +13,8 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            // default is 'experimental'
             choices: ['experimental', 'testing'],
-            description: 'Repository to push packages to',
+            description: 'Publish packages to repositories: testing (for RC), experimental (for dev-latest)',
             name: 'DESTINATION')
         booleanParam(
             defaultValue: false,
@@ -25,139 +24,91 @@ pipeline {
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
-        skipDefaultCheckout()
         disableConcurrentBuilds()
+        parallelsAlwaysFailFast()
     }
     triggers {
         upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
     }
-    environment {
-        PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
-    }
     stages {
         stage('Prepare') {
             steps {
-                git poll: true,
-                    branch: GIT_BRANCH,
-                    url: 'http://github.com/Percona-Lab/pmm-submodules'
+                checkout([$class: 'GitSCM',
+                          branches: [[name: "*/${params.GIT_BRANCH}"]],
+                          extensions: [[$class: 'CloneOption',
+                          noTags: true,
+                          reference: '',
+                          shallow: true]],
+                          userRemoteConfigs: [[url: 'https://github.com/Percona-Lab/pmm-submodules']]
+                ])
                 script {
-                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                }
-                sh '''
-                    set -o errexit
-                    git submodule update --init --jobs 10
-                    git submodule status
-
-                    git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/pmm3-components/yum/${DESTINATION}/${JOB_NAME}/pmm/${VERSION}/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
-                '''
-                script {
+                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_LATEST_TAG     = "${VERSION}-rc${BUILD_NUMBER}"
-                        env.DOCKER_RC_TAG         = "${VERSION}-rc"
+                        env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
-                        env.DOCKER_LATEST_TAG     = "3-dev-latest"
+                        env.DOCKER_LATEST_TAG = "3-dev-latest"
                     }
                 }
-
-                archiveArtifacts 'uploadPath'
-                stash includes: 'uploadPath', name: 'uploadPath'
-                archiveArtifacts 'shortCommit'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
-        stage('Build client source') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-source"
-                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                uploadTarball('source')
+        stage('Build pmm3 server') {
+            parallel {
+                stage('Build pmm3 server for amd64') {
+                    steps {
+                        script {
+                            def pmmServerAmd64 = build job: 'pmm3-server-autobuild-amd', parameters: [
+                                string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                                string(name: 'DESTINATION', value: params.DESTINATION),
+                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+                            ]
+                            env.TIMESTAMP_TAG_AMD64 = pmmServerAmd64.buildVariables.TIMESTAMP_TAG
+                        }
+                    }
+                }
+                stage('Build pmm3 server for arm64') {
+                    steps {
+                        script {
+                            def pmmServerArm64 = build job: 'pmm3-server-autobuild-arm', parameters: [
+                                string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                                string(name: 'DESTINATION', value: params.DESTINATION),
+                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+                            ]
+                            env.TIMESTAMP_TAG_ARM64 = pmmServerArm64.buildVariables.TIMESTAMP_TAG
+                        }
+                    }
+                }
             }
         }
-        stage('Build client binary') {
+        stage('Push pmm3 server multi-arch images') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-binary"
-                stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                uploadTarball('binary')
-            }
-        }
-        stage('Build client source rpm') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm"
-                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                sh '''
-                    set -o errexit
-
-                    ${PATH_TO_SCRIPTS}/build-client-rpm
-
-                    mkdir -p tmp/pmm-server/RPMS/
-                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                '''
-                stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build server packages') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        set -o errexit
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                        set -o xtrace
 
-                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                        TIMESTAMP_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
+                        docker buildx imagetools create -t ${TIMESTAMP_TAG} \
+                            ${TIMESTAMP_TAG_AMD64} \
+                            ${TIMESTAMP_TAG_ARM64}
+                        echo "${TIMESTAMP_TAG}" > TIMESTAMP_TAG
+
+                        if [ -n "${DOCKER_RC_TAG}" ]; then
+                            docker buildx imagetools create -t perconalab/pmm-server:${DOCKER_RC_TAG} \
+                                perconalab/pmm-server:${DOCKER_RC_TAG}-amd64 \
+                                perconalab/pmm-server:${DOCKER_RC_TAG}-arm64
+                            echo "${DOCKER_RC_TAG}" > DOCKER_TAG
+                        else
+                            docker buildx imagetools create -t perconalab/pmm-server:${DOCKER_LATEST_TAG} \
+                                perconalab/pmm-server:${DOCKER_LATEST_TAG}-amd64 \
+                                perconalab/pmm-server:${DOCKER_LATEST_TAG}-arm64
+                            echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
+                        fi
                     '''
                 }
-                stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build server docker') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                        sh '''
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                        '''
-                }
-                sh '''
-                    set -o errexit
-
-                    export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
-                    export DOCKERFILE=Dockerfile.el9
-                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                        export PMM_PERCONA_PLATFORM_ADDRESS=https://check.percona.com
-                    fi
-
-                    ${PATH_TO_SCRIPTS}/build-server-docker
-
-                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                        docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_RC_TAG}
-                    fi
-                    docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    docker push ${DOCKER_TAG}
-                    docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
-                    echo "${DOCKER_TAG}" > TIMESTAMP_TAG
-                '''
                 script {
                     env.IMAGE = sh(returnStdout: true, script: "cat DOCKER_TAG").trim()
                     env.TIMESTAMP_TAG = sh(returnStdout: true, script: "cat TIMESTAMP_TAG").trim()
-                }
-                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
-                    sh '''
-                        set -o errexit
-                        pip3 install --user --upgrade launchable~=1.0 || true
-                        launchable verify || true
-                        echo "$(git submodule status)" || true
-
-                        export DOCKER_IMAGE_ID=$(docker inspect perconalab/pmm-server:${IMAGE} -f "{{.Id}}") || true
-
-                        launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "perconalab/pmm-server:${IMAGE}" || true
-                    '''
                 }
             }
         }
@@ -180,8 +131,23 @@ pipeline {
             }
         }
         stage('Start API Tests') {
-            steps {
-                build job: 'pmm3-api-tests', propagate: false
+            parallel {
+                stage('API tests on amd64') {
+                    steps {
+                        build job: 'pmm3-api-tests', propagate: false, parameters: [
+                            string(name: 'AGENT_ARCH', value: 'amd64'),
+                            string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${env.IMAGE}")
+                        ]
+                    }
+                }
+                stage('API tests on arm64') {
+                    steps {
+                        build job: 'pmm3-api-tests', propagate: false, parameters: [
+                            string(name: 'AGENT_ARCH', value: 'arm64'),
+                            string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${env.IMAGE}")
+                        ]
+                    }
+                }
             }
         }
     }
@@ -201,6 +167,9 @@ pipeline {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
+        }
+        cleanup {
+            deleteDir()
         }
     }
 }

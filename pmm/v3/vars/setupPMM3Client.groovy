@@ -58,7 +58,11 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
 
             if [[ "${CLIENT_VERSION}" == "latest-tarball" ]]; then
-                CLIENT_VERSION="https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz"
+                if [ "$(uname -m)" = "aarch64" ]; then
+                    CLIENT_VERSION="https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz"
+                else
+                    CLIENT_VERSION="https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz"
+                fi
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
