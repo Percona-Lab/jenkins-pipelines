@@ -81,24 +81,11 @@ void prepareNode() {
 void initTests() {
     echo "=========================[ Initializing the tests ]========================="
 
-    echo "Populating tests into the tests array!"
-    def testList = "$TEST_LIST"
-    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
-
-    if (testList.length() != 0) {
-        suiteFileName = 'source/e2e-tests/run-custom.csv'
-        sh """
-            echo -e "$testList" > $suiteFileName
-            echo "Custom test suite contains following tests:"
-            cat $suiteFileName
-        """
-    }
-
-    def records = readCSV file: suiteFileName
-
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
-    }
+    def testsLib = load('cloud/common/vars/tests.groovy')
+    tests.addAll(testsLib.loadTestList(TEST_LIST, TEST_SUITE, [
+        platform   : testVariables.platform,
+        clusterWide: CLUSTER_WIDE
+    ]))
 
     echo "Marking passed tests in the tests map!"
     withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -221,7 +208,7 @@ pipeline {
         DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        choice(name: 'TEST_SUITE', choices: ['minikube', 'distro'], description: 'Choose test suite from e2e-tests/tests.yaml (used only if TEST_LIST not specified).')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Implies release run.')
