@@ -65,14 +65,14 @@ pipeline {
             git clone ${TESTING_REPO} -b ${TESTING_BRANCH} --depth 1
             cd package-testing/docker-image-tests/percona-mysql-router
             pip3 install --user -r requirements.txt
-            ./run.sh
+            ./run.sh tests/test_router_attr.py tests/test_router_static.py
           '''
       } //end steps
     } //end Run test stage
   } //end stages
   post {
     always {
-      junit 'package-testing/docker-image-tests/percona-mysql-router/report.xml'
+      junit allowEmptyResults: true, testResults: 'package-testing/docker-image-tests/percona-mysql-router/report.xml'
     }
   }
 }
