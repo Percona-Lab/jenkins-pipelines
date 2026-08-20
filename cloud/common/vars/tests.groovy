@@ -1,5 +1,19 @@
 void loadCloudSecret(String operator) {
-    def credentialsId = operator in ["pg-operator", "pxc-operator"] ? "cloud-secret-file" : "cloud-secret-file-${operator}"
+    def credentialsId
+    switch (operator) {
+        case 'pg':
+        case 'pxc':
+            credentialsId = 'cloud-secret-file'
+            break
+        case 'ps':
+            credentialsId = 'cloud-secret-file-ps'
+            break
+        case 'psmdb':
+            credentialsId = 'cloud-secret-file-psmdb'
+            break
+        default:
+            error("Unsupported operator for cloud secret credentials: ${operator}")
+    }
 
     withCredentials([
         file(
