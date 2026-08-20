@@ -81,17 +81,27 @@
         - debian:bookworm
         - asan
     - axis:
+        type: user-defined
+        name: ARCH
+        values:
+        - x86_64
+        - aarch64
+    - axis:
         name: XTRABACKUP_TARGET
         type: user-defined
         values:
         - innodb80
         - xtradb80
+    execution-strategy:
+      # centos:8 has no aarch64 build image
+      combination-filter: '!(DOCKER_OS == "centos:8" && ARCH == "aarch64")'
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.1-test-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
           CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
           XTRABACKUP_TARGET=${{XTRABACKUP_TARGET}}
           CLOUD=${{CLOUD}}
