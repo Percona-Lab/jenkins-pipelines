@@ -20,6 +20,10 @@ void gitClone(Map cfg) {
     stash name: 'sourceFILES', includes: 'source/**'
 }
 
+void stashClonedGitFiles() {
+    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
+}
+
 void unstashClonedGitFiles() {
     deleteDir()
     checkout scm
