@@ -354,7 +354,11 @@ properties([
                             } else {
                                 result.add("min_upgrade_pxc_84")
                             }
-                        } 
+                        }
+                        else if (product_to_test == "pxc97") {
+                            result.add("min_upgrade_pxc_97")
+                            result.add("maj_upgrade_pxc84_to_pxc97")
+                        }
                         else if (product_to_test == "pxc_innovation") {
                             result.add("min_upgrade_pxc_innovation")
                         }
