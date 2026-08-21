@@ -10,7 +10,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             ls -laR ./
             rm -rf test/*
             mkdir -p test
-            wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+            wget \$(echo ${BS_GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BS_GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
             pwd -P
             ls -laR
             export build_dir=\$(pwd -P)
@@ -50,7 +50,7 @@ pipeline {
             description: 'URL for  percona-server-mongodb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'release-7.0.22-12',
+            defaultValue: 'release-7.0.40-22',
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
@@ -58,23 +58,23 @@ pipeline {
             description: 'URL for CUSTOM percona-server-mongodb repository to take BuildScript from',
             name: 'BS_GIT_REPO')
         string(
-            defaultValue: 'release-7.0.22-12',
+            defaultValue: 'release-7.0.40-22',
             description: 'Tag/Branch for CUSTOM percona-server-mongodb repository to take BuildScript from',
             name: 'BS_GIT_BRANCH')
         string(
-            defaultValue: '7.0.22',
+            defaultValue: '7.0.40',
             description: 'PSMDB release value',
             name: 'PSMDB_VERSION')
         string(
-            defaultValue: '12',
+            defaultValue: '22',
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.12.1',
+            defaultValue: '100.18.0',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
-            defaultValue: 'CUSTOM199',
+            defaultValue: 'CUSTOM259',
             description: 'Jira task name without dash(CUSTOM-199 -> CUSTOM199)',
             name: 'JIRA_TASK')
         choice(
