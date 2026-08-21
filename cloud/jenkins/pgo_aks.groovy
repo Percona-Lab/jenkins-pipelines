@@ -286,6 +286,7 @@ void runTest(Integer TEST_ID) {
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
                     export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
+                    [[ "$PILLAR_VERSION" != "none" ]] && export FORCE_RELEASE_RUN=1
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """

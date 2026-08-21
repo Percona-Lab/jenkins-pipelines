@@ -107,6 +107,9 @@ pipeline {
                         SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS,
                         PG_VER: PG_VERSION
                     ]
+                    if ("${PILLAR_VERSION}" != "none") {
+                        extraEnvs.FORCE_RELEASE_RUN = '1'
+                    }
 
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
