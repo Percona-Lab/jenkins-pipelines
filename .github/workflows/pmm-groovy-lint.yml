@@ -1,0 +1,119 @@
+# Groovy lint gate for the PMM pipelines. PMM-scoped on purpose, twice over:
+# the path filter keeps this workflow off every other product's pull requests,
+# and the file list is filtered to pmm/ again so a PR that happens to touch both
+# pmm/ and, say, ppg/ is still only ever judged on its pmm/ files. Nothing here
+# gates, annotates or reports on a directory PMM does not own -- root vars/
+# included, since that shared library is loaded by every product's builds.
+#
+# Scoped to the pmm/ .groovy files CHANGED in the pull request, never all of
+# them. The 62 files under pmm/ predate any linting and carry a backlog; a gate
+# over all of them would be red on every PR and would be ignored within a week.
+# New and edited files are held to pmm/.groovylintrc.json, and the backlog is
+# paid down as files get touched.
+#
+# Severity decides the outcome: `error` fails the check and is annotated on the
+# diff; `warning`/`info` are advisory and go to the step log and job summary
+# only, so they never bury the finding that actually blocks. A file that does
+# not parse always fails -- Jenkins could not load it either.
+#
+# `workflow_dispatch` with scope=all re-measures the pmm/ backlog. That mode
+# never gates anything; it only writes the job summary.
+#
+# Actions are pinned to commit SHAs; the trailing "# vX.Y.Z" records the tag.
+
+name: pmm-groovy-lint
+run-name: >-
+  pmm groovy lint (${{ github.event_name == 'pull_request'
+  && format('PR #{0}', github.event.pull_request.number)
+  || format('{0} scope', inputs.scope) }})
+
+on:
+  pull_request:
+    paths:
+      - 'pmm/**.groovy'
+      - 'pmm/.groovylintrc.json'
+      - 'pmm/scripts/groovy-lint-report.py'
+      - '.github/workflows/pmm-groovy-lint.yml'
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'all = lint every .groovy file under pmm/ (backlog report, gates nothing)'
+        required: false
+        default: 'all'
+        type: choice
+        options: [all]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pmm-groovy-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Exact version, never a range: a linter that silently gains rules turns a
+  # green PR red on re-run. Bump deliberately, with the backlog re-measured.
+  NGL_VERSION: '18.0.0'
+
+jobs:
+  lint:
+    name: npm-groovy-lint (pmm/)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # Full history: the changed-file list is a diff against the PR base.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          # npm-groovy-lint 18 declares engines.node >= 22; do not inherit
+          # whatever the runner image happens to ship.
+          node-version: '22'
+
+      - name: Resolve the file list
+        id: files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            # Two-dot diff against base.sha: HEAD is the PR merge commit, which
+            # already contains base, so this is exactly the PR's own changes.
+            # ACMR drops deletions -- a removed file has nothing left to lint.
+            git diff --name-only --diff-filter=ACMR "${BASE_SHA}" HEAD -- 'pmm/**.groovy' > files.txt
+          else
+            git ls-files -- 'pmm/**.groovy' > files.txt
+          fi
+          count=$(wc -l < files.txt)
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          echo "linting ${count} file(s)"
+          cat files.txt
+
+      - name: Lint
+        if: steps.files.outputs.count != '0'
+        run: |
+          set -uo pipefail
+          mapfile -t FILES < files.txt
+          # --failon none: the gate decision is the report step's, so that
+          # warnings still get annotated instead of aborting the run here.
+          # --noserver: one-shot run, no lingering CodeNarc daemon (and no
+          # 120s client timeout on large file lists).
+          npx --yes "npm-groovy-lint@${NGL_VERSION}" \
+            --noserver \
+            --no-insight \
+            --failon none \
+            --config "${GITHUB_WORKSPACE}/pmm" \
+            --output json \
+            "${FILES[@]}" > report.json
+          test -s report.json
+
+      - name: Report
+        if: steps.files.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          # The backlog sweep reports without failing; only a PR gates.
+          advisory=''
+          [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || advisory='--advisory'
+          python3 pmm/scripts/groovy-lint-report.py report.json ${advisory}
