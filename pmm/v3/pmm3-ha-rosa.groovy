@@ -727,6 +727,7 @@ EOF
                         # Install pmm-ha chart (creates component service accounts)
                         # Resource requests reduced for test clusters (defaults are higher for production)
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                            --timeout 20m \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
