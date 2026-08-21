@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@ps-10483-bump-molecule", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -167,7 +167,7 @@ pipeline {
       description: 'PS glibc version for Debian'
     )
     string(
-      defaultValue: 'ps-10483-bump-molecule',
+      defaultValue: 'master',
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
