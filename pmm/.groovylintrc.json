@@ -1,0 +1,98 @@
+// npm-groovy-lint config for the PMM pipelines. Applies to pmm/ only -- it is
+// read by .github/workflows/pmm-groovy-lint.yml, which lints the pmm/ .groovy
+// files a pull request changed. Nothing outside pmm/ is linted or gated; see
+// pmm/AGENTS.md.
+//
+// Only `error` severity fails a PR. Everything else is advisory, so the rules
+// below are split by that line: a rule is `error` when a violation is a defect,
+// off when Jenkins pipeline DSL structurally violates it and always will, and
+// left at its inherited severity otherwise.
+//
+// Counts in the comments are the measured pmm/ backlog (62 .groovy files) under
+// the stock `recommended` ruleset, which is why each rule is where it is.
+{
+  // Same base as CodeNarc's own Jenkinsfile profile: no CompileStatic, no
+  // static typing rules, no VariableName, NestedBlockDepth raised to 10.
+  "extends": "recommended-jenkinsfile",
+
+  "rules": {
+    // --- Defects. These fail the check. ---
+    // Inherited as errors from `recommended`: unused.UnusedPrivateField/Method/
+    // MethodParameter, unused.UnusedArray, unused.UnusedObject, basic.DeadCode.
+    // Plus NglParseError, which is always an error and cannot be configured --
+    // no pmm/ file trips it today.
+    //
+    // Restated in full because `recommended-jenkinsfile` overrides this rule to
+    // add ignoreVariableNames, which drops `recommended`'s error severity back
+    // to CodeNarc's default warning. The 7 hits it had under pmm/ are removed in
+    // the same change that adds this config, so the gate starts clean.
+    "unused.UnusedVariable": {
+      "severity": "error",
+      "ignoreVariableNames": "_"
+    },
+    "basic.EmptyCatchBlock": "error",
+    "basic.EmptyIfStatement": "error",
+    "basic.EmptyElseBlock": "error",
+    "basic.EmptyWhileStatement": "error",
+    "basic.ConstantIfExpression": "error",
+    "basic.ComparisonOfTwoConstants": "error",
+    "basic.DuplicateCaseStatement": "error",
+    "basic.BrokenOddnessCheck": "error",
+    "imports.DuplicateImport": "error",
+    "imports.UnusedImport": "error",
+
+    // --- Off: the DSL works this way. ---
+    // Pipelines repeat branch names, agent labels, credential ids and repo URLs
+    // by nature; deduplicating them into constants is not how Jenkinsfiles read.
+    "dry.DuplicateStringLiteral": "off", // 1002
+    "dry.DuplicateMapLiteral": "off", // 133
+    "dry.DuplicateListLiteral": "off", // 20
+    "dry.DuplicateNumberLiteral": "off", // 11
+    // Double-quoted strings are the Jenkins norm -- interpolation gets added and
+    // removed constantly, and churning quotes would touch every file.
+    "unnecessary.UnnecessaryGString": "off", // 486
+    // Both 2- and 4-space styles are established across pmm/.
+    "formatting.Indentation": "off", // 210
+    // `KEY=credentials('id')` inside an environment block is the idiom.
+    "formatting.SpaceAroundOperator": "off", // 667
+    // Jenkins job parameters are UPPER_CASE by convention.
+    "naming.ParameterName": "off", // 268
+    // Same reason CompileStatic/NoDef/VariableTypeRequired are off upstream:
+    // steps take untyped closures and maps.
+    "convention.MethodParameterTypeRequired": "off", // 191
+    "convention.FieldTypeRequired": "off",
+    // Fires on every `createX()`-style helper in a pipeline.
+    "design.BuilderMethodWithSideEffects": "off",
+    // A pipeline that catches broadly to keep a stage non-fatal is deliberate.
+    "exceptions.CatchException": "off",
+    // `env.X = env.X` is not a mistake: environment{} vars are applied via
+    // withEnv and are only visible inside the pipeline, so re-assigning through
+    // env.X= is what persists them on the build for `build job:` callers to read
+    // out of buildVariables. Used deliberately in pmm3-ha-eks and pmm3-ha-rosa.
+    "unnecessary.UnnecessarySelfAssignment": "off", // 2
+    // Declarative pipelines are long and deeply nested by construction; the
+    // inherited NestedBlockDepth of 10 already covers the real outliers
+    // (570 hits at the default depth of 5, 2 at 10).
+    "size.MethodSize": "off",
+    "size.MethodCount": "off",
+    "size.ClassSize": "off",
+    "size.ParameterCount": "off", // 19
+
+    // --- Off: subjective refactoring advice, not defects. ---
+    "convention.InvertedIfElse": "off",
+    "convention.ConfusingTernary": "off",
+    "convention.CouldBeElvis": "off",
+    "convention.CouldBeSwitchStatement": "off",
+    "convention.IfStatementCouldBeTernary": "off",
+    "convention.PublicMethodsBeforeNonPublicMethods": "off",
+    "unnecessary.UnnecessaryObjectReferences": "off",
+    "design.Instanceof": "off",
+
+    // --- Advisory, kept on. ---
+    // 120 is unworkable for embedded shell one-liners and long image URLs:
+    // 661 hits at 120, 82 at 200.
+    "formatting.LineLength": {
+      "length": 200
+    }
+  }
+}
