@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-custom-psmdb70-ol7-tgz
+    name: hetzner-custom-psmdb70-el7-tgz
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,8 +8,7 @@
         - git:
             url: https://github.com/vorsel/jenkins-pipelines.git
             branches:
-            - 'CUSTOM-199_psmdb70_ol7_tgz'
+            - 'CUSTOM-261_psmdb70_el7'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: psmdb/jenkins/custom/custom-psmdb70-ol7-tgz.groovy
-
+      script-path: psmdb/jenkins/custom/custom-psmdb70-el7-tgz.groovy
