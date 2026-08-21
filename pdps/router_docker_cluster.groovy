@@ -5,10 +5,6 @@ library changelog: false, identifier: "lib@PS-8631", retriever: modernSCM([
 
 
 pipeline {
-  agent {
-      label "docker"
-  }
-
   parameters {
     choice(
       name: 'DOCKER_ACC',
@@ -38,13 +34,25 @@ pipeline {
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
+    choice(
+      name: 'NODE_LABEL',
+      description: 'Docker fleet node to run on. percona-server/percona-mysql-router are multi-arch (amd64+arm64) under the same tag, so pick docker-32gb-aarch64 to test the ARM image - no other parameter needs to change.',
+      choices: [
+        'docker',
+        'docker-32gb-aarch64'
+      ]
+    )
+  }
+
+  agent {
+      label params.NODE_LABEL
   }
 
   stages {
     stage('Build') {
       steps {
           script {
-            currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ROUTER_VERSION}"
+            currentBuild.displayName = "#${BUILD_NUMBER}-${DOCKER_ACC}-${ROUTER_VERSION}-${NODE_LABEL}"
             currentBuild.description = "${PS_VERSION}"
               }
             }
