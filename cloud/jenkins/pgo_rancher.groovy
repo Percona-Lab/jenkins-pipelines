@@ -38,6 +38,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'Example: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'Example: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-upgrade')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-logcollector')
 
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
@@ -142,7 +143,8 @@ pipeline {
                             IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
                             IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
                             IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
-                            IMAGE_UPGRADE     : IMAGE_UPGRADE
+                            IMAGE_UPGRADE     : IMAGE_UPGRADE,
+                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR
                         ],
 
                         extra_envs: extraEnvs

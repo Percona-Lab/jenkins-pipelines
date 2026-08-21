@@ -84,7 +84,7 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-HA-GA',
             description: 'HA setup branch of percona-helm-charts repo',
             name: 'HELM_CHART_BRANCH')
         choice(
