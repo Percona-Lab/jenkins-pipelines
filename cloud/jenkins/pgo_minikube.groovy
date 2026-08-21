@@ -34,6 +34,7 @@ void initParams() {
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
+        env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         if ("$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
         }
@@ -61,7 +62,7 @@ void prepareSources() {
     initParams()
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_UPGRADE-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void prepareAgent() {
@@ -205,6 +206,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export IMAGE_UPGRADE=$IMAGE_UPGRADE
+                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
                     export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
 
@@ -265,6 +267,7 @@ IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
 IMAGE_UPGRADE=${IMAGE_UPGRADE ?: 'e2e_defaults'}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -292,6 +295,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-logcollector')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
         choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
     }
