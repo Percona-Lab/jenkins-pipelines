@@ -207,7 +207,7 @@ pipeline {
 
                     osMatrix().each { os ->
                         arches.each { arch ->
-                            def cell = "${os.name} (${arch})"
+                            def cell = "${os.name} (${arch})".toString()
                             branches[cell] = {
                                 def agentLabel
                                 if (arch == 'aarch64') {
@@ -254,27 +254,41 @@ pipeline {
             script {
                 def pass = RESULTS.count { it.value.status == 'PASS' }
                 def fail = RESULTS.size() - pass
-                def report = new StringBuilder()
-                report << "\n"
-                report << "================ mysql-shell build matrix ================\n"
-                report << "packaging branch : ${params.BUILD_BRANCH}\n"
-                report << "mysql-shell      : ${params.SHELL_BRANCH}\n"
-                report << "percona-server   : ${params.PS_BRANCH}\n"
-                report << "javascript       : ${params.WITH_JS == '1' ? 'enabled' : 'disabled'}\n"
-                report << "architectures    : ${params.ARCHES}\n"
-                report << "percona patches  : ${params.APPLY_PATCHES == '1' ? 'applied' : 'disabled (vanilla upstream)'}\n"
-                report << "----------------------------------------------------------\n"
-                RESULTS.sort { it.key }.each { cell, r ->
-                    report << String.format("%-30s %-6s %3d min%s\n",
-                        cell, r.status, r.minutes,
-                        r.error ? "  ${r.error.take(60)}" : "")
+                def pad = { value, width ->
+                    def out = value.toString()
+                    while (out.length() < width) { out = out + ' ' }
+                    return out
                 }
-                report << "----------------------------------------------------------\n"
-                report << "${pass} passed, ${fail} failed, ${RESULTS.size()} total\n"
-                report << "==========================================================\n"
-                echo report.toString()
+                def report = "\n"
+                report += "================ mysql-shell build matrix ================\n"
+                report += "packaging branch : ${params.BUILD_BRANCH}\n"
+                report += "mysql-shell      : ${params.SHELL_BRANCH}\n"
+                report += "percona-server   : ${params.PS_BRANCH}\n"
+                report += "javascript       : ${params.WITH_JS == '1' ? 'enabled' : 'disabled'}\n"
+                report += "architectures    : ${params.ARCHES}\n"
+                report += "percona patches  : ${params.APPLY_PATCHES == '1' ? 'applied' : 'disabled (vanilla upstream)'}\n"
+                report += "----------------------------------------------------------\n"
+                osMatrix().each { os ->
+                    ['x64', 'aarch64'].each { arch ->
+                        def cell = "${os.name} (${arch})".toString()
+                        if (RESULTS.containsKey(cell)) {
+                            def r = RESULTS[cell]
+                            def msg = ''
+                            if (r.error) {
+                                msg = r.error.toString()
+                                if (msg.length() > 60) { msg = msg.substring(0, 60) }
+                                msg = '  ' + msg
+                            }
+                            report += pad(cell, 30) + pad(r.status, 6) + pad("${r.minutes} min", 8) + msg + "\n"
+                        }
+                    }
+                }
+                report += "----------------------------------------------------------\n"
+                report += "${pass} passed, ${fail} failed, ${RESULTS.size()} total\n"
+                report += "==========================================================\n"
+                echo report
 
-                writeFile file: 'matrix-summary.txt', text: report.toString()
+                writeFile file: 'matrix-summary.txt', text: report
                 archiveArtifacts artifacts: 'matrix-summary.txt', allowEmptyArchive: true
 
                 currentBuild.description = "${params.BUILD_BRANCH} | shell ${params.SHELL_BRANCH} | ${pass}/${RESULTS.size()} passed"
