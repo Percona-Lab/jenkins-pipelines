@@ -6,15 +6,17 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
-        mkdir test
-        wget \$(echo ${BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/mysql-shell_builder.sh -O mysql-shell_builder.sh
-        pwd -P
+        mkdir -p test
+        rm -rf packaging
+        git clone --depth 1 --branch ${BUILD_BRANCH} ${BUILD_REPO} packaging
+        test -f packaging/mysql-shell_builder.sh
+        test -d packaging/patches
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./mysql-shell_builder.sh --builddir=\${build_dir}/test --install_deps=1 --mysqlshell_branch=$SHELL_BRANCH
-            bash -x mysql-shell_builder.sh --builddir=\${build_dir}/test --repo_mysqlshell=$SHELL_REPO --mysqlshell_branch=$SHELL_BRANCH --repo=${PS_REPO} --branch_db=${PS_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash \${build_dir}/packaging/mysql-shell_builder.sh --builddir=\${build_dir}/test --install_deps=1 --mysqlshell_branch=$SHELL_BRANCH
+            bash \${build_dir}/packaging/mysql-shell_builder.sh --builddir=\${build_dir}/test --repo_mysqlshell=$SHELL_REPO --mysqlshell_branch=$SHELL_BRANCH --repo=${PS_REPO} --branch_db=${PS_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --refresh_patches=0 ${STAGE_PARAM}"
     """
 }
 
@@ -29,14 +31,6 @@ def AWS_STASH_PATH
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-    }
-    environment {
-        PS_MAJOR_RELEASE = sh(
-            returnStdout: true,
-            script: '''
-              echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}'
-            '''
-        ).trim()
     }
     parameters {
         choice(
@@ -56,7 +50,7 @@ pipeline {
             description: 'URL for mysql-shell repository',
             name: 'SHELL_REPO')
         string(
-            defaultValue: '8.0.33',
+            defaultValue: '9.7.1',
             description: 'Tag/Branch for mysql-shell repository',
             name: 'SHELL_BRANCH')  
         string(
@@ -64,7 +58,7 @@ pipeline {
             description: 'URL for percona-server repository',
             name: 'PS_REPO')
         string(
-            defaultValue: '8.0.33',
+            defaultValue: 'release-9.7.1-1',
             description: 'Tag/Branch for percona-server repository',
             name: 'PS_BRANCH')   
         string(
@@ -91,19 +85,14 @@ pipeline {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 script {
                     cleanUpWS()
-                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                    if ("${PS_MAJOR_RELEASE}" == "80") {
-                        buildStage("ubuntu:focal", "--get_sources=1")
-                    } else {
                     buildStage("debian:bookworm", "--get_sources=1")
-                    }
                 }
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/mysql-shell.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" mysql-shell.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/mysql-shell.properties
+                   cat mysql-shell.properties
                    cat uploadPath
                 '''
                 script {
@@ -136,14 +125,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                buildStage("ubuntu:focal", "--build_source_deb=1")
-                            } else {
-                                buildStage("ubuntu:focal", "--build_source_deb=1")
-                            }
-                        }
+                        buildStage("debian:bookworm", "--build_source_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -263,40 +245,6 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Focal (20.04)') {
-                    when {
-                        expression { env.PS_MAJOR_RELEASE == "80" }
-                    }
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Focal (20.04) ARM') {
-                    when {
-                        expression { env.PS_MAJOR_RELEASE == "80" }
-                    }
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        script {
-                            cleanUpWS()
-                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                            buildStage("ubuntu:focal", "--build_deb=1")
-
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        }
-                    }
-                }
                 stage('Ubuntu Jammy (22.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -379,38 +327,6 @@ pipeline {
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Bullseye (11)') {
-                    when {
-                        expression { env.PS_MAJOR_RELEASE == "80" || env.PS_MAJOR_RELEASE == "84" }
-                    }
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_deb=1")
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Bullseye (11) ARM') {
-                    when {
-                        expression { env.PS_MAJOR_RELEASE == "80" || env.PS_MAJOR_RELEASE == "84" }
-                    }
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                       cleanUpWS()
-                       popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                       buildStage("debian:bullseye", "--build_deb=1")
-
-                       pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                       uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm (12)') {
