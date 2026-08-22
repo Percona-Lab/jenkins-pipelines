@@ -1,5 +1,5 @@
-def call(String INSTANCE_TYPE) {
-  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}"]) {
+def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false) {
+  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}", "USE_ONDEMAND=${USE_ONDEMAND}"]) {
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
             set -o xtrace
@@ -23,6 +23,27 @@ def call(String INSTANCE_TYPE) {
                     | sort --random-sort \
                     | head -1
             )
+            if [ "$USE_ONDEMAND" = "true" ]; then
+                # On-demand launch for RC/Release testing — no spot bidding, no interruption risk.
+                # No IP polling here: the shared block below fetches the IP after the status-ok wait.
+                echo "on-demand" > SPOT_PRICE
+                : > REQUEST_ID
+                AMI_ID=$(
+                    aws ec2 run-instances \
+                        --region us-east-2 \
+                        --image-id "$IMAGE_ID" \
+                        --instance-type "$INSTANCE_TYPE" \
+                        --key-name jenkins \
+                        --iam-instance-profile Name=pmm-staging-slave \
+                        --security-group-ids sg-cd39dba6 sg-9f3cdef4 sg-0cbb55499c1e70fb7 \
+                        --subnet-id "$SUBNET" \
+                        --count 1 \
+                        --output text \
+                        --query 'Instances[].InstanceId' \
+                        | tee AMI_ID
+                )
+                aws ec2 wait instance-running --instance-ids $AMI_ID
+            else
             SPOT_PRICE=$(
                 aws ec2 describe-spot-price-history \
                     --instance-types $INSTANCE_TYPE \
@@ -103,6 +124,7 @@ EOF
                     --region us-east-2 \
                     | tee AMI_ID
             )
+            fi
 
             VOLUMES=$(
                 aws ec2 describe-instances \
@@ -122,6 +144,16 @@ EOF
 
             # wait for the instance to be ready
             aws ec2 wait instance-status-ok --instance-ids $AMI_ID
+
+            # on-demand path doesn't poll for the IP above — fetch it once the instance is ready
+            if [ ! -s IP ]; then
+                aws ec2 describe-instances \
+                    --instance-ids $AMI_ID \
+                    --query 'Reservations[].Instances[].PublicIpAddress' \
+                    --output text \
+                    --region us-east-2 \
+                    | tee IP
+            fi
         '''
         env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
         env.REQUEST_ID = sh(returnStdout: true, script: "cat REQUEST_ID").trim()
