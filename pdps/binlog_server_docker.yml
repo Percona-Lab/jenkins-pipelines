@@ -1,0 +1,14 @@
+- job:
+    name: binlog_server_docker
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+            branches:
+            - 'binlog-docker'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pdps/binlog_server_docker.groovy
