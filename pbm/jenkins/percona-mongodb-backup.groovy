@@ -180,7 +180,7 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-                /* stage('Oracle Linux 10(x86_64)') {
+                stage('Oracle Linux 10(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -192,8 +192,8 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                } */ // Commented out in scope of PKG-1083
-                /* stage('Oracle Linux 10(aarch64)') {
+                }
+                stage('Oracle Linux 10(aarch64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
@@ -205,7 +205,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                } */ // Commented out in scope of PKG-1083
+                }
                 stage('Amazon Linux 2023(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
