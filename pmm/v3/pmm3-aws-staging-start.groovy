@@ -354,8 +354,12 @@ pipeline {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
+                    # On-demand has no spot request, so gate each call on its own id:
+                    # cancel only a real REQUEST_ID, but always terminate a running AMI_ID.
                     if [ -n "${REQUEST_ID}" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                    fi
+                    if [ -n "${AMI_ID}" ]; then
                         aws ec2 --region us-east-2 terminate-instances --instance-ids ${AMI_ID}
                     fi
                 '''

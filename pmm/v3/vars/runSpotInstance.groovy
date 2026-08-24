@@ -44,86 +44,86 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false) {
                 )
                 aws ec2 wait instance-running --instance-ids $AMI_ID
             else
-            SPOT_PRICE=$(
-                aws ec2 describe-spot-price-history \
-                    --instance-types $INSTANCE_TYPE \
-                    --region us-east-2 \
-                    --output text \
-                    --product-description "Linux/UNIX (Amazon VPC)" \
-                    --query 'SpotPriceHistory[0].SpotPrice'
-            )
-
-            PRICE_MULTIPLIER=1
-            while true; do
-                # increase price by 15% each time
-                SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
-                echo $SPOT_PRICE > SPOT_PRICE
-
-                cat > config.json <<EOF
-                  {
-                    "DryRun": false,
-                    "InstanceCount": 1,
-                    "InstanceInterruptionBehavior": "terminate",
-                    "LaunchSpecification": {
-                        "EbsOptimized": false,
-                        "ImageId": "$IMAGE_ID",
-                        "InstanceType": "$INSTANCE_TYPE",
-                        "KeyName": "jenkins",
-                        "Monitoring": {
-                            "Enabled": false
-                        },
-                        "IamInstanceProfile": {
-                            "Name": "pmm-staging-slave"
-                        },
-                        "SecurityGroupIds": [
-                            "sg-cd39dba6",
-                            "sg-9f3cdef4",
-                            "sg-0cbb55499c1e70fb7"
-                        ],
-                        "SubnetId": "$SUBNET"
-                    },
-                    "SpotPrice": "$SPOT_PRICE",
-                    "Type": "persistent"
-                  }
-EOF
-
-                REQUEST_ID=$(
-                    aws ec2 request-spot-instances \
-                        --output text \
+                SPOT_PRICE=$(
+                    aws ec2 describe-spot-price-history \
+                        --instance-types $INSTANCE_TYPE \
                         --region us-east-2 \
-                        --cli-input-json file://config.json \
-                        --query 'SpotInstanceRequests[].SpotInstanceRequestId' \
-                        | tee REQUEST_ID
+                        --output text \
+                        --product-description "Linux/UNIX (Amazon VPC)" \
+                        --query 'SpotPriceHistory[0].SpotPrice'
                 )
 
-                ATTEMPTS=2
-                until [ -s IP ] || [ $ATTEMPTS -eq 0 ]; do
-                    sleep 5
-                    aws ec2 describe-instances \
-                        --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
-                        --query 'Reservations[].Instances[].PublicIpAddress' \
-                        --output text \
-                        --region us-east-2 \
-                        | tee IP
-                    ATTEMPTS=$((ATTEMPTS-1))
+                PRICE_MULTIPLIER=1
+                while true; do
+                    # increase price by 15% each time
+                    SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
+                    echo $SPOT_PRICE > SPOT_PRICE
+
+                    cat > config.json <<EOF
+                      {
+                        "DryRun": false,
+                        "InstanceCount": 1,
+                        "InstanceInterruptionBehavior": "terminate",
+                        "LaunchSpecification": {
+                            "EbsOptimized": false,
+                            "ImageId": "$IMAGE_ID",
+                            "InstanceType": "$INSTANCE_TYPE",
+                            "KeyName": "jenkins",
+                            "Monitoring": {
+                                "Enabled": false
+                            },
+                            "IamInstanceProfile": {
+                                "Name": "pmm-staging-slave"
+                            },
+                            "SecurityGroupIds": [
+                                "sg-cd39dba6",
+                                "sg-9f3cdef4",
+                                "sg-0cbb55499c1e70fb7"
+                            ],
+                            "SubnetId": "$SUBNET"
+                        },
+                        "SpotPrice": "$SPOT_PRICE",
+                        "Type": "persistent"
+                      }
+EOF
+
+                    REQUEST_ID=$(
+                        aws ec2 request-spot-instances \
+                            --output text \
+                            --region us-east-2 \
+                            --cli-input-json file://config.json \
+                            --query 'SpotInstanceRequests[].SpotInstanceRequestId' \
+                            | tee REQUEST_ID
+                    )
+
+                    ATTEMPTS=2
+                    until [ -s IP ] || [ $ATTEMPTS -eq 0 ]; do
+                        sleep 5
+                        aws ec2 describe-instances \
+                            --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
+                            --query 'Reservations[].Instances[].PublicIpAddress' \
+                            --output text \
+                            --region us-east-2 \
+                            | tee IP
+                        ATTEMPTS=$((ATTEMPTS-1))
+                    done
+
+                    if [ -s IP ]; then
+                        break
+                    fi
+
+                    aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
+                    PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
                 done
 
-                if [ -s IP ]; then
-                    break
-                fi
-
-                aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
-                PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
-            done
-
-            AMI_ID=$(
-                aws ec2 describe-instances \
-                    --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
-                    --query 'Reservations[].Instances[].InstanceId' \
-                    --output text \
-                    --region us-east-2 \
-                    | tee AMI_ID
-            )
+                AMI_ID=$(
+                    aws ec2 describe-instances \
+                        --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
+                        --query 'Reservations[].Instances[].InstanceId' \
+                        --output text \
+                        --region us-east-2 \
+                        | tee AMI_ID
+                )
             fi
 
             VOLUMES=$(
