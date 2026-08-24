@@ -1,5 +1,5 @@
 - job:
-    name: pgo-v1-pg12-operator-aws-openshift-4
+    name: router_docker_cluster
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_v1_pg12_operator_aws_openshift-4.groovy
+      script-path: pdps/router_docker_cluster.groovy

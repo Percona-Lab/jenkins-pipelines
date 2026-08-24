@@ -78,6 +78,17 @@ else
   printf '%s\n' "${pending}"
 fi
 
+# 8. /boot keeps headroom for the next chained bake and for consumer-side
+#    kernel updates (rescue-pair creep filled it once, provision.sh now cleans
+#    it; images whose /boot lives on the root filesystem pass trivially).
+boot_free_mb="$(df -BM --output=avail /boot | tail -1 | tr -dc '0-9')"
+
+if (( boot_free_mb < 260 )); then
+  fail "/boot has only ${boot_free_mb}MB free (need >= 260MB)"
+fi
+
+echo "  /boot ok: ${boot_free_mb}MB free"
+
 echo "VALIDATE OK: ${OS} ${OS_MAJOR} ${UNAME_ARCH}"
 # De-instancing is native now: packer `ssh_clear_authorized_keys` strips the temp
 # key, and cloud-init's default `ssh_deletekeys: true` regenerates host keys on

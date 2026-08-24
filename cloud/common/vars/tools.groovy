@@ -16,6 +16,18 @@ void gitClone(Map cfg) {
             git clone -b "$GIT_BRANCH_NAME" "$GIT_REPO_URL" source
         '''
     }
+
+    stash name: 'sourceFILES', includes: 'source/**'
+}
+
+void stashClonedGitFiles() {
+    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
+}
+
+void unstashClonedGitFiles() {
+    deleteDir()
+    checkout scm
+    unstash 'sourceFILES'
 }
 
 void gitResetWorkspace() {
@@ -26,14 +38,14 @@ void gitResetWorkspace() {
     '''
 }
 
-def kubernetesCleanupCluster(String kubeconfig) {
+void kubernetesCleanupCluster(String kubeconfig) {
     sh """
         export KUBECONFIG=${kubeconfig}
 
         if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
             for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers \
                 | awk '{print \$1}' \
-                | grep -vE "^kube-|^gke-|^cattle-" \
+                | grep -vE "^kube-|^gke-|^cattle-|^openshift" \
                 | sed '/-operator/ s/^/1-/' \
                 | sort \
                 | sed 's/^1-//'); do
@@ -53,6 +65,41 @@ def kubernetesCleanupCluster(String kubeconfig) {
     """
 }
 
+void kubernetesCleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
+    def clusterName = "${testVariables.cluster_name}-${clusterSuffix}"
+    def kubeconfig = "${testVariables.kubeconfigPath}/${clusterName}"
+
+    echo "Cleaning failed test namespaces for ${testName} on ${clusterName}"
+
+    sh """
+        set +e
+        export FAILED_TEST_NAME='${testName}'
+        export KUBECONFIG='${kubeconfig}'
+        if [ ! -s "\$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+            echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for \$KUBECONFIG"
+            exit 0
+        fi
+        kubectl get namespaces --request-timeout=10s --no-headers \
+            | awk '{print \$1}' \
+            | while read -r namespace; do
+                case "\$namespace" in
+                    "\$FAILED_TEST_NAME"-*|kuttl*)
+                        echo "Removing finalizers from resources in namespace: \$namespace"
+                        kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
+                            | while read -r resource; do
+                                kubectl get "\$resource" -n "\$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
+                                    | while read -r object; do
+                                        kubectl patch "\$object" -n "\$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
+                                    done
+                            done
+                        echo "Deleting namespace: \$namespace"
+                        kubectl delete namespace "\$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
+                        ;;
+                esac
+            done
+    """
+}
+
 void dockerBuildAndPush(Map cfg) {
     echo "=========================[ Building and Pushing ${cfg.operatorImage} Docker image ]========================="
 
@@ -68,10 +115,14 @@ void dockerBuildAndPush(Map cfg) {
                 cd source
 
                 sg docker -c '
-                    docker buildx create --use || true
+                    docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
-                    e2e-tests/build
+                    if [[ "$cfg.operator" == "pg-operator" ]]; then
+                        DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 make build
+                    else
+                        DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
+                    fi
                     docker logout
                 '
 

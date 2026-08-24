@@ -6,6 +6,39 @@
 # cloud-init + machine-id below so a launched instance re-initialises.
 set -euxo pipefail
 
+# /boot hygiene, before the update so the kernel transaction has room. Rocky
+# images ship dracut-config-rescue, and the machine-id reset below gives every
+# chained bake a fresh machine id, so each kernel-installing bake added one
+# more ~90MB rescue pair (dracut's rescue hook keys its state by machine id
+# and never cleans other ids'). Five pairs filled the fixed 936MB /boot and
+# kernel updates started failing mid-transaction. CI images never boot the
+# rescue entry: stop generating it, drop accumulated pairs, and purge loader
+# entries that point at removed kernels. Every step no-ops on images without
+# the rescue package or without a separate /boot (Oracle Linux).
+if rpm -q dracut-config-rescue >/dev/null 2>&1; then
+  dnf -y remove dracut-config-rescue
+fi
+
+rm -f /boot/vmlinuz-0-rescue-* /boot/initramfs-0-rescue-* /boot/.vmlinuz-0-rescue-*.hmac
+rm -f /boot/loader/entries/*-0-rescue*.conf
+
+for entry in /boot/loader/entries/*.conf; do
+  [[ -e "${entry}" ]] || continue
+  image="$(sed -n 's/^linux //p' "${entry}")"
+  if [[ -n "${image}" && ! -e "/boot${image}" ]]; then
+    rm -f "${entry}"
+  fi
+done
+
+# The update needs old+new kernel on /boot at once, plus the ~80MB initramfs
+# dracut writes after rpm's disk check. Fail here, with a clear message,
+# rather than mid-transaction.
+boot_free_mb="$(df -BM --output=avail /boot | tail -1 | tr -dc '0-9')"
+if (( boot_free_mb < 200 )); then
+  echo "PROVISION FAIL: /boot has ${boot_free_mb}MB free, need >= 200MB for a kernel update" >&2
+  exit 1
+fi
+
 # Core refresh: this is what the manual process did by hand.
 dnf -y update
 
