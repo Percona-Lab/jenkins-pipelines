@@ -41,7 +41,7 @@ pipeline {
             description: 'URL of the released source tarball to build the el7 binary tarball from',
             name: 'SOURCE_TARBALL_URL')
         string(
-            defaultValue: 'https://github.com/vorsel/percona-server-mongodb.git',
+            defaultValue: 'https://github.com/percona/percona-server-mongodb.git',
             description: 'URL for CUSTOM percona-server-mongodb repository to take BuildScript from',
             name: 'BS_GIT_REPO')
         string(
