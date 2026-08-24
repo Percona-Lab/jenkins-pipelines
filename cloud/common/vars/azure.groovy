@@ -13,7 +13,7 @@ def getPlatformVersion(String prefixVersion) {
 
 def getLatestPlatformVersion(Map testVariables) {
     return sh(
-        script: "az aks get-versions --location ${testVariables.region} --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1",
+        script: "az aks get-versions --location ${testVariables.region} --output json | jq -r '(.values // [] | .[].patchVersions | keys[]), (.orchestrators // [] | .[].orchestratorVersion)' | sort --version-sort | tail -1",
         returnStdout: true
     ).trim()
 }

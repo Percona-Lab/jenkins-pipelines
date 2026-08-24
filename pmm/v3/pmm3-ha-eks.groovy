@@ -1,3 +1,58 @@
+// Writes ${WORKSPACE}/kubeconfig with a ServiceAccount token inside it, so the artifact works with a
+// bare kubectl. The token never expires, so it stays valid until the cluster is deleted.
+def mintAdminKubeconfig() {
+    sh '''
+        set +x   # Jenkins runs sh with -xe; keep the token out of the console
+
+        MINT_OUT="${WORKSPACE}/kubeconfig"
+
+        kubectl -n kube-system create serviceaccount pmm-ha-admin
+        kubectl create clusterrolebinding pmm-ha-admin \
+            --clusterrole=cluster-admin \
+            --serviceaccount=kube-system:pmm-ha-admin
+
+        # Unlike "kubectl create token", the token in this Secret never expires.
+        kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pmm-ha-admin-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: pmm-ha-admin
+type: kubernetes.io/service-account-token
+EOF
+
+        echo "Waiting for the token controller to populate the secret..."
+        for i in $(seq 1 30); do
+            TOKEN=$(kubectl -n kube-system get secret pmm-ha-admin-token -o jsonpath='{.data.token}' | base64 -d)
+            if [ -n "${TOKEN}" ]; then
+                break
+            fi
+            sleep 2
+        done
+
+        if [ -z "${TOKEN}" ]; then
+            echo "ERROR: the token secret was not populated after 60 seconds."
+            exit 1
+        fi
+
+        # Copy the working config so the server URL and TLS settings carry over as-is.
+        kubectl config view --raw --minify --flatten > "${MINT_OUT}"
+
+        # Swap the copied credential for the ServiceAccount token
+        kubectl --kubeconfig "${MINT_OUT}" config unset users
+        kubectl --kubeconfig "${MINT_OUT}" config set-credentials pmm-ha-admin --token="${TOKEN}"
+        kubectl --kubeconfig "${MINT_OUT}" config set-context --current --user=pmm-ha-admin
+        chmod 600 "${MINT_OUT}"
+
+        # Check the file works with the AWS credentials taken away. Nothing else in this build
+        # touches it, so this is its only test.
+        env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
+            kubectl --kubeconfig "${MINT_OUT}" get nodes
+    '''
+}
+
 def cleanupCluster() {
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
@@ -39,12 +94,12 @@ pipeline {
         string(
             name: 'PMM_IMAGE_REPOSITORY',
             defaultValue: '',
-            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
+            description: 'PMM image repository override (initial value is pulled from the Helm chart), i.e. "perconalab/pmm-server-fb" for feature builds'
         )
         string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM image tag override (initial value is pulled from the Helm chart)'
+            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -66,12 +121,19 @@ pipeline {
      environment {
         CLUSTER_NAME = "pmm-ha-test-${BUILD_NUMBER}"
         REGION = "us-east-2"
-        KUBECONFIG = "${WORKSPACE}/kubeconfig"
+        // The build's own config. Kept out of the workspace so ${WORKSPACE}/kubeconfig is only the artifact.
+        KUBECONFIG = "${HOME}/.kube/eks-${BUILD_NUMBER}"
     }
 
     stages {
         stage('Write Cluster Config') {
             steps {
+                script {
+                    // environment{} block vars are applied via withEnv and are only visible to steps in
+                    // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
+                    // via buildVariables to any caller using build job: 'pmm3-ha-eks'.
+                    env.CLUSTER_NAME = env.CLUSTER_NAME
+                }
                 sh '''
                     cat > cluster-config.yaml <<EOF
 apiVersion: eksctl.io/v1alpha5
@@ -161,42 +223,43 @@ EOF
             }
         }
 
-        stage('Configure Cluster Access') {
+        stage('Grant pmm-qa GHA Access') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        grant_admin() {
-                            local arn="$1"
+                        # Granting the pmm-qa GitHub Actions OIDC role edit access scoped
+                        # to the pmm namespace. QA workflows test against the PMM HA this
+                        # job deploys. Cluster-scoped objects (operator CRDs, storage
+                        # classes, nodes) stay with this job's credentials. The role name
+                        # is defined by the gha_pmm_qa_eks module in percona-cd-platform.
+                        # No fallback on purpose: a missing role fails the stage here
+                        # instead of surfacing later as an opaque GHA auth error.
+                        GHA_ROLE_ARN=$(aws iam get-role \
+                            --role-name percona-ci-platform-gha-pmm-qa-eks \
+                            --query Role.Arn --output text)
 
-                            aws eks create-access-entry \
-                                --cluster-name "${CLUSTER_NAME}" \
-                                --region "${REGION}" \
-                                --principal-arn "${arn}"
+                        aws eks create-access-entry \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}"
 
-                            aws eks associate-access-policy \
-                                --cluster-name "${CLUSTER_NAME}" \
-                                --region "${REGION}" \
-                                --principal-arn "${arn}" \
-                                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-                                --access-scope type=cluster
-                        }
-
-                        # Granting access to IAM group members
-                        for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
-                            grant_admin "${arn}"
-                        done
-
-                        # Granting access to SSO admin role
-                        grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
+                        aws eks associate-access-policy \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}" \
+                            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy \
+                            --access-scope type=namespace,namespaces=pmm
                     '''
                 }
             }
         }
 
-        stage('Export kubeconfig') {
+        stage('Configure kubectl Access') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
+                        mkdir -p "${HOME}/.kube"
+
                         aws eks update-kubeconfig \
                             --name "${CLUSTER_NAME}" \
                             --region "${REGION}" \
@@ -205,6 +268,9 @@ EOF
                         kubectl cluster-info
                         kubectl get nodes
                     '''
+
+                    // kubectl still authenticates through IAM here - the ServiceAccount is what replaces it.
+                    mintAdminKubeconfig()
                 }
             }
         }
@@ -421,7 +487,8 @@ EOF
                         echo "------------------------------"
 
                         echo "kubectl access (local):"
-                        echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
+                        echo "  # Download the kubeconfig artifact - no aws CLI or credentials needed."
+                        echo "  export KUBECONFIG=./kubeconfig"
                         echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
                         echo "  # Then access https://localhost:8443"
                         echo ""

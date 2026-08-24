@@ -5,9 +5,8 @@ import groovy.transform.Field
 
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
-@Field String clusterType = "rancher"
-@Field String sourceRepo = 'https://github.com/percona/percona-server-mongodb-operator'
-@Field String operatorImage = 'docker.io/perconalab/percona-server-mongodb-operator'
+@Field String sourceRepo = 'https://github.com/percona/percona-server-mysql-operator'
+@Field String operatorImage = 'docker.io/perconalab/percona-server-mysql-operator'
 
 def getLibraries() {
     def loader = load('cloud/common/libraries.groovy')
@@ -16,35 +15,37 @@ def getLibraries() {
 
 pipeline {
     environment {
-        CLEAN_NAMESPACE = 1
         DB_TAG = sh(
-            script: '''[[ "$IMAGE_MONGOD" ]] && echo "$IMAGE_MONGOD" | awk -F':' '{print $2}' || echo main''',
+            script: '''[[ "$IMAGE_MYSQL" ]] && echo "$IMAGE_MYSQL" | awk -F':' '{print $2}' || echo main''',
             returnStdout: true
         ).trim()
     }
 
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv', 'run-backups.csv'], description: 'Choose test suite from file')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Set to 60/70/80/83 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80'], description: 'Set to 80/84 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
-        string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description:  'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
-        string(name: 'PLATFORM_ARCH', defaultValue: 'amd64', description: 'Platform architecture used to select the machine type, for example amd64 or arm64.')
+        string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
+        choice(name: 'PLATFORM_ARCH', choices: ['amd64', 'arm64'], description: 'Platform architecture used to select the machine type.')
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version. In release runs, latest or empty is replaced with RANCHER from source/e2e-tests/release_versions.')
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
 
-        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
-        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
-        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main')
+        string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-psmysql8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-backup8.0')
+        string(name: 'IMAGE_ROUTER', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-router8.0')
+        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-haproxy')
+        string(name: 'IMAGE_ORCHESTRATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-orchestrator')
+        string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
-        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
-        string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
+        string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
 
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
@@ -64,11 +65,10 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
 
     stages {
-        stage ('Init Workspace') {
+        stage('Init Workspace') {
             steps {
                 script {
                     deleteDir()
@@ -87,8 +87,8 @@ pipeline {
                 script {
                     libraries.dependencies.prepareNode(
                         libraries,
-                        'make',
-                        'psmdb-operator',
+                        'kuttl',
+                        'ps-operator',
                         'rancher'
                     )
                 }
@@ -101,7 +101,7 @@ pipeline {
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: operatorImage,
                         branch: GIT_BRANCH,
-                        platform: 'linux/amd64,linux/arm64'
+                        operator: 'ps-operator'
                     )
                 }
             }
@@ -110,12 +110,10 @@ pipeline {
         stage('Prepare Test Variables') {
             steps {
                 script {
-                    // rke2 is the Kubernetes version used in Rancher clusters, so we set it as platform version for proper test selection
-                    // Rancher version used to define Rancher chart version for test, the chart contains Kubernetes manifests for Rancher management and downstream clusters
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'psmdb-operator',
+                        operator              : 'ps-operator',
 
                         platform              : 'rke2',
                         platform_provider     : 'rancher',
@@ -125,28 +123,32 @@ pipeline {
                         rancher_version       : RANCHER_VERSION,
                         worker_count          : 4,
                         zone                  : RANCHER_ZONE,
-                        
+
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
 
                         git_branch            : GIT_BRANCH,
+                        source_repo           : sourceRepo,
                         job_name              : JOB_NAME,
                         db_tag                : DB_TAG,
                         debug_tests           : DEBUG_TESTS,
-                        test_executor_type    : 'make',
+                        test_executor_type    : 'kuttl',
 
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
-                            IMAGE_MONGOD      : IMAGE_MONGOD,
+                            IMAGE_MYSQL       : IMAGE_MYSQL,
                             IMAGE_BACKUP      : IMAGE_BACKUP,
+                            IMAGE_ROUTER      : IMAGE_ROUTER,
+                            IMAGE_HAPROXY     : IMAGE_HAPROXY,
+                            IMAGE_ORCHESTRATOR: IMAGE_ORCHESTRATOR,
+                            IMAGE_TOOLKIT     : IMAGE_TOOLKIT,
                             IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
                             IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
                             IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
                             IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
-                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
-                            IMAGE_SEARCH      : IMAGE_SEARCH
+                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER
                         ]
                     ])
 
@@ -168,7 +170,9 @@ pipeline {
                         echo 'All tests will be re-run, ignoring previous execution results!'
                     }
 
-                    libraries.tests.loadCloudSecret('psmdb')
+                    libraries.tests.loadCloudSecret('ps')
+                    // Stash cloned files to use in parallel stages with different nodes
+                    libraries.tools.stashClonedGitFiles()
                 }
             }
         }
@@ -180,6 +184,7 @@ pipeline {
                     testVariables.numClusters = numClusters
                     testVariables.kubeconfigPath = '/tmp'
                     testVariables.retries = 1
+                    testVariables.jenkins_agent_label = params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
 
                     // Creates clusters in parallel and runs tests in parallel on each cluster
                     parallel libraries.tests.buildParallelClusterStages(testVariables)
@@ -197,7 +202,7 @@ pipeline {
                         .replace(']]', ']')
                         .replaceFirst('\\[', '')
 
-                libraries.tests.makeReport(testVariables.tests, testVariables)
+                libraries.tests.makeReportJUnit(testVariables.tests, testVariables)
 
                 try {
                     def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
@@ -209,7 +214,7 @@ pipeline {
                         platformChannel: testVariables.platform_channel,
                         platformArch   : testVariables.platform_arch,
                         clusterWide    : testVariables.cluster_wide,
-                        image          : testVariables.images.IMAGE_MONGOD,
+                        image          : testVariables.images.IMAGE_MYSQL,
                         operatorImage  : testVariables.images.IMAGE_OPERATOR
                     )
                 } catch (err) {
@@ -236,6 +241,8 @@ pipeline {
                 libraries.tools.dockerCleanupVolumes()
             }
 
+            junit testResults: 'TestsReport.xml', healthScaleFactor: 1.0, allowEmptyResults: true
+            archiveArtifacts artifacts: '*.xml,*.txt', allowEmptyArchive: true
             deleteDir()
         }
     }

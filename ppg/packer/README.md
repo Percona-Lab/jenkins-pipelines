@@ -73,8 +73,8 @@ template ONLY validates; **promotion to `role=ppg-package-test` is a separate,
 retried step** in the `justfile`/workflow that runs after a passing smoke, so a
 transient tag-API failure can never deregister a smoke-passed AMI. A real
 boot/install failure deregisters the candidate + its snapshots.
-The jobs and the next build's source filter select only `role=ppg-package-test`,
-so a non-booting image is never selectable and AMI IDs are never pinned.
+The pin refresh and the next build's source filter select only
+`role=ppg-package-test`, so a non-booting image is never selectable.
 Login user: `ec2-user` on OL, `rocky` on Rocky (the images keep their distro's
 cloud-init default user, matching what the molecule scenarios already use). "Latest"
 is the newest `role=ppg-package-test` AMI by `CreationDate` (no SSM parameter).
@@ -96,19 +96,17 @@ just ci-validate         # trigger the GHA workflow matrix (env=test)
 just ci-seed-rocky       # dispatch all six Rocky seeds (env=prod; every combo must be seeded once)
 ```
 
-## Job AMI lookup (replaces hardcoded IDs)
+## Job AMI lookup (static pins, refreshed weekly)
 
-`vars/moleculeEnvPPG.groovy` resolves each Oracle target at pipeline time
-(fail-closed: the job aborts if no base AMI is found). A follow-up PR switches
-the pg.cd jobs' Rocky targets to the same lookup with `Name=tag:os,Values=rocky`:
-
-```bash
-ami_ol9_x86_64=$(aws ec2 describe-images --region eu-central-1 --owners self \
-  --filters Name=tag:role,Values=ppg-package-test Name=tag:os,Values=oraclelinux \
-            Name=tag:os_major,Values=9 Name=tag:arch,Values=x86_64 \
-            Name=state,Values=available \
-  --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)
-```
+`vars/moleculeEnvPPG.groovy` carries static `export ami_*` pins for the OL and
+Rocky targets, same as the RHEL/Debian/Ubuntu entries. The `update-molecule-env`
+job in `ppg-ami-factory.yml` re-resolves the newest promoted AMI per
+os+major+arch (tag `role=ppg-package-test`, via
+`scripts/update_molecule_env.py`) after the weekly bake and publishes the new
+pins on the rolling `ppg-ami-refresh` branch, opening a PR when one is not
+already open. Resolution no longer happens at pipeline time: 30 parallel molecule
+stages each firing 12 `DescribeImages` calls tripped the account-wide EC2 rate
+limit.
 
 ## Validation gates (fail-closed)
 

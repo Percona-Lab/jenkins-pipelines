@@ -105,6 +105,62 @@ void installGoogleCLI() {
     '''
 }
 
+void installPxcTools() {
+    sh '''
+        # install cfssl for PXC operator tests
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssl_1.6.5_linux_amd64 -o /usr/local/bin/cfssl
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssljson_1.6.5_linux_amd64 -o /usr/local/bin/cfssljson
+        sudo chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable pxb-84-lts
+        sudo yum install -y percona-xtrabackup-84
+    '''
+}
+ 
+void installKuttl(String version = '0.25.0') {
+    sh """
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+        command -v kubectl-krew >/dev/null || {
+            curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+            ./krew-linux_amd64 install krew
+        }
+
+        command -v kubectl-assert >/dev/null || kubectl krew install assert
+
+        dir="\$(mktemp -d)"
+        git clone -q https://github.com/kubernetes-sigs/krew-index.git "\$dir"
+        commit=\$(git -C "\$dir" log -S"v${version}" --format='%H' -- plugins/kuttl.yaml | tail -1)
+        rm -rf "\$dir"
+
+        kubectl krew install --manifest-url "https://raw.githubusercontent.com/kubernetes-sigs/krew-index/\$commit/plugins/kuttl.yaml"
+        kubectl kuttl --version
+    """
+}
+
+void installOpenshiftClient(String platformVersion) {
+    withEnv(["PLATFORM_VER=${platformVersion}"]) {
+        sh '''
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+        '''
+    }
+}
+
+void installEksctl() {
+    sh '''
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+    '''
+}
+
+void installDoctl() {
+    sh '''
+        client_version=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | cut -d '"' -f4 | sed 's/^v//')
+        curl -sL "https://github.com/digitalocean/doctl/releases/download/v$client_version/doctl-$client_version-linux-amd64.tar.gz" | tar -xz && sudo mv doctl /usr/local/bin
+        doctl version
+    '''
+}
+
 void installAzureCLI() {
     sh '''
         if ! command -v az &>/dev/null; then
@@ -120,6 +176,40 @@ void installAzureCLI() {
             fi
         fi
     '''
+}
+
+void installExecutorDependencies(String testExecutorType) {
+    switch (testExecutorType) {
+        case 'kuttl':
+            installKuttl()
+            break
+
+        case 'make':
+            installUv()
+            syncPythonDeps()
+            break
+    }
+}
+
+void installProviderDependencies(Map libraries, String operator, String provider) {
+    // PSMDB requires Google and Azure CLIs, regardless of the provider.
+    // Rancher requires Google CLI to create cluster as GCE instances are used.
+
+    if (provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb-operator') {
+        installGoogleCLI()
+        libraries.gcloud.auth()
+    }
+
+    if (provider == 'azure' || operator == 'psmdb-operator') {
+        installAzureCLI()
+        libraries.azure.auth()
+    }
+}
+
+void prepareNode(Map libraries, String testExecutorType,String operator, String provider) {
+    install()
+    installExecutorDependencies(testExecutorType)
+    installProviderDependencies(libraries, operator, provider)
 }
 
 return this
