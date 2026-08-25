@@ -56,6 +56,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
               sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
           else
               wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+              sed -i '0,\#cd \${WORKDIR}/percona-server#s#cd \${WORKDIR}/percona-server#cd \${WORKDIR}/percona-server\\n    curl -L "https://github.com/percona/percona-server/compare/8.4...satya-bodapati:percona-server:PS-9107-8.0.34.patch" -o PS-9107-8.0.34.patch\\n    git apply PS-9107-8.0.34.patch#' ps_builder.sh
           fi
           ls -la
           export build_dir=\$(pwd -P)
