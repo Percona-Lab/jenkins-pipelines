@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@binlog-docker", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 def runBinlogServerTests() {
@@ -39,12 +39,12 @@ pipeline {
       name: 'PS_VERSION'
     )
     string(
-      defaultValue: 'https://github.com/kaushikpuneet07/package-testing.git',
+      defaultValue: 'https://github.com/Percona-QA/package-testing.git',
       description: 'Repo for package-testing repository',
       name: 'TESTING_REPO'
     )
     string(
-      defaultValue: 'binlog-docker',
+      defaultValue: 'master',
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
