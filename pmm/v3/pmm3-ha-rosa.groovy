@@ -674,6 +674,20 @@ EOF
                     }
 
                     sh '''
+                        # The cluster's API hostname can suffer a brief DNS blip right after
+                        # creation, retry so one bad lookup doesn't kill a 20+ minute stage.
+                        retry() {
+                            for i in $(seq 1 5); do
+                                if "$@"; then
+                                    return 0
+                                fi
+                                echo "Attempt ${i}/5 failed, retrying in 15s: $*"
+                                sleep 15
+                            done
+                            echo "Giving up after 5 attempts: $*"
+                            return 1
+                        }
+
                         oc create namespace pmm
 
                         # Grant anyuid SCC to all service accounts in pmm namespace
@@ -690,9 +704,9 @@ EOF
                         helm dependency update helm-charts/charts/pmm-ha-dependencies
                         helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
 
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
 
                         # Wait for operator webhooks to be fully initialized
                         # Operators report ready before their admission webhooks have TLS certificates configured
@@ -768,29 +782,29 @@ EOF
                         echo "Waiting for all PMM HA components to be ready..."
 
                         # PMM servers
-                        oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
+                        retry oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
 
                         # ClickHouse
-                        oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
 
                         # ClickHouse Keeper
-                        oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
 
                         # PostgreSQL instances
-                        oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
 
                         # PgBouncer
-                        oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
 
                         # HAProxy
-                        oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
+                        retry oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
 
                         # VictoriaMetrics
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
 
                         echo ""
                         oc get pods -n pmm
