@@ -1,3 +1,18 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
+def notifySlack(String color, String message) {
+    if (!params.NOTIFY) {
+        return
+    }
+
+    def text = "[${env.JOB_NAME}]: ${message}\nCluster: ${env.CLUSTER_NAME ?: 'not created'} | Owner: @${env.OWNER ?: 'unknown'} | Build: ${env.BUILD_URL}"
+
+    slackSend botUser: true, channel: '#pmm-notifications', color: color, message: text
+}
+
 // Writes ${WORKSPACE}/kubeconfig with a ServiceAccount token inside it, so the artifact works with a
 // bare kubectl. The token never expires, so it stays valid until the cluster is deleted.
 def mintAdminKubeconfig() {
@@ -86,6 +101,16 @@ pipeline {
             choices: ['1.35', '1.34', '1.33'],
             description: 'Select Kubernetes cluster version'
         )
+        choice(
+            name: 'WORKER_COUNT',
+            choices: ['6', '7', '8', '9', '10', '11', '12'],
+            description: 'Worker nodes in the spot nodegroup. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
+        )
+        booleanParam(
+            name: 'DEPLOY_PMM',
+            defaultValue: true,
+            description: 'Deploy PMM HA after the cluster is created. Uncheck to get a bare cluster - the PMM parameters below are then ignored.'
+        )
         string(
             name: 'HELM_CHART_BRANCH',
             defaultValue: 'main',
@@ -100,6 +125,16 @@ pipeline {
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
             description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
+        )
+        text(
+            name: 'PMM_ENV_VARIABLE',
+            defaultValue: '',
+            description: 'Environment variables for the PMM Server containers, one KEY=VALUE per line. Merged into the pmmEnv values of the chart. Example: PMM_DEBUG=1'
+        )
+        string(
+            name: 'HELM_VALUES',
+            defaultValue: '',
+            description: 'Extra pmm-ha chart overrides passed to helm --set, they win over every other parameter. Example: replicas=2,storage.size=20Gi'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -116,6 +151,11 @@ pipeline {
             defaultValue: false,
             description: 'Enable external access for PMM HA (creates LoadBalancer)'
         )
+        booleanParam(
+            name: 'NOTIFY',
+            defaultValue: true,
+            description: 'Post the build status to #pmm-notifications and DM the build owner'
+        )
     }
 
      environment {
@@ -126,6 +166,16 @@ pipeline {
     }
 
     stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    // sets env.OWNER, used by notifySlack
+                    getPMMBuildParams('pmm-ha-')
+                    notifySlack('#0000FF', 'build started')
+                }
+            }
+        }
+
         stage('Write Cluster Config') {
             steps {
                 script {
@@ -173,9 +223,9 @@ managedNodeGroups:
       - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 6
+    minSize: ${WORKER_COUNT}
     maxSize: 12
-    desiredCapacity: 6
+    desiredCapacity: ${WORKER_COUNT}
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -324,6 +374,9 @@ EOF
         }
 
         stage('Install PMM HA') {
+            when {
+                expression { params.DEPLOY_PMM }
+            }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     dir('helm-charts') {
@@ -366,6 +419,16 @@ EOF
 
                         helm dependency update helm-charts/charts/pmm-ha
 
+                        # Fold PMM_ENV_VARIABLE into the pmmEnv values of the chart. They end up in a
+                        # ConfigMap, whose data must be strings, hence --set-string rather than --set.
+                        PMM_ENV_ARGS=""
+                        for kv in ${PMM_ENV_VARIABLE}; do
+                            case "${kv}" in
+                                *=*) PMM_ENV_ARGS="${PMM_ENV_ARGS} --set-string pmmEnv.${kv}" ;;
+                                *)   echo "ERROR: PMM_ENV_VARIABLE entry '${kv}' is not a KEY=VALUE pair"; exit 1 ;;
+                            esac
+                        done
+
                         set +e
 
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
@@ -373,7 +436,9 @@ EOF
                             --set secret.name=pmm-secret \
                             --wait --timeout 15m \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
-                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
+                            ${PMM_ENV_ARGS} \
+                            ${HELM_VALUES:+--set ${HELM_VALUES}}
 
                         HELM_EXIT_CODE=$?
 
@@ -411,7 +476,7 @@ EOF
 
         stage('Configure External Access') {
             when {
-                expression { params.ENABLE_EXTERNAL_ACCESS }
+                expression { params.DEPLOY_PMM && params.ENABLE_EXTERNAL_ACCESS }
             }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
@@ -449,9 +514,6 @@ EOF
 
         stage('Cluster Summary') {
             steps {
-                script {
-                    env.PMM_URL = env.PMM_URL ?: "https://localhost:8443"
-                }
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set +x
@@ -470,6 +532,14 @@ EOF
                         kubectl get storageclass
                         echo ""
 
+                        echo "kubectl access (local):"
+                        echo "  # Download the kubeconfig artifact - no aws CLI or credentials needed."
+                        echo "  export KUBECONFIG=./kubeconfig"
+                        echo ""
+
+                        # Everything below describes PMM, so a bare cluster stops here.
+                        [ "${DEPLOY_PMM}" = "true" ] || exit 0
+
                         echo "Internal Component Credentials"
                         echo "------------------------------"
 
@@ -483,12 +553,7 @@ EOF
                         echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
                         echo ""
 
-                        echo "Access Information"
-                        echo "------------------------------"
-
-                        echo "kubectl access (local):"
-                        echo "  # Download the kubeconfig artifact - no aws CLI or credentials needed."
-                        echo "  export KUBECONFIG=./kubeconfig"
+                        echo "PMM access:"
                         echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
                         echo "  # Then access https://localhost:8443"
                         echo ""
@@ -515,17 +580,23 @@ EOF
     post {
         success {
             script {
-                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | PMM: ${env.PMM_URL}"
+                // env.PMM_URL is only set when the LoadBalancer stage ran.
+                def pmmStatus = params.DEPLOY_PMM ? (env.PMM_URL ?: 'port-forward required') : 'not deployed'
+
+                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | PMM: ${pmmStatus}"
+                notifySlack('#00FF00', "cluster is ready, it expires in ${params.RETENTION_DAYS} day(s)\nPMM: ${pmmStatus}")
             }
             echo "Cluster ${CLUSTER_NAME} created successfully."
             echo "Download the kubeconfig artifact to access the cluster."
         }
         failure {
+            notifySlack('#FF0000', 'build failed, cleaning up')
             echo "Build FAILED — cleaning up cluster"
             archiveArtifacts artifacts: 'helm-debug/**', allowEmptyArchive: true
             cleanupCluster()
         }
         aborted {
+            notifySlack('#808080', 'build aborted, cleaning up')
             echo "Build ABORTED — cleaning up cluster"
             cleanupCluster()
         }
