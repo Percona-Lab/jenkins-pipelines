@@ -145,7 +145,7 @@ pipeline {
                         echo 'All tests will be re-run, ignoring previous execution results!'
                     }
 
-                    libraries.tests.loadCloudSecret(testVariables.operator)
+                    libraries.tests.loadCloudSecret('ps')
 
                     stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
                 }
