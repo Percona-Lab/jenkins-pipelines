@@ -6,13 +6,13 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 def moleculeDir = "pbm/install"
 
 pipeline {
-  agent {
-      label 'min-bookworm-x64'
-  }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-  }
-  parameters {
+    agent {
+        label 'min-bookworm-x64'
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+    }
+    parameters {
         choice(
             name: 'install_repo',
             description: 'Repo for testing',
@@ -34,11 +34,11 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
-  }
-  options {
-          withCredentials(moleculePbmJenkinsCreds())
-          disableConcurrentBuilds()
-  }
+    }
+    options {
+        withCredentials(moleculePbmJenkinsCreds())
+        disableConcurrentBuilds()
+    }
     stages {
         stage('Checkout') {
             steps {
@@ -47,20 +47,25 @@ pipeline {
             }
         }
         stage ('Prepare') {
-          steps {
+            steps {
                 script {
                    installMoleculeBookworm()
-             }
-           }
+                }
+            }
         }
         stage('Test') {
-          steps {
+            steps {
                 script {
                     moleculeParallelTestPSMDB(pdmdbOperatingSystems(psmdb_to_test), moleculeDir)
                 }
             }
-         }
-  }
+            post {
+                always {
+                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
+                }
+            }
+        }
+    }
     post {
         success {
             slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} finished succesfully - [${BUILD_URL}]")
