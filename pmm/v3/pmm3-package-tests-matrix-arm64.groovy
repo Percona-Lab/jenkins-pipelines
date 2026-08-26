@@ -12,7 +12,8 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
         string(name: 'INSTALL_REPO', value: INSTALL_REPO),
         string(name: 'TARBALL', value: TARBALL),
         string(name: 'METRICS_MODE', value: METRICS_MODE),
-        string(name: 'CLIENTS', value: CLIENTS)
+        string(name: 'CLIENTS', value: CLIENTS),
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc'))
     ]
 }
 
@@ -20,7 +21,7 @@ def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'cli-ondemand' : 'cli'
     }
     parameters {
         string(
@@ -55,6 +56,10 @@ pipeline {
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
             name: 'METRICS_MODE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot. Auto-enabled when DOCKER_VERSION is an -rc image (RC/Release testing).',
+            name: 'USE_ONDEMAND')
     }
     options {
         skipDefaultCheckout()

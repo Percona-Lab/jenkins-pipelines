@@ -344,6 +344,7 @@ pipeline {
                                         string(name: 'INSTALL_REPO',    value: 'testing'),
                                         string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL.trim()),
                                         string(name: 'METRICS_MODE',    value: 'auto'),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }
@@ -359,6 +360,7 @@ pipeline {
                                         string(name: 'INSTALL_REPO',    value: 'testing'),
                                         string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL_ARM64.trim()),
                                         string(name: 'METRICS_MODE',    value: 'auto'),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }
@@ -368,6 +370,7 @@ pipeline {
                                 script {
                                     triggerJenkinsRc('pmm3-upgrade-tests-matrix', 'pmm3-upgrade-tests-matrix', [
                                         string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }

@@ -13,7 +13,8 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'UPGRADE_FLAG', value: UPGRADE_FLAG),
-        string(name: 'UPGRADE_TYPE', value: UPGRADE_TYPE)
+        string(name: 'UPGRADE_TYPE', value: UPGRADE_TYPE),
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
 
     ]
 }
@@ -44,7 +45,7 @@ def latestVersion = versionsList.last()
 
 pipeline {
     agent {
-        label 'docker'
+        label params.USE_ONDEMAND ? 'docker-ondemand' : 'docker'
     }
     parameters {
         string(
@@ -79,6 +80,10 @@ pipeline {
             choices: ["UI", "DOCKER"],
             description: 'Way to upgrade PMM Server (UI or Docker)',
             name: 'UPGRADE_TYPE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
     }
     options {
         timeout(time: 180, unit: 'MINUTES')
