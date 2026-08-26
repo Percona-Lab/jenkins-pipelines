@@ -786,6 +786,21 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     }
 }
 
+void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariables) {
+    if (testVariables.platform_provider.toLowerCase() == "eks") {
+        withCredentials([aws(
+            credentialsId: 'eks-cicd',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        )]) {
+            clusterRunner(clusterSuffix, testVariables)
+        }
+        return
+    }
+
+    clusterRunner(clusterSuffix, testVariables)
+}
+
 Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
 
@@ -810,10 +825,10 @@ Map buildParallelClusterStages(Map testVariables) {
                             testVariables.platform_provider,
                             testVariables.platform_version
                         )
-                        clusterRunner(clusterSuffix, testVariables)
+                        clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
                     }
                 } else {
-                    clusterRunner(clusterSuffix, testVariables)
+                    clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
                 }
             }
         }
