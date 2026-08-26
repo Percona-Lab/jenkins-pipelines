@@ -11,9 +11,6 @@ def notifySlack(String color, String message) {
     def text = "[${env.JOB_NAME}]: ${message}\nCluster: ${env.CLUSTER_NAME ?: 'not created'} | Owner: @${env.OWNER ?: 'unknown'} | Build: ${env.BUILD_URL}"
 
     slackSend botUser: true, channel: '#pmm-notifications', color: color, message: text
-    if (env.OWNER_SLACK) {
-        slackSend botUser: true, channel: "@${env.OWNER_SLACK}", color: color, message: text
-    }
 }
 
 // Writes ${WORKSPACE}/kubeconfig with a ServiceAccount token inside it, replacing the OAuth token
@@ -175,6 +172,11 @@ pipeline {
             choices: ['3', '4', '5', '6'],
             description: 'Worker nodes in the machinepool. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
         )
+        booleanParam(
+            name: 'DEPLOY_PMM',
+            defaultValue: true,
+            description: 'Deploy PMM HA after the cluster is created. Uncheck to get a bare cluster - the PMM parameters below are then ignored.'
+        )
         string(
             name: 'HELM_CHART_BRANCH',
             defaultValue: 'main',
@@ -236,7 +238,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    // sets env.OWNER and env.OWNER_SLACK, both used by notifySlack
+                    // sets env.OWNER, used by notifySlack
                     getPMMBuildParams('pmm-ha-rosa-')
                     notifySlack('#0000FF', 'build started')
                 }
@@ -714,6 +716,9 @@ EOF
         }
 
         stage('Install PMM HA') {
+            when {
+                expression { params.DEPLOY_PMM }
+            }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     dir('helm-charts') {
@@ -874,7 +879,7 @@ EOF
 
         stage('Configure External Access') {
             when {
-                expression { params.ENABLE_EXTERNAL_ACCESS }
+                expression { params.DEPLOY_PMM && params.ENABLE_EXTERNAL_ACCESS }
             }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
@@ -923,9 +928,6 @@ EOF
 
         stage('Cluster Summary') {
             steps {
-                script {
-                    env.PMM_URL = env.PMM_URL ?: "https://localhost:8443"
-                }
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set +x
@@ -947,6 +949,18 @@ EOF
                         oc get storageclass
                         echo ""
 
+                        echo "kubectl/oc access (local):"
+                        echo "  # Download the kubeconfig artifact - valid for the cluster's whole life."
+                        echo "  export KUBECONFIG=./kubeconfig"
+                        echo ""
+
+                        echo "Scale workers:"
+                        echo "  Run the pmm3-ha-rosa-scale job with CLUSTER_NAME=${CLUSTER_NAME} (3-6 workers)"
+                        echo ""
+
+                        # Everything below describes PMM, so a bare cluster stops here.
+                        [ "${DEPLOY_PMM}" = "true" ] || exit 0
+
                         echo "Internal Component Credentials"
                         echo "------------------------------"
 
@@ -960,11 +974,7 @@ EOF
                         echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
                         echo ""
 
-                        echo "Access Information"
-                        echo "------------------------------"
-                        echo "kubectl/oc access (local):"
-                        echo "  # Download the kubeconfig artifact - valid for the cluster's whole life."
-                        echo "  export KUBECONFIG=./kubeconfig"
+                        echo "PMM access:"
                         echo "  oc port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
                         echo "  # Then access https://localhost:8443"
                         echo ""
@@ -975,14 +985,6 @@ EOF
                             echo "  ${PMM_URL}"
                             echo ""
                         fi
-
-                        echo "Cluster Operations"
-                        echo "------------------------------"
-                        echo "List machinepools:"
-                        echo "  rosa list machinepools --cluster=${CLUSTER_NAME} --region=${REGION}"
-                        echo ""
-                        echo "Scale workers (Single-AZ deployment uses one machinepool: workers):"
-                        echo "  rosa edit machinepool --cluster=${CLUSTER_NAME} --machinepool=workers --replicas=<N> --region=${REGION}"
                     '''
                 }
             }
@@ -998,9 +1000,12 @@ EOF
     post {
         success {
             script {
-                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | OCP: ${params.OCP_VERSION} | PMM: ${env.PMM_URL}"
+                // env.PMM_URL is only set when the Route stage ran.
+                def pmmStatus = params.DEPLOY_PMM ? (env.PMM_URL ?: 'port-forward required') : 'not deployed'
+
+                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | OCP: ${params.OCP_VERSION} | PMM: ${pmmStatus}"
+                notifySlack('#00FF00', "cluster is ready, it expires in ${params.RETENTION_DAYS} day(s)\nPMM: ${pmmStatus}")
             }
-            notifySlack('#00FF00', "cluster is ready, it expires in ${params.RETENTION_DAYS} day(s)\nPMM: ${params.ENABLE_EXTERNAL_ACCESS ? env.PMM_URL : 'port-forward required'}")
             echo "ROSA HCP cluster ${CLUSTER_NAME} created successfully."
             echo "Download the kubeconfig artifact to access the cluster."
         }
