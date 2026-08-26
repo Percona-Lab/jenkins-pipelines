@@ -1,3 +1,21 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
+def notifySlack(String color, String message) {
+    if (!params.NOTIFY) {
+        return
+    }
+
+    def text = "[${env.JOB_NAME}]: ${message}\nCluster: ${env.CLUSTER_NAME ?: 'not created'} | Owner: @${env.OWNER ?: 'unknown'} | Build: ${env.BUILD_URL}"
+
+    slackSend botUser: true, channel: '#pmm-notifications', color: color, message: text
+    if (env.OWNER_SLACK) {
+        slackSend botUser: true, channel: "@${env.OWNER_SLACK}", color: color, message: text
+    }
+}
+
 // Writes ${WORKSPACE}/kubeconfig with a ServiceAccount token inside it, replacing the OAuth token
 // from "oc login" that expires after 24h. This one never expires, so it lasts as long as the cluster.
 def mintAdminKubeconfig() {
@@ -152,6 +170,11 @@ pipeline {
             choices: ['4.21', '4.20', '4.19', '4.18'],
             description: 'Select OpenShift cluster version'
         )
+        choice(
+            name: 'WORKER_COUNT',
+            choices: ['3', '4', '5', '6'],
+            description: 'Worker nodes in the machinepool. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
+        )
         string(
             name: 'HELM_CHART_BRANCH',
             defaultValue: 'main',
@@ -166,6 +189,16 @@ pipeline {
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
             description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
+        )
+        text(
+            name: 'PMM_ENV_VARIABLE',
+            defaultValue: '',
+            description: 'Environment variables for the PMM Server containers, one KEY=VALUE per line. Merged into the pmmEnv values of the chart. Example: PMM_DEBUG=1'
+        )
+        string(
+            name: 'HELM_VALUES',
+            defaultValue: 'nodeExporter.mode=openshift,prometheus-node-exporter.enabled=false',
+            description: 'Extra pmm-ha chart overrides passed to helm --set, they win over every other parameter. The defaults route node metrics through OpenShift monitoring instead of the bundled node-exporter, keep them when adding your own, e.g. replicas=5,storage.size=20Gi'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -182,13 +215,17 @@ pipeline {
             defaultValue: false,
             description: 'Enable external access for PMM HA (creates OpenShift Route)'
         )
+        booleanParam(
+            name: 'NOTIFY',
+            defaultValue: true,
+            description: 'Post the build status to #pmm-notifications and DM the build owner'
+        )
     }
 
     environment {
         CLUSTER_NAME = "pmm-ha-rosa-${BUILD_NUMBER}"
         REGION = "us-east-2"
         KUBECONFIG = "${HOME}/.kube/rosa-${BUILD_NUMBER}"
-        WORKER_COUNT = "3"
         WORKER_INSTANCE_TYPE = "m7i.2xlarge"
         PATH = "${HOME}/.local/bin:${PATH}"
         VPC_NAME = "pmm-ha-rosa-shared-vpc"
@@ -196,6 +233,16 @@ pipeline {
     }
 
     stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    // sets env.OWNER and env.OWNER_SLACK, both used by notifySlack
+                    getPMMBuildParams('pmm-ha-rosa-')
+                    notifySlack('#0000FF', 'build started')
+                }
+            }
+        }
+
         stage('Install CLI Tools') {
             steps {
                 script {
@@ -736,6 +783,16 @@ EOF
 
                         helm dependency update helm-charts/charts/pmm-ha
 
+                        # Fold PMM_ENV_VARIABLE into the pmmEnv values of the chart. They end up in a
+                        # ConfigMap, whose data must be strings, hence --set-string rather than --set.
+                        PMM_ENV_ARGS=""
+                        for kv in ${PMM_ENV_VARIABLE}; do
+                            case "${kv}" in
+                                *=*) PMM_ENV_ARGS="${PMM_ENV_ARGS} --set-string pmmEnv.${kv}" ;;
+                                *)   echo "ERROR: PMM_ENV_VARIABLE entry '${kv}' is not a KEY=VALUE pair"; exit 1 ;;
+                            esac
+                        done
+
                         set +e
 
                         # Install pmm-ha chart (creates component service accounts)
@@ -745,7 +802,9 @@ EOF
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
-                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
+                            ${PMM_ENV_ARGS} \
+                            ${HELM_VALUES:+--set ${HELM_VALUES}}
 
                         HELM_EXIT_CODE=$?
 
@@ -941,15 +1000,18 @@ EOF
             script {
                 currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | OCP: ${params.OCP_VERSION} | PMM: ${env.PMM_URL}"
             }
+            notifySlack('#00FF00', "cluster is ready, it expires in ${params.RETENTION_DAYS} day(s)\nPMM: ${params.ENABLE_EXTERNAL_ACCESS ? env.PMM_URL : 'port-forward required'}")
             echo "ROSA HCP cluster ${CLUSTER_NAME} created successfully."
             echo "Download the kubeconfig artifact to access the cluster."
         }
         failure {
+            notifySlack('#FF0000', 'build failed, cleaning up')
             echo "Build FAILED — cleaning up cluster"
             archiveArtifacts artifacts: 'helm-debug/**', allowEmptyArchive: true
             cleanupCluster()
         }
         aborted {
+            notifySlack('#808080', 'build aborted, cleaning up')
             echo "Build ABORTED — cleaning up cluster"
             cleanupCluster()
         }
