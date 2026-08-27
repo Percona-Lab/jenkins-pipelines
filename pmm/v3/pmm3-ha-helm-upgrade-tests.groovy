@@ -6,7 +6,7 @@
 //   1. install the released PMM HA from the published chart
 //   2. @pmm-helm-pre-upgrade
 //   3. upgrade the dependencies to the percona-helm-charts branch
-//   4. @pmm-helm-pre-upgrade again - the server must still be healthy on its own
+//   4. @pmm-helm-mid-upgrade - the server must be untouched and still serving
 //   5. upgrade pmm-ha to that branch and the image under test
 //   6. @pmm-helm-post-upgrade
 //
@@ -94,6 +94,10 @@ pipeline {
             defaultValue: '@pmm-helm-pre-upgrade',
             description: 'Playwright --grep tag expression run against the released install',
             name: 'PRE_UPGRADE_TAGS')
+        string(
+            defaultValue: '@pmm-helm-mid-upgrade',
+            description: 'Playwright --grep tag expression run after the dependencies upgrade, before the server one',
+            name: 'MID_UPGRADE_TAGS')
         string(
             defaultValue: '@pmm-helm-post-upgrade',
             description: 'Playwright --grep tag expression run after the upgrade',
@@ -288,13 +292,13 @@ pipeline {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                // The same pre-upgrade test: the server is still on the released image,
-                // so it must still pass with the operators moved underneath it.
+                // Asserts the operators moved while the pmm-ha release, its pods and the
+                // version they serve did not.
                 sh '''
                     pushd /srv/pmm-qa/e2e_tests
                         export CI=true
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        npx playwright test --grep "${PRE_UPGRADE_TAGS}"
+                        npx playwright test --grep "${MID_UPGRADE_TAGS}"
                     popd
                 '''
             }
