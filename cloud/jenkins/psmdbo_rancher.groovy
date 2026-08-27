@@ -2,10 +2,8 @@ import groovy.transform.Field
 
 @Field Integer numClusters = 8
 @Field List clusters = []
-
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
-@Field String clusterType = "rancher"
 @Field String sourceRepo = 'https://github.com/percona/percona-server-mongodb-operator'
 @Field String operatorImage = 'docker.io/perconalab/percona-server-mongodb-operator'
 
@@ -14,15 +12,14 @@ def getLibraries() {
     libraries = loader.loadLibraries()
 }
 
+String jenkinsAgentLabel() {
+    return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
+}
+
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        DB_TAG = sh(
-            script: '''[[ "$IMAGE_MONGOD" ]] && echo "$IMAGE_MONGOD" | awk -F':' '{print $2}' || echo main''',
-            returnStdout: true
-        ).trim()
     }
-
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv', 'run-backups.csv'], description: 'Choose test suite from file')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
@@ -30,12 +27,11 @@ pipeline {
         choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Set to 60/70/80/83 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
-        string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description:  'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
+        string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
         string(name: 'PLATFORM_ARCH', defaultValue: 'amd64', description: 'Platform architecture used to select the machine type, for example amd64 or arm64.')
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version. In release runs, latest or empty is replaced with RANCHER from source/e2e-tests/release_versions.')
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
-
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
@@ -45,30 +41,21 @@ pipeline {
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
         string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
-
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
     }
-
     agent {
-        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
+        label jenkinsAgentLabel()
     }
-
     options {
-        buildDiscarder(logRotator(
-            daysToKeepStr: '-1',
-            artifactDaysToKeepStr: '-1',
-            numToKeepStr: '30',
-            artifactNumToKeepStr: '30'
-        ))
+        buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
-
     stages {
-        stage ('Init Workspace') {
+        stage('Init Workspace') {
             steps {
                 script {
                     deleteDir()
@@ -100,8 +87,8 @@ pipeline {
                 script {
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: operatorImage,
-                        branch: GIT_BRANCH,
-                        platform: 'linux/amd64,linux/arm64'
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
                     )
                 }
             }
@@ -110,13 +97,10 @@ pipeline {
         stage('Prepare Test Variables') {
             steps {
                 script {
-                    // rke2 is the Kubernetes version used in Rancher clusters, so we set it as platform version for proper test selection
-                    // Rancher version used to define Rancher chart version for test, the chart contains Kubernetes manifests for Rancher management and downstream clusters
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb-operator',
-
                         platform              : 'rke2',
                         platform_provider     : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
@@ -125,18 +109,19 @@ pipeline {
                         rancher_version       : RANCHER_VERSION,
                         worker_count          : 4,
                         zone                  : RANCHER_ZONE,
-                        
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
-
                         git_branch            : GIT_BRANCH,
+                        source_repo           : sourceRepo,
                         job_name              : JOB_NAME,
-                        db_tag                : DB_TAG,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'make',
-
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
-
+                        clusters              : clusters,
+                        numClusters           : numClusters,
+                        kubeconfigPath        : '/tmp',
+                        retries               : 1,
+                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'min-al2023-x64'),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_MONGOD      : IMAGE_MONGOD,
@@ -160,82 +145,35 @@ pipeline {
         stage('Init Tests') {
             steps {
                 script {
-                    testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE)
-
-                    if (IGNORE_PREVIOUS_RUN == 'NO') {
-                        libraries.tests.updateListWithLastExecutionStatus(testVariables)
-                    } else {
-                        echo 'All tests will be re-run, ignoring previous execution results!'
-                    }
-
-                    libraries.tests.loadCloudSecret('psmdb')
+                    libraries.tests.initTestRun(testVariables, [
+                        testList          : TEST_LIST,
+                        testSuite         : TEST_SUITE,
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
+                        operator          : 'psmdb'
+                    ])
                 }
             }
         }
 
         stage('Run Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
                 script {
-                    testVariables.clusters = clusters
-                    testVariables.numClusters = numClusters
-                    testVariables.kubeconfigPath = '/tmp'
-                    testVariables.retries = 1
-
-                    // Creates clusters in parallel and runs tests in parallel on each cluster
                     parallel libraries.tests.buildParallelClusterStages(testVariables)
                 }
             }
         }
     }
-
     post {
         always {
             script {
-                echo "CLUSTER ASSIGNMENTS\n" +
-                    testVariables.tests.toString()
-                        .replace('], ', ']\n')
-                        .replace(']]', ']')
-                        .replaceFirst('\\[', '')
-
-                libraries.tests.makeReport(testVariables.tests, testVariables)
-
-                try {
-                    def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
-
-                    sendJobSlack.call(
-                        tests          : testVariables.tests,
-                        gitBranch      : GIT_BRANCH,
-                        platformVer    : testVariables.platform_version,
-                        platformChannel: testVariables.platform_channel,
-                        platformArch   : testVariables.platform_arch,
-                        clusterWide    : testVariables.cluster_wide,
-                        image          : testVariables.images.IMAGE_MONGOD,
-                        operatorImage  : testVariables.images.IMAGE_OPERATOR
-                    )
-                } catch (err) {
-                    echo "Slack helper load/call failed: ${err}"
-                }
-
-                clusters.each { clusterSuffix ->
-                    try {
-                        def clusterCfg = [
-                            clusterName  : testVariables.cluster_name,
-                            clusterSuffix: clusterSuffix,
-                            projectId    : testVariables.project_id,
-                            zone         : RANCHER_ZONE,
-                            kubeconfig   : "/tmp/${testVariables.cluster_name}-${clusterSuffix}"
-                        ]
-
-                        libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
-                        libraries.rancher.shutdownCluster(clusterCfg)
-                    } catch (err) {
-                        echo "Cleanup failed for ${clusterSuffix}: ${err}"
-                    }
-                }
-
-                libraries.tools.dockerCleanupVolumes()
+                libraries.tests.finalizeJob(testVariables)
             }
 
+            junit testResults: 'TestsReport.xml', healthScaleFactor: 1.0, allowEmptyResults: true
+            archiveArtifacts artifacts: '*.xml,*.txt', allowEmptyArchive: true
             deleteDir()
         }
     }

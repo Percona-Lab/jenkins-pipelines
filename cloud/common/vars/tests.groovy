@@ -548,7 +548,11 @@ String defineTestCommand(Map testVariables, String testName) {
             """
 
         default:
-            return "e2e-tests/${testName}/run"
+            return """
+                mkdir -p e2e-tests/{logs,reports}
+                set -o pipefail
+                e2e-tests/${testName}/run 2>&1 | tee e2e-tests/logs/${testName}.log
+            """
     }
 }
 
@@ -671,6 +675,7 @@ void runTest(Map testConfig) {
                         script: """
                             cd source
                             ${exports}
+                            ${testVariables.pre_test_sh ?: ''}
                             ${command}
                         """,
                         returnStatus: true
@@ -808,11 +813,14 @@ void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariable
     def provider = testVariables.platform_provider.toLowerCase()
 
     if (provider == "eks") {
-        withCredentials([aws(
-            credentialsId: 'eks-cicd',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        )]) {
+        withCredentials([
+            aws(
+                credentialsId: 'eks-cicd',
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ),
+            file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')
+        ]) {
             clusterRunner(clusterSuffix, testVariables)
         }
         return
@@ -838,7 +846,7 @@ Map buildParallelClusterStages(Map testVariables) {
     testVariables.retries = testVariables.retries ?: 1
 
     for (int i = 1; i <= testVariables.numClusters; i++) {
-        def clusterSuffix = "cluster${i}"
+        def clusterSuffix = "${testVariables.cluster_suffix_prefix ?: 'cluster'}${i}"
 
         parallelStages[clusterSuffix] = {
             stage(clusterSuffix) {
@@ -1075,7 +1083,7 @@ void makeReport(List tests, Map testVariables) {
         tests         : tests,
         gitShortCommit: testVariables.git_short_commit,
         gitBranch     : testVariables.git_branch,
-        title         : "PSMDB e2e tests - ${testVariables.git_branch ?: env.GIT_BRANCH} (${testVariables.git_short_commit})"
+        title         : "${testVariables.operator} e2e tests - ${testVariables.git_branch ?: env.GIT_BRANCH} (${testVariables.git_short_commit})"
     )
 }
 
@@ -1145,6 +1153,9 @@ void finalizeJob(Map testVariables) {
 
     if (testVariables.tests) {
         makeReportJUnit(testVariables.tests, testVariables)
+        if (testVariables.test_executor_type == 'make') {
+            makeReport(testVariables.tests, testVariables)
+        }
     }
 
     try {
@@ -1156,7 +1167,7 @@ void finalizeJob(Map testVariables) {
             platformChannel: testVariables.platform_channel,
             platformArch   : testVariables.platform_arch,
             clusterWide    : testVariables.cluster_wide,
-            image          : testVariables.images?.IMAGE_MYSQL,
+            image          : testVariables.images?.IMAGE_MYSQL ?: testVariables.images?.IMAGE_MONGOD ?: testVariables.images?.IMAGE_PXC ?: testVariables.images?.IMAGE_POSTGRESQL,
             operatorImage  : testVariables.images?.IMAGE_OPERATOR
         )
     } catch (err) {
