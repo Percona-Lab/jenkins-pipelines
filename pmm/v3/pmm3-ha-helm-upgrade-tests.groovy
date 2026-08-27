@@ -9,6 +9,7 @@
 //   4. @pmm-helm-mid-upgrade - the server must be untouched and still serving
 //   5. upgrade pmm-ha to that branch and the image under test
 //   6. @pmm-helm-post-upgrade
+//   7. @pmm-ha - failover and the rest of the HA suite, on the upgraded cluster
 //
 // Every helm step is k8s/install_pmm_ha.sh from pmm-qa, on the branch PMM_QA_GIT_BRANCH
 // points at; this job only sequences it and runs the tests.
@@ -102,6 +103,10 @@ pipeline {
             defaultValue: '@pmm-helm-post-upgrade',
             description: 'Playwright --grep tag expression run after the upgrade',
             name: 'POST_UPGRADE_TAGS')
+        string(
+            defaultValue: '@pmm-ha',
+            description: 'Playwright --grep tag expression for the HA suite run last, on the upgraded cluster. Empty skips it.',
+            name: 'HA_TAGS')
     }
     options {
         skipDefaultCheckout()
@@ -335,6 +340,23 @@ pipeline {
                         export CI=true
                         export CHROMIUM_PATH=/usr/bin/chromium
                         npx playwright test --grep "${POST_UPGRADE_TAGS}"
+                    popd
+                '''
+            }
+        }
+        stage('Run HA tests on the upgraded cluster') {
+            when {
+                expression { params.HA_TAGS }
+            }
+            options {
+                timeout(time: 60, unit: 'MINUTES')
+            }
+            steps {
+                sh '''
+                    pushd /srv/pmm-qa/e2e_tests
+                        export CI=true
+                        export CHROMIUM_PATH=/usr/bin/chromium
+                        npx playwright test --grep "${HA_TAGS}"
                     popd
                 '''
             }
