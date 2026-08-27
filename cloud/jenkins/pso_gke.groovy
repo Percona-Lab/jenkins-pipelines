@@ -115,7 +115,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : jenkinsAgentLabel(),
+                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params),
                         images: [
                             IMAGE_OPERATOR     : IMAGE_OPERATOR,
                             IMAGE_MYSQL        : IMAGE_MYSQL,
@@ -140,17 +140,12 @@ pipeline {
         stage('Init Tests') {
             steps {
                 script {
-                    testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE)
-
-                    if (IGNORE_PREVIOUS_RUN == 'NO') {
-                        libraries.tests.updateListWithLastExecutionStatus(testVariables)
-                    } else {
-                        echo 'All tests will be re-run, ignoring previous execution results!'
-                    }
-
-                    libraries.tests.loadCloudSecret('ps')
-
-                    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
+                    libraries.tests.initTestRun(testVariables, [
+                        testList          : TEST_LIST,
+                        testSuite         : TEST_SUITE,
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
+                        operator          : 'ps'
+                    ])
                 }
             }
         }
@@ -169,44 +164,7 @@ pipeline {
     post {
         always {
             script {
-                echo "CLUSTER ASSIGNMENTS\n" +
-                    (testVariables.tests ?: []).toString()
-                        .replace('], ', ']\n')
-                        .replace(']]', ']')
-                        .replaceFirst('\\[', '')
-
-                if (testVariables.tests) {
-                    libraries.tests.makeReportJUnit(testVariables.tests, testVariables)
-                }
-
-                try {
-                    def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
-                    sendJobSlack.call(
-                        tests        : testVariables.tests,
-                        gitBranch    : GIT_BRANCH,
-                        platformVer  : testVariables.platform_version,
-                        platformChannel: testVariables.platform_channel,
-                        clusterWide  : testVariables.cluster_wide,
-                        image        : testVariables.images?.IMAGE_MYSQL,
-                        operatorImage: testVariables.images?.IMAGE_OPERATOR
-                    )
-                } catch (err) {
-                    echo "Slack helper load/call failed: ${err}"
-                }
-
-                clusters.each { clusterSuffix ->
-                    try {
-                        libraries.gcloud.shutdownCluster([
-                            clusterName  : testVariables.cluster_name,
-                            clusterSuffix: clusterSuffix,
-                            zone         : testVariables.zone
-                        ])
-                    } catch (err) {
-                        echo "Cleanup failed for ${clusterSuffix}: ${err}"
-                    }
-                }
-
-                libraries.tools.dockerCleanupVolumes()
+                libraries.tests.finalizeJob(testVariables)
             }
 
             junit testResults: 'TestsReport.xml', healthScaleFactor: 1.0, allowEmptyResults: true

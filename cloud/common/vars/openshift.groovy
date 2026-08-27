@@ -87,6 +87,10 @@ EOF
 
     enableVolumeSnapshotResources(clusterSuffix)
     verifyVolumeSnapshotResources(clusterSuffix)
+
+    if (clusterCfg.kubeconfig) {
+        sh "cp openshift/${clusterSuffix}/auth/kubeconfig ${clusterCfg.kubeconfig}"
+    }
 }
 
 void enableVolumeSnapshotResources(String clusterSuffix) {

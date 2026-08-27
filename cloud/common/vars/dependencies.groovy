@@ -161,6 +161,14 @@ void installDoctl() {
     '''
 }
 
+void installMinikube() {
+    sh '''
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo chmod +x /usr/local/bin/minikube
+        minikube version
+    '''
+}
+
 void installAzureCLI() {
     sh '''
         if ! command -v az &>/dev/null; then
@@ -211,6 +219,10 @@ void installProviderDependencies(Map libraries, String operator, String provider
 
     if (provider == 'doks') {
         installDoctl()
+    }
+
+    if (provider == 'minikube') {
+        installMinikube()
     }
 
     if (provider == 'openshift') {

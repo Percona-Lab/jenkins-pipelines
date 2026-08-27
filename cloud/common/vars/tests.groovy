@@ -268,6 +268,19 @@ List loadTestList(String testList, String testSuite) {
     return tests
 }
 
+void initTestRun(Map testVariables, Map config) {
+    testVariables.tests = loadTestList(config.testList, config.testSuite)
+
+    if (config.ignorePreviousRun == 'NO') {
+        updateListWithLastExecutionStatus(testVariables)
+    } else {
+        echo 'All tests will be re-run, ignoring previous execution results!'
+    }
+
+    loadCloudSecret(config.operator ?: 'ps')
+    testVariables.libraries.tools.stashClonedGitFiles()
+}
+
 void initTests(List tests, Map testVariables, Map config) {
     echo "=========================[ Initializing the tests ]========================="
 
@@ -739,7 +752,12 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     }
 
     def createCluster = { testVariables.libraries[testVariables.platform_provider].createCluster(clusterCfg) }
-    def clusterCleanup = { testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig) }
+    def clusterCleanup = {
+        if (testVariables.skip_kubeconfig) {
+            return
+        }
+        testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+    }
     def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
 
     try {
@@ -787,12 +805,21 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 }
 
 void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariables) {
-    if (testVariables.platform_provider.toLowerCase() == "eks") {
+    def provider = testVariables.platform_provider.toLowerCase()
+
+    if (provider == "eks") {
         withCredentials([aws(
             credentialsId: 'eks-cicd',
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )]) {
+            clusterRunner(clusterSuffix, testVariables)
+        }
+        return
+    }
+
+    if (provider == "doks") {
+        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
             clusterRunner(clusterSuffix, testVariables)
         }
         return
@@ -1076,6 +1103,68 @@ void makeReportJUnit(List tests, Map testVariables) {
     addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
         text: "<pre>${pipelineParameters}</pre>"
     )
+}
+
+void shutdownLeftoverClusters(Map testVariables) {
+    def libraries = testVariables.libraries
+    def kubeconfigPath = testVariables.kubeconfigPath ?: '/tmp'
+
+    (testVariables.clusters ?: []).each { clusterSuffix ->
+        try {
+            def clusterCfg = [
+                clusterName  : testVariables.cluster_name,
+                clusterSuffix: clusterSuffix,
+                region       : testVariables.region,
+                zone         : testVariables.zone,
+                projectId    : testVariables.project_id,
+                kubeconfig   : "${kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+            ]
+
+            if (!testVariables.skip_kubeconfig) {
+                libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+            }
+
+            libraries[testVariables.platform_provider].shutdownCluster(clusterCfg)
+        } catch (err) {
+            echo "Cleanup failed for ${clusterSuffix}: ${err}"
+        }
+    }
+}
+
+void finalizeJob(Map testVariables) {
+    if (!testVariables?.libraries) {
+        echo 'Skipping finalize: libraries not loaded'
+        return
+    }
+
+    echo "CLUSTER ASSIGNMENTS\n" +
+        (testVariables.tests ?: []).toString()
+            .replace('], ', ']\n')
+            .replace(']]', ']')
+            .replaceFirst('\\[', '')
+
+    if (testVariables.tests) {
+        makeReportJUnit(testVariables.tests, testVariables)
+    }
+
+    try {
+        def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
+        sendJobSlack.call(
+            tests          : testVariables.tests,
+            gitBranch      : testVariables.git_branch,
+            platformVer    : testVariables.platform_version,
+            platformChannel: testVariables.platform_channel,
+            platformArch   : testVariables.platform_arch,
+            clusterWide    : testVariables.cluster_wide,
+            image          : testVariables.images?.IMAGE_MYSQL,
+            operatorImage  : testVariables.images?.IMAGE_OPERATOR
+        )
+    } catch (err) {
+        echo "Slack helper load/call failed: ${err}"
+    }
+
+    shutdownLeftoverClusters(testVariables)
+    testVariables.libraries.tools.dockerCleanupVolumes()
 }
 
 return this
