@@ -3,7 +3,8 @@
 // Creates a bare Kubernetes cluster with no PMM on it, then drives k8s/install_pmm_ha.sh
 // through the upgrade in the order a real one happens:
 //
-//   1. install the released PMM HA from the published chart
+//   1. install the released PMM HA from the published chart, and attach monitored
+//      databases to it with pmm-framework
 //   2. @pmm-helm-pre-upgrade
 //   3. upgrade the dependencies to the percona-helm-charts branch
 //   4. @pmm-helm-mid-upgrade - the server must be untouched and still serving
@@ -91,6 +92,14 @@ pipeline {
             defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user password',
             name: 'ADMIN_PASSWORD')
+        string(
+            defaultValue: '--database psmdb --database ps --database pdpgsql',
+            description: 'pmm-framework arguments for the databases monitored across the upgrade. Empty skips the step.',
+            name: 'CLIENTS')
+        string(
+            defaultValue: 'latest-tarball',
+            description: 'PMM Client version the monitored databases register with - released by default, so the upgrade moves the server out from under existing clients',
+            name: 'CLIENT_VERSION')
         string(
             defaultValue: '@pmm-helm-pre-upgrade',
             description: 'Playwright --grep tag expression run against the released install',
@@ -241,6 +250,7 @@ pipeline {
                         script: "awk -F= '/^url=/{print \$2}' ${env.PMM_HA_SUMMARY}",
                     ).trim()
                     env.PMM_UI_URL = "${pmmAddress}/"
+                    env.PMM_SERVER_ADDRESS = pmmAddress.split('//')[1]
                     env.PMM_URL = "https://admin:${params.ADMIN_PASSWORD}@${pmmAddress.split('//')[1]}"
 
                     if (!env.RELEASE_DOCKER_VERSION || !env.PMM_UI_URL.startsWith('https://')) {
@@ -249,6 +259,25 @@ pipeline {
                     currentBuild.description = "HA upgrade on ${params.CLUSTER_TYPE}. ${env.RELEASE_DOCKER_VERSION} -> ${params.DOCKER_VERSION}"
                     echo "PMM HA ${env.RELEASE_DOCKER_VERSION} serving on ${env.PMM_UI_URL}"
                 }
+            }
+        }
+        stage('Set up monitored databases') {
+            when {
+                expression { params.CLIENTS }
+            }
+            options {
+                timeout(time: 40, unit: 'MINUTES')
+            }
+            steps {
+                sh '''
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
+                        ./pmm-framework/pmm-framework \
+                            --pmm-server-ip "${PMM_SERVER_ADDRESS}" \
+                            --pmm-server-password "${ADMIN_PASSWORD}" \
+                            --client-version "${CLIENT_VERSION}" \
+                            ${CLIENTS}
+                    popd
+                '''
             }
         }
         stage('Install dependencies') {
