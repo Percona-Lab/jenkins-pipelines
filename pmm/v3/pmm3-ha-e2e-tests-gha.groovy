@@ -228,6 +228,7 @@ pipeline {
                         echo "Setting docker based PMM clients"
 
                         ./pmm-framework/pmm-framework \
+                            --pmm-server-ip=${SERVER_IP} \
                             --pmm-server-password=${ADMIN_PASSWORD} \
                             --client-version=${PMM_CLIENT_VERSION} \
                             ${CLIENTS}
