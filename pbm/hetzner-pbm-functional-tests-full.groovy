@@ -38,7 +38,7 @@ pipeline {
                     }
                     axis {
                         name 'PSMDB'
-                        values '7.0', '8.0'
+                        values '7.0', '8.0', '8.3'
                     }
                 }
                 stages {
