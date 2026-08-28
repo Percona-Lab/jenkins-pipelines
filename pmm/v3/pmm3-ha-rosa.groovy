@@ -801,7 +801,7 @@ EOF
                         set +e
 
                         # Install pmm-ha chart (creates component service accounts)
-                        # Resource requests reduced for test clusters (defaults are higher for production)
+                        # Resources stay at the chart defaults; raise WORKER_COUNT when pods do not fit
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
                             --timeout 20m \
                             --set secret.create=false \
