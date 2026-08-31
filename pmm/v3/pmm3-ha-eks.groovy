@@ -537,6 +537,10 @@ EOF
                         echo "  export KUBECONFIG=./kubeconfig"
                         echo ""
 
+                        echo "Scale workers:"
+                        echo "  Run the pmm3-ha-eks-scale job with CLUSTER_NAME=${CLUSTER_NAME} (6-12 workers)"
+                        echo ""
+
                         # Everything below describes PMM, so a bare cluster stops here.
                         [ "${DEPLOY_PMM}" = "true" ] || exit 0
 
