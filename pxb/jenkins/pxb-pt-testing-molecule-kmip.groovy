@@ -90,7 +90,7 @@
             stage('Prepare') {
                 steps {
                     script {
-                        installMoleculeBookworm()
+                        installMoleculeBookwormMysql()
                     }
                 }
             }
