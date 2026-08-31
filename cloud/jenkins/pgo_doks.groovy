@@ -272,6 +272,8 @@ void runTest(Integer TEST_ID) {
                             export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
                             export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')
                         fi
+                        export K8S_UPGRADE_PLATFORM=doks
+                        export K8S_UPGRADE_REGION=$DO_REGION
                         export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
                         export IMAGE_BACKREST=$IMAGE_BACKREST
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -473,6 +475,46 @@ pipeline {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
+                    }
+                }
+                stage('cluster6') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster6')
+                    }
+                }
+                stage('cluster7') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster7')
+                    }
+                }
+                stage('cluster8') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster8')
                     }
                 }
             }
