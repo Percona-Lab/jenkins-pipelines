@@ -62,13 +62,18 @@ def fetch_pg_upgrade_tag():
 
 
 def fetch_dockerhub_tag(repo, prefix=None):
+    params = {"page_size": 100}
+    if prefix:
+        # Server-side filter: only tags containing this major/prefix
+        params["name"] = str(prefix)
+
     resp = _session.get(
         f"https://registry.hub.docker.com/v2/repositories/{repo}/tags",
-        params={"page_size": 100},
+        params=params,
     )
     resp.raise_for_status()
     versions = []
-    for tag in resp.json()["results"]:
+    for tag in resp.json().get("results", []):
         name = tag["name"]
         if prefix and not name.startswith(f"{prefix}."):
             continue
@@ -76,7 +81,7 @@ def fetch_dockerhub_tag(repo, prefix=None):
             parsed = parse_version(name.lstrip("v").replace("-", "."))
             if not parsed.is_prerelease:
                 versions.append((parsed, name))
-        except:
+        except Exception:
             continue
     return max(versions)[1] if versions else None
 
