@@ -1,9 +1,3 @@
-// Scales the worker nodegroup of a cluster created by pmm3-ha-eks, up or down. Worker count lives in
-// the managed nodegroup, so changing it needs AWS credentials - the kubeconfig that job publishes is
-// cluster-admin on the Kubernetes API only. This job holds the AWS side and copies that kubeconfig in
-// just to count nodes. Mirrors pmm3-ha-rosa-scale, minus its tool-install stage: agent-amd64 already
-// has eksctl, aws and kubectl, which is why pmm3-ha-eks calls them without installing anything first.
-
 pipeline {
     agent {
         label 'agent-amd64'
