@@ -74,8 +74,11 @@ pipeline {
                     sh '''
                         set -o errexit
                         set +x
-                        REQUEST_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $2}' | cut -d '|' -f1)
-                        INSTANCE_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $3}')
+                        # cut on '|' instead of awk fields -- awk's whitespace splitting
+                        # breaks when a short value like "None" doesn't butt up against the next '|'.
+                        ROW=$(echo "${VMList}" | grep "${INPUT}")
+                        REQUEST_ID=$(echo "$ROW" | cut -d '|' -f2 | xargs)
+                        INSTANCE_ID=$(echo "$ROW" | cut -d '|' -f3 | xargs)
                         set -x
                         echo $REQUEST_ID
                         echo $INSTANCE_ID
@@ -84,7 +87,11 @@ pipeline {
                             echo "REQUEST_ID: '$REQUEST_ID', INSTANCE_ID: '$INSTANCE_ID'"
                             exit 1
                         fi
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
+                        # On-demand instances have no spot request -- AWS renders that as the
+                        # literal "None" in the table above, not an empty string.
+                        if [ "$REQUEST_ID" != "None" ]; then
+                            aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
+                        fi
                         aws ec2 --region us-east-2 terminate-instances --instance-ids $INSTANCE_ID
                     '''
                 }

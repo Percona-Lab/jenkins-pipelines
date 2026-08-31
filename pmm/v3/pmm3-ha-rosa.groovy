@@ -1,3 +1,71 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
+def notifySlack(String color, String message) {
+    if (!params.NOTIFY) {
+        return
+    }
+
+    def text = "[${env.JOB_NAME}]: ${message}\nCluster: ${env.CLUSTER_NAME ?: 'not created'} | Owner: @${env.OWNER ?: 'unknown'} | Build: ${env.BUILD_URL}"
+
+    slackSend botUser: true, channel: '#pmm-notifications', color: color, message: text
+}
+
+// Writes ${WORKSPACE}/kubeconfig with a ServiceAccount token inside it, replacing the OAuth token
+// from "oc login" that expires after 24h. This one never expires, so it lasts as long as the cluster.
+def mintAdminKubeconfig() {
+    sh '''
+        set +x   # Jenkins runs sh with -xe; keep the token out of the console
+
+        MINT_OUT="${WORKSPACE}/kubeconfig"
+
+        kubectl -n kube-system create serviceaccount pmm-ha-admin
+        kubectl create clusterrolebinding pmm-ha-admin \
+            --clusterrole=cluster-admin \
+            --serviceaccount=kube-system:pmm-ha-admin
+
+        # Unlike "kubectl create token", the token in this Secret never expires.
+        kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pmm-ha-admin-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: pmm-ha-admin
+type: kubernetes.io/service-account-token
+EOF
+
+        echo "Waiting for the token controller to populate the secret..."
+        for i in $(seq 1 30); do
+            TOKEN=$(kubectl -n kube-system get secret pmm-ha-admin-token -o jsonpath='{.data.token}' | base64 -d)
+            if [ -n "${TOKEN}" ]; then
+                break
+            fi
+            sleep 2
+        done
+
+        if [ -z "${TOKEN}" ]; then
+            echo "ERROR: the token secret was not populated after 60 seconds."
+            exit 1
+        fi
+
+        # Copy the working config so the server URL and TLS settings carry over as-is.
+        kubectl config view --raw --minify --flatten > "${MINT_OUT}"
+
+        # Swap the copied credential for the ServiceAccount token
+        kubectl --kubeconfig "${MINT_OUT}" config unset users
+        kubectl --kubeconfig "${MINT_OUT}" config set-credentials pmm-ha-admin --token="${TOKEN}"
+        kubectl --kubeconfig "${MINT_OUT}" config set-context --current --user=pmm-ha-admin
+        chmod 600 "${MINT_OUT}"
+
+        # Nothing else in this build touches the published file, so this is its only test.
+        kubectl --kubeconfig "${MINT_OUT}" get nodes
+    '''
+}
+
 def cleanupCluster() {
     withCredentials([aws(credentialsId: 'pmm-staging-slave'),
                      string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
@@ -7,24 +75,15 @@ def cleanupCluster() {
 
             rosa login --token="${ROSA_TOKEN}"
 
-            # Capture cluster ID before deletion (cluster may already be partly gone if create failed midway)
-            CLUSTER_ID=""
-            if [ -f ${HOME}/cluster-id.txt ]; then
-                CLUSTER_ID=$(cat ${HOME}/cluster-id.txt)
-            elif rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" >/dev/null 2>&1; then
-                CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" -o json | jq -r '.id // empty')
-            fi
+            # Read before the delete below, while the cluster still exists. Empty if it never did.
+            CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" \
+                -o json 2>/dev/null | jq -r '.id // empty')
 
             if rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" >/dev/null 2>&1; then
                 rosa delete cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" --yes --watch
             fi
 
             # Always clean up IAM resources (may exist even if cluster creation failed midway)
-            OIDC_ID=""
-            if [ -f ${HOME}/oidc-config-id.txt ]; then
-                OIDC_ID=$(cat ${HOME}/oidc-config-id.txt)
-            fi
-
             rosa delete operator-roles --prefix "${CLUSTER_NAME}" --region "${REGION}" --mode auto --yes || true
 
             if [ -n "${OIDC_ID}" ]; then
@@ -108,6 +167,16 @@ pipeline {
             choices: ['4.21', '4.20', '4.19', '4.18'],
             description: 'Select OpenShift cluster version'
         )
+        choice(
+            name: 'WORKER_COUNT',
+            choices: ['3', '4', '5', '6'],
+            description: 'Worker nodes in the machinepool. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
+        )
+        booleanParam(
+            name: 'DEPLOY_PMM',
+            defaultValue: true,
+            description: 'Deploy PMM HA after the cluster is created. Uncheck to get a bare cluster - the PMM parameters below are then ignored.'
+        )
         string(
             name: 'HELM_CHART_BRANCH',
             defaultValue: 'main',
@@ -122,6 +191,16 @@ pipeline {
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
             description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
+        )
+        text(
+            name: 'PMM_ENV_VARIABLE',
+            defaultValue: '',
+            description: 'Environment variables for the PMM Server containers, one KEY=VALUE per line. Merged into the pmmEnv values of the chart. Example: PMM_DEBUG=1'
+        )
+        string(
+            name: 'HELM_VALUES',
+            defaultValue: 'nodeExporter.mode=openshift,prometheus-node-exporter.enabled=false',
+            description: 'Extra pmm-ha chart overrides passed to helm --set, they win over every other parameter. The defaults route node metrics through OpenShift monitoring instead of the bundled node-exporter, keep them when adding your own, e.g. replicas=5,storage.size=20Gi'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -138,13 +217,17 @@ pipeline {
             defaultValue: false,
             description: 'Enable external access for PMM HA (creates OpenShift Route)'
         )
+        booleanParam(
+            name: 'NOTIFY',
+            defaultValue: true,
+            description: 'Post the build status to #pmm-notifications and DM the build owner'
+        )
     }
 
     environment {
         CLUSTER_NAME = "pmm-ha-rosa-${BUILD_NUMBER}"
         REGION = "us-east-2"
         KUBECONFIG = "${HOME}/.kube/rosa-${BUILD_NUMBER}"
-        WORKER_COUNT = "3"
         WORKER_INSTANCE_TYPE = "m7i.2xlarge"
         PATH = "${HOME}/.local/bin:${PATH}"
         VPC_NAME = "pmm-ha-rosa-shared-vpc"
@@ -152,6 +235,16 @@ pipeline {
     }
 
     stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    // sets env.OWNER, used by notifySlack
+                    getPMMBuildParams('pmm-ha-rosa-')
+                    notifySlack('#0000FF', 'build started')
+                }
+            }
+        }
+
         stage('Install CLI Tools') {
             steps {
                 script {
@@ -369,6 +462,16 @@ pipeline {
         stage('Create ROSA HCP Cluster') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    script {
+                        env.OIDC_ID = sh(
+                            returnStdout: true,
+                            script: '''
+                                rosa create oidc-config --region="${REGION}" --mode auto --managed --yes \
+                                    -o json | jq -r '.id'
+                            '''
+                        ).trim()
+                        echo "OIDC Config ID: ${env.OIDC_ID}"
+                    }
                     sh '''
                         PRIVATE_SUBNET_IDS=$(cat private-subnet-ids.txt)
                         PUBLIC_SUBNET_IDS=$(cat public-subnet-ids.txt)
@@ -380,12 +483,6 @@ pipeline {
                         echo "  Instance type:     ${WORKER_INSTANCE_TYPE}"
                         echo "  Workers:           ${WORKER_COUNT}"
                         echo "  Subnets:           ${ALL_SUBNETS}"
-
-                        # Create OIDC config
-                        OIDC_ID=$(rosa create oidc-config --region="${REGION}" --mode auto --managed --yes -o json | jq -r '.id')
-                        echo "OIDC Config ID: ${OIDC_ID}"
-                        # Save to HOME to survive git clone wiping workspace
-                        echo "${OIDC_ID}" > ${HOME}/oidc-config-id.txt
 
                         # Create operator roles
                         rosa create operator-roles \
@@ -427,11 +524,6 @@ pipeline {
                             --tags "iit-billing-tag pmm,created-by jenkins,build-number ${BUILD_NUMBER},retention-days ${RETENTION_DAYS},creation-time $(date -u +%s),delete-cluster-after-hours $((RETENTION_DAYS * 24)),purpose pmm-ha-rosa-testing" \
                             --yes
 
-                        # Capture cluster ID for cleanup-on-failure (saved to HOME so it survives workspace wipe)
-                        CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" -o json | jq -r '.id')
-                        echo "${CLUSTER_ID}" > ${HOME}/cluster-id.txt
-                        echo "Cluster ID: ${CLUSTER_ID}"
-
                         echo "Creating OIDC provider for the cluster..."
                         rosa create oidc-provider --cluster="${CLUSTER_NAME}" --region="${REGION}" --mode auto --yes
 
@@ -462,18 +554,13 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
+                        set +x   # Jenkins runs sh with -xe; keep the admin password out of the console
+
                         API_URL=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" -o json | jq -r '.api.url')
                         echo "API URL: ${API_URL}"
-                        # Save to HOME to survive git clone wiping workspace
-                        echo "${API_URL}" > ${HOME}/api-url.txt
 
-                        # Let ROSA generate a compliant password
-                        ADMIN_OUTPUT=$(rosa create admin --cluster="${CLUSTER_NAME}" --region="${REGION}" --yes 2>&1)
-                        echo "${ADMIN_OUTPUT}"
-
-                        ADMIN_PW=$(echo "${ADMIN_OUTPUT}" | awk '/--password/{print $NF}')
-                        # Save to HOME to survive git clone wiping workspace
-                        echo "${ADMIN_PW}" > ${HOME}/cluster-admin-password.txt
+                        # The admin is only a bootstrap: it is what lets us mint the ServiceAccount below
+                        ADMIN_PW=$(rosa create admin --cluster="${CLUSTER_NAME}" --region="${REGION}" --yes | awk '/--password/{print $NF}')
 
                         echo "Waiting for cluster authentication to become available..."
                         sleep 120
@@ -509,6 +596,8 @@ pipeline {
                         done
                         oc get nodes -o wide
                     '''
+
+                    mintAdminKubeconfig()
                 }
             }
         }
@@ -627,6 +716,9 @@ EOF
         }
 
         stage('Install PMM HA') {
+            when {
+                expression { params.DEPLOY_PMM }
+            }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     dir('helm-charts') {
@@ -634,6 +726,20 @@ EOF
                     }
 
                     sh '''
+                        # The cluster's API hostname can suffer a brief DNS blip right after
+                        # creation, retry so one bad lookup doesn't kill a 20+ minute stage.
+                        retry() {
+                            for i in $(seq 1 5); do
+                                if "$@"; then
+                                    return 0
+                                fi
+                                echo "Attempt ${i}/5 failed, retrying in 15s: $*"
+                                sleep 15
+                            done
+                            echo "Giving up after 5 attempts: $*"
+                            return 1
+                        }
+
                         oc create namespace pmm
 
                         # Grant anyuid SCC to all service accounts in pmm namespace
@@ -650,9 +756,9 @@ EOF
                         helm dependency update helm-charts/charts/pmm-ha-dependencies
                         helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
 
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
 
                         # Wait for operator webhooks to be fully initialized
                         # Operators report ready before their admission webhooks have TLS certificates configured
@@ -682,15 +788,28 @@ EOF
 
                         helm dependency update helm-charts/charts/pmm-ha
 
+                        # Fold PMM_ENV_VARIABLE into the pmmEnv values of the chart. They end up in a
+                        # ConfigMap, whose data must be strings, hence --set-string rather than --set.
+                        PMM_ENV_ARGS=""
+                        for kv in ${PMM_ENV_VARIABLE}; do
+                            case "${kv}" in
+                                *=*) PMM_ENV_ARGS="${PMM_ENV_ARGS} --set-string pmmEnv.${kv}" ;;
+                                *)   echo "ERROR: PMM_ENV_VARIABLE entry '${kv}' is not a KEY=VALUE pair"; exit 1 ;;
+                            esac
+                        done
+
                         set +e
 
                         # Install pmm-ha chart (creates component service accounts)
-                        # Resource requests reduced for test clusters (defaults are higher for production)
+                        # Resources stay at the chart defaults; raise WORKER_COUNT when pods do not fit
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                            --timeout 20m \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
-                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
+                            ${PMM_ENV_ARGS} \
+                            ${HELM_VALUES:+--set ${HELM_VALUES}}
 
                         HELM_EXIT_CODE=$?
 
@@ -727,29 +846,29 @@ EOF
                         echo "Waiting for all PMM HA components to be ready..."
 
                         # PMM servers
-                        oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
+                        retry oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
 
                         # ClickHouse
-                        oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
 
                         # ClickHouse Keeper
-                        oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
 
                         # PostgreSQL instances
-                        oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
 
                         # PgBouncer
-                        oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
 
                         # HAProxy
-                        oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
+                        retry oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
 
                         # VictoriaMetrics
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
+                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
 
                         echo ""
                         oc get pods -n pmm
@@ -760,7 +879,7 @@ EOF
 
         stage('Configure External Access') {
             when {
-                expression { params.ENABLE_EXTERNAL_ACCESS }
+                expression { params.DEPLOY_PMM && params.ENABLE_EXTERNAL_ACCESS }
             }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
@@ -809,9 +928,6 @@ EOF
 
         stage('Cluster Summary') {
             steps {
-                script {
-                    env.PMM_URL = env.PMM_URL ?: "https://localhost:8443"
-                }
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set +x
@@ -833,6 +949,18 @@ EOF
                         oc get storageclass
                         echo ""
 
+                        echo "kubectl/oc access (local):"
+                        echo "  # Download the kubeconfig artifact - valid for the cluster's whole life."
+                        echo "  export KUBECONFIG=./kubeconfig"
+                        echo ""
+
+                        echo "Scale workers:"
+                        echo "  Run the pmm3-ha-rosa-scale job with CLUSTER_NAME=${CLUSTER_NAME} (3-6 workers)"
+                        echo ""
+
+                        # Everything below describes PMM, so a bare cluster stops here.
+                        [ "${DEPLOY_PMM}" = "true" ] || exit 0
+
                         echo "Internal Component Credentials"
                         echo "------------------------------"
 
@@ -846,21 +974,7 @@ EOF
                         echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
                         echo ""
 
-                        echo "Cluster Admin Credentials"
-                        echo "------------------------------"
-                        API_URL=$(cat ${HOME}/api-url.txt 2>/dev/null || echo "N/A")
-                        ADMIN_PW=$(cat ${HOME}/cluster-admin-password.txt 2>/dev/null || echo "N/A")
-                        echo "  API URL:  ${API_URL}"
-                        echo "  Username: cluster-admin"
-                        echo "  Password: ${ADMIN_PW}"
-                        echo ""
-
-                        echo "Access Information"
-                        echo "------------------------------"
-                        echo "oc login:"
-                        echo "  oc login ${API_URL} --username=cluster-admin --password=${ADMIN_PW} --insecure-skip-tls-verify"
-                        echo ""
-                        echo "Port forward (local):"
+                        echo "PMM access:"
                         echo "  oc port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
                         echo "  # Then access https://localhost:8443"
                         echo ""
@@ -871,31 +985,14 @@ EOF
                             echo "  ${PMM_URL}"
                             echo ""
                         fi
-
-                        echo "Cluster Operations"
-                        echo "------------------------------"
-                        echo "List machinepools:"
-                        echo "  rosa list machinepools --cluster=${CLUSTER_NAME} --region=${REGION}"
-                        echo ""
-                        echo "Scale workers (Single-AZ deployment uses one machinepool: workers):"
-                        echo "  rosa edit machinepool --cluster=${CLUSTER_NAME} --machinepool=workers --replicas=<N> --region=${REGION}"
                     '''
                 }
             }
         }
 
-        stage('Archive Artifacts') {
+        stage('Archive kubeconfig') {
             steps {
-                sh '''
-                    cp ${KUBECONFIG} ${WORKSPACE}/kubeconfig || true
-                    cp ${HOME}/cluster-admin-password.txt ${WORKSPACE}/ || true
-                    cp ${HOME}/api-url.txt ${WORKSPACE}/ || true
-                    cp ${HOME}/oidc-config-id.txt ${WORKSPACE}/ || true
-                '''
-                archiveArtifacts artifacts: 'kubeconfig', fingerprint: true, allowEmptyArchive: true
-                archiveArtifacts artifacts: 'cluster-admin-password.txt', fingerprint: true, allowEmptyArchive: true
-                archiveArtifacts artifacts: 'api-url.txt', fingerprint: true, allowEmptyArchive: true
-                archiveArtifacts artifacts: 'oidc-config-id.txt', fingerprint: true, allowEmptyArchive: true
+                archiveArtifacts artifacts: 'kubeconfig', fingerprint: true
             }
         }
     }
@@ -903,17 +1000,23 @@ EOF
     post {
         success {
             script {
-                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | OCP: ${params.OCP_VERSION} | PMM: ${env.PMM_URL}"
+                // env.PMM_URL is only set when the Route stage ran.
+                def pmmStatus = params.DEPLOY_PMM ? (env.PMM_URL ?: 'port-forward required') : 'not deployed'
+
+                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | OCP: ${params.OCP_VERSION} | PMM: ${pmmStatus}"
+                notifySlack('#00FF00', "cluster is ready, it expires in ${params.RETENTION_DAYS} day(s)\nPMM: ${pmmStatus}")
             }
             echo "ROSA HCP cluster ${CLUSTER_NAME} created successfully."
-            echo "Download the kubeconfig and cluster-admin-password.txt artifacts to access the cluster."
+            echo "Download the kubeconfig artifact to access the cluster."
         }
         failure {
+            notifySlack('#FF0000', 'build failed, cleaning up')
             echo "Build FAILED — cleaning up cluster"
             archiveArtifacts artifacts: 'helm-debug/**', allowEmptyArchive: true
             cleanupCluster()
         }
         aborted {
+            notifySlack('#808080', 'build aborted, cleaning up')
             echo "Build ABORTED — cleaning up cluster"
             cleanupCluster()
         }

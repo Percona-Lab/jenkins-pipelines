@@ -127,7 +127,18 @@ void printTestVariables(Map testVariables) {
     echo groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(sanitized))
 }
 
-String getReleaseParamName(String imageName, String pillarVersion, String operator) {
+String getReleaseParamName(String imageName, String pillarVersion, String operator, String ubiVersion = null) {
+    if (operator?.equalsIgnoreCase("pg-operator") && pillarVersion.endsWith("-community")) {
+        def pgVersion = pillarVersion.replace("-community", "")
+        def communityImages = [
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}_${ubiVersion}_COMMUNITY",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER_COMMUNITY",
+            IMAGE_BACKREST  : "IMAGE_PGBACKREST_COMMUNITY",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY"
+        ]
+        return communityImages[imageName] ?: imageName
+    }
+
     def operatorImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
@@ -415,7 +426,8 @@ Map resolveImages(Map testVariables) {
         def releaseParamName = getReleaseParamName(
             imageName,
             testVariables.pillar_version,
-            testVariables.operator
+            testVariables.operator,
+            testVariables.ubi_version
         )
 
         resolvedImages[imageName] = imageValue ?: getReleaseVersionsParam(
