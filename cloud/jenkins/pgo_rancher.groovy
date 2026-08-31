@@ -19,7 +19,7 @@ pipeline {
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
         choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community'], description: 'Set PG version for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
-        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8'], description: 'Base image for community pillars; ignored for other pillar versions.')
+        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8', 'UBI10'], description: 'Base image for official, PostGIS, and community pillars. Official/PostGIS UBI9 uses unsuffixed keys; community is UBI8/UBI9 only.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')

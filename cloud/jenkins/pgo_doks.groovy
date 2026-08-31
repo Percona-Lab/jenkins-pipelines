@@ -31,8 +31,11 @@ void initParams() {
         echo "=========================[ Getting parameters for release test ]========================="
         def pillarVersionKey = getPillarVersionKey()
         def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
+        def ubiSuffix = ("$UBI_VERSION" == "UBI9") ? "" : "_${UBI_VERSION}"
         if (useCommunityImages()) {
             postgresImageKey = "IMAGE_POSTGRESQL${pillarVersionKey}_${UBI_VERSION}_COMMUNITY"
+        } else {
+            postgresImageKey += ubiSuffix
         }
         env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
         env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
@@ -40,7 +43,7 @@ void initParams() {
         env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", useCommunityImages() ? "IMAGE_PGBACKREST_COMMUNITY" : "IMAGE_BACKREST${pillarVersionKey}")
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE", useCommunityImages() ? "IMAGE_UPGRADE_${UBI_VERSION}_COMMUNITY" : "IMAGE_UPGRADE")
+        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE", useCommunityImages() ? "IMAGE_UPGRADE_${UBI_VERSION}_COMMUNITY" : "IMAGE_UPGRADE${ubiSuffix}")
         env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
 
 
@@ -381,7 +384,7 @@ pipeline {
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions.')
-        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8'], description: 'Base image for community pillars; ignored for other pillar versions.')
+        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8', 'UBI10'], description: 'Base image for official, PostGIS, and community pillars. Official/PostGIS UBI9 uses unsuffixed keys; community is UBI8/UBI9 only.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean Kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
