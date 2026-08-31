@@ -48,7 +48,7 @@ pipeline {
                     cd percona-docker/percona-pgbackrest
                     sed -E "s/ARG PG_VERSION=(.+)/ARG PG_VERSION=${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ARG PPG_REPO=(.+)/ARG PPG_REPO=${params.PPG_REPO}/" -i Dockerfile
-                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-pgbackrest .
+                    docker buildx build --platform=linux/amd64 --no-cache --provenance=false --sbom=false --output type=docker,oci-mediatypes=true -t percona-pgbackrest .
                     """
             }
         }
@@ -105,13 +105,25 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
-                         docker push perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
-                         docker tag percona-pgbackrest perconalab/percona-pgbackrest:\$MAJ_VER-amd64
-                         docker push perconalab/percona-pgbackrest:\$MAJ_VER-amd64
+cat > /tmp/push_oci.sh << 'EOS'
+#!/bin/bash
+set -euo pipefail
+SRC="\$1"
+DEST="\$2"
+docker tag "\$SRC" "\$DEST"
+docker push "\$DEST"
+docker buildx inspect ppg-oci >/dev/null 2>&1 || docker buildx create --name ppg-oci --driver docker-container --bootstrap
+printf 'FROM %s\\n' "\$DEST" > Dockerfile.ppg-oci-push
+docker buildx build --builder ppg-oci --provenance=false --sbom=false \\
+  --output type=registry,name="\$DEST",oci-mediatypes=true,compression=gzip,force-compression=true \\
+  -f Dockerfile.ppg-oci-push .
+rm -f Dockerfile.ppg-oci-push
+EOS
+                        chmod +x /tmp/push_oci.sh
+                         /tmp/push_oci.sh percona-pgbackrest perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
+                         docker buildx imagetools create -t perconalab/percona-pgbackrest:\$MAJ_VER-amd64 perconalab/percona-pgbackrest:${env.IMAGE_VER}-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbackrest perconalab/percona-pgbackrest:latest
-                            docker push perconalab/percona-pgbackrest:latest
+                            docker buildx imagetools create -t perconalab/percona-pgbackrest:latest perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          fi
                      """
                 }

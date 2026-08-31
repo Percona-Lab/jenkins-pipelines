@@ -48,7 +48,7 @@ pipeline {
                     cd percona-docker/percona-pgbouncer
                     sed -E "s/ARG PG_VERSION=(.+)/ARG PG_VERSION=${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ARG PPG_REPO=(.+)/ARG PPG_REPO=${params.PPG_REPO}/" -i Dockerfile
-                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-pgbouncer .
+                    docker buildx build --platform=linux/amd64 --no-cache --provenance=false --sbom=false --output type=docker,oci-mediatypes=true -t percona-pgbouncer .
                     """
             }
         }
@@ -105,13 +105,25 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64
-                         docker push perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64
-                         docker tag percona-pgbouncer perconalab/percona-pgbouncer:\$MAJ_VER-amd64
-                         docker push perconalab/percona-pgbouncer:\$MAJ_VER-amd64
+cat > /tmp/push_oci.sh << 'EOS'
+#!/bin/bash
+set -euo pipefail
+SRC="\$1"
+DEST="\$2"
+docker tag "\$SRC" "\$DEST"
+docker push "\$DEST"
+docker buildx inspect ppg-oci >/dev/null 2>&1 || docker buildx create --name ppg-oci --driver docker-container --bootstrap
+printf 'FROM %s\\n' "\$DEST" > Dockerfile.ppg-oci-push
+docker buildx build --builder ppg-oci --provenance=false --sbom=false \\
+  --output type=registry,name="\$DEST",oci-mediatypes=true,compression=gzip,force-compression=true \\
+  -f Dockerfile.ppg-oci-push .
+rm -f Dockerfile.ppg-oci-push
+EOS
+                        chmod +x /tmp/push_oci.sh
+                         /tmp/push_oci.sh percona-pgbouncer perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64
+                         docker buildx imagetools create -t perconalab/percona-pgbouncer:\$MAJ_VER-amd64 perconalab/percona-pgbouncer:${env.IMAGE_VER}-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbouncer perconalab/percona-pgbouncer:latest
-                            docker push perconalab/percona-pgbouncer:latest
+                            docker buildx imagetools create -t perconalab/percona-pgbouncer:latest perconalab/percona-pgbouncer:\$MAJ_VER-amd64
                          fi
                      """
                 }
