@@ -494,7 +494,10 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
+                script { 
+                    deleteDir()
+                    checkout scm
+                }
                 prepareSources()
                 prepareAgent()
                 initParams()
@@ -522,6 +525,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
@@ -532,6 +536,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
@@ -542,6 +547,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
@@ -552,6 +558,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
@@ -562,6 +569,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster5')
                     }
@@ -572,6 +580,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster6')
                     }
@@ -582,6 +591,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster7')
                     }
@@ -592,6 +602,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        checkout scm
                         unstash "sourceFILES"
                         clusterRunner('cluster8')
                     }
