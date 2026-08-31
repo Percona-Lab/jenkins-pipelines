@@ -164,7 +164,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormMysql()
                    sh """
                    sudo apt-get update -y
                    sudo apt-get install -y jq
