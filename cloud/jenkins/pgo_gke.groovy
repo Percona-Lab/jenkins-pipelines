@@ -4,11 +4,15 @@ clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getPillarVersionKey() {
-    return "$PILLAR_VERSION".replace('-postgis', '')
+    return "$PILLAR_VERSION".replace('-postgis', '').replace('-community', '')
 }
 
 Boolean usePostgisImage() {
     return "$PILLAR_VERSION".endsWith('-postgis')
+}
+
+Boolean useCommunityImages() {
+    return "$PILLAR_VERSION".endsWith('-community')
 }
 
 String getParam(String paramName, String keyName = null) {
@@ -30,14 +34,17 @@ void initParams() {
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
         def pillarVersionKey = getPillarVersionKey()
         def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
+        if (useCommunityImages()) {
+            postgresImageKey = "IMAGE_POSTGRESQL${pillarVersionKey}_${UBI_VERSION}_COMMUNITY"
+        }
 
         env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
         env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
-        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${pillarVersionKey}")
-        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${pillarVersionKey}")
+        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", useCommunityImages() ? "IMAGE_PGBOUNCER_COMMUNITY" : "IMAGE_PGBOUNCER${pillarVersionKey}")
+        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", useCommunityImages() ? "IMAGE_PGBACKREST_COMMUNITY" : "IMAGE_BACKREST${pillarVersionKey}")
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
+        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE", useCommunityImages() ? "IMAGE_UPGRADE_${UBI_VERSION}_COMMUNITY" : "IMAGE_UPGRADE")
         env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
@@ -294,6 +301,10 @@ void runTest(Integer TEST_ID) {
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
                     export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
+                    if [[ "$PILLAR_VERSION" == *-community ]]; then
+                        export PG_DISTRIBUTION=community
+                        export PG_VER="\${PILLAR_VERSION%-community}"
+                    fi
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
@@ -376,11 +387,12 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'ARCH', choices: ['amd64', 'arm64'], description: 'Architecture')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis', '19'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions.')
+        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8'], description: 'Base image for community pillars; ignored for other pillar versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'GKE_RELEASE_CHANNEL', choices: ['rapid', 'stable', 'regular', 'None'], description: 'GKE release channel. Will be forced to stable for release run.')
@@ -469,6 +481,46 @@ pipeline {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
+                    }
+                }
+                stage('cluster6') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster6')
+                    }
+                }
+                stage('cluster7') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster7')
+                    }
+                }
+                stage('cluster8') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster8')
                     }
                 }
             }
