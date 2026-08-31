@@ -272,6 +272,7 @@ pipeline {
                 sh '''
                     pushd /srv/pmm-qa/qa-integration/pmm_qa
                         ./pmm-framework/pmm-framework \
+                            --parallel \
                             --pmm-server-ip "${PMM_SERVER_ADDRESS}" \
                             --pmm-server-password "${ADMIN_PASSWORD}" \
                             --client-version "${CLIENT_VERSION}" \
