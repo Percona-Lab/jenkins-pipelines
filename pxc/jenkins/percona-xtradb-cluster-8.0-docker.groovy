@@ -31,7 +31,7 @@ pipeline {
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'release-8.4.8',
+            defaultValue: 'release-8.4.10',
             description: 'release Tag/Branch for percona-xtradb-cluster repository or pxc version in the format 8.4.8',
             name: 'GIT_BRANCH')
         string(
@@ -95,7 +95,10 @@ pipeline {
                             esac
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
-                            sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
+                            sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO ${COMPONENT}/g" Dockerfile
+                            if [ ${PXC_MAJOR_RELEASE} = "97" ]; then
+                                sed -i "s/wsrep_slave_threads/wsrep_applier_threads/g" dockerdir/etc/mysql/node.cnf
+                            fi
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker build --provenance=false --no-cache --platform "linux/amd64" -t ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 .
                                 sudo docker build --provenance=false --no-cache --platform "linux/amd64" --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-amd64 .
@@ -107,7 +110,7 @@ pipeline {
                             fi
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile.aarch64
-                            sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile.aarch64
+                            sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO ${COMPONENT}/g" Dockerfile.aarch64
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker build --provenance=false --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                                 sudo docker build --provenance=false --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
@@ -123,17 +126,18 @@ pipeline {
                                 9*) cd ../percona-xtradb-cluster-9.x-backup ;;
                             esac
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                            sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
-                            sed -i "s:yum/release:yum/testing:g" Dockerfile
+                            sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=${COMPONENT}/g" Dockerfile
+                            sed -i "s:yum/release:yum/${COMPONENT}:g" Dockerfile
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
-                                #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-6.1/g" Dockerfile
+                                sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                                 sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
-                                    sed -i "s/tools/pxb-9x-innovation/g" Dockerfile
-                                    sed -i "s/ps-80/ps-9x-innovation/g" Dockerfile
-                                    sed -i "s/pxc-80/pxc-9x-innovation/g" Dockerfile
+                                    sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 9.7.1-1.rc1/g" Dockerfile
+                                    sed -i "s/tools/pxb-97-lts/g" Dockerfile
+                                    sed -i "s/ps-80/ps-97-lts/g" Dockerfile
+                                    sed -i "s/pxc-80/pxc-97-lts/g" Dockerfile
                                 else
+                                    sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-6.1/g" Dockerfile
                                     sed -i "s/tools/pxb-84-lts/g" Dockerfile
                                     sed -i "s/ps-80/ps-84-lts/g" Dockerfile
                                     sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile

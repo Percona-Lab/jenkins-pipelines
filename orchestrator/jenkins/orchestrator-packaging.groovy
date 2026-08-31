@@ -58,15 +58,15 @@ pipeline {
             description: 'General version of the product',
             name: 'VERSION')
         string(
-            defaultValue: '18',
+            defaultValue: '24',
             description: 'RPM release value (e.g. custom build -> 1.1custom124)',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '18',
+            defaultValue: '24',
             description: 'DEB release value (e.g. custom build -> 1.1custom124)',
             name: 'DEB_RELEASE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nexperimental\nlaboratory',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
