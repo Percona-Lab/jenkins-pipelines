@@ -1,163 +1,24 @@
 import groovy.transform.Field
 
-@Field def tests = []
-@Field def release_versions = "source/e2e-tests/release_versions"
+@Field Integer numClusters = 1
+@Field List clusters = []
+@Field Map libraries = [:]
 @Field Map testVariables = [:]
+@Field String sourceRepo = 'https://github.com/percona/percona-xtradb-cluster-operator'
+@Field String operatorImage = 'perconalab/percona-xtradb-cluster-operator'
 
-void prepareNode() {
-    checkout(scm)
-    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-    libraries.tools.gitResetWorkspace()
-    libraries.tools.gitClone(
-        branch: GIT_BRANCH,
-        repo: GIT_REPO
-    )
-
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    libraries.dependencies.install()
-    libraries.dependencies.installGoogleCLI()
-    libraries.dependencies.installAzureCLI()
-    libraries.dependencies.installPxcTools()
-    libraries.azure.auth()
-
-    sh """
-        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
-    """
-
-    def platformVersion = "$PLATFORM_VER"
-    if ("$PILLAR_VERSION" != "none" && platformVersion.toLowerCase() == "rel") {
-        platformVersion = libraries.tests.getReleaseVersionsParam(release_versions, "PLATFORM_VER", "MINIKUBE_REL")
-    }
-
-    testVariables = libraries.tests.prepareVersions([
-        libraries             : libraries,
-        release_versions      : release_versions,
-        operator              : 'pxc-operator',
-        platform              : 'minikube',
-        platform_provider     : 'minikube',
-        platform_version      : platformVersion,
-        cluster_wide          : CLUSTER_WIDE,
-        pillar_version        : PILLAR_VERSION,
-        git_branch            : GIT_BRANCH,
-        job_name              : JOB_NAME,
-        db_tag                : DB_TAG,
-        debug_tests           : DEBUG_TESTS,
-        default_operator_image: "perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}",
-        images: [
-            IMAGE_OPERATOR    : IMAGE_OPERATOR,
-            IMAGE_PXC         : IMAGE_PXC,
-            IMAGE_PROXY       : IMAGE_PROXY,
-            IMAGE_HAPROXY     : IMAGE_HAPROXY,
-            IMAGE_BACKUP      : IMAGE_BACKUP,
-            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
-            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
-            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER
-        ]
-    ])
-
-    PLATFORM_VER = testVariables.platform_version
-    DB_TAG = testVariables.db_tag
-    GIT_SHORT_COMMIT = testVariables.git_short_commit
-    PARAMS_HASH = testVariables.params_hash
-
-    if (testVariables.images.IMAGE_PXC) {
-        release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
-        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + testVariables.images.IMAGE_PXC.split(":")[1]
-    }
+def getLibraries() {
+    def loader = load('cloud/common/libraries.groovy')
+    libraries = loader.loadLibraries()
 }
 
-void initTests() {
-    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-    libraries.tests.initTests(tests, testVariables, [
-        testSuite              : TEST_SUITE,
-        testList               : TEST_LIST,
-        ignorePreviousRun      : IGNORE_PREVIOUS_RUN,
-        cloudSecretCredentialId: 'cloud-secret-file'
-    ])
-}
-
-void clusterRunner(String cluster) {
-    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-    libraries.minikube.createCluster([platformVersion: PLATFORM_VER])
-
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            runTest(i)
-        }
-    }
-}
-
-void runTest(Integer TEST_ID) {
-    def retryCount = 0
-    def testName = tests[TEST_ID]["name"]
-
-    waitUntil {
-        def timeStart = new Date().getTime()
-        def testsLib = load('cloud/common/vars/tests.groovy')
-        try {
-            echo "The $testName test was started !"
-            tests[TEST_ID]["result"] = "failure"
-
-            timeout(time: 90, unit: 'MINUTES') {
-                def testVars = testsLib.buildPxcTestVariables(
-                    cluster_name: 'minikube',
-                    skip_kubeconfig: true,
-                    debug_tests: DEBUG_TESTS,
-                    cluster_wide: CLUSTER_WIDE,
-                    default_operator_image: "perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}",
-                    images: testVariables.images
-                )
-                def exports = testsLib.getExportedVariablesForTests(testVars, 'cluster1')
-                def testCmd = testsLib.defineTestCommand(testVars, testName)
-                sh """
-                    cd source
-
-                    ${exports}
-
-                    sudo rm -rf /tmp/hostpath-provisioner/*
-                    mkdir -p e2e-tests/logs e2e-tests/reports
-                    bash -o pipefail <<BASH
-                    {
-                        ${testCmd}
-                    } 2>&1 | tee e2e-tests/logs/${testName}.log
-BASH
-                """
-            }
-            testsLib.pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH", GIT_SHORT_COMMIT)
-            tests[TEST_ID]["result"] = "passed"
-            return true
-        }
-        catch (exc) {
-            if (retryCount >= 1) {
-                currentBuild.result = 'FAILURE'
-                return true
-            }
-            retryCount++
-            return false
-        }
-        finally {
-            def timeStop = new Date().getTime()
-            def durationSec = (timeStop - timeStart) / 1000
-            tests[TEST_ID]["time"] = durationSec
-            try {
-                testsLib.pushLogFile(testName, [gitShortCommit: GIT_SHORT_COMMIT])
-            } catch (logErr) {
-                echo "Warning: failed to push log for $testName: ${logErr}"
-            }
-            echo "The $testName test was finished!"
-        }
-    }
+String jenkinsAgentLabel() {
+    return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
 }
 
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -165,7 +26,6 @@ pipeline {
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80', '57'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository')
-        string(name: 'GIT_REPO', defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator', description: 'percona-xtradb-cluster-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Minikube kubernetes version. If set to rel, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main')
@@ -179,73 +39,143 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {
-        label 'docker-32gb'
+        label jenkinsAgentLabel()
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
+        disableConcurrentBuilds()
+        timeout(time: 6, unit: 'HOURS')
+        copyArtifactPermission('pxc-operator-latest-scheduler');
     }
     stages {
-        stage('Prepare Node') {
+        stage('Init Workspace') {
             steps {
-                prepareNode()
+                script {
+                    deleteDir()
+                    checkout scm
+                    getLibraries()
+                    libraries.tools.gitClone([
+                        repo: sourceRepo,
+                        branch: GIT_BRANCH
+                    ])
+                }
             }
         }
+
+        stage('Prepare Node') {
+            steps {
+                script {
+                    libraries.dependencies.prepareNode(
+                        libraries,
+                        '',
+                        'pxc-operator',
+                        'minikube'
+                    )
+                }
+            }
+        }
+
         stage('Docker Build and Push') {
             steps {
                 script {
-                    def libraries = load('cloud/common/libraries.groovy').loadLibraries()
                     libraries.tools.dockerBuildAndPush(
-                        operatorImage: 'perconalab/percona-xtradb-cluster-operator',
+                        operatorImage: operatorImage,
                         branch       : GIT_BRANCH
                     )
                 }
             }
         }
-        stage('Init Tests') {
+
+        stage('Prepare Test Variables') {
             steps {
-                initTests()
+                script {
+                    def platformVersion = "$PLATFORM_VER"
+                    if ("$PILLAR_VERSION" != "none" && platformVersion.toLowerCase() == "rel") {
+                        platformVersion = libraries.tests.getReleaseVersionsParam(
+                            'source/e2e-tests/release_versions',
+                            'PLATFORM_VER',
+                            'MINIKUBE_REL'
+                        )
+                    }
+
+                    testVariables = libraries.tests.prepareVersions([
+                        libraries             : libraries,
+                        release_versions      : 'source/e2e-tests/release_versions',
+                        operator              : 'pxc-operator',
+                        platform              : 'minikube',
+                        platform_provider     : 'minikube',
+                        platform_version      : platformVersion,
+                        cluster_wide          : CLUSTER_WIDE,
+                        pillar_version        : PILLAR_VERSION,
+                        git_branch            : GIT_BRANCH,
+                        source_repo           : sourceRepo,
+                        job_name              : JOB_NAME,
+                        debug_tests           : DEBUG_TESTS,
+                        default_operator_image: "${operatorImage}:${GIT_BRANCH}",
+                        skip_kubeconfig       : true,
+                        pre_test_sh           : 'sudo rm -rf /tmp/hostpath-provisioner/*',
+                        clusters              : clusters,
+                        numClusters           : numClusters,
+                        kubeconfigPath        : '/tmp',
+                        retries               : 1,
+                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'docker-32gb', 'docker-x64'),
+                        images: [
+                            IMAGE_OPERATOR    : IMAGE_OPERATOR,
+                            IMAGE_PXC         : IMAGE_PXC,
+                            IMAGE_PROXY       : IMAGE_PROXY,
+                            IMAGE_HAPROXY     : IMAGE_HAPROXY,
+                            IMAGE_BACKUP      : IMAGE_BACKUP,
+                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
+                            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
+                            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
+                            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
+                            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER
+                        ]
+                    ])
+
+                    currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
+                    currentBuild.description = libraries.tests.buildJobDescription(testVariables)
+                    libraries.tests.printTestVariables(testVariables)
+                }
             }
         }
+
+        stage('Init Tests') {
+            steps {
+                script {
+                    libraries.tests.initTestRun(testVariables, [
+                        testList          : TEST_LIST,
+                        testSuite         : TEST_SUITE,
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
+                        operator          : 'pxc'
+                    ])
+                }
+            }
+        }
+
         stage('Run Tests') {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
-                clusterRunner('cluster1')
+                script {
+                    parallel libraries.tests.buildParallelClusterStages(testVariables)
+                }
             }
         }
     }
     post {
         always {
-            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-
             script {
-                def libraries = load('cloud/common/libraries.groovy').loadLibraries()
-                libraries.tests.makeReportJUnit(tests, testVariables)
-                junit testResults: '*.xml', healthScaleFactor: 1.0
-                archiveArtifacts '*.xml,*.txt'
-
-                try {
-                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
-                    sendJobSlack.call(
-                        tests: tests,
-                        gitBranch: GIT_BRANCH,
-                        platformVer: PLATFORM_VER,
-                        clusterWide: CLUSTER_WIDE,
-                        image: testVariables.images.IMAGE_PXC,
-                        operatorImage: testVariables.images.IMAGE_OPERATOR
-                    )
-                } catch (err) {
-                    echo "Slack helper load/call failed: ${err}"
-                }
+                libraries.tests.finalizeJob(testVariables)
             }
 
-            sh """
-                minikube delete || true
-            """
+            junit testResults: 'TestsReport.xml', healthScaleFactor: 1.0, allowEmptyResults: true
+            archiveArtifacts artifacts: '*.xml,*.txt', allowEmptyArchive: true
             deleteDir()
         }
     }
