@@ -191,25 +191,47 @@ pipeline {
             slackSend(
                 channel: '#cloud-dev-ci',
                 color: 'good',
-                message: """:white_check_mark: *Confirm Release Passed*
-*Version:* ${params.VERSION}
-*Operator:* ${params.OPERATOR}
-*Build:* ${env.BUILD_URL}"""
+                message: """:white_check_mark: *Confirm Release passed*
+`${params.OPERATOR}` · `v${params.VERSION}`
+<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}> · <${env.BUILD_URL}artifact/confirm-release-report.txt|Report>"""
             )
         }
         failure {
             script {
-                def report = (env.CONFIRM_RELEASE_REPORT ?: 'See build log for details.').take(12000)
+                def summary = []
+                (env.CONFIRM_RELEASE_REPORT ?: '').readLines().each { line ->
+                    def separator = line.indexOf(': ')
+                    def label = separator > 0 ? line.substring(0, separator) : ''
+                    def result = separator > 0 ? line.substring(separator + 2).tokenize(' ')[0] : ''
+                    def icon = [
+                        'OK': ':white_check_mark:',
+                        'MISMATCH': ':x:',
+                        'SKIPPED': ':warning:'
+                    ][result]
+                    if (icon && ['CRDs', 'Images', 'README', 'Version Service', 'RBAC', 'Deployment'].any {
+                        label.startsWith(it)
+                    }) {
+                        summary << "${icon} ${label}: *${result}*"
+                    }
+                }
+
+                def details = summary
+                    ? summary.join('\n')
+                    : ':warning: No validation report was generated. Check the build log.'
+                def links = "<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>"
+                if (env.CONFIRM_RELEASE_REPORT) {
+                    links += " · <${env.BUILD_URL}artifact/confirm-release-report.txt|Full report>"
+                }
+
                 slackSend(
                     channel: '#cloud-dev-ci',
                     color: '#FF0000',
-                    message: """:x: *Confirm Release Failed*
-*Version:* ${params.VERSION}
-*Operator:* ${params.OPERATOR}
-*Build:* ${env.BUILD_URL}
-```
-${report}
-```"""
+                    message: """:x: *Confirm Release failed*
+`${params.OPERATOR}` · `v${params.VERSION}`
+
+${details}
+
+${links}"""
                 )
             }
         }
