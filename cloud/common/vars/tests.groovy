@@ -139,6 +139,9 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
         return communityImages[imageName] ?: imageName
     }
 
+    def ubiSuffix = (ubiVersion && ubiVersion != "UBI9") ? "_${ubiVersion}" : ""
+    def pgVersion = pillarVersion.replace("-postgis", "")
+
     def operatorImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
@@ -151,16 +154,17 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pillarVersion}",
-            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}${ubiSuffix}",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersion}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersion}",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE${ubiSuffix}"
         ]
     ]
 
     if (operator?.equalsIgnoreCase("pg-operator") &&
         imageName == "IMAGE_POSTGRESQL" &&
         pillarVersion.endsWith("-postgis")) {
-        return "IMAGE_POSTGIS${pillarVersion}"
+        return "IMAGE_POSTGIS${pgVersion}${ubiSuffix}"
     }
 
     return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
