@@ -10,8 +10,9 @@ from datetime import datetime, timezone
 import requests
 from pathlib import Path
 
-
 GENERATOR_VERSION = "1"
+
+PG_RELEASE_MAJORS = ("18", "17", "16", "15", "14")
 
 DB_TYPE_TO_OPERATOR = {
     "PXC": "pxc",
@@ -64,9 +65,7 @@ def extract_community_versions(versions: dict[str, str]) -> list[tuple[str, str]
     found = {
         (match.group(1), match.group(2))
         for key in versions
-        if (match := pattern.match(key))
-        and versions[key]
-        and match.group(2) != "UBI10"
+        if (match := pattern.match(key)) and versions[key] and match.group(2) != "UBI10"
     }
     return sorted(found, key=lambda item: (int(item[0]), item[1]), reverse=True)
 
@@ -79,6 +78,216 @@ def extract_postgis_versions(versions: dict[str, str]) -> list[str]:
         if (match := pattern.match(key)) and versions[key]
     }
     return sorted(found, key=int, reverse=True)
+
+
+def _pg_image_variable(kind: str, major: str, ubi: str) -> str:
+    prefix = "POSTGIS" if kind == "PostGIS" else "POSTGRESQL"
+    suffix = "" if ubi == "UBI9" else f"_{ubi}"
+    return f"IMAGE_{prefix}{major}{suffix}"
+
+
+def _pg_matrix_cell(
+    k8s_platforms: dict[str, dict[str, str]],
+    platform: str,
+    k8s_version: str,
+    major: str,
+    cluster_wide: str,
+    kind: str,
+    flavor: str,
+    ubi_version: str,
+    image_variable: str,
+    manual: bool = False,
+    architecture: str = "amd64",
+    test_suite: str | None = None,
+) -> dict | None:
+    platform_versions = k8s_platforms[platform]
+    actual = platform_versions.get(k8s_version)
+    if actual is None:
+        return None
+    suffix = (
+        "-postgis"
+        if kind == "PostGIS"
+        else "-community" if flavor == "community" else ""
+    )
+    cell = {
+        "platform": platform,
+        "k8s_version": k8s_version,
+        "k8s_version_actual": actual,
+        "architecture": architecture,
+        "pillar_version": f"{major}{suffix}",
+        "cluster_wide": cluster_wide,
+        "kind": kind,
+        "flavor": flavor,
+        "ubi_version": ubi_version,
+        "image_variable": image_variable,
+        "manual": manual,
+    }
+    if test_suite:
+        cell["test_suite"] = test_suite
+    return cell
+
+
+def generate_pg_test_plan(
+    versions: dict[str, str],
+    k8s_platforms: dict[str, dict[str, str]],
+) -> list[dict]:
+    cells = []
+
+    def add(
+        platform: str,
+        k8s_version: str,
+        major: str,
+        cluster_wide: str,
+        kind: str,
+        flavor: str,
+        ubi_version: str,
+        image_variable: str | None = None,
+        manual: bool = False,
+        architecture: str = "amd64",
+        test_suite: str | None = None,
+    ) -> None:
+        variable = image_variable or _pg_image_variable(kind, major, ubi_version)
+        if not manual and not versions.get(variable):
+            return
+        cell = _pg_matrix_cell(
+            k8s_platforms,
+            platform,
+            k8s_version,
+            major,
+            cluster_wide,
+            kind,
+            flavor,
+            ubi_version,
+            variable,
+            manual,
+            architecture,
+            test_suite,
+        )
+        if cell:
+            cells.append(cell)
+
+    primary_rows = (
+        ("18", "max", "YES"),
+        ("17", "max", "NO"),
+        ("16", "min", "YES"),
+        ("15", "min", "NO"),
+        ("14", "max", "YES"),
+    )
+
+    for major, k8s_version, cluster_wide in primary_rows:
+        add(
+            "GKE",
+            k8s_version,
+            major,
+            cluster_wide,
+            "PostgreSQL",
+            "official",
+            "UBI9",
+        )
+    add("GKE", "max", "14", "NO", "PostGIS", "official", "UBI9")
+
+    for major, _, cluster_wide in primary_rows:
+        add(
+            "DOKS",
+            "latest",
+            major,
+            cluster_wide,
+            "PostgreSQL",
+            "official",
+            "UBI8",
+        )
+
+    for platform, kind, ubi_version in (
+        ("EKS", "PostgreSQL", "UBI10"),
+        ("OPENSHIFT", "PostGIS", "UBI8"),
+        ("RANCHER", "PostGIS", "UBI10"),
+    ):
+        for major, k8s_version, cluster_wide in primary_rows:
+            add(
+                platform,
+                k8s_version,
+                major,
+                cluster_wide,
+                kind,
+                "official",
+                ubi_version,
+            )
+
+    for major, k8s_version, cluster_wide in primary_rows[:-1]:
+        add(
+            "AKS",
+            k8s_version,
+            major,
+            cluster_wide,
+            "PostGIS",
+            "official",
+            "UBI9",
+        )
+
+    for major, cluster_wide in (("18", "YES"), ("17", "NO")):
+        add(
+            "MINIKUBE",
+            "max",
+            major,
+            cluster_wide,
+            "PostgreSQL",
+            "official",
+            "UBI9",
+        )
+
+    for platform, ubi_version in (("GKE", "UBI8"), ("EKS", "UBI9")):
+        for major in PG_RELEASE_MAJORS:
+            add(
+                platform,
+                "max",
+                major,
+                "YES",
+                "PostgreSQL",
+                "community",
+                ubi_version,
+                f"IMAGE_POSTGRESQL{major}_{ubi_version}_COMMUNITY",
+            )
+
+    for kind, flavor, ubi_versions in (
+        ("PostGIS", "official", ("UBI9", "UBI10", "UBI8")),
+        ("PostgreSQL", "official", ("UBI9", "UBI10", "UBI8")),
+        ("PostgreSQL", "community", ("UBI8", "UBI9")),
+    ):
+        for ubi_version in ubi_versions:
+            for major in PG_RELEASE_MAJORS:
+                variable = (
+                    f"IMAGE_POSTGRESQL{major}_{ubi_version}_COMMUNITY"
+                    if flavor == "community"
+                    else None
+                )
+                add(
+                    "GKE",
+                    "max",
+                    major,
+                    "YES",
+                    kind,
+                    flavor,
+                    ubi_version,
+                    variable,
+                    architecture="arm64",
+                    test_suite="run-community.csv",
+                )
+
+    for major in ("18", "17", "16"):
+        if versions.get(f"IMAGE_POSTGRESQL{major}"):
+            add(
+                "DOKS",
+                "latest",
+                major,
+                "YES",
+                "PostgreSQL-CUSTOM",
+                "custom",
+                "UBI9",
+                "enter manually",
+                manual=True,
+            )
+
+    return cells
 
 
 def get_minikube():
@@ -272,7 +481,9 @@ def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
         if pg_versions:
             lines.append(f"Postgres: {', '.join(pg_versions)}")
         community_versions = [
-            f"{major} {ubi}" for major, ubi in extract_community_versions(versions)
+            f"{major} {ubi}"
+            for major, ubi in extract_community_versions(versions)
+            if major in PG_RELEASE_MAJORS
         ]
         if community_versions:
             lines.append(f"Community Postgres: {', '.join(community_versions)}")
@@ -361,10 +572,11 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
 
     print(f"Database: {db_type}")
     print(f"Versions: {', '.join(db_versions)}")
-    # PostgreSQL 19 is experimental; keep 18 as primary until 19 is stable.
-    latest = (
-        "18" if db_type == "POSTGRESQL" and "18" in db_versions else db_versions[0]
-    )
+    if db_type == "POSTGRESQL":
+        print("Matrix: PostgreSQL image coverage\n")
+        return generate_pg_test_plan(versions, k8s_platforms)
+
+    latest = db_versions[0]
     print(f"Primary version: {latest}")
     print(f"Primary platform: {primary_platform}\n")
 
@@ -392,37 +604,44 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
                         }
                     )
 
-    if db_type == "POSTGRESQL":
-        gke_info = k8s_platforms["GKE"]
-        for db_ver in extract_postgis_versions(versions):
-            k8s_label = "max" if "max" in gke_info else "latest"
-            test_plan.append(
-                {
-                    "platform": "GKE",
-                    "k8s_version": k8s_label,
-                    "k8s_version_actual": gke_info[k8s_label],
-                    "pillar_version": f"{db_ver}-postgis",
-                    "cluster_wide": "YES",
-                }
-            )
-
-        for db_ver, ubi_version in extract_community_versions(versions):
-            k8s_label = "max" if "max" in gke_info else "latest"
-            test_plan.append(
-                {
-                    "platform": "GKE",
-                    "k8s_version": k8s_label,
-                    "k8s_version_actual": gke_info[k8s_label],
-                    "pillar_version": f"{db_ver}-community",
-                    "ubi_version": ubi_version,
-                    "cluster_wide": "YES",
-                }
-            )
-
     return test_plan
 
 
 def generate_markdown_table(test_plan: list[dict]) -> str:
+    if any("kind" in cell for cell in test_plan):
+        automatic = [cell for cell in test_plan if not cell.get("manual")]
+        manual = [cell for cell in test_plan if cell.get("manual")]
+        unique_images = {cell["image_variable"] for cell in automatic}
+        lines = [
+            (
+                f"**{len(test_plan)} cells:** {len(automatic)} automatic jobs, "
+                f"{len(manual)} manual placeholders, "
+                f"{len(unique_images)} unique automatic image variables."
+            ),
+            "",
+            (
+                "| # | Platform | K8s Version | Arch | CW | PG | Kind | "
+                "Flavor | Image Variable | Manual | Failed Tests | Done |"
+            ),
+            (
+                "|---|----------|-------------|------|----|----|------|"
+                "--------|----------------|--------|--------------|------|"
+            ),
+        ]
+        for index, cell in enumerate(test_plan, start=1):
+            cw = "Yes" if cell["cluster_wide"] == "YES" else "No"
+            major = re.search(r"\d+", str(cell["pillar_version"]))
+            flavor = f"{cell.get('ubi_version', '')} {cell.get('flavor', '')}".strip()
+            lines.append(
+                f"| {index} | {cell['platform']} | {cell['k8s_version_actual']} | "
+                f"{cell.get('architecture', 'amd64')} | {cw} | "
+                f"{major.group() if major else cell['pillar_version']} | "
+                f"{cell.get('kind', '')} | {flavor} | "
+                f"{cell.get('image_variable', '')} | "
+                f"{'Yes' if cell.get('manual') else 'No'} |  |  |"
+            )
+        return "\n".join(lines)
+
     lines = [
         "| Platform | K8s Version | Pillar Version | UBI | CW | Failed Tests | Done |",
         "|----------|-------------|----------------|-----|----|--------------|----|",
