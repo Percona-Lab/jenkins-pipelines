@@ -161,6 +161,14 @@ void installDoctl() {
     '''
 }
 
+void installMinikube() {
+    sh '''
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo chmod +x /usr/local/bin/minikube
+        minikube version
+    '''
+}
+
 void installAzureCLI() {
     sh '''
         if ! command -v az &>/dev/null; then
@@ -191,7 +199,7 @@ void installExecutorDependencies(String testExecutorType) {
     }
 }
 
-void installProviderDependencies(Map libraries, String operator, String provider) {
+void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
     // PSMDB requires Google and Azure CLIs, regardless of the provider.
     // Rancher requires Google CLI to create cluster as GCE instances are used.
 
@@ -204,12 +212,28 @@ void installProviderDependencies(Map libraries, String operator, String provider
         installAzureCLI()
         libraries.azure.auth()
     }
+
+    if (provider == 'eks') {
+        installEksctl()
+    }
+
+    if (provider == 'doks') {
+        installDoctl()
+    }
+
+    if (provider == 'minikube') {
+        installMinikube()
+    }
+
+    if (provider == 'openshift') {
+        installOpenshiftClient(platformVersion ?: 'latest')
+    }
 }
 
-void prepareNode(Map libraries, String testExecutorType,String operator, String provider) {
+void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
     install()
     installExecutorDependencies(testExecutorType)
-    installProviderDependencies(libraries, operator, provider)
+    installProviderDependencies(libraries, operator, provider, platformVersion)
 }
 
 return this
