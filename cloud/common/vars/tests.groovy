@@ -130,11 +130,12 @@ void printTestVariables(Map testVariables) {
 String getReleaseParamName(String imageName, String pillarVersion, String operator, String ubiVersion = null) {
     if (operator?.equalsIgnoreCase("pg-operator") && pillarVersion.endsWith("-community")) {
         def pgVersion = pillarVersion.replace("-community", "")
+        def versionedCommunityImages = pgVersion == "19"
         def communityImages = [
             IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}_${ubiVersion}_COMMUNITY",
-            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER_COMMUNITY",
-            IMAGE_BACKREST  : "IMAGE_PGBACKREST_COMMUNITY",
-            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY"
+            IMAGE_PGBOUNCER : versionedCommunityImages ? "IMAGE_PGBOUNCER19_COMMUNITY" : "IMAGE_PGBOUNCER_COMMUNITY",
+            IMAGE_BACKREST  : versionedCommunityImages ? "IMAGE_PGBACKREST19_COMMUNITY" : "IMAGE_PGBACKREST_COMMUNITY",
+            IMAGE_UPGRADE   : versionedCommunityImages ? "IMAGE_UPGRADE19_${ubiVersion}_COMMUNITY" : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY"
         ]
         return communityImages[imageName] ?: imageName
     }
