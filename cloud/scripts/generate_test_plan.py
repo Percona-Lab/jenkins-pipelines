@@ -1,11 +1,31 @@
 #!/usr/bin/env python3
-"""Test Plan Generator for Percona Kubernetes Operators"""
+"""Test plan generator for Kubernetes Operators."""
 
 import json
 import re
 import argparse
+import hashlib
+import subprocess
+from datetime import datetime, timezone
 import requests
 from pathlib import Path
+
+
+GENERATOR_VERSION = "1"
+
+DB_TYPE_TO_OPERATOR = {
+    "PXC": "pxc",
+    "MYSQL": "ps",
+    "MONGOD": "psmdb",
+    "POSTGRESQL": "pg",
+}
+
+OPERATOR_PLATFORMS = {
+    "ps": ["DOKS", "EKS", "GKE", "MINIKUBE", "OPENSHIFT", "RANCHER"],
+    "psmdb": ["AKS", "EKS", "GKE", "MINIKUBE", "OPENSHIFT", "RANCHER"],
+    "pxc": ["AKS", "DOKS", "EKS", "GKE", "MINIKUBE", "OPENSHIFT"],
+    "pg": ["AKS", "DOKS", "EKS", "GKE", "MINIKUBE", "OPENSHIFT", "RANCHER"],
+}
 
 
 def parse_versions_file(filepath: str) -> dict[str, str]:
@@ -39,6 +59,28 @@ def extract_db_versions(versions: dict[str, str], db_type: str) -> list[str]:
     return sorted(found, key=int, reverse=True)
 
 
+def extract_community_versions(versions: dict[str, str]) -> list[tuple[str, str]]:
+    pattern = re.compile(r"^IMAGE_POSTGRESQL(\d+)_(UBI\d+)_COMMUNITY$")
+    found = {
+        (match.group(1), match.group(2))
+        for key in versions
+        if (match := pattern.match(key))
+        and versions[key]
+        and match.group(2) != "UBI10"
+    }
+    return sorted(found, key=lambda item: (int(item[0]), item[1]), reverse=True)
+
+
+def extract_postgis_versions(versions: dict[str, str]) -> list[str]:
+    pattern = re.compile(r"^IMAGE_POSTGIS(\d+)$")
+    found = {
+        match.group(1)
+        for key in versions
+        if (match := pattern.match(key)) and versions[key]
+    }
+    return sorted(found, key=int, reverse=True)
+
+
 def get_minikube():
     resp = requests.get(
         "https://api.github.com/repos/kubernetes/minikube/releases/latest", timeout=10
@@ -47,18 +89,47 @@ def get_minikube():
     return resp.json().get("tag_name", "").lstrip("v")
 
 
-def extract_k8s_platforms(versions: dict[str, str]) -> dict[str, dict[str, str]]:
+def extract_k8s_platforms(
+    versions: dict[str, str], operator: str
+) -> dict[str, dict[str, str]]:
     platforms = {}
-    for platform in ["GKE", "EKS", "AKS", "OPENSHIFT", "MINIKUBE"]:
+    for platform in OPERATOR_PLATFORMS[operator]:
         info = {}
+        key_platform = "RKE2" if platform == "RANCHER" else platform
         for suffix in ["MIN", "MAX", "REL"]:
-            key = f"{platform}_{suffix}"
+            key = f"{key_platform}_{suffix}"
             if key in versions:
                 label = "version" if suffix == "REL" else suffix.lower()
                 info[label] = versions[key]
-        if info:
-            platforms[platform] = info
+        platforms[platform] = info or {"latest": "latest"}
     return platforms
+
+
+def derive_git_branch(versions: dict[str, str], override: str | None = None) -> str:
+    if override:
+        return override
+
+    operator_image = versions.get("IMAGE_OPERATOR", "")
+    _, separator, tag = operator_image.rpartition(":")
+    if not separator or not tag:
+        raise ValueError(
+            "IMAGE_OPERATOR must contain a tag, or pass --branch explicitly"
+        )
+    return f"release-{tag}"
+
+
+def repository_revision() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() or None
 
 
 def generate_version_info(versions: dict[str, str], db_type: str) -> str:
@@ -84,7 +155,8 @@ def generate_version_info(versions: dict[str, str], db_type: str) -> str:
     lines.append("")
 
     lines.append("Kubernetes Platforms:")
-    k8s_platforms = extract_k8s_platforms(versions)
+    operator = DB_TYPE_TO_OPERATOR[db_type]
+    k8s_platforms = extract_k8s_platforms(versions, operator)
 
     platform_display = {
         "GKE": "GKE",
@@ -92,17 +164,19 @@ def generate_version_info(versions: dict[str, str], db_type: str) -> str:
         "AKS": "AKS",
         "OPENSHIFT": "OpenShift",
         "MINIKUBE": "MiniKube",
+        "DOKS": "DOKS",
+        "RANCHER": "Rancher/RKE2",
     }
 
-    for platform in ["GKE", "EKS", "AKS", "OPENSHIFT", "MINIKUBE"]:
-        if platform not in k8s_platforms:
-            continue
+    for platform in OPERATOR_PLATFORMS[operator]:
         info = k8s_platforms[platform]
         name = platform_display[platform]
 
         if platform == "MINIKUBE":
-            k8s_ver = info.get("max", info.get("version", ""))
-            if k8s_ver:
+            k8s_ver = info.get("max") or info.get("version") or info.get("latest")
+            if k8s_ver == "latest":
+                lines.append(f"{name} latest")
+            elif k8s_ver:
                 lines.append(f"{name} {get_minikube()} with Kubernetes v{k8s_ver}")
         else:
             min_v = info.get("min", "")
@@ -111,6 +185,8 @@ def generate_version_info(versions: dict[str, str], db_type: str) -> str:
                 lines.append(f"{name} {min_v} - {max_v}")
             elif max_v:
                 lines.append(f"{name} {max_v}")
+            else:
+                lines.append(f"{name} latest")
 
     lines.append("")
     lines.append("Software supported:")
@@ -134,7 +210,7 @@ def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
         _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM Client")
         _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM3 Client")
         _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector")
-        lines.append("cert-manager: <OVERRIDE>")
+        _add_cert_manager(lines, versions)
 
     elif db_type == "PXC":
         for key, val in sorted(versions.items(), reverse=True):
@@ -157,7 +233,7 @@ def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
         )
         _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM-Client2")
         _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM-Client3")
-        lines.append("cert-manager: <OVERRIDE>")
+        _add_cert_manager(lines, versions)
 
     elif db_type == "MYSQL":
         for key, val in sorted(versions.items(), reverse=True):
@@ -185,22 +261,27 @@ def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
         _add_if_exists(lines, versions, "IMAGE_ORCHESTRATOR", "Orchestrator")
         _add_if_exists(lines, versions, "IMAGE_TOOLKIT", "Percona Toolkit")
         _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
-        lines.append("cert-manager: <OVERRIDE>")
+        _add_cert_manager(lines, versions)
 
     elif db_type == "POSTGRESQL":
         pg_versions = []
         for key, val in sorted(versions.items()):
-            if key.startswith("IMAGE_POSTGRESQL") and val:
+            if re.fullmatch(r"IMAGE_POSTGRESQL\d+", key) and val:
                 ver_str = val.split(":")[-1] if ":" in val else val
                 pg_versions.append(ver_str)
         if pg_versions:
             lines.append(f"Postgres: {', '.join(pg_versions)}")
+        community_versions = [
+            f"{major} {ubi}" for major, ubi in extract_community_versions(versions)
+        ]
+        if community_versions:
+            lines.append(f"Community Postgres: {', '.join(community_versions)}")
         _add_unique_versions(lines, versions, "IMAGE_BACKREST", "PGBackRest")
         _add_unique_versions(lines, versions, "IMAGE_PGBOUNCER", "PGBouncer")
         lines.append("patroni: <OVERRIDE>")
         _add_postgis_versions(lines, versions)
         _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM")
-        lines.append("cert-manager: <OVERRIDE>")
+        _add_cert_manager(lines, versions)
 
     return lines
 
@@ -211,6 +292,10 @@ def _add_if_exists(lines: list[str], versions: dict[str, str], key: str, label: 
         val = versions[key]
         ver = val.split(":")[-1] if ":" in val else val
         lines.append(f"{label}: {ver}")
+
+
+def _add_cert_manager(lines: list[str], versions: dict[str, str]):
+    lines.append(f"cert-manager: {versions.get('CERT_MANAGER') or '<OVERRIDE>'}")
 
 
 def _add_unique_versions(
@@ -241,6 +326,23 @@ def _add_postgis_versions(lines: list[str], versions: dict[str, str]):
         lines.append(f"PostGis: {', '.join(values)}")
 
 
+def _k8s_labels(platform: str, info: dict[str, str], is_latest: bool) -> list[str]:
+    if platform == "MINIKUBE":
+        if "max" in info:
+            return ["max"]
+        if "version" in info:
+            return ["version"]
+        return ["latest"]
+
+    if platform == "DOKS" or not is_latest:
+        if "max" in info:
+            return ["max"]
+        return ["latest"]
+
+    labels = [label for label in ("min", "max") if label in info]
+    return labels or ["latest"]
+
+
 def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> list[dict]:
     versions = parse_versions_file(versions_file)
     db_type = detect_db_type(versions)
@@ -249,16 +351,24 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
         print("Error: Could not detect database type")
         return []
 
+    operator = DB_TYPE_TO_OPERATOR[db_type]
     db_versions = extract_db_versions(versions, db_type)
-    k8s_platforms = extract_k8s_platforms(versions)
+    if not db_versions:
+        print("Error: Could not detect database versions")
+        return []
+
+    k8s_platforms = extract_k8s_platforms(versions, operator)
 
     print(f"Database: {db_type}")
     print(f"Versions: {', '.join(db_versions)}")
-    print(f"Latest: {db_versions[0]}")
+    # PostgreSQL 19 is experimental; keep 18 as primary until 19 is stable.
+    latest = (
+        "18" if db_type == "POSTGRESQL" and "18" in db_versions else db_versions[0]
+    )
+    print(f"Primary version: {latest}")
     print(f"Primary platform: {primary_platform}\n")
 
     test_plan = []
-    latest = db_versions[0]
 
     for platform, k8s_info in k8s_platforms.items():
         for db_ver in db_versions:
@@ -267,20 +377,10 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
             if not is_latest and platform != primary_platform:
                 continue
 
-            if platform == "MINIKUBE":
-                k8s_labels = ["max"]
-            elif is_latest:
-                k8s_labels = ["min", "max"]
-            else:
-                k8s_labels = ["max"]
-
             cw_modes = ["YES", "NO"] if is_latest else ["YES"]
 
-            for k8s_label in k8s_labels:
-                k8s_actual = k8s_info.get(k8s_label) or k8s_info.get("version")
-                if not k8s_actual:
-                    continue
-
+            for k8s_label in _k8s_labels(platform, k8s_info, is_latest):
+                k8s_actual = k8s_info[k8s_label]
                 for cw in cw_modes:
                     test_plan.append(
                         {
@@ -292,24 +392,57 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
                         }
                     )
 
+    if db_type == "POSTGRESQL":
+        gke_info = k8s_platforms["GKE"]
+        for db_ver in extract_postgis_versions(versions):
+            k8s_label = "max" if "max" in gke_info else "latest"
+            test_plan.append(
+                {
+                    "platform": "GKE",
+                    "k8s_version": k8s_label,
+                    "k8s_version_actual": gke_info[k8s_label],
+                    "pillar_version": f"{db_ver}-postgis",
+                    "cluster_wide": "YES",
+                }
+            )
+
+        for db_ver, ubi_version in extract_community_versions(versions):
+            k8s_label = "max" if "max" in gke_info else "latest"
+            test_plan.append(
+                {
+                    "platform": "GKE",
+                    "k8s_version": k8s_label,
+                    "k8s_version_actual": gke_info[k8s_label],
+                    "pillar_version": f"{db_ver}-community",
+                    "ubi_version": ubi_version,
+                    "cluster_wide": "YES",
+                }
+            )
+
     return test_plan
 
 
 def generate_markdown_table(test_plan: list[dict]) -> str:
     lines = [
-        "| Platform | K8s Version | Pillar Version | CW | Failed Tests | Done |",
-        "|----------|-------------|----------------|----|--------------|----|",
+        "| Platform | K8s Version | Pillar Version | UBI | CW | Failed Tests | Done |",
+        "|----------|-------------|----------------|-----|----|--------------|----|",
     ]
 
     sorted_plan = sorted(
         test_plan,
-        key=lambda x: (x["platform"], x["k8s_version_actual"], x["pillar_version"]),
+        key=lambda x: (
+            x["platform"],
+            x["k8s_version_actual"],
+            x["pillar_version"],
+            x.get("ubi_version", ""),
+        ),
     )
 
     for t in sorted_plan:
         cw = "Yes" if t["cluster_wide"] == "YES" else "No"
+        ubi = t.get("ubi_version", "")
         lines.append(
-            f"| {t['platform']} | {t['k8s_version_actual']} | {t['pillar_version']} | {cw} |  |  |"
+            f"| {t['platform']} | {t['k8s_version_actual']} | {t['pillar_version']} | {ubi} | {cw} |  |  |"
         )
 
     return "\n".join(lines)
@@ -320,6 +453,10 @@ def main():
         description="Generate test plan from versions file"
     )
     parser.add_argument("versions_file", help="Path to versions file")
+    parser.add_argument(
+        "--branch",
+        help="Operator branch to test (default: release-{IMAGE_OPERATOR tag})",
+    )
     args = parser.parse_args()
 
     if not Path(args.versions_file).exists():
@@ -333,12 +470,37 @@ def main():
         print("Error: Could not detect database type")
         return 1
 
+    operator = DB_TYPE_TO_OPERATOR[db_type]
+    try:
+        git_branch = derive_git_branch(versions, args.branch)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
+
     test_plan = generate_test_plan(args.versions_file)
     if not test_plan:
         return 1
 
     with open("test_plan.json", "w") as f:
-        json.dump(test_plan, f, indent=2)
+        json.dump(
+            {
+                "schema_version": 1,
+                "operator": operator,
+                "git_branch": git_branch,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generator": {
+                    "version": GENERATOR_VERSION,
+                    "repository_revision": repository_revision(),
+                    "versions_sha256": hashlib.sha256(
+                        Path(args.versions_file).read_bytes()
+                    ).hexdigest(),
+                },
+                "cells": test_plan,
+            },
+            f,
+            indent=2,
+        )
+        f.write("\n")
     print("Saved: test_plan.json")
 
     md_content = [
