@@ -134,9 +134,9 @@ pipeline {
                     echo "=== Docker ==="
                     docker version
 
-                    echo "=== Daemon identity (sudo vs non-sudo) ==="
-                    sudo docker info --format 'sudo:   id={{.ID}} kernel={{.KernelVersion}} security={{.SecurityOptions}}'
-                    docker info --format 'plain:  id={{.ID}} kernel={{.KernelVersion}} security={{.SecurityOptions}}'
+                    echo "=== Agent vs daemon host ==="
+                    echo "agent:  host=$(hostname) kernel=$(uname -r)"
+                    docker info --format 'daemon: host={{.Name}} kernel={{.KernelVersion}} id={{.ID}} security={{.SecurityOptions}}'
 
                     if ! docker buildx version >/dev/null 2>&1; then
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
@@ -155,22 +155,36 @@ pipeline {
                     echo "=== Buildx ==="
                     docker buildx version
 
-                    docker run --privileged --rm \
-                        tonistiigi/binfmt \
-                        --install arm64
-
-                    echo "=== binfmt handlers ==="
-                    ls -la /proc/sys/fs/binfmt_misc/
-
-                    if [ ! -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
-                        echo "qemu-aarch64 binfmt handler is not registered"
-                        exit 1
+                    echo "=== Register qemu-aarch64 binfmt handler on the host ==="
+                    if ! mountpoint -q /proc/sys/fs/binfmt_misc; then
+                        sudo modprobe binfmt_misc || true
+                        sudo mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc
                     fi
+
+                    if [ ! -x /usr/local/bin/qemu-aarch64 ]; then
+                        CID=$(docker create tonistiigi/binfmt:latest)
+                        docker cp "${CID}:/usr/bin/qemu-aarch64" /tmp/qemu-aarch64
+                        docker rm -f "${CID}" >/dev/null
+                        sudo install -m 0755 /tmp/qemu-aarch64 /usr/local/bin/qemu-aarch64
+                        rm -f /tmp/qemu-aarch64
+                    fi
+
+                    if [ -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+                        echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-aarch64 >/dev/null
+                    fi
+
+                    printf '%s\\n' ':qemu-aarch64:M::\\x7fELF\\x02\\x01\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x02\\x00\\xb7\\x00:\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\x00\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\xfe\\xff\\xff\\xff:/usr/local/bin/qemu-aarch64:POCF' \
+                        | sudo tee /proc/sys/fs/binfmt_misc/register >/dev/null
 
                     cat /proc/sys/fs/binfmt_misc/qemu-aarch64
 
-                    grep -q '^enabled' /proc/sys/fs/binfmt_misc/qemu-aarch64
-                    grep -q '^flags:.*F' /proc/sys/fs/binfmt_misc/qemu-aarch64
+                    echo "=== Verify arm64 emulation by running an arm64 container ==="
+                    ARCH=$(docker run --rm --platform linux/arm64 alpine:3.20 uname -m)
+                    echo "arm64 container reports: ${ARCH}"
+                    [ "${ARCH}" = "aarch64" ] || {
+                        echo "arm64 emulation is not working on the daemon host"
+                        exit 1
+                    }
 
                     docker buildx rm "${BUILDX_BUILDER}" >/dev/null 2>&1 || true
 
