@@ -211,6 +211,13 @@ def build_pg_image_lines(operator_version, versions, pmm3):
     lines.extend(build_pg_upgrade_community_image_lines(operator_version))
     lines.append("")
     append_image_line(lines, "LOGCOLLECTOR", "fluentbit", versions.get("logcollector"))
+    logcollector = versions.get("logcollector")
+    append_image_line(
+        lines,
+        "LOGCOLLECTOR_UBI10",
+        "fluentbit",
+        f"{logcollector}-ubi10" if logcollector else None,
+    )
     lines.append("")
     append_image_line(lines, "PMM_CLIENT", "pmm-client", pmm3)
     append_image_line(lines, "PMM_SERVER", "pmm-server", pmm3)
