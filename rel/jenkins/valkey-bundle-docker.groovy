@@ -155,21 +155,36 @@ pipeline {
                     echo "=== Buildx ==="
                     docker buildx version
 
-                    docker run --privileged --rm \
-                        tonistiigi/binfmt \
-                        --install arm64
+                    echo "=== Register qemu-aarch64 binfmt handler on the host ==="
+                    if ! mountpoint -q /proc/sys/fs/binfmt_misc; then
+                        sudo modprobe binfmt_misc || true
+                        sudo mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc
+                    fi
 
-                    echo "=== binfmt handlers as seen by the daemon host ==="
-                    docker run --privileged --rm tonistiigi/binfmt \
-                        | tee /tmp/binfmt.json
+                    if [ ! -x /usr/local/bin/qemu-aarch64 ]; then
+                        CID=$(docker create tonistiigi/binfmt:latest)
+                        docker cp "${CID}:/usr/bin/qemu-aarch64" /tmp/qemu-aarch64
+                        docker rm -f "${CID}" >/dev/null
+                        sudo install -m 0755 /tmp/qemu-aarch64 /usr/local/bin/qemu-aarch64
+                        rm -f /tmp/qemu-aarch64
+                    fi
 
-                    grep -q '"qemu-aarch64"' /tmp/binfmt.json || {
-                        echo "qemu-aarch64 emulator is not registered on the daemon host"
+                    if [ -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+                        echo -1 | sudo tee /proc/sys/fs/binfmt_misc/qemu-aarch64 >/dev/null
+                    fi
+
+                    printf '%s\\n' ':qemu-aarch64:M::\\x7fELF\\x02\\x01\\x01\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x02\\x00\\xb7\\x00:\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\x00\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\xfe\\xff\\xff\\xff:/usr/local/bin/qemu-aarch64:OCF' \
+                        | sudo tee /proc/sys/fs/binfmt_misc/register >/dev/null
+
+                    cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+
+                    echo "=== Verify arm64 emulation by running an arm64 container ==="
+                    ARCH=$(docker run --rm --platform linux/arm64 alpine:3.20 uname -m)
+                    echo "arm64 container reports: ${ARCH}"
+                    [ "${ARCH}" = "aarch64" ] || {
+                        echo "arm64 emulation is not working on the daemon host"
                         exit 1
                     }
-
-                    echo "=== binfmt handlers as seen by the agent (informational) ==="
-                    ls -la /proc/sys/fs/binfmt_misc/ || true
 
                     docker buildx rm "${BUILDX_BUILDER}" >/dev/null 2>&1 || true
 
