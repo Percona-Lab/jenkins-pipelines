@@ -5,10 +5,10 @@
 // (BETA, tech preview) set.
 //
 // PG 19 images are built from PGDG testing packages (ppg-19 does not exist
-// yet); pgAudit and pgBackRest 2.59 are compiled from source inside the
-// images. The PG 19 Dockerfiles are hand-maintained (not sync.sh-generated)
-// until ppg-19 exists — once it is released, 19 joins the regular loop and
-// the pg19 stage here goes away.
+// yet); pgAudit is compiled from source inside the images. The PG 19
+// Dockerfiles are hand-maintained (not sync.sh-generated) until ppg-19
+// exists — once it is released, 19 joins the regular loop and the pg19
+// stage here goes away.
 //
 // Before building anything the job verifies the generated Dockerfiles are in
 // sync with their Percona sources (sync.sh): a build from stale Dockerfiles
@@ -24,8 +24,9 @@
 //   <tag>-ubi8-upgrade-community            - UBI8 pg_upgrade image
 //   <tag>-postgres19-community              - postgres 19 beta (PGDG testing)
 //   <tag>-ppg19-postgres                    - same image under the versioned CR name
-//   <tag>-pgbackrest19                      - pgBackRest 2.59 overlay for the repo-host
-//   <tag>-pgbouncer19                       - pgbouncer under the versioned CR name
+//   <tag>-upgrade19-community               - pg_upgrade image for PG 19 (sources 14-18)
+// A PG 19 cluster uses the regular pgbackrest-community and pgbouncer-community
+// images: their content does not depend on the PostgreSQL major version.
 //
 // pgbackrest and pgbouncer have no UBI8 variant (no upstream Dockerfile-ubi8)
 // and PG 19 has no UBI8 variant (the PGDG testing repository for EL8 is empty).
@@ -116,7 +117,7 @@ pipeline {
             name: 'BUILD_UBI8')
         booleanParam(
             defaultValue: true,
-            description: 'Build and push the PostgreSQL 19 beta image set: postgres19, pgbackrest19, pgbouncer19 (make pg19)',
+            description: 'Build and push the PostgreSQL 19 beta image set: postgres19, upgrade19 (make pg19)',
             name: 'BUILD_PG19')
     }
 
@@ -191,10 +192,7 @@ pipeline {
             when { expression { params.BUILD_PG19 } }
             steps {
                 script {
-                    // pgbackrest19 layers on the community pgbackrest image: use the
-                    // one pushed by the UBI9 stage of this run (or of a previous run
-                    // when BUILD_UBI9 is unchecked)
-                    buildAndPush("pg19 TAG=${imageTag()} PGBACKREST_IMAGE=perconalab/percona-postgresql-operator:${imageTag()}-pgbackrest-community")
+                    buildAndPush("pg19 TAG=${imageTag()}")
                 }
             }
         }
