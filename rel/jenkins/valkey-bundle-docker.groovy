@@ -134,9 +134,9 @@ pipeline {
                     echo "=== Docker ==="
                     docker version
 
-                    echo "=== Daemon identity (sudo vs non-sudo) ==="
-                    sudo docker info --format 'sudo:   id={{.ID}} kernel={{.KernelVersion}} security={{.SecurityOptions}}'
-                    docker info --format 'plain:  id={{.ID}} kernel={{.KernelVersion}} security={{.SecurityOptions}}'
+                    echo "=== Agent vs daemon host ==="
+                    echo "agent:  host=$(hostname) kernel=$(uname -r)"
+                    docker info --format 'daemon: host={{.Name}} kernel={{.KernelVersion}} id={{.ID}} security={{.SecurityOptions}}'
 
                     if ! docker buildx version >/dev/null 2>&1; then
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
@@ -159,18 +159,17 @@ pipeline {
                         tonistiigi/binfmt \
                         --install arm64
 
-                    echo "=== binfmt handlers ==="
-                    ls -la /proc/sys/fs/binfmt_misc/
+                    echo "=== binfmt handlers as seen by the daemon host ==="
+                    docker run --privileged --rm tonistiigi/binfmt \
+                        | tee /tmp/binfmt.json
 
-                    if [ ! -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
-                        echo "qemu-aarch64 binfmt handler is not registered"
+                    grep -q '"qemu-aarch64"' /tmp/binfmt.json || {
+                        echo "qemu-aarch64 emulator is not registered on the daemon host"
                         exit 1
-                    fi
+                    }
 
-                    cat /proc/sys/fs/binfmt_misc/qemu-aarch64
-
-                    grep -q '^enabled' /proc/sys/fs/binfmt_misc/qemu-aarch64
-                    grep -q '^flags:.*F' /proc/sys/fs/binfmt_misc/qemu-aarch64
+                    echo "=== binfmt handlers as seen by the agent (informational) ==="
+                    ls -la /proc/sys/fs/binfmt_misc/ || true
 
                     docker buildx rm "${BUILDX_BUILDER}" >/dev/null 2>&1 || true
 
