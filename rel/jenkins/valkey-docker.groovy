@@ -241,18 +241,34 @@ pipeline {
                     docker buildx imagetools inspect \
                         "${BASE_IMAGE}:${BASE_TAG}@${BASE_DIGEST}"
 
+                    AMD64_DIGEST=$(docker buildx imagetools inspect \
+                        "${BASE_IMAGE}:${BASE_TAG}@${BASE_DIGEST}" \
+                        --format '{{range .Manifest.Manifests}}{{if and (eq .Platform.OS "linux") (eq .Platform.Architecture "amd64")}}{{.Digest}}{{end}}{{end}}')
+
+                    ARM64_DIGEST=$(docker buildx imagetools inspect \
+                        "${BASE_IMAGE}:${BASE_TAG}@${BASE_DIGEST}" \
+                        --format '{{range .Manifest.Manifests}}{{if and (eq .Platform.OS "linux") (eq .Platform.Architecture "arm64")}}{{.Digest}}{{end}}{{end}}')
+
+                    echo "AMD64_DIGEST=${AMD64_DIGEST}"
+                    echo "ARM64_DIGEST=${ARM64_DIGEST}"
+
+                    if [ -z "${AMD64_DIGEST}" ] || [ -z "${ARM64_DIGEST}" ]; then
+                        echo "Pinned base image index does not contain both linux/amd64 and linux/arm64"
+                        exit 1
+                    fi
+
                     echo "=== Test pinned image as amd64 ==="
 
                     docker run --rm \
                         --platform linux/amd64 \
-                        "${BASE_IMAGE}:${BASE_TAG}@${BASE_DIGEST}" \
+                        "${BASE_IMAGE}@${AMD64_DIGEST}" \
                         uname -m
 
                     echo "=== Test pinned image as arm64 ==="
 
                     docker run --rm \
                         --platform linux/arm64 \
-                        "${BASE_IMAGE}:${BASE_TAG}@${BASE_DIGEST}" \
+                        "${BASE_IMAGE}@${ARM64_DIGEST}" \
                         uname -m
                 '''
             }
