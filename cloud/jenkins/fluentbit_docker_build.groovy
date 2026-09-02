@@ -12,7 +12,7 @@ void generateImageSummary(filePath) {
     report += "</ul>\n"
     return report
 }
-void build(String IMAGE_PREFIX, String UBI_VER = ''){
+void buildImage(String IMAGE_PREFIX, String UBI_VER = ''){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
             cd ./source/
@@ -76,10 +76,10 @@ pipeline {
                    ./cloud/local/checkout
                 """
                 retry(3) {
-                    build('logcollector')
+                    buildImage('logcollector')
                 }
                 retry(3) {
-                    build('logcollector', '-ubi10')
+                    buildImage('logcollector', '-ubi10')
                 }
             }
         }
