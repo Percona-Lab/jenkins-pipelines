@@ -134,6 +134,10 @@ pipeline {
                     echo "=== Docker ==="
                     docker version
 
+                    echo "=== Daemon identity (sudo vs non-sudo) ==="
+                    sudo docker info --format 'sudo:   id={{.ID}} kernel={{.KernelVersion}} security={{.SecurityOptions}}'
+                    docker info --format 'plain:  id={{.ID}} kernel={{.KernelVersion}} security={{.SecurityOptions}}'
+
                     if ! docker buildx version >/dev/null 2>&1; then
                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
 
@@ -151,16 +155,22 @@ pipeline {
                     echo "=== Buildx ==="
                     docker buildx version
 
-                    sudo docker run --privileged --rm \
+                    docker run --privileged --rm \
                         tonistiigi/binfmt \
-                        --install all
+                        --install arm64
 
                     echo "=== binfmt handlers ==="
                     ls -la /proc/sys/fs/binfmt_misc/
 
-                    if [ -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
-                        cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+                    if [ ! -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+                        echo "qemu-aarch64 binfmt handler is not registered"
+                        exit 1
                     fi
+
+                    cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+
+                    grep -q '^enabled' /proc/sys/fs/binfmt_misc/qemu-aarch64
+                    grep -q '^flags:.*F' /proc/sys/fs/binfmt_misc/qemu-aarch64
 
                     docker buildx rm "${BUILDX_BUILDER}" >/dev/null 2>&1 || true
 
