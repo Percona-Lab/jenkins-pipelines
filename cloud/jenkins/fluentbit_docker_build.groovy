@@ -12,13 +12,15 @@ void generateImageSummary(filePath) {
     report += "</ul>\n"
     return report
 }
-void build(String IMAGE_PREFIX){
+void build(String IMAGE_PREFIX, String UBI_VER = ''){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
             cd ./source/
             docker login -u '${USER}' -p '${PASS}'
             docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
-            docker buildx build --platform linux/amd64,linux/arm64 --progress plain -t perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX} --push -f fluentbit/Dockerfile fluentbit
+            docker buildx build --platform linux/amd64,linux/arm64 --progress plain \
+                -t perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}${UBI_VER} \
+                --push -f fluentbit/Dockerfile${UBI_VER} fluentbit
             docker logout
         """
     }
@@ -75,6 +77,9 @@ pipeline {
                 """
                 retry(3) {
                     build('logcollector')
+                }
+                retry(3) {
+                    build('logcollector', '-ubi10')
                 }
             }
         }
