@@ -24,9 +24,10 @@
 //   <tag>-ubi8-upgrade-community            - UBI8 pg_upgrade image
 //   <tag>-postgres19-community              - postgres 19 beta (PGDG testing)
 //   <tag>-ppg19-postgres                    - same image under the versioned CR name
-//   <tag>-upgrade19-community               - pg_upgrade image for PG 19 (sources 14-18)
 // A PG 19 cluster uses the regular pgbackrest-community and pgbouncer-community
-// images: their content does not depend on the PostgreSQL major version.
+// images: their content does not depend on the PostgreSQL major version. There
+// is no PG 19 upgrade image: most versioned extensions have no 19 build yet, so
+// a major upgrade to 19 is out of scope for the tech preview.
 //
 // pgbackrest and pgbouncer have no UBI8 variant (no upstream Dockerfile-ubi8)
 // and PG 19 has no UBI8 variant (the PGDG testing repository for EL8 is empty).
@@ -117,7 +118,7 @@ pipeline {
             name: 'BUILD_UBI8')
         booleanParam(
             defaultValue: true,
-            description: 'Build and push the PostgreSQL 19 beta image set: postgres19, upgrade19 (make pg19)',
+            description: 'Build and push the PostgreSQL 19 beta image set: postgres19 (make pg19)',
             name: 'BUILD_PG19')
     }
 

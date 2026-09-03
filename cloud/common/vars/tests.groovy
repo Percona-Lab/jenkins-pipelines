@@ -135,7 +135,7 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}_${ubiVersion}_COMMUNITY",
             IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER_COMMUNITY",
             IMAGE_BACKREST  : "IMAGE_PGBACKREST_COMMUNITY",
-            IMAGE_UPGRADE   : "IMAGE_UPGRADE${pgVersion == '19' ? '19' : ''}_${ubiVersion}_COMMUNITY",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY",
             IMAGE_LOGCOLLECTOR: logcollectorKey
         ]
         return communityImages[imageName] ?: imageName
