@@ -33,6 +33,9 @@ void initParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
         def pillarVersionKey = getPillarVersionKey()
+        if (useCommunityImages() && pillarVersionKey == '19' && "$UBI_VERSION" != 'UBI9') {
+            error('PostgreSQL 19 community images support UBI9 only.')
+        }
         def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
         def ubiSuffix = ("$UBI_VERSION" == "UBI9") ? "" : "_${UBI_VERSION}"
         if (useCommunityImages()) {
@@ -394,7 +397,7 @@ pipeline {
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'ARCH', choices: ['amd64', 'arm64'], description: 'Architecture')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19', '19-community'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19-community'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions. PostgreSQL 19 community supports UBI9 only.')
         choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8', 'UBI10'], description: 'Base image for official, PostGIS, and community pillars. Official/PostGIS UBI9 uses unsuffixed keys; community is UBI8/UBI9 only.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
