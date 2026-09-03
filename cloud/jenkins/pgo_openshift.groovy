@@ -45,7 +45,7 @@ void initParams() {
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE", useCommunityImages() ? "IMAGE_UPGRADE_${UBI_VERSION}_COMMUNITY" : "IMAGE_UPGRADE${ubiSuffix}")
-        env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
+        env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR", ("$UBI_VERSION" == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
         }
