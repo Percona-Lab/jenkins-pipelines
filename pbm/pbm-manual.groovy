@@ -109,20 +109,20 @@ pipeline {
 //            }
 //        }
     }
-//    post {
-//        always {
-//            script {
-//                sh """
-//                    rm -f /tmp/pbm-agent-storage-aws.yaml
-//                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
-//                    rm -f /tmp/pbm-agent-storage-oss.yaml
-//                    rm -f /tmp/pbm-agent-storage-oci.yaml
-//                    rm -f /tmp/pbm-agent-storage-gcp.conf
-//                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
-//                    rm -f /tmp/pbm-agent-storage-azure.conf
-//                """
-//                moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)
-//            }
-//        }
-//    }
+    post {
+        always {
+            script {
+                sh """
+                    rm -f /tmp/pbm-agent-storage-aws.yaml
+                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
+                    rm -f /tmp/pbm-agent-storage-oss.yaml
+                    rm -f /tmp/pbm-agent-storage-oci.yaml
+                    rm -f /tmp/pbm-agent-storage-gcp.conf
+                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
+                    rm -f /tmp/pbm-agent-storage-azure.conf
+                """
+                moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)
+            }
+        }
+    }
 }
