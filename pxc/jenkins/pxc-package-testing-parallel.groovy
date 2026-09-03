@@ -84,6 +84,33 @@ List non_pro_pxc84 = [
                 'amazon-linux-2023-arm'
 ]
 
+List non_pro_pxc97 = [
+                'ubuntu-resolute',
+                'ubuntu-noble',
+                'ubuntu-jammy',
+                'ubuntu-resolute-arm',
+                'ubuntu-noble-arm',
+                'ubuntu-jammy-arm',
+                'debian-13',
+                'debian-12',
+                'debian-13-arm',
+                'debian-12-arm',
+                'ol-8',
+                'ol-9',
+                'rhel-8',
+                'rhel-9',
+                'rhel-10',
+                'rhel-8-arm',
+                'rhel-9-arm',
+                'rhel-10-arm',
+                'rocky-linux-8',
+                'rocky-linux-8-arm',
+                'rocky-linux-9',
+                'rocky-linux-9-arm',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
+]
+
 List pxc_innovation = [
                 'ubuntu-noble',
                 'ubuntu-jammy',
@@ -119,7 +146,7 @@ List pxc57_nodes = [
                 'ol-9'
 ]
 
-List all_possible_nodes = (pro_pxc80 + pro_pxc84 + non_pro_pxc80 + non_pro_pxc84 + pxc_innovation + pxc57_nodes).unique()
+List all_possible_nodes = (pro_pxc80 + pro_pxc84 + non_pro_pxc80 + non_pro_pxc84 + pxc_innovation + pxc57_nodes + non_pro_pxc97).unique()
 
 product_to_test = params.product_to_test
 
@@ -206,7 +233,28 @@ void runNodeBuild(String node_to_test) {
         }
 
 
-    } else {
+    } else if (params.product_to_test == "pxc97") {
+        echo "Testing PXC-9.7 Non Pro packages"
+        job = "pxc-package-testing"
+        env.JOB_TO_RUN = "${job}"
+        test_type = params.test_type
+
+        build(
+            job: "${job}",
+            parameters: [
+                string(name: "product_to_test", value: params.product_to_test),
+                string(name: "node_to_test", value: node_to_test),
+                string(name: "test_repo", value: params.test_repo),
+                string(name: "test_type", value: "${test_type}"),
+                string(name: "pxc57_repo", value: params.pxc57_repo),
+                string(name: "git_repo", value: params.git_repo),
+                string(name: "BRANCH", value: params.BRANCH)
+            ],
+            propagate: true,
+            wait: true
+        )
+    } 
+    else {
         error("Unsupported product_to_test for PRO testing: ${params.product_to_test}")
     }
     echo "inside runNodeBuild job_to_run is ${env.JOB_TO_RUN}"
@@ -224,7 +272,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc_innovation"]'
+                    script: 'return ["pxc97","pxc84", "pxc80", "pxc57", "pxc_innovation"]'
                 ]
             ]
         ],
@@ -308,7 +356,11 @@ properties([
                             } else {
                                 result.add("min_upgrade_pxc_84")
                             }
-                        } 
+                        }
+                        else if (product_to_test == "pxc97") {
+                            result.add("min_upgrade_pxc_97")
+                            result.add("maj_upgrade_pxc84_to_pxc97")
+                        }
                         else if (product_to_test == "pxc_innovation") {
                             result.add("min_upgrade_pxc_innovation")
                         }
@@ -385,6 +437,10 @@ pipeline {
                     if (params.product_to_test == "pxc57") {
                         selectedNodes = pxc57_nodes
                         jobType = "PXC 5.7"
+                        allPossibleNodes = all_possible_nodes
+                    } else if (params.product_to_test == "pxc97") {
+                        selectedNodes = non_pro_pxc97
+                        jobType = "PXC 9.7"
                         allPossibleNodes = all_possible_nodes
                     } else if (params.product_to_test == "pxc80") {
                         selectedNodes = (params.pro_repo == "yes") ? pro_pxc80 : non_pro_pxc80

@@ -127,29 +127,50 @@ void printTestVariables(Map testVariables) {
     echo groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(sanitized))
 }
 
-String getReleaseParamName(String imageName, String pillarVersion, String operator) {
+String getReleaseParamName(String imageName, String pillarVersion, String operator, String ubiVersion = null) {
+    if (operator?.equalsIgnoreCase("pg-operator") && pillarVersion.endsWith("-community")) {
+        def pgVersion = pillarVersion.replace("-community", "")
+        def logcollectorKey = (ubiVersion == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR"
+        def communityImages = [
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}_${ubiVersion}_COMMUNITY",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER_COMMUNITY",
+            IMAGE_BACKREST  : "IMAGE_PGBACKREST_COMMUNITY",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY",
+            IMAGE_LOGCOLLECTOR: logcollectorKey
+        ]
+        return communityImages[imageName] ?: imageName
+    }
+
+    def ubiSuffix = (ubiVersion && ubiVersion != "UBI9") ? "_${ubiVersion}" : ""
+    def pgVersion = pillarVersion.replace("-postgis", "")
+    def logcollectorKey = (ubiVersion == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR"
+
     def operatorImages = [
         "psmdb-operator": [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
         "ps-operator": [
-            IMAGE_MYSQL: "IMAGE_MYSQL${pillarVersion}"
+            IMAGE_MYSQL : "IMAGE_MYSQL${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}",
+            IMAGE_ROUTER: "IMAGE_ROUTER${pillarVersion}"
         ],
         "pxc-operator": [
             IMAGE_PXC   : "IMAGE_PXC${pillarVersion}",
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pillarVersion}",
-            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}${ubiSuffix}",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersion}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersion}",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE${ubiSuffix}",
+            IMAGE_LOGCOLLECTOR: logcollectorKey
         ]
     ]
 
     if (operator?.equalsIgnoreCase("pg-operator") &&
         imageName == "IMAGE_POSTGRESQL" &&
         pillarVersion.endsWith("-postgis")) {
-        return "IMAGE_POSTGIS${pillarVersion}"
+        return "IMAGE_POSTGIS${pgVersion}${ubiSuffix}"
     }
 
     return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
@@ -264,6 +285,19 @@ List loadTestList(String testList, String testSuite) {
     echo tests.collect { " - ${it.name}" }.join('\n')
 
     return tests
+}
+
+void initTestRun(Map testVariables, Map config) {
+    testVariables.tests = loadTestList(config.testList, config.testSuite)
+
+    if (config.ignorePreviousRun == 'NO') {
+        updateListWithLastExecutionStatus(testVariables)
+    } else {
+        echo 'All tests will be re-run, ignoring previous execution results!'
+    }
+
+    loadCloudSecret(config.operator ?: 'ps')
+    testVariables.libraries.tools.stashClonedGitFiles()
 }
 
 void initTests(List tests, Map testVariables, Map config) {
@@ -415,7 +449,8 @@ Map resolveImages(Map testVariables) {
         def releaseParamName = getReleaseParamName(
             imageName,
             testVariables.pillar_version,
-            testVariables.operator
+            testVariables.operator,
+            testVariables.ubi_version
         )
 
         resolvedImages[imageName] = imageValue ?: getReleaseVersionsParam(
@@ -459,6 +494,10 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
         exports << 'export COLUMNS=200'
     }
 
+    if (testVariables.test_executor_type == "kuttl") {
+        exports << 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"'
+    }
+
     testVariables.extra_envs?.each { key, value ->
         exports << "export ${key}='${value ?: ""}'"
     }
@@ -492,6 +531,22 @@ Map buildPxcTestVariables(Map config) {
         cluster_wide           : config.cluster_wide,
         operator               : 'pxc-operator',
         default_operator_image : config.default_operator_image,
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
+Map buildPsTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests ?: 'NO',
+        cluster_wide           : config.cluster_wide,
+        operator               : 'ps-operator',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'kuttl',
         images                 : config.images,
         extra_envs             : config.extra_envs ?: [:]
     ]
@@ -717,7 +772,12 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     }
 
     def createCluster = { testVariables.libraries[testVariables.platform_provider].createCluster(clusterCfg) }
-    def clusterCleanup = { testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig) }
+    def clusterCleanup = {
+        if (testVariables.skip_kubeconfig) {
+            return
+        }
+        testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+    }
     def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
 
     try {
@@ -764,6 +824,30 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     }
 }
 
+void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariables) {
+    def provider = testVariables.platform_provider.toLowerCase()
+
+    if (provider == "eks") {
+        withCredentials([aws(
+            credentialsId: 'eks-cicd',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        )]) {
+            clusterRunner(clusterSuffix, testVariables)
+        }
+        return
+    }
+
+    if (provider == "doks") {
+        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+            clusterRunner(clusterSuffix, testVariables)
+        }
+        return
+    }
+
+    clusterRunner(clusterSuffix, testVariables)
+}
+
 Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
 
@@ -780,17 +864,18 @@ Map buildParallelClusterStages(Map testVariables) {
             stage(clusterSuffix) {
                 if (testVariables.jenkins_agent_label) {
                     node(testVariables.jenkins_agent_label) {
-                        libraries.tools.unstashClonedGitFiles()
-                        libraries.dependencies.prepareNode(
+                        testVariables.libraries.tools.unstashClonedGitFiles()
+                        testVariables.libraries.dependencies.prepareNode(
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
-                            testVariables.platform_provider
+                            testVariables.platform_provider,
+                            testVariables.platform_version
                         )
-                        clusterRunner(clusterSuffix, testVariables)
+                        clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
                     }
                 } else {
-                    clusterRunner(clusterSuffix, testVariables)
+                    clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
                 }
             }
         }
@@ -1038,6 +1123,68 @@ void makeReportJUnit(List tests, Map testVariables) {
     addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
         text: "<pre>${pipelineParameters}</pre>"
     )
+}
+
+void shutdownLeftoverClusters(Map testVariables) {
+    def libraries = testVariables.libraries
+    def kubeconfigPath = testVariables.kubeconfigPath ?: '/tmp'
+
+    (testVariables.clusters ?: []).each { clusterSuffix ->
+        try {
+            def clusterCfg = [
+                clusterName  : testVariables.cluster_name,
+                clusterSuffix: clusterSuffix,
+                region       : testVariables.region,
+                zone         : testVariables.zone,
+                projectId    : testVariables.project_id,
+                kubeconfig   : "${kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+            ]
+
+            if (!testVariables.skip_kubeconfig) {
+                libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+            }
+
+            libraries[testVariables.platform_provider].shutdownCluster(clusterCfg)
+        } catch (err) {
+            echo "Cleanup failed for ${clusterSuffix}: ${err}"
+        }
+    }
+}
+
+void finalizeJob(Map testVariables) {
+    if (!testVariables?.libraries) {
+        echo 'Skipping finalize: libraries not loaded'
+        return
+    }
+
+    echo "CLUSTER ASSIGNMENTS\n" +
+        (testVariables.tests ?: []).toString()
+            .replace('], ', ']\n')
+            .replace(']]', ']')
+            .replaceFirst('\\[', '')
+
+    if (testVariables.tests) {
+        makeReportJUnit(testVariables.tests, testVariables)
+    }
+
+    try {
+        def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
+        sendJobSlack.call(
+            tests          : testVariables.tests,
+            gitBranch      : testVariables.git_branch,
+            platformVer    : testVariables.platform_version,
+            platformChannel: testVariables.platform_channel,
+            platformArch   : testVariables.platform_arch,
+            clusterWide    : testVariables.cluster_wide,
+            image          : testVariables.images?.IMAGE_MYSQL,
+            operatorImage  : testVariables.images?.IMAGE_OPERATOR
+        )
+    } catch (err) {
+        echo "Slack helper load/call failed: ${err}"
+    }
+
+    shutdownLeftoverClusters(testVariables)
+    testVariables.libraries.tools.dockerCleanupVolumes()
 }
 
 return this

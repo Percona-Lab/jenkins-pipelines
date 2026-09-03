@@ -273,7 +273,7 @@ pipeline {
       steps {
         script {
           echo "PXB_RELEASE is ${env.PXB_RELEASE}"
-          installMoleculeBookworm()
+          installMoleculeBookwormMysql()
         }
       }
     }

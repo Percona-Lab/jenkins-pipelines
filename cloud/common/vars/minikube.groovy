@@ -17,4 +17,10 @@ void createCluster(Map clusterCfg) {
     """
 }
 
+void shutdownCluster(Map clusterCfg) {
+    sh '''
+        minikube delete || true
+    '''
+}
+
 return this

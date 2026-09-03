@@ -17,7 +17,7 @@ void gitClone(Map cfg) {
         '''
     }
 
-    stash name: 'sourceFILES', includes: 'source/**'
+    stash name: 'sourceFILES', includes: 'source/**', useDefaultExcludes: false
 }
 
 void stashClonedGitFiles() {
@@ -136,6 +136,10 @@ void dockerCleanupVolumes() {
     sh """
         sudo docker system prune --volumes -af
     """
+}
+
+String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerLabel = 'docker-x64-min') {
+    return params.JENKINS_AGENT == 'Hetzner' ? hetznerLabel : awsLabel
 }
 
 return this

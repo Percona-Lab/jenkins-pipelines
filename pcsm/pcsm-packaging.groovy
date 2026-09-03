@@ -56,6 +56,11 @@ pipeline {
                     }
                 }
             }
+            post {
+                always {
+                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
+                }
+            }
          }
     }
     post {

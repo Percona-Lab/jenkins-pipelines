@@ -41,6 +41,7 @@ void runOpenShiftClusterCreate(String OCP_VERSION, DOCKER_VERSION, HELM_CHART_BR
 
     def clusterCreateJob = build job: 'pmm3-ha-rosa', parameters: [
         string(name: 'OCP_VERSION', value: OCP_VERSION),
+        string(name: 'WORKER_COUNT', value: '4'),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
