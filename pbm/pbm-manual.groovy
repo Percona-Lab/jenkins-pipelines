@@ -24,6 +24,7 @@ pipeline {
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
         password(name: 'PMM_HOST', description: 'PMM host with credentials, format https://user:password@x.x.x.x',defaultValue: 'none')
+        string(name: 'DEBUG_SLEEP',description: 'Seconds to pause after config files are transferred, for manual debugging on the instance',defaultValue: '0')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -82,35 +83,46 @@ pipeline {
                 }
             }
         }
-        stage ('Run tests') {
+        stage ('Debug sleep') {
+            when {
+                expression { params.DEBUG_SLEEP.toInteger() > 0 }
+            }
             steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", params.LAYOUT)
+                script {
+                    echo "Sleeping for ${params.DEBUG_SLEEP} seconds so the instance can be inspected manually (config files are already transferred)."
+                    sleep time: params.DEBUG_SLEEP.toInteger(), unit: 'SECONDS'
                 }
             }
         }
-        stage ('Cleanup') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", params.LAYOUT)
-                }
-            }
-        }
+//        stage ('Run tests') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "verify", params.LAYOUT)
+//                }
+//            }
+//        }
+//        stage ('Cleanup') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", params.LAYOUT)
+//                }
+//            }
+//        }
     }
-    post {
-        always {
-            script {
-                sh """
-                    rm -f /tmp/pbm-agent-storage-aws.yaml
-                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
-                    rm -f /tmp/pbm-agent-storage-oss.yaml
-                    rm -f /tmp/pbm-agent-storage-oci.yaml
-                    rm -f /tmp/pbm-agent-storage-gcp.conf
-                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
-                    rm -f /tmp/pbm-agent-storage-azure.conf
-                """
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)
-            }
-        }
-    }
+//    post {
+//        always {
+//            script {
+//                sh """
+//                    rm -f /tmp/pbm-agent-storage-aws.yaml
+//                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
+//                    rm -f /tmp/pbm-agent-storage-oss.yaml
+//                    rm -f /tmp/pbm-agent-storage-oci.yaml
+//                    rm -f /tmp/pbm-agent-storage-gcp.conf
+//                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
+//                    rm -f /tmp/pbm-agent-storage-azure.conf
+//                """
+//                moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)
+//            }
+//        }
+//    }
 }
