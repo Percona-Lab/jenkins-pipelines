@@ -32,6 +32,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         DOCKER_VERSION    : env.PMM_SERVER_IMAGE,
         AMI_ID            : params.AMI_ID.trim(),
         CLIENT_VERSION    : 'pmm3-rc',
+        SERVER_ARCH       : 'amd64',
         ADMIN_PASSWORD    : 'pmm3admin!',
         HELM_CHART_BRANCH : 'main',
         OPENSHIFT_VERSION : 'latest',
@@ -356,6 +357,7 @@ pipeline {
                                         string(name: 'GIT_BRANCH',      value: 'main'),
                                         string(name: 'GIT_COMMIT_HASH', value: ''),
                                         string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
+                                        string(name: 'SERVER_ARCH',     value: 'arm64'),
                                         string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
                                         string(name: 'INSTALL_REPO',    value: 'testing'),
                                         string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL_ARM64.trim()),
@@ -400,6 +402,20 @@ pipeline {
                                         booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
                                         string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_SCREENSHOTS_TARGET),
                                     ]
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('Lane 4 (arm64)') {
+                    stages {
+                        stage('nightly (Docker, arm64 server)') {
+                            steps {
+                                script {
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (docker, arm64)', [
+                                        SERVER_ARCH: 'arm64',
+                                    ])
                                 }
                             }
                         }
