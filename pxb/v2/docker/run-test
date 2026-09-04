@@ -1,4 +1,12 @@
 #!/bin/bash
+#
+# Run PXB test suite inside a pxc-build container.
+#
+# Usage: ./docker/run-test <SOURCE_IMAGE> <ARCH>
+#   SOURCE_IMAGE  docker tag (oraclelinux:9, ubuntu:noble, asan, etc.)
+#   ARCH          x86_64 | aarch64   (REQUIRED, no default)
+#
+# Image pulled: public.ecr.aws/e7j3v3n0/pxc-build:<distro>[-aarch64]
 
 set -o errexit
 set -o xtrace
@@ -10,6 +18,13 @@ function cleanup (){
 ROOT_DIR=$(cd $(dirname $0)/../sources; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-oraclelinux:9}
+ARCH=${2:?ARCH is required (x86_64 or aarch64)}
+
+case "${ARCH}" in
+    x86_64)  ARCH_SUFFIX="" ;;
+    aarch64) ARCH_SUFFIX="-aarch64" ;;
+    *) echo "ERROR: unsupported ARCH='${ARCH}', expected x86_64 or aarch64" >&2; exit 1 ;;
+esac
 
 if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
     SOURCE_IMAGE='oraclelinux:9'
@@ -32,7 +47,7 @@ if [[ ${WITH_XBCLOUD_TESTS} == "true" ]]; then
   -p 9001:9001 ${DOCKER_NETWORK_FLAG} --name s3 satyapercona/minio:latest
 
   export S3_SERVER_IP=$(docker inspect s3 | egrep "\"IPAddress\": \"([0-9]{1,3}\.){3}[0-9]{1,3}" | awk -F'"' '{print $4}' | head -n 1)
-  export XBCLOUD_CREDENTIALS="--storage=s3 --s3-endpoint='http://${S3_SERVER_IP}:9000' --s3-access-key=myuser --s3-secret-key=someStrongPWD --s3-bucket=newbucket"
+  export XBCLOUD_CREDENTIALS="--storage=s3 --s3-endpoint=http://${S3_SERVER_IP}:9000 --s3-access-key=myuser --s3-secret-key=someStrongPWD --s3-bucket=newbucket"
 fi
 
 if [[ ${WITH_VAULT_TESTS} == "true" ]]; then
@@ -44,12 +59,12 @@ if [[ ${WITH_VAULT_TESTS} == "true" ]]; then
     ATTEMPT=1
     while [ "${TOKEN}" == "" ];
     do
-        sleep 2
-        export TOKEN=$(docker logs vault | grep 'export VAULT_TOKEN' | awk -F'=' '{print $2}')
-        if [[ ${ATTEMPT} -eq 10 ]]; then
+        if [[ ${ATTEMPT} -gt 10 ]]; then
             echo "Vault token not found"
             exit 1
         fi
+        sleep 2
+        export TOKEN=$(docker logs vault | grep 'export VAULT_TOKEN' | awk -F'=' '{print $2}')
         ATTEMPT=$((ATTEMPT+1))
     done
 
@@ -73,7 +88,7 @@ docker run --rm \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxb \
     --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
     ${DOCKER_NETWORK_FLAG} \
-    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-}${ARCH_SUFFIX} \
     sh -c "
     set -o errexit
     set -o xtrace
