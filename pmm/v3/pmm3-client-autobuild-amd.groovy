@@ -272,7 +272,8 @@ pipeline {
                     env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                     build job: 'pmm3-client-repo-push', parameters: [
                         string(name: 'DESTINATION', value: params.DESTINATION),
-                        string(name: 'UPLOAD_PATH', value: env.UPLOAD_PATH)
+                        string(name: 'UPLOAD_PATH', value: env.UPLOAD_PATH),
+                        string(name: 'TARBALL_ARCH', value: 'x86_64')
                     ]
                 }
             }

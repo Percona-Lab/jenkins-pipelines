@@ -299,13 +299,13 @@ def setup(){
                 script {
                     try {
                         echo "Installing Molecule Bookworm..."
-                        installMoleculeBookworm()
+                        installMoleculeBookwormMysql()
                         echo "Installation completed successfully"
                     } catch (Exception e) {
                         echo "First attempt failed: ${e.getMessage()}"
                         echo "Retrying installation..."
                         try {
-                            installMoleculeBookworm()
+                            installMoleculeBookwormMysql()
                             echo "Installation completed successfully on retry"
                         } catch (Exception retryException) {
                             echo "Retry failed: ${retryException.getMessage()}"

@@ -1,6 +1,6 @@
 import groovy.transform.Field
 
-@Field Integer numClusters = 4
+@Field Integer numClusters = 8
 @Field List clusters = []
 
 @Field Map libraries = [:]
@@ -15,10 +15,11 @@ def getLibraries() {
 
 pipeline {
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-distro.csv'], description: 'Choose test suite from file')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'Set PG version for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19-community'], description: 'Set PG version for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions. PostgreSQL 19 community supports UBI9 only.')
+        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8', 'UBI10'], description: 'Base image for official, PostGIS, and community pillars. Official/PostGIS UBI9 uses unsuffixed keys; community is UBI8/UBI9 only.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
@@ -35,8 +36,6 @@ pipeline {
         string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-pgbackrest18')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'Example: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'Example: perconalab/pmm-server:dev-latest')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'Example: perconalab/pmm-client:3-dev-latest')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'Example: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-upgrade')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'Example: perconalab/percona-postgresql-operator:main-logcollector')
 
@@ -103,9 +102,14 @@ pipeline {
         stage('Prepare Test Variables') {
             steps {
                 script {
+                    def communityRun = PILLAR_VERSION.endsWith('-community')
+                    if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
+                        error('PostgreSQL 19 community images support UBI9 only.')
+                    }
                     def extraEnvs = [
                         SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS,
-                        PG_VER: PG_VERSION
+                        PG_VER: communityRun ? PILLAR_VERSION.replace('-community', '') : PG_VERSION,
+                        PG_DISTRIBUTION: communityRun ? 'community' : ''
                     ]
 
                     testVariables = libraries.tests.prepareVersions([
@@ -124,6 +128,7 @@ pipeline {
 
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
+                        ubi_version           : UBI_VERSION,
 
                         git_branch            : GIT_BRANCH,
                         source_repo           : sourceRepo,
@@ -141,8 +146,6 @@ pipeline {
                             IMAGE_BACKREST    : IMAGE_BACKREST,
                             IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
                             IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-                            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-                            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
                             IMAGE_UPGRADE     : IMAGE_UPGRADE,
                             IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR
                         ],
