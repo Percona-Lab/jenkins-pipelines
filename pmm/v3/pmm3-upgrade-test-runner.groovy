@@ -43,7 +43,6 @@ void checkClientAfterUpgrade(String CLIENT_VERSION) {
 def versionsList = pmmVersion('v3')[-5..-1]
 def oldestVersion = versionsList.first()
 def latestVersion = versionsList.last()
-def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
