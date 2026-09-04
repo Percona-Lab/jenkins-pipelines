@@ -257,24 +257,30 @@ Map prepareVersions(Map testVariables) {
     return testVariables
 }
 
-List loadTestList(String testList, String testSuite) {
+List loadTestList(String testList, String testSuite, Map opts = [:]) {
     echo "=========================[ Loading tests ]========================="
-    def suiteFileName = "source/e2e-tests/${testSuite}"
+    def records = []
 
     if (testList?.trim()) {
-        suiteFileName = "source/e2e-tests/run-custom.csv"
-
-        writeFile file: suiteFileName, text: testList
-
-        sh """
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
+        records = testList.split('\n').findAll { it.trim() }
+        echo "Custom test suite contains following tests:\n" + records.join('\n')
+    } else {
+        def operatorMode = opts.operatorMode ?: ((opts.clusterWide == 'YES') ? 'cluster-wide' : 'namespaced')
+        def platformArg = opts.platform ? "--platform ${opts.platform}" : ''
+        def output = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                cd source
+                uv run e2e-tests/select_tests.py list --suite ${testSuite} ${platformArg} --operator-mode ${operatorMode} --format lines
+            """,
+            returnStdout: true
+        ).trim()
+        records = output.split('\n').findAll { it }
     }
 
-    def tests = readCSV(file: suiteFileName).collect { record ->
+    def tests = records.collect { name ->
         [
-            name   : record[0],
+            name   : name,
             cluster: "NA",
             result : "skipped",
             time   : 0.0,

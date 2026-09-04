@@ -24,7 +24,7 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv', 'run-backups.csv'], description: 'Choose test suite from file')
+        choice(name: 'TEST_SUITE', choices: ['release', 'distro', 'backups'], description: 'Choose test suite from e2e-tests/tests.yaml (used only if TEST_LIST not specified).')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
         choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Set to 60/70/80/83 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
@@ -160,7 +160,10 @@ pipeline {
         stage('Init Tests') {
             steps {
                 script {
-                    testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE)
+                    testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE, [
+                        platform   : testVariables.platform,
+                        clusterWide: CLUSTER_WIDE
+                    ])
 
                     if (IGNORE_PREVIOUS_RUN == 'NO') {
                         libraries.tests.updateListWithLastExecutionStatus(testVariables)
