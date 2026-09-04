@@ -67,7 +67,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPSMDB(pdmdbOperatingSystems(PSMDB_REPO), moleculeDir)
+                    moleculeParallelTestPSMDB(ps4mOperatingSystems(), moleculeDir)
                 }
             }
             post {
@@ -86,7 +86,7 @@ pipeline {
         }
         always {
             script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_REPO), moleculeDir)
+                moleculeParallelPostDestroy(ps4mOperatingSystems(), moleculeDir)
             }
         }
     }

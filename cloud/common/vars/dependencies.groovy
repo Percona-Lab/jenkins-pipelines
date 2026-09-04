@@ -117,19 +117,25 @@ void installPxcTools() {
         sudo yum install -y percona-xtrabackup-84
     '''
 }
+ 
+void installKuttl(String version = '0.25.0') {
+    sh """
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+        command -v kubectl-krew >/dev/null || {
+            curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+            ./krew-linux_amd64 install krew
+        }
 
-void installKuttl() {
-    sh '''
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+        command -v kubectl-assert >/dev/null || kubectl krew install assert
 
-        kubectl krew install assert
+        dir="\$(mktemp -d)"
+        git clone -q https://github.com/kubernetes-sigs/krew-index.git "\$dir"
+        commit=\$(git -C "\$dir" log -S"v${version}" --format='%H' -- plugins/kuttl.yaml | tail -1)
+        rm -rf "\$dir"
 
-        # v0.25.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
-        echo $(kubectl kuttl --version) is installed
-    '''
+        kubectl krew install --manifest-url "https://raw.githubusercontent.com/kubernetes-sigs/krew-index/\$commit/plugins/kuttl.yaml"
+        kubectl kuttl --version
+    """
 }
 
 void installOpenshiftClient(String platformVersion) {
@@ -155,6 +161,14 @@ void installDoctl() {
     '''
 }
 
+void installMinikube() {
+    sh '''
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo chmod +x /usr/local/bin/minikube
+        minikube version
+    '''
+}
+
 void installAzureCLI() {
     sh '''
         if ! command -v az &>/dev/null; then
@@ -170,6 +184,56 @@ void installAzureCLI() {
             fi
         fi
     '''
+}
+
+void installExecutorDependencies(String testExecutorType) {
+    switch (testExecutorType) {
+        case 'kuttl':
+            installKuttl()
+            break
+
+        case 'make':
+            installUv()
+            syncPythonDeps()
+            break
+    }
+}
+
+void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
+    // PSMDB requires Google and Azure CLIs, regardless of the provider.
+    // Rancher requires Google CLI to create cluster as GCE instances are used.
+
+    if (provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb-operator') {
+        installGoogleCLI()
+        libraries.gcloud.auth()
+    }
+
+    if (provider == 'azure' || operator == 'psmdb-operator') {
+        installAzureCLI()
+        libraries.azure.auth()
+    }
+
+    if (provider == 'eks') {
+        installEksctl()
+    }
+
+    if (provider == 'doks') {
+        installDoctl()
+    }
+
+    if (provider == 'minikube') {
+        installMinikube()
+    }
+
+    if (provider == 'openshift') {
+        installOpenshiftClient(platformVersion ?: 'latest')
+    }
+}
+
+void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
+    install()
+    installExecutorDependencies(testExecutorType)
+    installProviderDependencies(libraries, operator, provider, platformVersion)
 }
 
 return this

@@ -6,6 +6,8 @@ import groovy.transform.Field
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
 @Field String clusterType = "rancher"
+@Field String sourceRepo = 'https://github.com/percona/percona-server-mongodb-operator'
+@Field String operatorImage = 'docker.io/perconalab/percona-server-mongodb-operator'
 
 def getLibraries() {
     def loader = load('cloud/common/libraries.groovy')
@@ -72,6 +74,10 @@ pipeline {
                     deleteDir()
                     checkout scm
                     getLibraries()
+                    libraries.tools.gitClone([
+                        repo: sourceRepo,
+                        branch: GIT_BRANCH
+                    ])
                 }
             }
         }
@@ -79,19 +85,12 @@ pipeline {
         stage('Prepare Node') {
             steps {
                 script {
-                    libraries.tools.gitClone(
-                        branch: GIT_BRANCH,
-                        repo: 'https://github.com/percona/percona-server-mongodb-operator'
+                    libraries.dependencies.prepareNode(
+                        libraries,
+                        'make',
+                        'psmdb-operator',
+                        'rancher'
                     )
-
-                    libraries.dependencies.install()
-                    libraries.dependencies.installGoogleCLI()
-                    libraries.dependencies.installAzureCLI()
-                    libraries.dependencies.installUv()
-                    libraries.dependencies.syncPythonDeps()
-
-                    libraries.gcloud.auth()
-                    libraries.azure.auth()
                 }
             }
         }
@@ -100,7 +99,7 @@ pipeline {
             steps {
                 script {
                     libraries.tools.dockerBuildAndPush(
-                        operatorImage: 'perconalab/percona-server-mongodb-operator',
+                        operatorImage: operatorImage,
                         branch: GIT_BRANCH,
                         platform: 'linux/amd64,linux/arm64'
                     )
@@ -136,7 +135,7 @@ pipeline {
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'make',
 
-                        default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
+                        default_operator_image: "${operatorImage}:${GIT_BRANCH}",
 
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
@@ -185,7 +184,8 @@ pipeline {
                     testVariables.kubeconfigPath = '/tmp'
                     testVariables.retries = 1
 
-                    parallel libraries.tests.getParallelStages(testVariables)
+                    // Creates clusters in parallel and runs tests in parallel on each cluster
+                    parallel libraries.tests.buildParallelClusterStages(testVariables)
                 }
             }
         }

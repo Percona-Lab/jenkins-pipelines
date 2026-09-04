@@ -1,14 +1,18 @@
-region='us-central1-c'
+region='us-central1-a'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getPillarVersionKey() {
-    return "$PILLAR_VERSION".replace('-postgis', '')
+    return "$PILLAR_VERSION".replace('-postgis', '').replace('-community', '')
 }
 
 Boolean usePostgisImage() {
     return "$PILLAR_VERSION".endsWith('-postgis')
+}
+
+Boolean useCommunityImages() {
+    return "$PILLAR_VERSION".endsWith('-community')
 }
 
 String getParam(String paramName, String keyName = null) {
@@ -29,15 +33,25 @@ void initParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
         def pillarVersionKey = getPillarVersionKey()
+        if (useCommunityImages() && pillarVersionKey == '19' && "$UBI_VERSION" != 'UBI9') {
+            error('PostgreSQL 19 community images support UBI9 only.')
+        }
         def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
+        def ubiSuffix = ("$UBI_VERSION" == "UBI9") ? "" : "_${UBI_VERSION}"
+        if (useCommunityImages()) {
+            postgresImageKey = "IMAGE_POSTGRESQL${pillarVersionKey}_${UBI_VERSION}_COMMUNITY"
+        } else {
+            postgresImageKey += ubiSuffix
+        }
 
         env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
         env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
-        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${pillarVersionKey}")
-        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${pillarVersionKey}")
+        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", useCommunityImages() ? "IMAGE_PGBOUNCER_COMMUNITY" : "IMAGE_PGBOUNCER${pillarVersionKey}")
+        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", useCommunityImages() ? "IMAGE_PGBACKREST_COMMUNITY" : "IMAGE_BACKREST${pillarVersionKey}")
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
+        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE", useCommunityImages() ? "IMAGE_UPGRADE_${UBI_VERSION}_COMMUNITY" : "IMAGE_UPGRADE${ubiSuffix}")
+        env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR", ("$UBI_VERSION" == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
         }
@@ -49,10 +63,16 @@ void initParams() {
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
 
+    if ("$ARCH" == "arm64") {
+        MACHINE_TYPE = "t2a-standard-4"
+    } else {
+        MACHINE_TYPE = "n1-standard-4"
+    }
+
     if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
+        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL $ARCH " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
     env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg18", , returnStdout: true).trim()
     echo "DB_TAG is $DB_TAG"
@@ -68,7 +88,7 @@ void prepareSources() {
 
 void createHash() {
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$ARCH-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_UPGRADE-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
 }
 
@@ -228,7 +248,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
-                    --machine-type n1-standard-4 \
+                    --machine-type $MACHINE_TYPE \
                     --num-nodes=4 \
                     --min-nodes=4 \
                     --max-nodes=6 \
@@ -283,9 +303,14 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export IMAGE_UPGRADE=$IMAGE_UPGRADE
+                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
                     export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
+                    if [[ "$PILLAR_VERSION" == *-community ]]; then
+                        export PG_DISTRIBUTION=community
+                        export PG_VER="\${PILLAR_VERSION%-community}"
+                    fi
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
@@ -344,8 +369,10 @@ IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
 IMAGE_UPGRADE=${IMAGE_UPGRADE ?: 'e2e_defaults'}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER
-GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
+GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL
+ARCH=$ARCH"""
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
@@ -366,10 +393,12 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
+        choice(name: 'ARCH', choices: ['amd64', 'arm64'], description: 'Architecture')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19-community'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions. PostgreSQL 19 community supports UBI9 only.')
+        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8', 'UBI10'], description: 'Base image for official, PostGIS, and community pillars. Official/PostGIS UBI9 uses unsuffixed keys; community is UBI8/UBI9 only.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'GKE_RELEASE_CHANNEL', choices: ['rapid', 'stable', 'regular', 'None'], description: 'GKE release channel. Will be forced to stable for release run.')
@@ -382,7 +411,8 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
-        string(name: 'GKE_REGION', defaultValue: 'us-central1-c', description: 'GKE region to use for cluster')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-logcollector')
+        string(name: 'GKE_REGION', defaultValue: 'us-central1-a', description: 'GKE region to use for cluster')
         choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
     }
     agent {
@@ -457,6 +487,46 @@ pipeline {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
+                    }
+                }
+                stage('cluster6') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster6')
+                    }
+                }
+                stage('cluster7') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster7')
+                    }
+                }
+                stage('cluster8') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster8')
                     }
                 }
             }
