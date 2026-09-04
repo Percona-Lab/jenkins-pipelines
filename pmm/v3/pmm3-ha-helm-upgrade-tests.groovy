@@ -30,8 +30,6 @@ void runEKSClusterCreate(String k8sVersion) {
     env.PLATFORM = 'eks'
     env.CLUSTER_JOB_NAME = 'pmm3-ha-eks'
     env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
-    // Pinned to this exact build: the create job may run concurrently for other
-    // requesters, so lastSuccessful is not safe here.
     env.CLUSTER_BUILD_NUMBER = clusterCreateJob.number.toString()
     env.KUBECONFIG_ARTIFACT = 'kubeconfig'
 }
@@ -207,8 +205,6 @@ pipeline {
         }
         stage('Verify the cluster has no PMM') {
             steps {
-                // Fails closed: if the create job installed PMM anyway, the upgrade
-                // scenario would silently start from the wrong place.
                 sh '''
                     if helm list --namespace pmm --filter '^pmm-ha$' -q 2>/dev/null | grep -q .; then
                         echo "ERROR: pmm-ha is already installed on this cluster." >&2
@@ -238,9 +234,6 @@ pipeline {
                         '''
                     }
 
-                    // Read back rather than assumed: with RELEASE_DOCKER_VERSION empty the
-                    // script resolves the released image itself, and the pre-upgrade test
-                    // asserts against whatever actually got installed.
                     env.RELEASE_DOCKER_VERSION = sh(
                         returnStdout: true,
                         script: "awk -F= '/^image=/{print \$2}' ${env.PMM_HA_SUMMARY}",
@@ -296,8 +289,6 @@ pipeline {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                // Never add --reporter: a CLI reporter replaces the whole config list,
-                // including the junit reporter the junit step below consumes.
                 sh '''
                     pushd /srv/pmm-qa/e2e_tests
                         export CI=true
@@ -327,8 +318,6 @@ pipeline {
                 timeout(time: 30, unit: 'MINUTES')
             }
             steps {
-                // Asserts the operators moved while the pmm-ha release, its pods and the
-                // version they serve did not.
                 sh '''
                     pushd /srv/pmm-qa/e2e_tests
                         export CI=true
@@ -344,9 +333,6 @@ pipeline {
             }
             steps {
                 withEnv(["PMM_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}"]) {
-                    // Same flags as the install, but the chart comes from the
-                    // percona-helm-charts branch instead of the published repo. --charts
-                    // pmm-ha leaves the operators exactly as installed.
                     sh '''
                         /srv/pmm-qa/k8s/install_pmm_ha.sh \
                             --platform "${PLATFORM}" \
@@ -410,10 +396,6 @@ pipeline {
             '''
             archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
             archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
-            // allowEmptyResults: a run that dies before the test phase writes no XML at
-            // all, and that should not mask the real failure.
-            // keepLongStdio: Playwright puts the whole error and code frame in the
-            // failure body, which the plugin truncates by default.
             junit testResults: 'output/junit.xml', keepLongStdio: true, allowEmptyResults: true,
                 skipPublishingChecks: true
             script {
