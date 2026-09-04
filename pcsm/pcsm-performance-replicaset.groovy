@@ -25,6 +25,8 @@ pipeline {
         booleanParam(name: 'FULL_DATA_COMPARE', defaultValue: false, description: 'Run full data comparison after sync (not recommended for large datasets)')
         string(name: 'EXTRA_VARS', description: 'Any extra Environment Variables for ClusterSync (e.g. PCSM_CLONE_NUM_INSERT_WORKERS: 0, PCSM_CLONE_NUM_PARALLEL_COLLECTIONS: 0. Make sure to separate using commas)',defaultValue: '')
         string(name: 'TIMEOUT',description: 'Timeout for the data replication',defaultValue: '3600')
+        string(name: 'LIVE_WRITE_DURATION',description: 'Seconds to run a background writer against the source after sync starts, so live replication dashboards (e.g. Events Rate) have ongoing traffic to show. 0 disables it.',defaultValue: '0')
+        string(name: 'LIVE_WRITE_INTERVAL',description: 'Seconds between each background-writer insert while LIVE_WRITE_DURATION is active',defaultValue: '0.5')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
         booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically destroys environment upon finishing tests, leave unchecked if you do not want to delete instances.')
