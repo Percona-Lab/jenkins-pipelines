@@ -6,7 +6,7 @@
         postgresql-containers/community: UBI9 (postgres 14-18, pgbackrest,
         pgbouncer, upgrade), UBI8 (postgres 14-18, upgrade; under TAG-ubi8)
         and the PostgreSQL 19 (BETA, tech preview) set: postgres19-community,
-        ppg19-postgres, pgbackrest19 (2.59), pgbouncer19.
+        ppg19-postgres.
         Do not edit this job through the web!
     concurrent: false
     properties:
@@ -44,4 +44,4 @@
     - bool:
         name: BUILD_PG19
         default: true
-        description: 'Build and push the PostgreSQL 19 beta image set: postgres19, pgbackrest19, pgbouncer19 (make pg19)'
+        description: 'Build and push the PostgreSQL 19 beta image set: postgres19 (make pg19)'
