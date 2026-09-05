@@ -51,6 +51,11 @@ pipeline {
                         triggerJobMultiple("pso-openshift-1")
                     }
                 }
+                stage('Trigger pso-rancher-1 job 2 times') {
+                    steps {
+                        triggerJobMultiple("pso-rancher-1")
+                    }
+                }
             }
         }
     }
@@ -59,6 +64,7 @@ pipeline {
             copyArtifacts(projectName: 'pso-gke-1', selector: lastCompleted(), target: 'pso-gke-1')
             copyArtifacts(projectName: 'pso-eks-1', selector: lastCompleted(), target: 'pso-eks-1')
             copyArtifacts(projectName: 'pso-openshift-1', selector: lastCompleted(), target: 'pso-openshift-1')
+            copyArtifacts(projectName: 'pso-rancher-1', selector: lastCompleted(), target: 'pso-rancher-1')
             archiveArtifacts '*/*.xml'
             step([$class: 'JUnitResultArchiver', testResults: '*/*.xml', healthScaleFactor: 1.0])
         }

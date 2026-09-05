@@ -11,7 +11,6 @@ pipeline {
     environment {
         CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
-        WATCHTOWER_IMAGE        = "perconalab/watchtower:${VERSION}-rc"
         PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm3/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_AMD64}"
         PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm3/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_ARM64}"
     }
@@ -40,7 +39,7 @@ pipeline {
                         color: '#0000FF',
                         message: "[${JOB_NAME}]: PMM ${VERSION} release has started. \nYou can check progress at: ${BUILD_URL}"                    
                     
-                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>WATCHTOWER: ${WATCHTOWER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
+                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
                     if (!params.PATH_TO_CLIENT_AMD64 || !params.PATH_TO_CLIENT_ARM64) {
                         error("ERROR: empty parameter(s) PATH_TO_CLIENT_AMD64 or PATH_TO_CLIENT_ARM64")
                     }
@@ -363,37 +362,22 @@ ENDSSH
                     sg docker -c "
                         set -ex
                         # push pmm-server
-                        docker pull \${SERVER_IMAGE}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:latest
-                        docker push percona/pmm-server:latest
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:latest
 
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${MID_TAG}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${VERSION}
-                        docker push percona/pmm-server:\${TOP_TAG}
-                        docker push percona/pmm-server:\${MID_TAG}
-                        docker push percona/pmm-server:\${VERSION}
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:\${TOP_TAG}
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:\${MID_TAG}
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:\${VERSION}
 
-                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${TOP_TAG}
-                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${MID_TAG}
-                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${VERSION}
-                        docker push perconalab/pmm-server:\${TOP_TAG}
-                        docker push perconalab/pmm-server:\${MID_TAG}
-                        docker push perconalab/pmm-server:\${VERSION}
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag perconalab/pmm-server:\${TOP_TAG}
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag perconalab/pmm-server:\${MID_TAG}
+                        docker buildx imagetools create \${SERVER_IMAGE} --tag perconalab/pmm-server:\${VERSION}
 
-                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+                        docker pull --platform linux/amd64 percona/pmm-server:\${VERSION}
+                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}-amd64.docker
+                        cp pmm-server-\${VERSION}-amd64.docker pmm-server-\${VERSION}.docker
 
-                         # push watchtower
-                        docker pull \${WATCHTOWER_IMAGE}
-                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:latest
-                        docker push percona/watchtower:latest
-
-                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${TOP_TAG}
-                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${MID_TAG}
-                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${VERSION}
-                        docker push percona/watchtower:\${TOP_TAG}
-                        docker push percona/watchtower:\${MID_TAG}
-                        docker push percona/watchtower:\${VERSION}
+                        docker pull --platform linux/arm64 percona/pmm-server:\${VERSION}
+                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}-arm64.docker
 
                         # push pmm-client
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:latest
@@ -417,6 +401,8 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}-amd64.docker s3://percona-vm/pmm-server-${VERSION}-amd64.docker
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}-arm64.docker s3://percona-vm/pmm-server-${VERSION}-arm64.docker
 
                         aws s3 cp --only-show-errors pmm-client-${VERSION}-amd64.docker s3://percona-vm/pmm-client-${VERSION}-amd64.docker
                         aws s3 cp --only-show-errors pmm-client-${VERSION}-arm64.docker s3://percona-vm/pmm-client-${VERSION}-arm64.docker
@@ -431,6 +417,8 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-amd64.docker pmm-server-${VERSION}-amd64.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-arm64.docker pmm-server-${VERSION}-arm64.docker
 
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.docker
@@ -439,6 +427,8 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
+                        sha256sum pmm-server-${VERSION}-amd64.docker | tee pmm-server-${VERSION}-amd64.sha256sum
+                        sha256sum pmm-server-${VERSION}-arm64.docker | tee pmm-server-${VERSION}-arm64.sha256sum
 
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
@@ -448,6 +438,8 @@ ENDSSH
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm3/${VERSION}/docker"
 
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-amd64.docker pmm-server-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-arm64.docker pmm-server-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
 
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
@@ -513,20 +505,20 @@ ENDSSH
                     imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}"),
                         string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}"),
-                        booleanParam(name: 'USE_ONDEMAND', value: true)
+                        booleanParam(name: 'USE_ONDEMAND', value: true),
+                        booleanParam(name: 'REQUIRE_MULTIARCH', value: true)
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: '*-report.*', projectName: 'pmm3-image-scanning'
+                        copyArtifacts filter: 'trivy-*-report-*.*', projectName: 'pmm3-image-scanning'
                         sh '''
-                            mv trivy-server-report.txt trivy-server-report-${VERSION}.txt
-                            mv trivy-server-report.html trivy-server-report-${VERSION}.html
-
-                            mv trivy-client-report.txt trivy-client-report-${VERSION}.txt
-                            mv trivy-client-report.html trivy-client-report-${VERSION}.html
+                            for report in trivy-*-report-*.*; do
+                                [ -e "${report}" ] || continue
+                                mv "${report}" "${report%.*}-${VERSION}.${report##*.}"
+                            done
                         '''
-                        archiveArtifacts "*-report-${VERSION}.*"
+                        archiveArtifacts "trivy-*-report-*-${VERSION}.*"
                         env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }

@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -22,6 +22,11 @@ pipeline {
             defaultValue: 'perconalab/watchtower:dev-latest',
             description: 'WatchTower docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
             name: 'WATCHTOWER_VERSION'
+        )
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton t4g.xlarge)',
+            name: 'SERVER_ARCH'
         )
         string(
             defaultValue: '3-dev-latest',
@@ -132,6 +137,11 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH'
         )
+        booleanParam(
+            defaultValue: false,
+            description: 'Launch the staging VM on-demand instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -174,7 +184,13 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.xlarge')
+                script {
+                    if (params.SERVER_ARCH == 'arm64') {
+                        runSpotInstance('t4g.xlarge', params.USE_ONDEMAND, 'arm64')
+                    } else {
+                        runSpotInstance('t3.xlarge', params.USE_ONDEMAND)
+                    }
+                }
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -226,15 +242,18 @@ pipeline {
                                     docker network create pmm-qa || true
                                     docker volume create pmm-data
 
-                                    docker run --detach --restart always \
-                                        --network pmm-qa \
-                                        --name watchtower \
-                                        --volume /var/run/docker.sock:/var/run/docker.sock \
-                                        --restart always \
-                                        -e WATCHTOWER_DEBUG=1 \
-                                        -e WATCHTOWER_HTTP_API_TOKEN=testToken \
-                                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
-                                        ${WATCHTOWER_VERSION}
+                                    # watchtower has no arm64 image, and only PMM before 3.9.0 (amd64 only) needs it
+                                    if [ "${SERVER_ARCH}" != "arm64" ]; then
+                                        docker run --detach --restart always \
+                                            --network pmm-qa \
+                                            --name watchtower \
+                                            --volume /var/run/docker.sock:/var/run/docker.sock \
+                                            --restart always \
+                                            -e WATCHTOWER_DEBUG=1 \
+                                            -e WATCHTOWER_HTTP_API_TOKEN=testToken \
+                                            -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                                            ${WATCHTOWER_VERSION}
+                                    fi
 
                                     docker run -d \
                                         -p 443:8443 \
@@ -313,12 +332,8 @@ pipeline {
 
                         pushd /srv/pmm-qa/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
-                            python3 -m venv virtenv
-                            . virtenv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
 
-                            python pmm-framework.py --v \
+                            ./pmm-framework/pmm-framework \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
                                 --client-version=${PMM_CLIENT_VERSION} \
                                 ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
@@ -353,8 +368,12 @@ pipeline {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
+                    # On-demand has no spot request, so gate each call on its own id:
+                    # cancel only a real REQUEST_ID, but always terminate a running AMI_ID.
                     if [ -n "${REQUEST_ID}" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                    fi
+                    if [ -n "${AMI_ID}" ]; then
                         aws ec2 --region us-east-2 terminate-instances --instance-ids ${AMI_ID}
                     fi
                 '''

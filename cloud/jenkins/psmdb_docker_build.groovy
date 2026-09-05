@@ -1,3 +1,7 @@
+import groovy.transform.Field
+
+@Field def failedImages = []
+
 void build(String IMAGE_SUFFIX){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
@@ -42,6 +46,31 @@ void build(String IMAGE_SUFFIX){
             docker logout
         """
     }
+}
+
+List selectedPsmdbImageSuffixes() {
+    def images = []
+
+    if (params.IMAGE_BACKUP) {
+        images << 'backup'
+    }
+    if (params.IMAGE_MONGOD60) {
+        images << 'mongod6.0'
+    }
+    if (params.IMAGE_MONGOD70) {
+        images << 'mongod7.0'
+    }
+    if (params.IMAGE_MONGOD80) {
+        images << 'mongod8.0'
+    }
+    if (params.IMAGE_MONGOD83) {
+        images << 'mongod8.3'
+    }
+    if (params.IMAGE_SEARCH) {
+        images << 'mongot'
+    }
+
+    return images
 }
 
 void verifyImage(String IMAGE){
@@ -133,6 +162,27 @@ String getTrivyCveSummary(String reportGlob) {
 
     return "\n*CVEs found:*\n```\n${table}```\n"
 }
+
+void notifyDockerBuildSlack(String status, String color) {
+    try {
+        if (!fileExists('cloud/common/sendDockerBuildSlackNotification.groovy')) {
+            unstash 'checkout'
+        }
+        def sendDockerSlack = load 'cloud/common/sendDockerBuildSlackNotification.groovy'
+        def trivySummary = getTrivyCveSummary('trivy-*.xml')
+        sendDockerSlack.call(
+            status      : status,
+            color       : color,
+            failedImages: failedImages,
+            gitBranch   : params.GIT_BRANCH,
+            dockerBranch: params.GIT_PD_BRANCH,
+            trivySummary: trivySummary
+        )
+    } catch (err) {
+        echo "Slack helper load/call failed: ${err}"
+    }
+}
+
 pipeline {
     parameters {
         string(
@@ -151,6 +201,14 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
             name: 'GIT_PD_REPO')
+
+        booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Build PSMDB operator image')
+        booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Build PBM image')
+        booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Build PSMDB 6.0 image')
+        booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Build PSMDB 7.0 image')
+        booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Build PSMDB 8.0 image')
+        booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Build PSMDB 8.3 image')
+        booleanParam(name: 'IMAGE_SEARCH', defaultValue: true, description: 'Build mongot image')
     }
     agent {
          label 'docker-x64-min'
@@ -195,27 +253,48 @@ pipeline {
                 sh '''
                     rm -rf cloud
                 '''
+
+                script {
+                    if (!params.IMAGE_OPERATOR && selectedPsmdbImageSuffixes().isEmpty()) {
+                        error('Select at least one image to build')
+                    }
+
+                    echo "Selected images: ${([params.IMAGE_OPERATOR ? 'operator' : null] + selectedPsmdbImageSuffixes()).findAll { it }.join(', ')}"
+                }
             }
         }
 
         stage('Build and push PSMDB operator docker image') {
+            when {
+                expression { params.IMAGE_OPERATOR }
+            }
             steps {
-                retry(3) {
-                    timeout(time: 30, unit: 'MINUTES') {
-                        unstash "sourceFILES"
-                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            sh '''
-                                docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
-                                docker buildx inspect --bootstrap
-                                sg docker -c "
-                                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                                    pushd source
-                                    export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
-                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
-                                    popd
-                                    docker logout
-                                "
-                            '''
+                script {
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        try {
+                            retry(3) {
+                                timeout(time: 30, unit: 'MINUTES') {
+                                    unstash "sourceFILES"
+                                    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                                        sh '''
+                                            docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
+                                            docker buildx inspect --bootstrap
+                                            sg docker -c "
+                                                echo "\$PASS" | docker login -u "\$USER" --password-stdin
+                                                pushd source
+                                                export IMAGE=${IMAGE_REPOSITORY}:${GIT_BRANCH}
+                                                DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                                popd
+                                                docker logout
+                                            "
+                                        '''
+                                    }
+                                }
+                            }
+                        } catch (Exception e) {
+                            failedImages << 'operator'
+                            echo "Failed to build operator: ${e}"
+                            throw e
                         }
                     }
                 }
@@ -224,6 +303,9 @@ pipeline {
 
 
         stage('Build PSMDB docker images') {
+            when {
+                expression { !selectedPsmdbImageSuffixes().isEmpty() }
+            }
             steps {
                 unstash "checkout"
                 sh """
@@ -232,42 +314,48 @@ pipeline {
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
                 """
-                echo 'Build PBM docker image'
-                retry(3) {
-                    build('backup')
-                }
-                echo 'Build PSMDB docker images'
-                retry(3) {
-                    build('mongod6.0')
-                }
-                retry(3) {
-                    build('mongod7.0')
-                }
-                retry(3) {
-                    build('mongod8.0')
-                }
-                retry(3) {
-                    build('mongod8.3')
-                }
-                echo 'Build mongot docker image'
-                retry(3) {
-                    build('mongot')
+                script {
+                    selectedPsmdbImageSuffixes().each { imageSuffix ->
+                        echo "Build ${imageSuffix} docker image"
+                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            try {
+                                retry(3) {
+                                    build(imageSuffix)
+                                }
+                            } catch (Exception e) {
+                                failedImages << imageSuffix
+                                echo "Failed to build ${imageSuffix}: ${e}"
+                                throw e
+                            }
+                        }
+                    }
                 }
             }
         }
 
         stage('Verify and list PSMDB images') {
             steps {
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_BRANCH}")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod6.0")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod7.0")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.0")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongod8.3")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-mongot")
-                verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-backup")
+                script {
+                    sh 'touch list-of-images.txt'
+
+                    if (params.IMAGE_OPERATOR && !failedImages.contains('operator')) {
+                        verifyImage("${IMAGE_REPOSITORY}:${GIT_BRANCH}")
+                    }
+
+                    selectedPsmdbImageSuffixes().each { imageSuffix ->
+                        if (failedImages.contains(imageSuffix)) {
+                            echo "Skipping verify for failed image: ${imageSuffix}"
+                            return
+                        }
+                        verifyImage("${IMAGE_REPOSITORY}:${GIT_PD_BRANCH}-${imageSuffix}")
+                    }
+                }
             }
         }
         stage('Check PSMDB docker images') {
+            when {
+                expression { fileExists('list-of-images.txt') && readFile('list-of-images.txt').trim() }
+            }
             steps {
                 checkImagesForDocker('list-of-images.txt')
             }
@@ -283,25 +371,26 @@ pipeline {
     post {
         always {
             script {
-                def summary = generateImageSummary('list-of-images.txt')
+                if (fileExists('list-of-images.txt') && readFile('list-of-images.txt').trim()) {
+                    def summary = generateImageSummary('list-of-images.txt')
 
-                addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-                    text: "<pre>${summary}</pre>"
-                )
-                // Also save as a file if needed
-                 writeFile(file: 'image-summary.html', text: summary)
+                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                        text: "<pre>${summary}</pre>"
+                    )
+                    writeFile(file: 'image-summary.html', text: summary)
+                } else {
+                    echo 'No successfully built images to summarize'
+                }
             }
         }
         unstable {
             script {
-                def trivySummary = getTrivyCveSummary('trivy-*.xml')
-                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of *PSMDB* operator docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
+                notifyDockerBuildSlack('UNSTABLE', '#F6F930')
             }
         }
         failure {
             script {
-                def trivySummary = getTrivyCveSummary('trivy-*.xml')
-                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of *PSMDB* operator docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
+                notifyDockerBuildSlack('FAILURE', '#FF0000')
             }
         }
         cleanup {

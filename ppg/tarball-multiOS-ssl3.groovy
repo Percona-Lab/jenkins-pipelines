@@ -57,7 +57,7 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '100', artifactNumToKeepStr: '10'))
         disableConcurrentBuilds()
         retry(conditions: [agent()], count: 2)
     }

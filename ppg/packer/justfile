@@ -1,4 +1,4 @@
-# Oracle Linux AMI factory - local build management.
+# EL AMI factory (Oracle Linux + Rocky Linux) - local build management.
 #
 # Runs the SAME packer template + scripts the GitHub Actions workflow uses, so an
 # AMI built locally is identical to a CI-built one. Recipes are parameterized by
@@ -21,7 +21,9 @@ region          := "eu-central-1"
 profile         := env_var_or_default("AWS_PROFILE", "percona-dev-admin")
 
 # --- factory identity: SINGLE SOURCE OF TRUTH (retag here to lift this dir to another product) ---
-os_name         := "oraclelinux"
+os_name         := "oraclelinux"                # OL identity for the OL10 bootstrap path (refresh recipes take an os arg)
+os_list         := "oraclelinux rocky"          # refresh os dimension, space-separated (recipe loops)
+os_csv          := "oraclelinux,rocky"          # same dimension, comma-separated (describe-images OR filters)
 billing_tag     := "ppg-ami-factory"            # iit-billing-tag value (cost attribution + IAM fence)
 role_prod       := "ppg-package-test"           # promoted role the pg.cd consumer selects
 role_test       := "ppg-test-package-test"      # isolated promoted role for env=test bakes
@@ -36,7 +38,7 @@ boottest_sg     := "ppg-ol10-boottest-sg"       # OL10 boot-test SSH security gr
 # --- build matrix dimensions ---
 os_majors       := "8 9 10"
 arches          := "x86_64 arm64"
-root_gib        := "20"                          # reimage target root GiB; MUST match var.volume_size in oracle-linux.pkr.hcl
+root_gib        := "20"                          # reimage target root GiB, MUST match var.volume_size in refresh.pkr.hcl
 
 # common create-tags / role-tags set (billing only), reused everywhere
 common_tags     := "Key=iit-billing-tag,Value=" + billing_tag
@@ -106,7 +108,7 @@ _prune-by-filter apply +filters:
     done
 
 # ===========================================================================
-# packer build / validate (OL8/9 refresh + OL10 once bootstrapped)
+# packer build / validate (OL + Rocky refresh, Rocky lineage roots via seed-rocky)
 # ===========================================================================
 
 # install/upgrade the amazon plugin
@@ -120,109 +122,117 @@ fmt:
     packer fmt reimage
     packer fmt bootstrap
 
-# validate one combo  (maj=8|9|10  arch=x86_64|arm64)
-validate maj="9" arch="x86_64":
-    packer validate -var os_major={{maj}} -var arch={{arch}} .
+# validate one combo  (maj=8|9|10  arch=x86_64|arm64  os=oraclelinux|rocky)
+validate maj="9" arch="x86_64" os="oraclelinux":
+    packer validate -var os={{os}} -var os_major={{maj}} -var arch={{arch}} .
 
-# validate every OL major x arch combo + the smoke template
-validate-all:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    packer init . >/dev/null
-    for m in {{os_majors}}; do for a in {{arches}}; do
-      echo "validate OL$m $a"; packer validate -var os_major=$m -var arch=$a .
-    done; done
-    ( cd smoke && packer init . >/dev/null && packer validate -var candidate_ami=ami-00000000000000000 -var os_major=9 -var arch=x86_64 . )
-    ( cd reimage && packer init . >/dev/null && packer validate -var arch=x86_64 . )
-    ( cd bootstrap && packer init . >/dev/null && packer validate -var raw_ami=ami-00000000000000000 -var arch=x86_64 . )
-
-# fmt-check + validate everything + actionlint the GHA workflow (CI gate, no AWS)
+# fmt-check + validate everything + drift guards (scripts/check.sh, the SAME
+# file the workflow check job runs, so the two gates cannot drift) + actionlint
 check:
     #!/usr/bin/env bash
     set -euo pipefail
-    packer fmt -check -diff . && packer fmt -check -diff smoke && packer fmt -check -diff reimage && packer fmt -check -diff bootstrap
-    just validate-all
-    command -v actionlint >/dev/null && actionlint ../../.github/workflows/ppg-oracle-ami-factory.yml || echo "actionlint not installed; skipping workflow lint"
-    # drift guard: {{root_gib}} must equal var.volume_size in BOTH the refresh + reimage templates
-    # (reimage-surgery partitions root to {{root_gib}}; a mismatch sizes the AMI wrong for the refresh).
-    vs=$(awk '/variable "volume_size"/{f=1} f&&/default/{gsub(/[^0-9]/,"");print;exit}' oracle-linux.pkr.hcl)
-    rvs=$(awk '/variable "volume_size"/{f=1} f&&/default/{gsub(/[^0-9]/,"");print;exit}' reimage/reimage-ol10.pkr.hcl)
-    { [ "$vs" = "{{root_gib}}" ] && [ "$rvs" = "{{root_gib}}" ]; } || { echo "DRIFT: root_gib={{root_gib}} != refresh=$vs / reimage=$rvs"; exit 1; }
-    # plugin-pin parity: the amazon plugin must be pinned to ONE version across every template, so a
-    # supply-chain bump is all-or-nothing instead of drifting silently per-file.
-    amazon_pin() { awk '/hashicorp\/amazon/{f=1} f&&/version =/{gsub(/[^0-9.]/,"");print;exit}' "$1"; }
-    pins=$(for f in oracle-linux.pkr.hcl smoke/smoke.pkr.hcl reimage/reimage-ol10.pkr.hcl bootstrap/finalize-ol10.pkr.hcl; do amazon_pin "$f"; done)
-    n=$(printf '%s\n' "$pins" | grep -c .); u=$(printf '%s\n' "$pins" | sort -u | grep -c .)
-    { [ "$n" -eq 4 ] && [ "$u" -eq 1 ]; } || { echo "DRIFT: amazon plugin pin not uniform across the 4 templates:"; printf '%s\n' "$pins"; exit 1; }
-    echo "check OK"
+    bash scripts/check.sh
 
-# trigger the GHA factory workflow for the full matrix (drive CI from just). Targets the
-# current repo's origin; env=test isolates from the pg.cd consumer (use for validation).
-[doc("trigger the GHA factory workflow matrix (env=test; isolated from the pg.cd consumer)")]
+    if command -v actionlint >/dev/null; then
+      actionlint ../../.github/workflows/ppg-ami-factory.yml
+    else
+      echo "actionlint not installed; skipping workflow lint"
+    fi
+
+# trigger the GHA factory workflow for the FULL os x major x arch matrix, derived
+# from the dimension constants above so it never drifts from them. Targets the
+# current repo's origin; env=test isolates from the pg.cd jobs (use for validation).
+[doc("trigger the GHA factory workflow for the full 12-combo matrix (env=test isolates)")]
 ci-validate ref="master" env="test":
-    gh workflow run ppg-oracle-ami-factory.yml --ref {{ref}} -f env={{env}} \
-      -f combos='[{"os_major":"8","arch":"x86_64"},{"os_major":"8","arch":"arm64"},{"os_major":"9","arch":"x86_64"},{"os_major":"9","arch":"arm64"},{"os_major":"10","arch":"x86_64"},{"os_major":"10","arch":"arm64"}]'
-    @echo "dispatched on {{ref}} (env={{env}}); list runs: gh run list --workflow ppg-oracle-ami-factory.yml -L1"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    combos=$(python3 -c "import json,sys; oses,majors,arches=(part.split() for part in sys.argv[1:4]); print(json.dumps([{'os':os_name,'os_major':major,'arch':arch} for os_name in oses for major in majors for arch in arches]))" "{{os_list}}" "{{os_majors}}" "{{arches}}")
+    gh workflow run ppg-ami-factory.yml --ref "{{ref}}" -f "env={{env}}" -f "combos=${combos}"
+    echo "dispatched {{ref}} (env={{env}}) with the full matrix; list runs: gh run list --workflow ppg-ami-factory.yml -L1"
+
+# dispatch the GHA workflow to seed the six Rocky lineage roots. Defaults to
+# env=prod like seed-rocky: a test seed promotes only the isolated test role,
+# which the prod-role refresh lineage lookup never sees (env=test validates only).
+[doc("dispatch the GHA workflow to seed all six Rocky lineage roots (env=prod|test)")]
+ci-seed-rocky ref="master" env="prod":
+    gh workflow run ppg-ami-factory.yml --ref {{ref}} -f env={{env}} \
+      -f combos='[{"os":"rocky","os_major":"8","arch":"x86_64","seed":true},{"os":"rocky","os_major":"8","arch":"arm64","seed":true},{"os":"rocky","os_major":"9","arch":"x86_64","seed":true},{"os":"rocky","os_major":"9","arch":"arm64","seed":true},{"os":"rocky","os_major":"10","arch":"x86_64","seed":true},{"os":"rocky","os_major":"10","arch":"arm64","seed":true}]'
+    @echo "dispatched Rocky seeds on {{ref}} (env={{env}}); list runs: gh run list --workflow ppg-ami-factory.yml -L1"
 
 # build one combo  (env=prod real tags | test isolated tags)  -- candidate only, no promote
-build maj="9" arch="x86_64" env="prod":
+build maj="9" arch="x86_64" env="prod" os="oraclelinux" seed="false":
     #!/usr/bin/env bash
     set -euo pipefail
     eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
     rm -f manifest.json
     AWS_REGION={{region}} packer build -color=false \
-      -var os_major={{maj}} -var arch={{arch}} -var env={{env}} -var region={{region}} .
+      -var os={{os}} -var seed={{seed}} -var os_major={{maj}} -var arch={{arch}} -var env={{env}} -var region={{region}} .
 
 # smoke-test (boot+install) an already-built AMI, then promote on success.
 # Promotion is a SEPARATE retried step: deregister ONLY on a real boot/install
 # failure, never on a transient promote-tag failure.
 [doc("smoke-test (boot+install) an AMI then promote on pass; deregister only on real failure")]
-smoke ami maj arch promote_role=role_prod:
+smoke ami maj arch promote_role=role_prod os="oraclelinux":
     #!/usr/bin/env bash
     set -euo pipefail
     eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
     ( cd smoke && packer init . >/dev/null && \
-      packer build -color=false -var candidate_ami={{ami}} -var os_major={{maj}} -var arch={{arch}} \
+      packer build -color=false -var candidate_ami={{ami}} -var os={{os}} -var os_major={{maj}} -var arch={{arch}} \
         -var region={{region}} . ) \
       || { echo "smoke (boot+install) failed; deregistering {{ami}}"; just _deregister {{ami}}; exit 1; }
     just _promote {{ami}} {{promote_role}}
 
 # full one-combo factory run: build (env) -> native smoke boot-test -> promote
-bake maj="9" arch="x86_64" env="prod":
+bake maj="9" arch="x86_64" env="prod" os="oraclelinux" seed="false":
     #!/usr/bin/env bash
     set -euo pipefail
     eval "$(aws configure export-credentials --profile {{profile}} --format env)"; unset AWS_PROFILE
     rm -f manifest.json
     AWS_REGION={{region}} packer build -color=false \
-      -var os_major={{maj}} -var arch={{arch}} -var env={{env}} -var region={{region}} .
+      -var os={{os}} -var seed={{seed}} -var os_major={{maj}} -var arch={{arch}} -var env={{env}} -var region={{region}} .
     AMI=$(python3 -c "import json;print(json.load(open('manifest.json'))['builds'][-1]['artifact_id'].split(':')[-1])")
-    pr={{role_prod}}; [ "{{env}}" = "test" ] && pr={{role_test}}
-    echo "smoke (boot+install) $AMI"
-    ( cd smoke && packer init . >/dev/null && packer build -color=false \
-        -var candidate_ami=$AMI -var os_major={{maj}} -var arch={{arch}} -var region={{region}} . ) \
-      || { echo "smoke (boot+install) failed; deregistering $AMI"; just _deregister $AMI; exit 1; }
-    just _promote $AMI $pr
+    promote_role={{role_prod}}
+    [[ "{{env}}" = "test" ]] && promote_role={{role_test}}
+    just smoke "$AMI" {{maj}} {{arch}} "$promote_role" {{os}}
 
 # isolated TEST bake of one combo (env=test) - never consumed by pg.cd
-test maj="9" arch="x86_64":
-    @just bake {{maj}} {{arch}} test
+test maj="9" arch="x86_64" os="oraclelinux":
+    @just bake {{maj}} {{arch}} test {{os}}
+
+# one-time per combo: seed a Rocky lineage root from the official community AMI
+# (owner 792107900819, include_deprecated covers the frozen and AWS-deprecated Rocky 8),
+# then smoke + promote. After this, `just bake <maj> <arch> prod rocky` refreshes it.
+# Defaults to env=prod like `bake`: a test seed promotes only the isolated test
+# role, which the refresh lineage lookup (pinned to the prod role) never sees.
+[doc("seed a Rocky lineage root from the official community AMI: bake + smoke + promote (env=test isolates)")]
+seed-rocky maj="9" arch="x86_64" env="prod":
+    @just bake {{maj}} {{arch}} {{env}} rocky true
 
 # build + promote ALL OL major x arch  (env=prod by default; pass test for isolated).
 # Resilient: a failed combo is recorded and the rest still run; exits non-zero with a
 # summary if any combo failed (each combo's own deregister-on-smoke-failure still applies).
-[doc("build + promote every OL major x arch (env=prod|test); resilient, non-zero if any combo fails")]
-all env="prod":
+[doc("build + promote every major x arch for one os (env=prod|test); resilient, non-zero if any combo fails")]
+all env="prod" os="oraclelinux":
     #!/usr/bin/env bash
     set -uo pipefail
-    ok=""; fail=""
-    for m in {{os_majors}}; do for a in {{arches}}; do
-      echo "=========== bake OL$m $a (env={{env}}) ==========="
-      if just bake $m $a {{env}}; then ok="$ok OL$m-$a"; else fail="$fail OL$m-$a"; fi
-    done; done
+    ok=""
+    fail=""
+
+    for major in {{os_majors}}; do
+      for arch in {{arches}}; do
+        echo "=========== bake {{os}} ${major} ${arch} (env={{env}}) ==========="
+
+        if just bake "${major}" "${arch}" {{env}} {{os}}; then
+          ok="${ok} {{os}}${major}-${arch}"
+        else
+          fail="${fail} {{os}}${major}-${arch}"
+        fi
+      done
+    done
     echo "=========== summary (env={{env}}) ==========="
     echo "  ok:    ${ok:- none}"
     echo "  failed:${fail:- none}"
-    [ -z "$fail" ] || exit 1
+    [[ -z "${fail}" ]] || exit 1
 
 # list factory AMIs for an env (prod|test) with role + creation date
 list env="prod":
@@ -232,9 +242,9 @@ list env="prod":
       --output table
 
 # resolve the newest promoted AMI for a combo (exactly what moleculeEnvPPG does)
-latest maj="9" arch="x86_64" role=role_prod:
+latest maj="9" arch="x86_64" role=role_prod os="oraclelinux":
     aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
-      --filters Name=tag:role,Values={{role}} Name=tag:os,Values={{os_name}} \
+      --filters Name=tag:role,Values={{role}} Name=tag:os,Values={{os}} \
                 Name=tag:os_major,Values={{maj}} Name=tag:arch,Values={{arch}} Name=state,Values=available \
       --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text
 
@@ -243,8 +253,8 @@ prune-test apply="0":
     @echo "prune-test (apply={{apply}}; lists unless apply=1):"
     @just _prune-by-filter "{{apply}}" --filters Name=tag:factory_env,Values=test
 
-# deregister stale factory intermediates: factory-owned OL AMIs (selected by the
-# {{billing_tag}} + {{os_name}} VARIABLES, not by role name) that are neither the
+# deregister stale factory intermediates: factory-owned OL/Rocky AMIs (selected by
+# the {{billing_tag}} + {{os_csv}} VARIABLES, not by role name) that are neither the
 # promoted prod base (role={{role_prod}}) nor an isolated test AMI (factory_env=test).
 # Selecting by factory-ownership instead of enumerating role literals catches every
 # transient (raw, refresh/bootstrap candidates, renamed orphans) and never drifts as
@@ -255,7 +265,7 @@ prune-stale apply="0":
     set -euo pipefail
     echo "prune-stale (apply={{apply}}; lists unless apply=1):"
     ids=$(aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
-      --filters Name=tag:iit-billing-tag,Values={{billing_tag}} Name=tag:os,Values={{os_name}} \
+      --filters Name=tag:iit-billing-tag,Values={{billing_tag}} Name=tag:os,Values={{os_csv}} \
       --query 'Images[].ImageId' --output text)
     [ -z "$ids" ] && { echo "  (no factory AMIs)"; exit 0; }
     for ami in $ids; do
@@ -286,14 +296,27 @@ prune-superseded apply="0":
     set -euo pipefail
     echo "prune-superseded (apply={{apply}}; lists unless apply=1):"
     aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
-      --filters Name=tag:role,Values={{role_prod}} Name=tag:os,Values={{os_name}} Name=state,Values=available \
-      --query "reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key=='os_major']|[0].Value, Tags[?Key=='arch']|[0].Value]" --output text \
-      | { declare -A keep; while read -r id maj arch; do
-            [ -z "$id" ] && continue
-            { [ "$maj" = None ] || [ "$arch" = None ]; } && { echo "  SKIP $id (untagged maj/arch)"; continue; }
-            k="$maj/$arch"
-            if [ -z "${keep[$k]:-}" ]; then keep[$k]=$id; echo "  KEEP $id (OL$maj $arch, newest)"; continue; fi
-            if [ "{{apply}}" = "1" ]; then echo "  deregister $id (OL$maj $arch, superseded)"; just _deregister "$id"; else echo "  would deregister $id (OL$maj $arch, superseded)"; fi
+      --filters Name=tag:role,Values={{role_prod}} Name=tag:os,Values={{os_csv}} Name=state,Values=available \
+      --query "reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key=='os']|[0].Value, Tags[?Key=='os_major']|[0].Value, Tags[?Key=='arch']|[0].Value]" --output text \
+      | { declare -A keep
+
+          while read -r ami_id os_name major arch; do
+            [[ -z "${ami_id}" ]] && continue
+            [[ "${os_name}" = None || "${major}" = None || "${arch}" = None ]] && { echo "  SKIP ${ami_id} (untagged os/major/arch)"; continue; }
+            combo_key="${os_name}/${major}/${arch}"
+
+            if [[ -z "${keep[${combo_key}]:-}" ]]; then
+              keep[${combo_key}]=${ami_id}
+              echo "  KEEP ${ami_id} (${os_name}${major} ${arch}, newest)"
+              continue
+            fi
+
+            if [[ "{{apply}}" = "1" ]]; then
+              echo "  deregister ${ami_id} (${os_name}${major} ${arch}, superseded)"
+              just _deregister "${ami_id}"
+            else
+              echo "  would deregister ${ami_id} (${os_name}${major} ${arch}, superseded)"
+            fi
           done; }
 
 # create the SSM builder instance profile locally (one-time, for local builds).

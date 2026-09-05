@@ -92,13 +92,18 @@ pipeline {
                                 --query 'SecurityGroups[].GroupId'
                         )
 
-                        export SS1=$(
+                        SUBNET_IDS=$(
                             aws ec2 describe-subnets \
                                 --region $AWS_DEFAULT_REGION \
                                 --output text \
                                 --query 'Subnets[].SubnetId' \
-                                --filter 'Name=tag-value,Values=pmm2-ami-staging-start'
+                                --filter 'Name=tag-value,Values=pmm-ami-staging-start'
                         )
+
+                        if [ -z "$SUBNET_IDS" ]; then
+                            echo "ERROR: no subnets tagged 'pmm-ami-staging-start' found"
+                            exit 1
+                        fi
 
                         IMAGE_NAME=$(
                             aws ec2 describe-images \
@@ -110,21 +115,40 @@ pipeline {
 
                         # The default value of the EBS volume's `DeleteOnTermination` is set to `false`,
                         # which leaves out unused volumes after instances get shut down.
-                        INSTANCE_ID=$(
-                            aws ec2 run-instances \
-                                --image-id $AMI_ID \
-                                --security-group-ids $SG1 $SG2\
-                                --instance-type t2.large \
-                                --subnet-id $SS1 \
-                                --region $AWS_DEFAULT_REGION \
-                                --key-name jenkins-admin \
-                                --query Instances[].InstanceId \
-                                --block-device-mappings \
-                                '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]' \
-                                --output text \
-                                | tee INSTANCE_ID
-                        )
+                        # An AZ can run out of capacity for a type (PKG-1428), so try every
+                        # tagged subnet with a ladder of instance types. The primary subnet's
+                        # AZ (us-east-1e) is a legacy AZ without t3/m5, so the ladder only
+                        # uses previous-generation types that exist in every us-east-1 AZ.
+                        INSTANCE_ID=""
+                        for SUBNET_ID in $SUBNET_IDS; do
+                            for INSTANCE_TYPE in t2.large m4.large t2.xlarge; do
+                                echo "Attempting launch: $INSTANCE_TYPE in $SUBNET_ID"
+                                if INSTANCE_ID=$(
+                                    aws ec2 run-instances \
+                                        --image-id $AMI_ID \
+                                        --security-group-ids $SG1 $SG2 \
+                                        --instance-type $INSTANCE_TYPE \
+                                        --subnet-id $SUBNET_ID \
+                                        --region $AWS_DEFAULT_REGION \
+                                        --key-name jenkins-admin \
+                                        --query 'Instances[].InstanceId' \
+                                        --block-device-mappings \
+                                        '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]' \
+                                        --output text
+                                ); then
+                                    break 2
+                                fi
+                                echo "Launch of $INSTANCE_TYPE in $SUBNET_ID failed, trying next"
+                                INSTANCE_ID=""
+                            done
+                        done
 
+                        if [ -z "$INSTANCE_ID" ]; then
+                            echo "ERROR: failed to launch an instance in any tagged subnet"
+                            exit 1
+                        fi
+
+                        echo "$INSTANCE_ID" > INSTANCE_ID
                         echo "INSTANCE_ID: $INSTANCE_ID"
 
                         aws ec2 create-tags  \

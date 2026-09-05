@@ -20,10 +20,10 @@ void triggerPlatformJob(String jobName, String branchName, String testList) {
 List<String> getJobsForOperator(String operatorName) {
     operatorName = operatorName?.toLowerCase()
     def jobsByOperator = [
-        pg   : ['pgo-aks-1', 'pgo-eks-1', 'pgo-gke-1', 'pgo-minikube-1', 'pgo-openshift-1'],
-        ps   : ['pso-eks-1', 'pso-gke-1', 'pso-minikube-1', 'pso-openshift-1'],
-        psmdb: ['psmdbo-aks-1', 'psmdbo-eks-1', 'psmdbo-gke-1', 'psmdbo-minikube-1', 'psmdbo-openshift-1'],
-        pxc  : ['pxco-aks-1', 'pxco-eks-1', 'pxco-gke-1', 'pxco-minikube-1', 'pxco-openshift-1'],
+        pg   : ['pgo-aks-1', 'pgo-doks-1', 'pgo-eks-1', 'pgo-gke-1', 'pgo-minikube-1', 'pgo-openshift-1', 'pgo-rancher-1'],
+        ps   : ['pso-doks-1', 'pso-eks-1', 'pso-gke-1', 'pso-minikube-1', 'pso-openshift-1'],
+        psmdb: ['psmdbo-aks-1', 'psmdbo-eks-1', 'psmdbo-gke-1', 'psmdbo-minikube-1', 'psmdbo-openshift-1', 'psmdbo-rancher-1'],
+        pxc  : ['pxco-aks-1', 'pxco-doks-1', 'pxco-eks-1', 'pxco-gke-1', 'pxco-minikube-1', 'pxco-openshift-1'],
     ]
 
     if (!jobsByOperator.containsKey(operatorName)) {
@@ -38,6 +38,9 @@ List<String> getSelectedPlatforms(Map allParams) {
     if (allParams.RUN_AKS) {
         selected.add('aks')
     }
+    if (allParams.RUN_DOKS) {
+        selected.add('doks')
+    }
     if (allParams.RUN_EKS) {
         selected.add('eks')
     }
@@ -49,6 +52,9 @@ List<String> getSelectedPlatforms(Map allParams) {
     }
     if (allParams.RUN_OPENSHIFT) {
         selected.add('openshift')
+    }
+    if (allParams.RUN_RANCHER) {
+        selected.add('rancher')
     }
 
     if (selected.isEmpty()) {
@@ -97,6 +103,11 @@ pipeline {
             description: 'Run AKS jobs',
         )
         booleanParam(
+            name: 'RUN_DOKS',
+            defaultValue: true,
+            description: 'Run DOKS jobs (PG, PS, PXC)',
+        )
+        booleanParam(
             name: 'RUN_EKS',
             defaultValue: true,
             description: 'Run EKS jobs',
@@ -115,6 +126,11 @@ pipeline {
             name: 'RUN_OPENSHIFT',
             defaultValue: true,
             description: 'Run OpenShift jobs',
+        )
+        booleanParam(
+            name: 'RUN_RANCHER',
+            defaultValue: true,
+            description: 'Run Rancher jobs (PG, PSMDB)',
         )
     }
     stages {

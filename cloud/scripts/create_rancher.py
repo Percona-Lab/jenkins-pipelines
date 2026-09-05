@@ -1041,7 +1041,12 @@ def install_rancher(cfg):
             "version": cert_ver,
             "release": "cert-manager",
             "namespace": "cert-manager",
-            "extra_args": ["--set", "crds.enabled=true"],
+            "extra_args": [
+                "--set",
+                "crds.enabled=true",
+                "--set",
+                "extraArgs[0]=--enable-certificate-owner-ref=true",
+            ],
         },
         {
             "name": "longhorn",

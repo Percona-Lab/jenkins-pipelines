@@ -96,7 +96,8 @@ pipeline {
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
         buildDiscarder(logRotator(
-            numToKeepStr: '10',
+            daysToKeepStr: '30',
+            numToKeepStr: '100',
             artifactNumToKeepStr: '10'
         ))
         retry(conditions: [agent()], count: 2)

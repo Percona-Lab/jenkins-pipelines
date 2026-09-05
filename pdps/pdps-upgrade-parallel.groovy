@@ -10,7 +10,7 @@ def extractMajorVersion(version) {
 
 def pdps_80_operating_systems() {
     return [
-        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-11', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble'
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble'
     ]
 }
 

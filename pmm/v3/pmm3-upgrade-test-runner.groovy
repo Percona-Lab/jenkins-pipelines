@@ -47,7 +47,7 @@ def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -135,6 +135,10 @@ pipeline {
             choices: ["UI", "DOCKER"],
             description: 'Way to upgrade PMM Server (UI or Docker)',
             name: 'UPGRADE_TYPE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
     }
     options {
         skipDefaultCheckout()
@@ -269,14 +273,8 @@ pipeline {
                     pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
-                    python3 -m venv virtenv
-                    . virtenv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install netaddr
-                    pip install setuptools
 
-                    python pmm-framework.py --verbose \
+                    ./pmm-framework/pmm-framework \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}

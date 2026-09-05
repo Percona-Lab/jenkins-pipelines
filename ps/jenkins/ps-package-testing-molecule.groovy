@@ -36,8 +36,6 @@ def ps90PackageTesting() {
 
 def ps80PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'oracle-8',
@@ -54,8 +52,6 @@ def ps80PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
-        'amazon-linux-2023',
-        'amazon-linux-2023-arm'
     ]
 }
 
@@ -230,20 +226,6 @@ def deleteBuildInstances(){
             }
         }
     }
-}
-
-def installMolecule() {
-        sh """
-            sudo apt update -y
-            sudo apt install -y python3 python3-pip python3-dev python3-venv
-            python3 -m venv virtenv
-            . virtenv/bin/activate
-            python3 --version
-            python3 -m pip install --upgrade pip
-            python3 -m pip install --upgrade "setuptools<81"
-            python3 -m pip install --upgrade setuptools-rust
-            python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
-        """
 }
 
 def loadEnvFile(envFilePath) {
@@ -506,7 +488,7 @@ pipeline {
             stage('Prepare') {
                 steps {
                     script {
-                        installMolecule()
+                        installMoleculeBookwormMysql()
                     }
                 }
             }
@@ -550,7 +532,9 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
-                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")

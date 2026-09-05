@@ -6,8 +6,8 @@ def call(String version = 'default', String newVersion = null, String gatedBuild
         (~/(p.mdb-)?5(\.)?0.*/):  ['debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy','ubuntu-noble'],
         (~/(p.mdb-)?6(\.)?0.*/): ['debian-11', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'ubuntu-jammy', 'ubuntu-noble', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy-arm','ubuntu-noble-arm', 'al2023', 'al2023-arm' ],
         (~/(p.mdb-)?7(\.)?0.*/): ['debian-11', 'debian-12', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'ubuntu-jammy', 'ubuntu-noble', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy-arm', 'ubuntu-noble-arm', 'al2023', 'al2023-arm' ],
-        (~/(p.mdb-)?8(\.)?0.*/): ['debian-12', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy', 'ubuntu-jammy-arm', 'ubuntu-noble', 'ubuntu-noble-arm', 'al2023', 'al2023-arm'],
-        (~/(p.mdb-)?8(\.)?3.*/): ['debian-12', 'rhel8', 'rhel9', 'rocky8', 'rocky9', 'rhel8-arm', 'rhel9-arm', 'rocky8-arm', 'rocky9-arm', 'ubuntu-jammy', 'ubuntu-jammy-arm', 'ubuntu-noble', 'ubuntu-noble-arm', 'al2023', 'al2023-arm'],
+        (~/(p.mdb-)?8(\.)?0.*/): ['debian-12', 'debian-13', 'rhel8', 'rhel9', 'rhel10', 'rocky8', 'rocky9', 'rocky10', 'debian-13-arm', 'rhel8-arm', 'rhel9-arm', 'rhel10-arm', 'rocky8-arm', 'rocky9-arm', 'rocky10-arm', 'ubuntu-jammy', 'ubuntu-jammy-arm', 'ubuntu-noble', 'ubuntu-noble-arm', 'al2023', 'al2023-arm'],
+        (~/(p.mdb-)?8(\.)?3.*/): ['debian-12', 'debian-13', 'rhel8', 'rhel9', 'rhel10', 'rocky8', 'rocky9', 'rocky10', 'debian-13-arm', 'rhel8-arm', 'rhel9-arm', 'rhel10-arm', 'rocky8-arm', 'rocky9-arm', 'rocky10-arm', 'ubuntu-jammy', 'ubuntu-jammy-arm', 'ubuntu-noble', 'ubuntu-noble-arm', 'al2023', 'al2023-arm'],
         'default': ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy']
     ]
 

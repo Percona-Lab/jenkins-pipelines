@@ -255,7 +255,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
             stage('Prepare') {
                 steps {
                     script {
-                        installMoleculeBookworm()
+                        installMoleculeBookwormMysql()
                     }
                 }
             }

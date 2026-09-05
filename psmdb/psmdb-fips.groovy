@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb/psmdb"
-def fipsOS = ['al2023','rhel8-fips','rhel9','ubuntu-jammy-pro']
+def fipsOS = ['al2023','rhel8-fips','rhel9','rhel10-fips','ubuntu-jammy-pro']
 
 pipeline {
     agent {

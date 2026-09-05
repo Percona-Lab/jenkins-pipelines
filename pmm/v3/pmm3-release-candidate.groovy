@@ -14,8 +14,10 @@ def pmm_submodules() {
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
-        "percona-toolkit",
         "pmm-dump"
+        // percona-toolkit is excluded: it tracks a shared, long-lived branch of its
+        // own (e.g. pmm-3.9.0) rather than a per-RC branch, so the RC pipeline must
+        // not create/delete branches for it.
     ]
 }
 
@@ -150,7 +152,8 @@ pipeline {
             }
             steps {
                 script {
-                    env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH
+                    // percona/pmm no longer has a v3 branch
+                    env.TARGET_BRANCH = (params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH) ? 'main' : params.SUBMODULES_GIT_BRANCH
 
                     git branch: env.TARGET_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
 
@@ -187,7 +190,7 @@ pipeline {
         }
         stage('Rewind Submodules') {
             when {
-                expression { env.REMOVE_RELEASE_BRANCH == 'no' && env.TARGET_BRANCH == DEFAULT_BRANCH && env.API_DESCRIPTOR == 'CHANGED' }
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' && params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH && env.API_DESCRIPTOR == 'CHANGED' }
             }
             steps {
                 build job: 'pmm3-submodules-rewind', propagate: false, wait: true
@@ -286,18 +289,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Start PMM3 Watchtower Autobuild') {
-                    steps {
-                        script {
-                            def pmmWatchtower = build job: 'pmm3-watchtower-autobuild', parameters: [
-                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'TAG_TYPE', value: 'rc'),
-                                booleanParam(name: 'USE_ONDEMAND', value: true)
-                            ]
-                            env.WATCHTOWER_IMAGE = pmmWatchtower.buildVariables.TIMESTAMP_TAG
-                        }
-                    }
-                }
             }
         }
         stage('Start AMI RC Build') {
@@ -309,7 +300,6 @@ pipeline {
                     def pmmAMI = build job: 'pmm3-ami', parameters: [
                         string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
                         string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
-                        string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
                         string(name: 'RELEASE_CANDIDATE', value: "yes"),
                         booleanParam(name: 'USE_ONDEMAND', value: true)
                     ]
@@ -326,21 +316,21 @@ pipeline {
                     def imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}-rc"),
                         string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}-rc"),
-                        booleanParam(name: 'USE_ONDEMAND', value: true)
+                        booleanParam(name: 'USE_ONDEMAND', value: true),
+                        booleanParam(name: 'REQUIRE_MULTIARCH', value: true)
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
                         // Copy Trivy reports for both server and client
-                        copyArtifacts filter: '*-report.*', projectName: 'pmm3-image-scanning'
+                        copyArtifacts filter: 'trivy-*-report-*.*', projectName: 'pmm3-image-scanning'
                         sh '''
-                            mv trivy-server-report.txt trivy-server-report-${VERSION}-rc.txt
-                            mv trivy-server-report.html trivy-server-report-${VERSION}-rc.html
-
-                            mv trivy-client-report.txt trivy-client-report-${VERSION}-rc.txt
-                            mv trivy-client-report.html trivy-client-report-${VERSION}-rc.html
+                            for report in trivy-*-report-*.*; do
+                                [ -e "${report}" ] || continue
+                                mv "${report}" "${report%.*}-${VERSION}-rc.${report##*.}"
+                            done
                         '''
-                        archiveArtifacts artifacts: "*-report-${VERSION}-rc.*"
+                        archiveArtifacts artifacts: "trivy-*-report-*-${VERSION}-rc.*"
                         env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }

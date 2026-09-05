@@ -7,12 +7,14 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
     packageTestJob = build job: 'pmm3-package-testing-arm', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'SERVER_ARCH', value: params.SERVER_ARCH),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: TESTS),
         string(name: 'INSTALL_REPO', value: INSTALL_REPO),
         string(name: 'TARBALL', value: TARBALL),
         string(name: 'METRICS_MODE', value: METRICS_MODE),
-        string(name: 'CLIENTS', value: CLIENTS)
+        string(name: 'CLIENTS', value: CLIENTS),
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc'))
     ]
 }
 
@@ -20,7 +22,7 @@ def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'cli-ondemand' : 'cli'
     }
     parameters {
         string(
@@ -38,6 +40,10 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION',
             trim: true)
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'Architecture of the PMM server staging VM',
+            name: 'SERVER_ARCH')
         string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
@@ -55,6 +61,10 @@ pipeline {
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
             name: 'METRICS_MODE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot. Auto-enabled when DOCKER_VERSION is an -rc image (RC/Release testing).',
+            name: 'USE_ONDEMAND')
     }
     options {
         skipDefaultCheckout()

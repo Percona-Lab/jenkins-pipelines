@@ -211,11 +211,14 @@ def categorize_pg(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
         "pmm": {},
         "postgis": {},
         "postgresql": {},
+        "pgupgrade": {},
     }
+
+    operator_ver = extract_version(images.get("IMAGE_OPERATOR", ""))
 
     pg_version_map = {}
     for key, path in images.items():
-        if "POSTGRESQL" in key and "OPERATOR" not in key:
+        if re.fullmatch(r"IMAGE_POSTGRESQL\d+", key):
             match = re.search(r"(\d+)$", key)
             if match:
                 full_ver = extract_version(path)
@@ -232,13 +235,15 @@ def categorize_pg(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
 
         if key == "IMAGE_OPERATOR":
             result["operator"][ver] = entry
-        elif "POSTGRESQL" in key and suffix in pg_version_map:
+        elif key == "IMAGE_UPGRADE":
+            result["pgupgrade"][operator_ver or ver] = entry
+        elif re.fullmatch(r"IMAGE_POSTGRESQL\d+", key) and suffix in pg_version_map:
             result["postgresql"][pg_version_map[suffix]] = entry
-        elif "PGBOUNCER" in key and suffix in pg_version_map:
+        elif re.fullmatch(r"IMAGE_PGBOUNCER\d+", key) and suffix in pg_version_map:
             result["pgbouncer"][pg_version_map[suffix]] = entry
-        elif "POSTGIS" in key and suffix in pg_version_map:
+        elif re.fullmatch(r"IMAGE_POSTGIS\d+", key) and suffix in pg_version_map:
             result["postgis"][pg_version_map[suffix]] = entry
-        elif "BACKREST" in key and suffix in pg_version_map:
+        elif re.fullmatch(r"IMAGE_BACKREST\d+", key) and suffix in pg_version_map:
             result["pgbackrest"][pg_version_map[suffix]] = entry
         elif is_pmm(key):
             result["pmm"][ver] = entry
@@ -332,12 +337,13 @@ PS_VERSION_LIMITS = {
 }
 
 PG_VERSION_LIMITS = {
-    "postgresql": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "pgbackrest": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "pgbouncer": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "postgis": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
+    "postgresql": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "pgbackrest": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "pgbouncer": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "postgis": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
     "pmm": {"2": 1, "3": 1},
     "operator": 1,
+    "pgupgrade": 1,
 }
 
 VERSION_LIMITS = {
@@ -649,6 +655,24 @@ def filter_supported_pg_majors(data: Dict) -> Dict:
     return data
 
 
+def sync_pg_sidecar_versions(data: Dict) -> Dict:
+    """Keep pgbackrest/pgbouncer/postgis entries aligned with postgresql version keys."""
+    for version_entry in data.get("versions", []):
+        matrix = version_entry.get("matrix", {})
+        pg_keys = set(matrix.get("postgresql", {}).keys())
+        if not pg_keys:
+            continue
+        for category in ["pgbackrest", "pgbouncer", "postgis"]:
+            if category not in matrix:
+                continue
+            matrix[category] = {
+                ver: entry
+                for ver, entry in matrix[category].items()
+                if ver in pg_keys
+            }
+    return data
+
+
 def generate_full_release_from_fragment(
     fragment: Dict, previous_version: str, output_file: str
 ) -> Dict:
@@ -671,6 +695,9 @@ def generate_full_release_from_fragment(
     limits = VERSION_LIMITS.get(product, {})
     if limits:
         result = trim_old_versions(result, limits)
+
+    if product == "pg-operator":
+        result = sync_pg_sidecar_versions(result)
 
     result = sort_matrix_versions(result)
 

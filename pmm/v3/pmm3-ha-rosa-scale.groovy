@@ -26,7 +26,7 @@ pipeline {
         REGION = "us-east-2"
         CREATE_JOB = "pmm3-ha-rosa"
         MACHINEPOOL = "workers"
-        KUBECONFIG = "${HOME}/.kube/rosa-scale-${BUILD_NUMBER}"
+        KUBECONFIG = "${WORKSPACE}/kubeconfig"
         PATH = "${HOME}/.local/bin:${PATH}"
     }
 
@@ -57,7 +57,7 @@ pipeline {
             }
         }
 
-        stage('Fetch Admin Credentials') {
+        stage('Fetch kubeconfig') {
             steps {
                 script {
                     def cluster = params.CLUSTER_NAME.trim()
@@ -66,11 +66,10 @@ pipeline {
                     }
                     env.CLUSTER_NAME = cluster
                     def buildNumber = cluster.substring('pmm-ha-rosa-'.length())
-                    // Reuse cluster-admin password, the one create build already generated
                     copyArtifacts(
                         projectName: env.CREATE_JOB,
                         selector: specific(buildNumber),
-                        filter: 'api-url.txt,cluster-admin-password.txt'
+                        filter: 'kubeconfig'
                     )
                 }
             }
@@ -95,13 +94,6 @@ pipeline {
                             --region="${REGION}" \
                             --replicas="${WORKER_NODE_COUNT}" \
                             "${MACHINEPOOL}"
-
-                        set +x
-                        oc login "$(cat api-url.txt)" \
-                            --username=cluster-admin \
-                            --password="$(cat cluster-admin-password.txt)" \
-                            --insecure-skip-tls-verify=true
-                        set -x
 
                         echo "Waiting for exactly ${WORKER_NODE_COUNT} Ready worker nodes (timeout: 20m)..."
                         for i in $(seq 1 40); do
