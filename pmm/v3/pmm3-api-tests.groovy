@@ -5,9 +5,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.AGENT_ARCH == 'arm64' ? 'agent-arm64' : 'agent-amd64'
     }
     parameters {
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'CPU architecture of the agent that runs the server container and tests',
+            name: 'AGENT_ARCH'
+        )
         string(
             defaultValue: 'https://github.com/percona/pmm',
             description: 'Url for pmm repository',

@@ -16,25 +16,33 @@ def format_digest(digest):
 
 
 def image_group(key):
-    match = re.search(r"_(UBI\d+)_", key)
-    if match:
-        return f"{match.group(1)} community images"
     if key.endswith("_COMMUNITY"):
+        match = re.search(r"_(UBI\d+)_", key)
+        if match:
+            return f"{match.group(1)} community images"
         return "UBI9 community images"
-    return "Main images"
+
+    match = re.search(r"_UBI(\d+)$", key)
+    if match:
+        return f"UBI{match.group(1)} images"
+    return "UBI9 images"
 
 
 def render_digest_lines(images, digests):
-    groups = {
-        "Main images": [],
-        "UBI8 community images": [],
-        "UBI9 community images": [],
-    }
+    group_order = [
+        "UBI9 images",
+        "UBI8 images",
+        "UBI10 images",
+        "UBI8 community images",
+        "UBI9 community images",
+    ]
+    groups = {group: [] for group in group_order}
     seen = {group: set() for group in groups}
     for key in sorted(images):
         group = image_group(key)
         if group not in groups:
-            continue
+            groups[group] = []
+            seen[group] = set()
         image = images[key]
         if image in seen[group]:
             continue
@@ -43,7 +51,8 @@ def render_digest_lines(images, digests):
         groups[group].append((image, amd64, arm64))
 
     lines = []
-    for group, entries in groups.items():
+    for group in list(group_order) + [g for g in groups if g not in group_order]:
+        entries = groups.get(group) or []
         if not entries:
             continue
         if lines:
