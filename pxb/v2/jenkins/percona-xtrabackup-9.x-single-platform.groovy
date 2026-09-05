@@ -108,7 +108,7 @@ pipeline {
                         fi
                         rm -f ${WORKSPACE}/XB_VERSION-${BUILD_NUMBER}
                     '''
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    checkout scm
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''#!/bin/bash
                             sudo git reset --hard
@@ -143,7 +143,7 @@ pipeline {
             agent { label LABEL }
             steps {
                 timeout(time: 480, unit: 'MINUTES') {
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    checkout scm
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''#!/bin/bash
                             sudo git reset --hard
