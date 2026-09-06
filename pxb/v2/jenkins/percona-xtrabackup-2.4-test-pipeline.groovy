@@ -1,3 +1,7 @@
+if (params.ARCH != 'x86_64') {
+    error("Unsupported ARCH '${params.ARCH}'; PXB 2.4 requires x86_64")
+}
+
 pipeline_timeout = 10
 
 pipeline {

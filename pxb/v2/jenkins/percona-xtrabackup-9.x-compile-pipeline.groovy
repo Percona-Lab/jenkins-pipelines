@@ -2,6 +2,10 @@
 // AWS uses docker-32gb / docker-32gb-aarch64. MICRO_LABEL (small orchestrator
 // worker) is always x86_64; it just drives the build, the actual docker build
 // runs on LABEL.
+if (!(params.ARCH in ['x86_64', 'aarch64'])) {
+    error("Unsupported ARCH '${params.ARCH}'; expected x86_64 or aarch64")
+}
+
 String LABEL
 if (params.CLOUD == 'AWS') {
     LABEL = (params.ARCH == 'aarch64') ? 'docker-32gb-aarch64' : 'docker-32gb'

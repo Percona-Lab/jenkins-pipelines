@@ -38,7 +38,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true, branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                checkout scm
                 sh '''
                     git reset --hard
                     git clean -xdf

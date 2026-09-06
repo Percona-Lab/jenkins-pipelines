@@ -13,7 +13,7 @@
             - "master"
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxb/v2/jenkins/pxb9x-single-platform-run.groovy
+      script-path: pxb/v2/jenkins/percona-xtrabackup-9.x-single-platform.groovy
     parameters:
     - string:
         name: GIT_REPO

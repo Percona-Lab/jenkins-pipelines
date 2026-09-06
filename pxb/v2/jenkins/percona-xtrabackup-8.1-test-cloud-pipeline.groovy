@@ -1,3 +1,7 @@
+if (!(params.ARCH in ['x86_64', 'aarch64'])) {
+    error("Unsupported ARCH '${params.ARCH}'; expected x86_64 or aarch64")
+}
+
 pipeline {
     parameters {
         choice(
