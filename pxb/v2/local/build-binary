@@ -116,7 +116,7 @@ FULL_PRODUCT_NAME="percona-xtrabackup-${XTRABACKUP_VERSION}-$(uname -s)-$(uname 
 # ------------------------------------------------------------------------------
 BOOST_FLAGS=""
 if [[ "${XB_VERSION_MAJOR}" == "2" ]] && [[ "${XB_VERSION_MINOR}" == "4" ]]; then
-    BOOST_FLAGS="-DDOWNLOAD_BOOST=OFF -DWITH_BOOST=${DOWNLOAD_DIR}"
+    BOOST_FLAGS="-DDOWNLOAD_BOOST=ON -DWITH_BOOST=${DOWNLOAD_DIR}"
 elif [[ "${XB_VERSION_MAJOR}" == "8" ]] && [[ "${XB_VERSION_MINOR}" == "0" ]]; then
     BOOST_FLAGS="-DDOWNLOAD_BOOST=ON -DWITH_BOOST=${DOWNLOAD_DIR}"
 fi

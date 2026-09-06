@@ -68,9 +68,9 @@ class BuildBinaryBoost(unittest.TestCase):
         self.assertEqual(calls[0]['cwd'], str(self.build))
         return calls[0]['args']
 
-    def test_24_release_uses_cached_boost_without_downloading_by_default(self):
+    def test_24_release_uses_cached_boost_with_download_fallback(self):
         arguments = self.configure_arguments()
-        self.assertIn('-DDOWNLOAD_BOOST=OFF', arguments)
+        self.assertIn('-DDOWNLOAD_BOOST=ON', arguments)
         self.assertIn(f'-DWITH_BOOST={self.cache}', arguments)
 
     def test_24_debug_keeps_debug_mode_with_the_same_cached_boost_default(self):
@@ -78,7 +78,7 @@ class BuildBinaryBoost(unittest.TestCase):
         arguments = self.configure_arguments()
         self.assertIn('-DWITH_DEBUG=ON', arguments)
         self.assertNotIn('-DBUILD_CONFIG=xtrabackup_release', arguments)
-        self.assertIn('-DDOWNLOAD_BOOST=OFF', arguments)
+        self.assertIn('-DDOWNLOAD_BOOST=ON', arguments)
         self.assertIn(f'-DWITH_BOOST={self.cache}', arguments)
 
     def test_80_preserves_its_existing_boost_defaults(self):
@@ -111,15 +111,15 @@ class BuildBinaryBoost(unittest.TestCase):
 
     def test_24_keeps_explicit_caller_overrides_after_the_defaults(self):
         self.environment['CMAKE_OPTS'] = (
-            '-DWITH_BOOST=/caller/boost -DDOWNLOAD_BOOST=ON -DWITH_SSL=system')
+            '-DWITH_BOOST=/caller/boost -DDOWNLOAD_BOOST=OFF -DWITH_SSL=system')
         arguments = self.configure_arguments()
         self.assertEqual(
             [argument for argument in arguments
              if argument.startswith(('-DDOWNLOAD_BOOST=', '-DWITH_BOOST='))],
-            ['-DDOWNLOAD_BOOST=OFF', f'-DWITH_BOOST={self.cache}',
-             '-DWITH_BOOST=/caller/boost', '-DDOWNLOAD_BOOST=ON'])
+            ['-DDOWNLOAD_BOOST=ON', f'-DWITH_BOOST={self.cache}',
+             '-DWITH_BOOST=/caller/boost', '-DDOWNLOAD_BOOST=OFF'])
         self.assertEqual(arguments[-4:], [
-            '-DWITH_BOOST=/caller/boost', '-DDOWNLOAD_BOOST=ON',
+            '-DWITH_BOOST=/caller/boost', '-DDOWNLOAD_BOOST=OFF',
             '-DWITH_SSL=system', str(self.source)])
 
 
