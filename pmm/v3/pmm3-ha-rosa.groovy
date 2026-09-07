@@ -68,12 +68,14 @@ EOF
 
 def cleanupCluster() {
     withCredentials([aws(credentialsId: 'pmm-staging-slave'),
-                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                     usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
+                                      usernameVariable: 'ROSA_CLIENT_ID',
+                                      passwordVariable: 'ROSA_CLIENT_SECRET')]) {
         sh '''
             export AWS_RETRY_MODE=adaptive
             export AWS_MAX_ATTEMPTS=10
 
-            rosa login --token="${ROSA_TOKEN}"
+            rosa login --client-id="${ROSA_CLIENT_ID}" --client-secret="${ROSA_CLIENT_SECRET}"
 
             # Read before the delete below, while the cluster still exists. Empty if it never did.
             CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" \
@@ -253,7 +255,9 @@ pipeline {
                     // via buildVariables to any caller using build job: 'pmm3-ha-rosa'.
                     env.CLUSTER_NAME = env.CLUSTER_NAME
                 }
-                withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
+                                                 usernameVariable: 'ROSA_CLIENT_ID',
+                                                 passwordVariable: 'ROSA_CLIENT_SECRET')]) {
                     sh '''
                         mkdir -p $HOME/.local/bin
 
@@ -275,7 +279,7 @@ pipeline {
                         oc version --client
                         
                         # Login once for the entire pipeline
-                        rosa login --token="${ROSA_TOKEN}"
+                        rosa login --client-id="${ROSA_CLIENT_ID}" --client-secret="${ROSA_CLIENT_SECRET}"
                     '''
                 }
             }
@@ -513,6 +517,7 @@ pipeline {
                             --version "${RESOLVED_VERSION}" \
                             --hosted-cp \
                             --sts \
+                            --billing-account "${AWS_ACCOUNT_ID}" \
                             --role-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Installer-Role" \
                             --support-role-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Support-Role" \
                             --worker-iam-role "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Worker-Role" \
