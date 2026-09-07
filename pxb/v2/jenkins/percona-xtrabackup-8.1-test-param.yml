@@ -93,8 +93,10 @@
         - innodb80
         - xtradb80
     execution-strategy:
-      # centos:8 has no aarch64 build image
-      combination-filter: '!(DOCKER_OS == "centos:8" && ARCH == "aarch64")'
+      # Match compile selection and keep both database targets.
+      combination-filter: >-
+        ARCH == "x86_64" ||
+        (ARCH == "aarch64" && DOCKER_OS == "oraclelinux:9" && CMAKE_BUILD_TYPE == "RelWithDebInfo")
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.1-test-pipeline

@@ -91,6 +91,11 @@
         values:
         - innodb9x
         - xtradb9x
+    execution-strategy:
+      # Match compile selection and keep both database targets.
+      combination-filter: >-
+        (ARCH == "x86_64" && DOCKER_OS != "amazonlinux:2023") ||
+        (ARCH in ["x86_64", "aarch64"] && DOCKER_OS == "amazonlinux:2023" && CMAKE_BUILD_TYPE == "RelWithDebInfo")
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-9.x-test-pipeline
