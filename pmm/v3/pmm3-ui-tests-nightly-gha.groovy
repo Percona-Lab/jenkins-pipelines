@@ -87,6 +87,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
 
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'AMI_ID', value: AMI_ID)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
@@ -100,15 +101,20 @@ void runAMIStagingStart(String AMI_ID) {
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
@@ -292,6 +298,7 @@ pipeline {
                 // match this build's outcome regardless of GH workflow result.
                 if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
                     build job: 'pmm3-ami-staging-stop', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }

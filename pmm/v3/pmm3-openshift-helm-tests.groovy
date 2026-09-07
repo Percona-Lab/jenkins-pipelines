@@ -30,9 +30,13 @@ def destroyOpenshift(CLUSTER_NAME) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',

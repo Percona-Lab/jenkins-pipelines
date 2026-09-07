@@ -107,6 +107,8 @@ pipeline {
   agent none
 
   parameters {
+    booleanParam(name: 'USE_ONDEMAND', defaultValue: false,
+                 description: 'Use on-demand instances instead of spot (for RC/Release testing).')
     // --- SERVER CONFIGURATION ---
     choice(name: 'SERVER_TYPE', choices: ['docker', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type: docker (Basic Setup), ami (AWS EC2 AMI), helm (OpenShift), ha (High Availability).')
 
@@ -164,7 +166,7 @@ pipeline {
 
   stages {
     stage('Build Environment') {
-      agent { label 'min-noble-x64' }
+      agent { label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64' }
 
       stages {
         stage('Prepare') {

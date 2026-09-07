@@ -24,6 +24,7 @@ void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, boolean USE_ONDE
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
