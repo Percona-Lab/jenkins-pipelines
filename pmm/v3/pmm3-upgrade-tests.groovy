@@ -14,7 +14,7 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'UPGRADE_FLAG', value: UPGRADE_FLAG),
         string(name: 'UPGRADE_TYPE', value: UPGRADE_TYPE),
-        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND || DOCKER_TAG_UPGRADE?.endsWith('-rc'))
 
     ]
 }
@@ -45,7 +45,7 @@ def latestVersion = versionsList.last()
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'docker-ondemand' : 'docker'
+        label params.USE_ONDEMAND || params.DOCKER_TAG_UPGRADE?.endsWith('-rc') ? 'docker-ondemand' : 'docker'
     }
     parameters {
         string(

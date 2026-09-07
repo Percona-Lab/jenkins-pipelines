@@ -47,7 +47,7 @@ def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
+        label params.USE_ONDEMAND || params.DOCKER_TAG_UPGRADE?.endsWith('-rc') ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
