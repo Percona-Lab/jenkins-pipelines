@@ -59,6 +59,7 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
@@ -84,7 +85,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -133,6 +134,10 @@ pipeline {
         ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY');
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -287,6 +292,7 @@ pipeline {
                 }
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }
