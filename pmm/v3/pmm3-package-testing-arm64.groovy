@@ -234,15 +234,6 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 11 Bullseye - ARM64') {
-                    agent {
-                        label params.USE_ONDEMAND ? 'min-bullseye-arm64-ondemand' : 'min-bullseye-arm64'
-                    }
-                    steps{
-                        setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                }
                 stage('Debian 12 Bookworm - ARM64') {
                     agent {
                         label params.USE_ONDEMAND ? 'min-bookworm-arm64-ondemand' : 'min-bookworm-arm64'
