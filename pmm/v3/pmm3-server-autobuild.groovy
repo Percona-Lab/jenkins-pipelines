@@ -84,7 +84,7 @@ pipeline {
         }
         stage('Push pmm3 server multi-arch images') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
                         set -o xtrace
@@ -109,6 +109,10 @@ pipeline {
                                 perconalab/pmm-server:${DOCKER_LATEST_TAG}-arm64
                             echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
                         fi
+
+                        pip3 install --user --upgrade launchable~=1.0 || true
+                        launchable record build --lineage "perconalab/pmm-server:$(cat DOCKER_TAG)" \
+                            --name "$(docker buildx imagetools inspect perconalab/pmm-server:$(cat DOCKER_TAG) --format '{{.Manifest.Digest}}')" || true
                     '''
                 }
                 script {
