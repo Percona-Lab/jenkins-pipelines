@@ -98,7 +98,7 @@ def latestVersion = pmmVersion('v3').last()
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'agent-amd64-ondemand' : 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -165,8 +165,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                echo "on-demand instances: ${params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc')}"
-                runStaging(DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc'))
+                runStaging(DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, params.USE_ONDEMAND)
                 script {
                     def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${VM_IP}"
@@ -183,7 +182,7 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8 - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-ol-8-arm64-ondemand' : 'min-ol-8-arm64'
+                        label params.USE_ONDEMAND ? 'min-ol-8-arm64-ondemand' : 'min-ol-8-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -192,7 +191,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9 - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-ol-9-arm64-ondemand' : 'min-ol-9-arm64'
+                        label params.USE_ONDEMAND ? 'min-ol-9-arm64-ondemand' : 'min-ol-9-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -201,7 +200,7 @@ pipeline {
                 }
                 stage('Almalinux 10 - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-alma-10-arm64-ondemand' : 'min-alma-10-arm64'
+                        label params.USE_ONDEMAND ? 'min-alma-10-arm64-ondemand' : 'min-alma-10-arm64'
                     }
                     steps{
                         setup_rhel_10_package_tests()
@@ -210,7 +209,7 @@ pipeline {
                 }
                 stage('Ubuntu 22.04 Jammy - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-jammy-arm64-ondemand' : 'min-jammy-arm64'
+                        label params.USE_ONDEMAND ? 'min-jammy-arm64-ondemand' : 'min-jammy-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
@@ -219,7 +218,7 @@ pipeline {
                 }
                 stage('Ubuntu 24.04 Noble - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-noble-arm64-ondemand' : 'min-noble-arm64'
+                        label params.USE_ONDEMAND ? 'min-noble-arm64-ondemand' : 'min-noble-arm64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
@@ -228,7 +227,7 @@ pipeline {
                 }
                 stage('Ubuntu 26.04 Resolute - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-resolute-arm64-ondemand' : 'min-resolute-arm64'
+                        label params.USE_ONDEMAND ? 'min-resolute-arm64-ondemand' : 'min-resolute-arm64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
@@ -237,7 +236,7 @@ pipeline {
                 }
                 stage('Debian 12 Bookworm - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-bookworm-arm64-ondemand' : 'min-bookworm-arm64'
+                        label params.USE_ONDEMAND ? 'min-bookworm-arm64-ondemand' : 'min-bookworm-arm64'
                     }
                     steps{
                         setup_debian_package_tests()
@@ -246,7 +245,7 @@ pipeline {
                 }
                 stage('Debian 13 Trixie - ARM64') {
                     agent {
-                        label params.USE_ONDEMAND || params.DOCKER_VERSION?.endsWith('-rc') ? 'min-trixie-arm64-ondemand' : 'min-trixie-arm64'
+                        label params.USE_ONDEMAND ? 'min-trixie-arm64-ondemand' : 'min-trixie-arm64'
                     }
                     steps{
                         setup_debian_trixie_package_tests()
