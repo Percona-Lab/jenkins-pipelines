@@ -72,7 +72,7 @@ def upgradeVersion = versions[versions.size() - 2]
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -140,6 +140,10 @@ pipeline {
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
             name: 'SSH_KEY')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
     }
     options {
         skipDefaultCheckout()
