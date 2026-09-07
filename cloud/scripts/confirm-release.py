@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import yaml
 
@@ -16,6 +18,20 @@ import yaml
 EXTRA_CRD_CHARTS = {
     "psmdb": ["psmdb-operator-crds"],
 }
+
+OPERATOR_REPOSITORIES = {
+    "psmdb": "percona-server-mongodb-operator",
+    "pxc": "percona-xtradb-cluster-operator",
+    "ps": "percona-server-mysql-operator",
+    "pg": "percona-postgresql-operator",
+}
+
+VS_ENDPOINTS = {
+    "development": "https://check-dev.percona.com/versions/v1",
+    "production": "https://check.percona.com/versions/v1",
+}
+
+DOCKER_HUB_API = "https://hub.docker.com/v2/repositories"
 
 
 def load_yaml_docs(path: Path) -> List[Any]:
@@ -195,8 +211,9 @@ def collect_recommended_images(node: Any, found: Optional[Set[str]] = None) -> S
     if found is None:
         found = set()
     if isinstance(node, dict):
-        if node.get("status") == "recommended" and node.get("image_path"):
-            found.add(node["image_path"])
+        image_path = node.get("image_path") or node.get("imagePath")
+        if node.get("status") == "recommended" and image_path:
+            found.add(image_path)
         for value in node.values():
             collect_recommended_images(value, found)
     elif isinstance(node, list):
@@ -218,6 +235,83 @@ def check_vs_recommended(
         for image in sorted(images - recommended)
     ]
     return errors, None
+
+
+def fetch_json(url: str) -> Any:
+    request = Request(url, headers={"Accept": "application/json", "User-Agent": "confirm-release"})
+    with urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+def check_live_vs(
+    images: Set[str],
+    abbrev: str,
+    version: str,
+    environment: str,
+    base_url: str,
+) -> List[str]:
+    url = f"{base_url.rstrip('/')}/{abbrev}-operator/{version}"
+    try:
+        payload = fetch_json(url)
+    except HTTPError as exc:
+        return [f"{environment} endpoint returned HTTP {exc.code}: {url}"]
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return [f"{environment} endpoint request failed ({url}): {exc}"]
+
+    versions = payload.get("versions") if isinstance(payload, dict) else None
+    if not versions:
+        return [f"{environment} endpoint has no data for {abbrev}-operator {version}: {url}"]
+
+    recommended = collect_recommended_images(payload)
+    return [
+        f"Image '{image}' is not marked 'recommended' in the {environment} endpoint"
+        for image in sorted(images - recommended)
+    ]
+
+
+def docker_hub_tag(namespace: str, repository: str, tag: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    url = f"{DOCKER_HUB_API}/{namespace}/{repository}/tags/{tag}"
+    try:
+        payload = fetch_json(url)
+    except HTTPError as exc:
+        if exc.code == 404:
+            return False, None, None
+        return False, None, f"Docker Hub returned HTTP {exc.code} for {namespace}/{repository}:{tag}"
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return False, None, f"Docker Hub request failed for {namespace}/{repository}:{tag}: {exc}"
+    return True, payload.get("digest"), None
+
+
+def check_bundle_images(abbrev: str, version: str) -> Tuple[List[str], List[str]]:
+    repository = OPERATOR_REPOSITORIES[abbrev]
+    tag = f"{version}-community-bundle"
+    results = {}
+    errors = []
+
+    for namespace in ("perconalab", "percona"):
+        exists, digest, request_error = docker_hub_tag(namespace, repository, tag)
+        image = f"{namespace}/{repository}:{tag}"
+        results[namespace] = (image, exists, digest)
+        if request_error:
+            errors.append(request_error)
+        elif not exists:
+            errors.append(f"Bundle image does not exist: {image}")
+        elif not digest:
+            errors.append(f"Docker Hub did not return a digest for bundle image: {image}")
+
+    lab_image, lab_exists, lab_digest = results["perconalab"]
+    prod_image, prod_exists, prod_digest = results["percona"]
+    details = []
+    if lab_exists and prod_exists and lab_digest and prod_digest:
+        if lab_digest != prod_digest:
+            errors.append(
+                f"Bundle image digests differ: {lab_image}={lab_digest}, "
+                f"{prod_image}={prod_digest}"
+            )
+        else:
+            details.append(f"Both bundle images use digest {lab_digest}")
+
+    return errors, details
 
 
 def parse_readme_table(path: Path) -> Dict[str, str]:
@@ -490,8 +584,21 @@ def check_deployment(
     return errors, diffs
 
 
-def print_section(name: str, errors: List[str], diffs: Optional[List[str]] = None) -> None:
+def print_group(name: str) -> None:
+    print(f"\n{'=' * 80}")
+    print(name)
+    print("=" * 80)
+
+
+def print_section(
+    name: str,
+    errors: List[str],
+    diffs: Optional[List[str]] = None,
+    details: Optional[List[str]] = None,
+) -> None:
     print(f"\n{name}: {'OK' if not errors else 'MISMATCH'}")
+    for detail in details or []:
+        print(f"  - {detail}")
     for error in errors:
         print(f"  - {error}")
     for diff in diffs or []:
@@ -531,10 +638,25 @@ def main() -> int:
     vs_prod_errors, vs_prod_skip = check_vs_recommended(
         images, Path(args.vs_prod_repo_dir) / "sources" / vs_name
     )
+    vs_dev_endpoint_errors = check_live_vs(
+        images,
+        args.abbrev,
+        args.version,
+        "development",
+        VS_ENDPOINTS["development"],
+    )
+    vs_prod_endpoint_errors = check_live_vs(
+        images,
+        args.abbrev,
+        args.version,
+        "production",
+        VS_ENDPOINTS["production"],
+    )
     rbac_errors, rbac_diffs = check_rbac(operator_dir, helm_dir, args.abbrev)
     deployment_errors, deployment_diffs = check_deployment(
         operator_dir, helm_dir, args.abbrev
     )
+    bundle_errors, bundle_details = check_bundle_images(args.abbrev, args.version)
 
     all_errors = (
         crd_errors
@@ -542,29 +664,39 @@ def main() -> int:
         + readme_errors
         + vs_nonprod_errors
         + vs_prod_errors
+        + vs_dev_endpoint_errors
+        + vs_prod_endpoint_errors
         + rbac_errors
         + deployment_errors
+        + bundle_errors
     )
 
     print("=" * 80)
     print(f"Confirm release: {args.abbrev} {args.version}")
     print("=" * 80)
+    print_group("HELM / OPERATOR")
     print_section("CRDs", crd_errors)
     print_section("Images (cr.yaml vs values.yaml)", image_errors)
     print_section("README (values.yaml vs README.md)", readme_errors)
-
-    for label, errors, skip_reason in (
-        ("non-prod", vs_nonprod_errors, vs_nonprod_skip),
-        ("prod", vs_prod_errors, vs_prod_skip),
-    ):
-        if skip_reason:
-            print(f"\nVersion Service ({label}): SKIPPED ({skip_reason})")
-        else:
-            print_section(f"Version Service ({label})", errors)
-
     print_section("RBAC", rbac_errors, rbac_diffs)
     print_section("Deployment", deployment_errors, deployment_diffs)
-    print()
+
+    print_group("VERSION SERVICE")
+    for label, errors, skip_reason in (
+        ("Branch (non-prod)", vs_nonprod_errors, vs_nonprod_skip),
+        ("Branch (prod)", vs_prod_errors, vs_prod_skip),
+    ):
+        if skip_reason:
+            print(f"\nVersion Service {label}: SKIPPED ({skip_reason})")
+        else:
+            print_section(f"Version Service {label}", errors)
+    print_section("Version Service Endpoint (development)", vs_dev_endpoint_errors)
+    print_section("Version Service Endpoint (production)", vs_prod_endpoint_errors)
+
+    print_group("DOCKER HUB")
+    print_section("Bundle Images", bundle_errors, details=bundle_details)
+
+    print_group("RESULT")
     if all_errors:
         print(f"RESULT: OUT OF SYNC ({len(all_errors)} issue(s) found)")
         return 1
