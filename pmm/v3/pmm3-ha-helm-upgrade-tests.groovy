@@ -188,16 +188,21 @@ pipeline {
 
                     sh '''
                         chmod 600 "${KUBECONFIG}"
-                        for i in $(seq 1 6); do
-                            if kubectl get nodes >/dev/null 2>&1; then
-                                echo "Successfully connected to the cluster"
-                                kubectl get nodes -o wide
+
+                        server=$(kubectl config view --minify --output jsonpath='{.clusters[0].cluster.server}')
+                        echo "Waiting for ${server} to answer"
+
+                        for i in $(seq 1 40); do
+                            if output=$(kubectl get nodes -o wide 2>&1); then
+                                echo "${output}"
                                 exit 0
                             fi
-                            echo "Waiting for cluster to be accessible... (attempt $i/6)"
-                            sleep 10
+                            echo "attempt ${i}/40: $(echo "${output}" | tail -1)"
+                            sleep 15
                         done
-                        echo "Failed to connect to the cluster" >&2
+
+                        echo "${server} did not answer within 10m. Last error:" >&2
+                        echo "${output}" >&2
                         exit 1
                     '''
                 }
