@@ -50,9 +50,8 @@ if [ -f /usr/bin/yum ]; then
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
-  # percona-release supplies the (deprecated) tools repo with qpress for the
-  # OL8/OL9/CentOS7 (8.0) builds below. AL2023 (RHVER sentinel 2023) and OL10
-  # build 8.4+/9.7+, which do not install qpress, so they skip it.
+  # Percona's tools repository supplies qpress on the older RHEL-family images.
+  # AL2023 (RHVER sentinel 2023) and OL10 skip this repository.
   if [[ ${RHVER} -lt 10 ]]; then
       yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
       percona-release enable-only tools testing
@@ -163,8 +162,8 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" scons netcat"
   fi
 
-  # qpress comes from Percona repo (disabled on OL10 and AL2023; not needed
-  # for 8.4+/9.7+ which is the only set that targets AL2023).
+  # No qpress package is installed on AL2023 or OL10.
+  # PXB 8.0 tests that require qpress skip when it is absent.
   if [[ ${RHVER} -lt 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
       PKGLIST+=" qpress"
   fi
