@@ -7,6 +7,7 @@ def defaultAmiId = pmmVersion('v3-ami').values()[-1]
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin", SERVER_ARCH = "amd64") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'SERVER_ARCH', value: SERVER_ARCH),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),

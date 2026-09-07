@@ -21,6 +21,7 @@ Map<String, String> clientVMs = [:]
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin", SSH_KEY = "") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -488,6 +489,7 @@ void runClientWithRetry(String clientsString, String filenameLabel) {
         while (count < retries && !success) {
             count++
             def b = build job: 'pmm3-aws-staging-start', propagate: false, parameters: [
+                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                 string(name: 'DOCKER_VERSION', value: params.DOCKER_VERSION),
                 string(name: 'CLIENT_VERSION', value: params.CLIENT_VERSION),
                 string(name: 'CLIENT_INSTANCE', value: 'yes'),
