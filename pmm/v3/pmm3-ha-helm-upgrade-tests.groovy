@@ -22,6 +22,7 @@
 void runEKSClusterCreate(String k8sVersion) {
     def clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
         string(name: 'K8S_VERSION', value: k8sVersion),
+        string(name: 'WORKER_COUNT', value: params.EKS_WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: false),
         string(name: 'RETENTION_DAYS', value: '1'),
@@ -37,6 +38,7 @@ void runEKSClusterCreate(String k8sVersion) {
 void runOpenShiftClusterCreate(String ocpVersion) {
     def clusterCreateJob = build job: 'pmm3-ha-rosa', parameters: [
         string(name: 'OCP_VERSION', value: ocpVersion),
+        string(name: 'WORKER_COUNT', value: params.WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: false),
         string(name: 'RETENTION_DAYS', value: '1'),
@@ -62,6 +64,19 @@ pipeline {
             choices: ['OpenShift', 'EKS'],
             description: 'Kubernetes platform to provision. The cluster is created without PMM; this job installs it.',
             name: 'CLUSTER_TYPE')
+        choice(
+            // An in-place upgrade needs a spare node: haproxy and pgbouncer both use
+            // required pod anti-affinity with one replica per node, and roll with
+            // maxSurge 1 / maxUnavailable 0, so on a cluster sized exactly to the
+            // replica count the surge pod can never be scheduled. Build 5 deadlocked
+            // there for 15 minutes and helm gave up.
+            choices: ['4', '5', '6', '3'],
+            description: 'Worker nodes for the OpenShift cluster. Must exceed the PMM replica count, or the rolling upgrade cannot schedule its surge pod.',
+            name: 'WORKER_COUNT')
+        choice(
+            choices: ['7', '8', '9', '6'],
+            description: 'Worker nodes for the EKS cluster. Used only when CLUSTER_TYPE = EKS.',
+            name: 'EKS_WORKER_COUNT')
         choice(
             choices: ['4.21', '4.20', '4.19', '4.18'],
             description: 'OpenShift (ROSA) cluster version. Used only when CLUSTER_TYPE = OpenShift.',
