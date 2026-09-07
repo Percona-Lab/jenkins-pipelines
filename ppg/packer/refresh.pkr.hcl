@@ -36,8 +36,9 @@ variable "region" {
 }
 
 variable "subnet_id" {
-  type    = string
-  default = "subnet-068170595951ab3a9" # default-VPC public subnet, eu-central-1a
+  type        = string
+  default     = ""
+  description = "Pin the builder to one subnet. Empty (default) spreads launches across the default VPC's per-AZ subnets (see subnet_filter)."
 }
 
 variable "os_major" {
@@ -103,7 +104,10 @@ variable "env" {
 }
 
 locals {
-  instance_type    = var.arch == "arm64" ? "t4g.large" : "t3.large"
+  # m7g.large rather than t4g.large: the burstable Graviton pool ran dry in one
+  # AZ for weeks (InsufficientInstanceCapacity) while m7g launched in both
+  # default-VPC AZs when probed. Same 2 vCPU / 8 GiB.
+  instance_type    = var.arch == "arm64" ? "m7g.large" : "t3.large"
   uname_arch       = var.arch == "arm64" ? "aarch64" : "x86_64"
   ssm_arch         = var.arch == "arm64" ? "arm64" : "amd64"
   root_volume_size = var.volume_size
@@ -204,7 +208,17 @@ source "amazon-ebs" "el" {
     include_deprecated = var.seed # Rocky 8's official images are past their AWS DeprecationTime
   }
 
-  subnet_id                   = var.subnet_id
+  # Spread builders across the default VPC's per-AZ subnets instead of pinning
+  # one AZ. The pick happens once per build (no reselect on a capacity error),
+  # so one dry pool no longer takes every lane with certainty. A non-empty
+  # subnet_id overrides the filter.
+  subnet_id = var.subnet_id
+  subnet_filter {
+    filters = {
+      "default-for-az" = "true"
+    }
+    random = true
+  }
   associate_public_ip_address = true
 
   # Pre-created no-ingress SG (terraform-managed, egress-only). Supplying a SG
