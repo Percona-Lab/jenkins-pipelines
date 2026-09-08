@@ -236,11 +236,6 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
     }
 }
 
-// PMM 3.9.0 removed the in-app ("UI") updater: the Updates page renders a
-// "deprecated ... managed via the CLI" notice instead of an "Update now" button,
-// and POST /v1/server/updates:start answers 404. A UI upgrade cannot start from
-// 3.9.0 or later however UPGRADE_TYPE is set, so those sources take the Docker
-// path -- the one PMM itself now documents -- regardless.
 def supportsUiUpgrade(String version) {
     def parts = version.tokenize('.')
     def major = parts[0].toInteger()
