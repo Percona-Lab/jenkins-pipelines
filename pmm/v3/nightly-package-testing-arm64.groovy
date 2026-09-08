@@ -161,11 +161,7 @@ timestamps {
         }
 
         stage('Point server at itself') {
-            // 'docker' rather than a min-* label: these two orchestration
-            // stages only curl and archive, and min-noble-x64 is already the
-            // Ubuntu 24.04 test target. agent-amd64 is the pool the sixteen
-            // pmm3-aws-staging-start children queue on, so it stays clear too.
-            node(onDemand('docker')) {
+            node(onDemand('min-noble-x64')) {
                 try {
                     sh """
                         curl -k --location --request PUT "https://${vmIp}/v1/server/settings" \
@@ -194,7 +190,7 @@ timestamps {
     } finally {
         stage('Teardown') {
             if (vmName) {
-                node(onDemand('docker')) {
+                node(onDemand('min-noble-x64')) {
                     try {
                         sh "curl --insecure ${pmmUrl}/logs.zip --output logs.zip || true"
                         archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
