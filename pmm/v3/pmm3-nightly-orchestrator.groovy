@@ -203,31 +203,9 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-// PMM_VERSION has to name the client the suite actually installs, because the
-// playbooks assert it against `pmm-admin --version`. Most suites install from
-// INSTALL_REPO=experimental, which carries the dev build on both arches, so
-// they take devVersion.
-//
-// Three suites — custom path, custom port, upgrade custom path — install from a
-// tarball URL instead (package_tests/scripts/pmm3_client_install_tarball.sh),
-// and that URL is arch-specific:
-//
-//   amd64  downloads/TESTING/pmm/pmm-client-<v>.tar.gz          — carries dev builds
-//   arm64  downloads/pmm3/<v>/binary/tarball/…-aarch64.tar.gz   — GA releases only
-//
-// No dev arm64 client tarball is published anywhere: TESTING/pmm-arm was never
-// populated by any pipeline, so on arm64 those three can only ever exercise a
-// GA client. Handing them devVersion is a guaranteed 404, which is what
-// reddened all eight OS branches of `pkg arm64 / custom path`, `/ custom port`
-// and `/ upgrade custom path` in pmm3-nightly-orchestrator #3.
-//
-// So the split is per suite, not per arch: the arm64 tarball lanes take
-// gaVersion and say so in their stage name, so a green lane there is not
-// misread as dev-tarball coverage.
 def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
-    // The fourth column marks the suites that install from a tarball.
     def variants = [
         ['integration',          'pmm3-client_integration',                     '--help  ',    false],
         ['auth config',          'pmm3-client_integration_auth_config',         '--help   ',   false],
