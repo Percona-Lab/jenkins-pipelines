@@ -316,21 +316,21 @@ pipeline {
                     def imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}-rc"),
                         string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}-rc"),
-                        booleanParam(name: 'USE_ONDEMAND', value: true)
+                        booleanParam(name: 'USE_ONDEMAND', value: true),
+                        booleanParam(name: 'REQUIRE_MULTIARCH', value: true)
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
                         // Copy Trivy reports for both server and client
-                        copyArtifacts filter: '*-report.*', projectName: 'pmm3-image-scanning'
+                        copyArtifacts filter: 'trivy-*-report-*.*', projectName: 'pmm3-image-scanning'
                         sh '''
-                            mv trivy-server-report.txt trivy-server-report-${VERSION}-rc.txt
-                            mv trivy-server-report.html trivy-server-report-${VERSION}-rc.html
-
-                            mv trivy-client-report.txt trivy-client-report-${VERSION}-rc.txt
-                            mv trivy-client-report.html trivy-client-report-${VERSION}-rc.html
+                            for report in trivy-*-report-*.*; do
+                                [ -e "${report}" ] || continue
+                                mv "${report}" "${report%.*}-${VERSION}-rc.${report##*.}"
+                            done
                         '''
-                        archiveArtifacts artifacts: "*-report-${VERSION}-rc.*"
+                        archiveArtifacts artifacts: "trivy-*-report-*-${VERSION}-rc.*"
                         env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }

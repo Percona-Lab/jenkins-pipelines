@@ -23,6 +23,11 @@ pipeline {
             description: 'WatchTower docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
             name: 'WATCHTOWER_VERSION'
         )
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton t4g.xlarge)',
+            name: 'SERVER_ARCH'
+        )
         string(
             defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
@@ -179,7 +184,13 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                runSpotInstance('t3.xlarge', params.USE_ONDEMAND)
+                script {
+                    if (params.SERVER_ARCH == 'arm64') {
+                        runSpotInstance('t4g.xlarge', params.USE_ONDEMAND, 'arm64')
+                    } else {
+                        runSpotInstance('t3.xlarge', params.USE_ONDEMAND)
+                    }
+                }
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -231,15 +242,18 @@ pipeline {
                                     docker network create pmm-qa || true
                                     docker volume create pmm-data
 
-                                    docker run --detach --restart always \
-                                        --network pmm-qa \
-                                        --name watchtower \
-                                        --volume /var/run/docker.sock:/var/run/docker.sock \
-                                        --restart always \
-                                        -e WATCHTOWER_DEBUG=1 \
-                                        -e WATCHTOWER_HTTP_API_TOKEN=testToken \
-                                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
-                                        ${WATCHTOWER_VERSION}
+                                    # watchtower has no arm64 image, and only PMM before 3.9.0 (amd64 only) needs it
+                                    if [ "${SERVER_ARCH}" != "arm64" ]; then
+                                        docker run --detach --restart always \
+                                            --network pmm-qa \
+                                            --name watchtower \
+                                            --volume /var/run/docker.sock:/var/run/docker.sock \
+                                            --restart always \
+                                            -e WATCHTOWER_DEBUG=1 \
+                                            -e WATCHTOWER_HTTP_API_TOKEN=testToken \
+                                            -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                                            ${WATCHTOWER_VERSION}
+                                    fi
 
                                     docker run -d \
                                         -p 443:8443 \
