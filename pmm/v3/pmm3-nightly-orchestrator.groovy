@@ -198,19 +198,9 @@ def supportsUiUpgrade(String version) {
 }
 
 def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, String serverImage, String latestDevVersion) {
-    // Every recent release upgraded to the image under test. pmm3-upgrade-tests-matrix,
-    // which this fan-out replaces, sends the newest source from its own RC image to the
-    // dev tip and every older source to that same RC — right for the job it is, which
-    // tests a release candidate, and wrong here: it left 15 of these 18 suites
-    // upgrading to a three-week-old RC and never loading the image this run is about.
-    //
-    // So the pre-upgrade side is the GA a user would actually be running, and the
-    // post-upgrade side is DOCKER_VERSION. A nightly then exercises the tip and a run
-    // pointed at an RC exercises the RC, with no branch here needing to know which.
     def variants = ['SSL', 'EXTERNAL SERVICES', 'OTHERS']
     pmmVersions.each { ver ->
-        // The apt pool carries only the newest few client debs; an older source
-        // installs from its published tarball instead.
+        // The apt pool carries only the newest few client debs.
         def clientVersion = ver in clientDebVersions
             ? ver
             : "https://downloads.percona.com/downloads/pmm3/${ver}/binary/tarball/pmm-client-${ver}-x86_64.tar.gz"
