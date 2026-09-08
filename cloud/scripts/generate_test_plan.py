@@ -608,40 +608,6 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
 
 
 def generate_markdown_table(test_plan: list[dict]) -> str:
-    if any("kind" in cell for cell in test_plan):
-        automatic = [cell for cell in test_plan if not cell.get("manual")]
-        manual = [cell for cell in test_plan if cell.get("manual")]
-        unique_images = {cell["image_variable"] for cell in automatic}
-        lines = [
-            (
-                f"**{len(test_plan)} cells:** {len(automatic)} automatic jobs, "
-                f"{len(manual)} manual placeholders, "
-                f"{len(unique_images)} unique automatic image variables."
-            ),
-            "",
-            (
-                "| # | Platform | K8s Version | Arch | CW | PG | Kind | "
-                "Flavor | Image Variable | Manual | Failed Tests | Done |"
-            ),
-            (
-                "|---|----------|-------------|------|----|----|------|"
-                "--------|----------------|--------|--------------|------|"
-            ),
-        ]
-        for index, cell in enumerate(test_plan, start=1):
-            cw = "Yes" if cell["cluster_wide"] == "YES" else "No"
-            major = re.search(r"\d+", str(cell["pillar_version"]))
-            flavor = f"{cell.get('ubi_version', '')} {cell.get('flavor', '')}".strip()
-            lines.append(
-                f"| {index} | {cell['platform']} | {cell['k8s_version_actual']} | "
-                f"{cell.get('architecture', 'amd64')} | {cw} | "
-                f"{major.group() if major else cell['pillar_version']} | "
-                f"{cell.get('kind', '')} | {flavor} | "
-                f"{cell.get('image_variable', '')} | "
-                f"{'Yes' if cell.get('manual') else 'No'} |  |  |"
-            )
-        return "\n".join(lines)
-
     lines = [
         "| Platform | K8s Version | Pillar Version | UBI | CW | Failed Tests | Done |",
         "|----------|-------------|----------------|-----|----|--------------|----|",

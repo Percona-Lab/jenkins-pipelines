@@ -32,6 +32,11 @@ VS_ENDPOINTS = {
 }
 
 DOCKER_HUB_API = "https://hub.docker.com/v2/repositories"
+DOCKER_HUB_PREFIXES = (
+    "docker.io/",
+    "index.docker.io/",
+    "registry-1.docker.io/",
+)
 
 
 def load_yaml_docs(path: Path) -> List[Any]:
@@ -207,19 +212,38 @@ def check_images(cr_path: Path, values_path: Path) -> Tuple[List[str], Set[str]]
     return errors, operator_images | helm_images
 
 
+def normalize_image(image: str) -> str:
+    image = image.strip()
+    if "@" in image:
+        image = image.split("@", 1)[0]
+    for prefix in DOCKER_HUB_PREFIXES:
+        if image.startswith(prefix):
+            image = image[len(prefix):]
+            break
+    if image.startswith("library/"):
+        image = image[len("library/"):]
+    return image
+
+
 def collect_recommended_images(node: Any, found: Optional[Set[str]] = None) -> Set[str]:
     if found is None:
         found = set()
     if isinstance(node, dict):
         image_path = node.get("image_path") or node.get("imagePath")
         if node.get("status") == "recommended" and image_path:
-            found.add(image_path)
+            found.add(normalize_image(image_path))
         for value in node.values():
             collect_recommended_images(value, found)
     elif isinstance(node, list):
         for value in node:
             collect_recommended_images(value, found)
     return found
+
+
+def images_missing_from_recommended(images: Set[str], recommended: Set[str]) -> List[str]:
+    return sorted(
+        image for image in images if normalize_image(image) not in recommended
+    )
 
 
 def check_vs_recommended(
@@ -232,7 +256,7 @@ def check_vs_recommended(
         recommended = collect_recommended_images(json.load(stream))
     errors = [
         f"Image '{image}' is not marked 'recommended' in the version-service JSON"
-        for image in sorted(images - recommended)
+        for image in images_missing_from_recommended(images, recommended)
     ]
     return errors, None
 
@@ -265,7 +289,7 @@ def check_live_vs(
     recommended = collect_recommended_images(payload)
     return [
         f"Image '{image}' is not marked 'recommended' in the {environment} endpoint"
-        for image in sorted(images - recommended)
+        for image in images_missing_from_recommended(images, recommended)
     ]
 
 

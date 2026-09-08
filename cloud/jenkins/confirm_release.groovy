@@ -196,7 +196,7 @@ pipeline {
                         script: '''
                             export PATH="$HOME/.local/bin:$PATH"
                             set +e
-                            uv run --with pyyaml cloud/scripts/confirm-release.py \
+                            uv run -q --with pyyaml cloud/scripts/confirm-release.py \
                                 "$ABBREV" \
                                 "$VERSION" \
                                 operator-repo \
