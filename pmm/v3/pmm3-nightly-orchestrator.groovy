@@ -197,18 +197,13 @@ def supportsUiUpgrade(String version) {
     return major < 3 || (major == 3 && minor < 9)
 }
 
-def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, String latestVersion, String latestDevVersion) {
-    // Mirrors pmm3-upgrade-tests-matrix: every recent version upgraded, with the
-    // newest one going from its RC image up to the dev tip.
+def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, String serverImage, String latestDevVersion) {
     def variants = ['SSL', 'EXTERNAL SERVICES', 'OTHERS']
     pmmVersions.each { ver ->
-        def isNewest = (ver == pmmVersions.last())
-        def dockerTag = isNewest ? "perconalab/pmm-server:${ver}-rc" : "percona/pmm-server:${ver}"
-        def dockerTagUpgrade = isNewest ? 'perconalab/pmm-server:3-dev-latest' : "perconalab/pmm-server:${pmmVersions.last()}-rc"
-        def clientVersion = isNewest ? 'pmm3-rc'
-            : (ver in clientDebVersions ? ver : "https://downloads.percona.com/downloads/pmm3/${ver}/binary/tarball/pmm-client-${ver}-x86_64.tar.gz")
-        def clientRepo = isNewest ? 'experimental' : 'testing'
-        def serverLatest = isNewest ? latestDevVersion : latestVersion
+        // The apt pool carries only the newest few client debs.
+        def clientVersion = ver in clientDebVersions
+            ? ver
+            : "https://downloads.percona.com/downloads/pmm3/${ver}/binary/tarball/pmm-client-${ver}-x86_64.tar.gz"
 
         def upgradeType = supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'
 
@@ -216,11 +211,11 @@ def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, Stri
             def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
                 string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
-                string(name: 'DOCKER_TAG',                    value: dockerTag),
-                string(name: 'DOCKER_TAG_UPGRADE',            value: dockerTagUpgrade),
+                string(name: 'DOCKER_TAG',                    value: "percona/pmm-server:${ver}"),
+                string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
                 string(name: 'CLIENT_VERSION',                value: clientVersion),
-                string(name: 'CLIENT_REPOSITORY',             value: clientRepo),
-                string(name: 'PMM_SERVER_LATEST',             value: serverLatest),
+                string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
+                string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
                 string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
                 string(name: 'UPGRADE_FLAG',                  value: variant),
                 string(name: 'UPGRADE_TYPE',                  value: upgradeType),
@@ -308,7 +303,7 @@ timestamps {
 
     packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion, latestVersion)
     packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion, latestVersion)
-    upgradeBranches(branches, upgradeVersions, clientDebVersions, latestVersion, latestDevVersion)
+    upgradeBranches(branches, upgradeVersions, clientDebVersions, serverImage, latestDevVersion)
 
     branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
         string(name: 'PMM_QA_GIT_BRANCH',   value: params.PMM_QA_GIT_BRANCH),
