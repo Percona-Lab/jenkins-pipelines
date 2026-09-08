@@ -212,24 +212,26 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersionLabel) {
+def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
     def variants = [
-        ['integration',          'pmm3-client_integration',                     '--help  '],
-        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
-        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
-        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
-        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
-        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
-        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
-        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
+        ['integration',          'pmm3-client_integration',                     '--help  ',    false],
+        ['auth config',          'pmm3-client_integration_auth_config',         '--help   ',   false],
+        ['auth register',        'pmm3-client_integration_auth_register',       ' --help',     false],
+        ['custom path',          'pmm3-client_integration_custom_path',         '  --help',    true],
+        ['custom port',          'pmm3-client_integration_custom_port',         '   --help',   true],
+        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help',  false],
+        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help ', true],
+        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  ', false],
     ]
     variants.each { v ->
         def label = v[0]
         def tests = v[1]
         def clients = v[2]
-        def name = "${prefix} / ${label}"
+        def gaOnly = v[3] && serverArch == 'arm64'
+        def pmmVersionLabel = gaOnly ? gaVersion : devVersion
+        def name = gaOnly ? "${prefix} / ${label} (GA ${gaVersion})" : "${prefix} / ${label}"
         branches[name] = suite(name, jobName, [
             string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
             string(name: 'DOCKER_VERSION',  value: serverImage),
@@ -245,6 +247,13 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
     }
 }
 
+def supportsUiUpgrade(String version) {
+    def parts = version.tokenize('.')
+    def major = parts[0].toInteger()
+    def minor = parts.size() > 1 ? parts[1].toInteger() : 0
+    return major < 3 || (major == 3 && minor < 9)
+}
+
 def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String latestVersion, String latestDevVersion) {
     // Mirrors pmm3-upgrade-tests-matrix: every recent version upgraded, with the
     // newest one going from its RC image up to the dev tip.
@@ -258,6 +267,8 @@ def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String lat
         def clientRepo = isNewest ? 'experimental' : 'testing'
         def serverLatest = isNewest ? latestDevVersion : latestVersion
 
+        def upgradeType = supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'
+
         variants.each { variant ->
             def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
@@ -269,7 +280,7 @@ def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String lat
                 string(name: 'PMM_SERVER_LATEST',             value: serverLatest),
                 string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
                 string(name: 'UPGRADE_FLAG',                  value: variant),
-                string(name: 'UPGRADE_TYPE',                  value: params.UPGRADE_TYPE),
+                string(name: 'UPGRADE_TYPE',                  value: upgradeType),
                 booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
             ])
         }
@@ -298,6 +309,8 @@ timestamps {
                 deleteDir()
             }
         }
+        def uiCapable = upgradeVersions.findAll { supportsUiUpgrade(it) }
+        def dockerOnly = upgradeVersions.findAll { !supportsUiUpgrade(it) }
         currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
         echo """Nightly release readiness
   server image    : ${serverImage}
@@ -306,6 +319,7 @@ timestamps {
   AMI             : ${amiId}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
+  upgrade path    : UI-capable ${uiCapable.join(', ')} | Docker-only ${dockerOnly.join(', ')}
   dev version     : ${latestDevVersion}
   on-demand       : ${params.USE_ONDEMAND}"""
     }
@@ -346,8 +360,8 @@ timestamps {
         ])
     }
 
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion)
+    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion, latestVersion)
+    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion, latestVersion)
     upgradeBranches(branches, upgradeVersions, oldVersions, latestVersion, latestDevVersion)
 
     branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
