@@ -274,7 +274,7 @@ pipeline {
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
 
-                    ./pmm-framework/pmm-framework \
+                    ./pmm-framework/pmm-framework --parallel \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
@@ -415,6 +415,7 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             npm ci
+                            npx playwright install
                         popd
                     '''
                     sh '''
@@ -636,6 +637,13 @@ pipeline {
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 try {
+                    dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
+                        junit PATH_TO_REPORT_RESULTS
+                    }
+                } catch (err) {
+                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+                }
+                try {
                     dir('/srv/pmm-qa/codeceptjs-e2e') {
                         junit PATH_TO_REPORT_RESULTS
                     }
@@ -645,6 +653,9 @@ pipeline {
             }
         }
         failure {
+            dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
+                archiveArtifacts artifacts: 'tests/output/*.png'
+            }
             dir('/srv/pmm-qa/codeceptjs-e2e') {
                 archiveArtifacts artifacts: 'tests/output/*.png'
             }
