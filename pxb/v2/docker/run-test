@@ -33,6 +33,13 @@ if [[ ${WITH_XBCLOUD_TESTS} == "true" ]]; then
 
   export S3_SERVER_IP=$(docker inspect s3 | egrep "\"IPAddress\": \"([0-9]{1,3}\.){3}[0-9]{1,3}" | awk -F'"' '{print $4}' | head -n 1)
   export XBCLOUD_CREDENTIALS="--storage=s3 --s3-endpoint='http://${S3_SERVER_IP}:9000' --s3-access-key=myuser --s3-secret-key=someStrongPWD --s3-bucket=newbucket"
+
+  # The test container has no docker, so tests cannot reach into the s3
+  # container. Copy the MinIO client out of the image instead: mc is a static
+  # binary and talks to MinIO over pxb_network like any other client, which is
+  # all the tests need to list objects and manage IAM users.
+  docker cp s3:/usr/bin/mc ${ROOT_DIR}/mc
+  export XBCLOUD_MC=/tmp/pxb/mc
 fi
 
 if [[ ${WITH_VAULT_TESTS} == "true" ]]; then
@@ -86,6 +93,7 @@ docker run --rm \
     export WITH_AZURITE='${WITH_AZURITE}'
     export LANG=en_AU.UTF-8
     export XBCLOUD_CREDENTIALS='${XBCLOUD_CREDENTIALS}'
+    export XBCLOUD_MC='${XBCLOUD_MC}'
     export VAULT_IP='${VAULT_SERVER_IP}'
     export VAULT_URL=https://local.vault.com:8200
     export VAULT_CACERT=/tmp/pxb/vault.crt
