@@ -53,9 +53,9 @@ def formatSlackSummary(String report) {
         if (label.startsWith('Version Service')) {
             group = 'Version Service'
             shortLabel = label.replace('Version Service ', '')
-        } else if (label == 'Bundle Images') {
+        } else if (label.startsWith('Bundle Images')) {
             group = 'Docker Hub'
-            shortLabel = 'Bundles'
+            shortLabel = label.replace('Bundle Images ', '')
         } else if (['CRDs', 'Images', 'README', 'RBAC', 'Deployment'].any { label.startsWith(it) }) {
             group = 'Helm / Operator'
             shortLabel = label.tokenize(' ')[0]
@@ -196,15 +196,16 @@ pipeline {
                         script: '''
                             export PATH="$HOME/.local/bin:$PATH"
                             set +e
-                            uv run -q --with pyyaml cloud/scripts/confirm-release.py \
+                            PYTHONUNBUFFERED=1 uv run -q --with pyyaml cloud/scripts/confirm-release.py \
                                 "$ABBREV" \
                                 "$VERSION" \
                                 operator-repo \
                                 helm-charts-repo \
                                 version-service-repo-nonprod \
                                 version-service-repo-prod \
-                                > confirm-release-report.txt 2>&1
+                                > confirm-release-report.txt
                             status=$?
+                            echo '===== Confirm release report ====='
                             cat confirm-release-report.txt
                             exit $status
                         ''',
