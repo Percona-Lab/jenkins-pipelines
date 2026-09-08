@@ -331,8 +331,7 @@ timestamps {
             byFam[fam].add([leaf: leaf, res: r])
         }
 
-        def mark = ['SUCCESS': '&#10003;', 'FAILURE': '&#10007;', 'ABORTED': '&#10007;', 'UNSTABLE': '&#9888;']
-        def html = ["<b>server</b> ${serverImage} &nbsp; <b>client</b> ${params.CLIENT_VERSION}"]
+        def tally = []
         def text = []
         def totalBad = 0
         def totalWarn = 0
@@ -352,19 +351,25 @@ timestamps {
             totalWarn = totalWarn + warn
             def ok = items.size() - bad - warn
 
-            html.add("<br><b>${fam}</b> &mdash; ${ok} ok &middot; ${bad} failed &middot; ${warn} unstable")
+            tally.add("${fam} ${ok}/${items.size()}")
             text.add("")
             text.add("${fam}  (${ok} ok, ${bad} failed, ${warn} unstable)")
             items.each { i ->
                 def r = i.res
-                def m = mark[r.result] ?: '&#183;'
-                html.add("&nbsp;&nbsp;${m} <a href=\"${r.url}\">${i.leaf}</a> &nbsp;<code>${r.job} #${r.number}</code>")
                 text.add("  ${(r.result ?: 'UNKNOWN').padRight(9)} ${i.leaf}")
                 text.add("            ${r.url}")
             }
         }
 
-        currentBuild.description = html.join('<br>')
+        // Plain text on purpose. Whether a description renders HTML depends on the
+        // controller's Markup Formatter, and the API and Blue Ocean hand back the
+        // raw string either way — pmm3-nightly-orchestrator #2 showed 50 anchor
+        // tags as source. The per-suite URLs live in the log below, and the stage
+        // view is already clickable.
+        currentBuild.description = "${serverImage} / client ${params.CLIENT_VERSION}" +
+            "  |  ${results.size() - totalBad - totalWarn} ok, ${totalBad} failed" +
+            (totalWarn > 0 ? ", ${totalWarn} unstable" : '') +
+            "  |  " + tally.join(' \u00b7 ')
         echo "Nightly release readiness \u2014 ${results.size()} suites\n" + text.join('\n') +
             "\n\nfailed: ${totalBad}   unstable: ${totalWarn}   ok: ${results.size() - totalBad - totalWarn}"
 
