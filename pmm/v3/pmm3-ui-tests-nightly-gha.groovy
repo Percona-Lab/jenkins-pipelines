@@ -104,114 +104,117 @@ void destroyStaging(IP) {
     ]
 }
 
-properties([
-    pipelineTriggers([cron('0 0 * * *')]),
-    parameters([
-            string(
-                defaultValue: 'main',
-                description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
-                name: 'PMM_QA_GIT_BRANCH'),
-            choice(
-                choices: ['docker', 'ami', 'helm', 'ha'],
-                description: 'PMM Server installation type.',
-                name: 'SERVER_TYPE'),
-            string(
-                defaultValue: 'perconalab/pmm-server:3-dev-latest',
-                description: 'PMM Server docker container version (image-name:version-tag)',
-                name: 'DOCKER_VERSION'),
-            choice(
-                choices: ['amd64', 'arm64'],
-                description: '[docker only] CPU architecture of the VM the server runs on.',
-                name: 'SERVER_ARCH'),
-            string(
-                defaultValue: defaultAmiId,
-                description: '[AMI only] AWS AMI ID (e.g., ami-0669b163befffb6c3).',
-                name: 'AMI_ID'),
-            string(
-                defaultValue: 'latest-tarball',
-                description: 'PMM Client version',
-                name: 'CLIENT_VERSION'),
-            string(
-                defaultValue: 'pmm3admin!',
-                description: 'pmm-server admin user default password',
-                name: 'ADMIN_PASSWORD'),
-            string(
-                defaultValue: 'main',
-                description: 'HA setup branch of percona-helm-charts repo',
-                name: 'HELM_CHART_BRANCH'),
-            choice(
-                choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
-                description: 'OpenShift version to install (specific version or channel)',
-                name: 'OPENSHIFT_VERSION'),
-            choice(
-                choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
-                description: 'HA setup Kubernetes cluster version',
-                name: 'K8S_VERSION'),
-            string(
-                defaultValue: '100',
-                description: 'Launchable subset confidence % for selecting tests to run.',
-                name: 'PTS_CONFIDENCE')
-    ]),
-])
-
-// Scripted, and without a top-level `node`. `Start Server` and the teardown do
-// nothing but `build job:`, and holding an agent across them is what made this
-// job both wasteful and deadlock-prone: it took a `cli` executor and then
-// waited on pmm3-ami-staging-start, which needs `cli` too. With ten of these
-// dispatched at once by pmm3-nightly-orchestrator that starves the pool.
-//
-// An agent is taken only where a shell actually runs. The pmm-qa checkout lives
-// in that same block because `Trigger nightly GH Actions matrix` runs scripts
-// out of it; everything shared across blocks travels through `env`.
-
-timestamps {
-    def agentLabel = 'cli'
-    def ghRunId = ''
-
-    try {
+pipeline {
+    agent {
+        label 'cli'
+    }
+    parameters {
+        string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
+            name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['docker', 'ami', 'helm', 'ha'],
+            description: 'PMM Server installation type.',
+            name: 'SERVER_TYPE')
+        string(
+            defaultValue: 'perconalab/pmm-server:3-dev-latest',
+            description: 'PMM Server docker container version (image-name:version-tag)',
+            name: 'DOCKER_VERSION')
+        choice(
+            choices: ['amd64', 'arm64'],
+            description: '[docker only] CPU architecture of the VM the server runs on.',
+            name: 'SERVER_ARCH')
+        string(
+            defaultValue: defaultAmiId,
+            description: '[AMI only] AWS AMI ID (e.g., ami-0669b163befffb6c3).',
+            name: 'AMI_ID')
+        string(
+            defaultValue: 'latest-tarball',
+            description: 'PMM Client version',
+            name: 'CLIENT_VERSION')
+        string(
+            defaultValue: 'pmm3admin!',
+            description: 'pmm-server admin user default password',
+            name: 'ADMIN_PASSWORD')
+        string(
+            defaultValue: 'main',
+            description: 'HA setup branch of percona-helm-charts repo',
+            name: 'HELM_CHART_BRANCH')
+        choice(
+            choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
+            description: 'OpenShift version to install (specific version or channel)',
+            name: 'OPENSHIFT_VERSION')
+        choice(
+            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
+            description: 'HA setup Kubernetes cluster version',
+            name: 'K8S_VERSION')
+        string(
+            defaultValue: '100',
+            description: 'Launchable subset confidence % for selecting tests to run.',
+            name: 'PTS_CONFIDENCE')
+    }
+    options {
+        skipDefaultCheckout()
+    }
+    triggers { cron('0 0 * * *') }
+    stages {
         stage('Prepare') {
-            currentBuild.description = "[GHA] ${params.SERVER_TYPE}/${params.SERVER_ARCH} Server: ${params.DOCKER_VERSION}. Client: ${params.CLIENT_VERSION}"
-            slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-        }
-
-        // One name per SERVER_TYPE, as before, so the stage view still says which
-        // path ran. Only ever one of them: SERVER_TYPE is a single choice, which
-        // is why the old `parallel` around these four was decorative.
-        if (params.SERVER_TYPE == 'docker') {
-            stage('Setup Docker Server Instance') {
-                runStagingServer(params.DOCKER_VERSION, params.CLIENT_VERSION, '--help', 'no', '127.0.0.1', params.PMM_QA_GIT_BRANCH, params.ADMIN_PASSWORD, params.SERVER_ARCH)
-            }
-        } else if (params.SERVER_TYPE == 'ami') {
-            stage('Setup AMI PMM Server Instance') {
-                runAMIStagingStart(params.AMI_ID)
-            }
-        } else if (params.SERVER_TYPE == 'helm') {
-            stage('Setup Helm PMM Server Instance') {
-                runOpenshiftClusterCreate(params.OPENSHIFT_VERSION, params.DOCKER_VERSION, params.ADMIN_PASSWORD)
-            }
-        } else if (params.SERVER_TYPE == 'ha') {
-            stage('Setup HA PMM Server Instance') {
-                runHAClusterCreate(params.K8S_VERSION, params.DOCKER_VERSION, params.HELM_CHART_BRANCH, params.ADMIN_PASSWORD)
-            }
-        } else {
-            error("unknown SERVER_TYPE: ${params.SERVER_TYPE}")
-        }
-
-        node(agentLabel) {
-            try {
-                stage('Checkout pmm-qa') {
-                    deleteDir()
-                    git poll: false, branch: params.PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+            steps {
+                script {
+                    currentBuild.description = "[GHA] ${env.SERVER_TYPE}/${env.SERVER_ARCH} Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}"
                 }
-
-                stage('Sanity check') {
-                    sh '''
+                deleteDir()
+                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+            }
+        }
+        stage('Start Server') {
+            parallel {
+                stage('Setup Docker Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD, SERVER_ARCH)
+                    }
+                }
+                stage('Setup AMI PMM Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        runAMIStagingStart(AMI_ID)
+                    }
+                }
+                stage('Setup Helm PMM Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "helm" }
+                    }
+                    steps {
+                        runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup HA PMM Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ha" }
+                    }
+                    steps {
+                        runHAClusterCreate(K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
+            }
+        }
+        stage('Sanity check') {
+            steps {
+                sh '''
                     timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
                 '''
-                }
-
-                stage('Disable upgrade on nightly PMM instance') {
-                    sh '''
+            }
+        }
+        stage('Disable upgrade on nightly PMM instance') {
+            steps {
+                sh '''
                     #!/bin/bash
                         curl --location -i --insecure --request PUT \
                         --user "admin:$ADMIN_PASSWORD" \
@@ -219,12 +222,15 @@ timestamps {
                         --header "Content-Type: application/json" \
                         --data '{ "enable_updates": false }'
                 '''
-                }
-
-                stage('Trigger nightly GH Actions matrix') {
-                    timeout(time: 360, unit: 'MINUTES') {
-                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
-                            sh '''
+            }
+        }
+        stage('Trigger nightly GH Actions matrix') {
+            options {
+                timeout(time: 360, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
+                    sh '''
                         set -eux
                         # Build dispatch body. The workflow_dispatch payload only takes
                         # the ref + the inputs object — secrets are looked up server-side.
@@ -275,49 +281,49 @@ timestamps {
 
                         .github/scripts/wait-for-gh-run-completion.sh "percona/pmm-qa" "${RUN_ID}"
                     '''
-                        }
-                    }
-                    // Carried out of the workspace so the notification below does
-                    // not need an agent to read it.
-                    ghRunId = readFile('gh_run_id.txt').trim()
                 }
-            } finally {
-                deleteDir()
             }
         }
-    } finally {
-        stage('Teardown') {
-            // Always tear down the server first — server lifecycle must
-            // match this build's outcome regardless of GH workflow result.
-            if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
-                build job: 'pmm3-ami-staging-stop', parameters: [
-                    string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
-                ]
-            }
-            if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
-                build job: 'openshift-cluster-destroy', parameters: [
-                    string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
-                    string(name: 'DESTROY_REASON', value: 'testing-complete'),
-                    booleanParam(name: 'FORCE_MODE', value: true),
-                ]
-            }
-            if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
-                build job: 'pmm3-ha-eks-cleanup', parameters: [
-                    string(name: 'ACTION', value: 'DELETE_CLUSTER'),
-                    string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
-                ]
-            }
-            if (env.VM_NAME && env.SERVER_TYPE == "docker") {
-                destroyStaging(env.VM_NAME)
+    }
+    post {
+        always {
+            script {
+                // Always tear down the server first — server lifecycle must
+                // match this build's outcome regardless of GH workflow result.
+                if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
+                    build job: 'pmm3-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
+                if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
+                    build job: 'openshift-cluster-destroy', parameters: [
+                        string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
+                        string(name: 'DESTROY_REASON', value: 'testing-complete'),
+                        booleanParam(name: 'FORCE_MODE', value: true),
+                    ]
+                }
+                if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
+                    build job: 'pmm3-ha-eks-cleanup', parameters: [
+                        string(name: 'ACTION', value: 'DELETE_CLUSTER'),
+                        string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
+                    ]
+                }
+                if (env.VM_NAME && env.SERVER_TYPE == "docker") {
+                    destroyStaging(env.VM_NAME)
+                }
             }
         }
-
-        stage('Notify') {
-            if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+        success {
+            script {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00',
                     message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-            } else {
-                def runLink = ghRunId ? "https://github.com/percona/pmm-qa/actions/runs/${ghRunId}" : "(GH run id not captured)"
+            }
+        }
+        failure {
+            script {
+                def runId = ''
+                try { runId = readFile('gh_run_id.txt').trim() } catch (ignored) {}
+                def runLink = runId ? "https://github.com/percona/pmm-qa/actions/runs/${runId}" : "(GH run id not captured)"
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000',
                     message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}\nGH Actions run: ${runLink}"
             }

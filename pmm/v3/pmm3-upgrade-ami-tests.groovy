@@ -68,25 +68,32 @@ def generateStage(String PMM_QA_PRE_UPGRADE_GIT_BRANCH, PMM_QA_GIT_BRANCH, amiVe
     }
 }
 
-properties([
-    parameters([
+
+pipeline {
+    agent {
+        label 'cli'
+    }
+    parameters {
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa (post-upgrade UI tests in codeceptjs-e2e/)',
-            name: 'PMM_QA_GIT_BRANCH'),
+            name: 'PMM_QA_GIT_BRANCH')
         booleanParam(
             defaultValue: true,
             description: 'Teting for RC version if true, if false - testing for latest dev version',
-            name: 'IS_RC_TESTING'),
-    ]),
-])
-
-// Scripted, and without a `node`. Every branch below is a `build job:` and
-// nothing here runs a shell, so the previous top-level `agent { label 'cli' }`
-// held an executor for the whole matrix purely to wait on its five children.
-
-timeout(time: 300, unit: 'MINUTES') {
-    stage('UI tests Upgrade Matrix') {
-        parallel generateVariants(params.PMM_QA_GIT_BRANCH, versionsList, latestVersion, params.IS_RC_TESTING)
+            name: 'IS_RC_TESTING')
+    }
+    options {
+        timeout(time: 300, unit: 'MINUTES')
+    }
+    stages {
+        stage('UI tests Upgrade Matrix') {
+            steps {
+                script {
+                    parallel generateVariants(PMM_QA_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING)
+                }
+            }
+        }
     }
 }
+
