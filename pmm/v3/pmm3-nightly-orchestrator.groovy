@@ -316,25 +316,63 @@ timestamps {
     parallel branches
 
     stage('Report') {
-        def links = results.collect { name, r ->
-            def label = r.number ? "${name} (${r.job} #${r.number})" : name
-            "<a href=\"${r.url}\">${label}</a> &mdash; ${r.result}"
+        // Grouped, clickable summary. The stage graph is at the mercy of whichever
+        // viewer you open; this is the surface that reads the same everywhere.
+        def order = []
+        def byFam = [:]
+        results.each { name, r ->
+            def cut = name.indexOf(' / ')
+            def fam = cut > 0 ? name.substring(0, cut) : 'standalone'
+            def leaf = cut > 0 ? name.substring(cut + 3) : name
+            if (byFam[fam] == null) {
+                byFam[fam] = []
+                order.add(fam)
+            }
+            byFam[fam].add([leaf: leaf, res: r])
         }
-        currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}<br>" + links.join('<br>')
 
-        def failed = results.findAll { it.value.result in ['FAILURE', 'ABORTED'] }
-        def unstable = results.findAll { it.value.result == 'UNSTABLE' }
+        def mark = ['SUCCESS': '&#10003;', 'FAILURE': '&#10007;', 'ABORTED': '&#10007;', 'UNSTABLE': '&#9888;']
+        def html = ["<b>server</b> ${serverImage} &nbsp; <b>client</b> ${params.CLIENT_VERSION}"]
+        def text = []
+        def totalBad = 0
+        def totalWarn = 0
 
-        echo """Nightly release readiness — ${results.size()} suites
-${results.collect { n, r -> "  ${(r.result ?: 'UNKNOWN').padRight(10)} ${n}\n             ${r.url}" }.join('\n')}
+        order.each { fam ->
+            def items = byFam[fam]
+            def bad = 0
+            def warn = 0
+            items.each { i ->
+                if (i.res.result == 'FAILURE' || i.res.result == 'ABORTED') {
+                    bad = bad + 1
+                } else if (i.res.result == 'UNSTABLE') {
+                    warn = warn + 1
+                }
+            }
+            totalBad = totalBad + bad
+            totalWarn = totalWarn + warn
+            def ok = items.size() - bad - warn
 
-failed: ${failed.size()}   unstable: ${unstable.size()}   ok: ${results.size() - failed.size() - unstable.size()}"""
+            html.add("<br><b>${fam}</b> &mdash; ${ok} ok &middot; ${bad} failed &middot; ${warn} unstable")
+            text.add("")
+            text.add("${fam}  (${ok} ok, ${bad} failed, ${warn} unstable)")
+            items.each { i ->
+                def r = i.res
+                def m = mark[r.result] ?: '&#183;'
+                html.add("&nbsp;&nbsp;${m} <a href=\"${r.url}\">${i.leaf}</a> &nbsp;<code>${r.job} #${r.number}</code>")
+                text.add("  ${(r.result ?: 'UNKNOWN').padRight(9)} ${i.leaf}")
+                text.add("            ${r.url}")
+            }
+        }
+
+        currentBuild.description = html.join('<br>')
+        echo "Nightly release readiness \u2014 ${results.size()} suites\n" + text.join('\n') +
+            "\n\nfailed: ${totalBad}   unstable: ${totalWarn}   ok: ${results.size() - totalBad - totalWarn}"
 
         // catchError has already set the build result; only escalate here, never
         // reset to SUCCESS.
-        if (failed) {
+        if (totalBad > 0) {
             currentBuild.result = 'FAILURE'
-        } else if (unstable && currentBuild.result != 'FAILURE') {
+        } else if (totalWarn > 0 && currentBuild.result != 'FAILURE') {
             currentBuild.result = 'UNSTABLE'
         }
     }
