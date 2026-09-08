@@ -1,6 +1,5 @@
 def call() {
   return [
-    'debian-11-arm',
     'debian-12-arm',
     'debian-13-arm',
     'ol-10-arm',
