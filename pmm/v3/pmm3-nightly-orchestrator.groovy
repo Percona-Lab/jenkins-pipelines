@@ -28,6 +28,11 @@ import groovy.json.JsonBuilder
 // nodes, so it reports still-running stages as SUCCESS with negative durations
 // (pmm3-nightly-orchestrator #1). The family therefore lives in the branch
 // name — "pkg amd64 / auth config" — not in a wrapper stage.
+//
+// Sequential stages INSIDE a parallel branch are a different case, and one the
+// graph does render: that is how each lane expands into the child's own steps
+// (see mirrorChild). So a lane is "suite name" followed by the job, the build
+// number and one box per stage the child ran.
 
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
@@ -66,12 +71,102 @@ properties([
 // Script-level binding so the dispatch helpers can record into it.
 results = [:]
 
+def humanMs(def millis) {
+    // A stage still running or paused for input reports no duration.
+    if (millis == null) {
+        return '?'
+    }
+    long ms = millis as long
+    if (ms < 1000) {
+        return "${ms}ms"
+    }
+    long total = (ms / 1000) as long
+    long h = (total / 3600) as long
+    long m = ((total % 3600) / 60) as long
+    long s = total % 60
+    if (h > 0) {
+        return "${h}h${m.toString().padLeft(2, '0')}m"
+    }
+    if (m > 0) {
+        return "${m}m${s.toString().padLeft(2, '0')}s"
+    }
+    return "${s}s"
+}
+
+// Redraw the child's stages as stages of this branch, so a lane reads as the
+// sequence of steps the suite actually ran instead of one box that only says
+// pass or fail.
+//
+// Opening them after the child finishes is the one thing this cannot do
+// faithfully: a stage entered and left immediately lasts a few milliseconds
+// however long the child spent there. The child's real elapsed time therefore
+// goes in the label, which is also what keeps a lane readable — the box that
+// took 8m22s is the one to look at.
+def mirrorChild(String name, String jobName, def run) {
+    def stages = []
+    try {
+        stages = childStages(run)
+    } catch (err) {
+        // Degrade to the single-box lane rather than lose the suite's verdict.
+        // childStages lives in the global library, so this is also what a
+        // controller whose lib@master predates it reports.
+        echo "[${name}] child stages unavailable (${err.message}); rendering the suite as one stage"
+    }
+
+    stage("#${run.number} ${jobName}") {
+        echo "${run.absoluteUrl}"
+    }
+
+    // A suite that dies early leaves a long tail of "skipped due to earlier
+    // failure(s)" stages — 15 of upgrade's 22 in one #3 build. A box each buries
+    // the failure that caused them, so the tail collapses into one.
+    int lastRun = -1
+    for (int i = 0; i < stages.size(); i++) {
+        if (stages[i].status != 'NOT_EXECUTED') {
+            lastRun = i
+        }
+    }
+
+    for (int i = 0; i <= lastRun; i++) {
+        def child = stages[i]
+        stage("${child.name} · ${humanMs(child.durationMillis)}") {
+            // buildResult stays null on purpose: the suite's own verdict below
+            // owns the build result, and a mirrored step must not raise it.
+            if (child.status == 'FAILED') {
+                catchError(buildResult: null, stageResult: 'FAILURE') {
+                    error("${child.name} failed in ${jobName} #${run.number}")
+                }
+            } else if (child.status == 'UNSTABLE') {
+                catchError(buildResult: null, stageResult: 'UNSTABLE') {
+                    error("${child.name} unstable in ${jobName} #${run.number}")
+                }
+            } else if (child.status == 'ABORTED') {
+                catchError(buildResult: null, stageResult: 'ABORTED') {
+                    error("${child.name} aborted in ${jobName} #${run.number}")
+                }
+            }
+        }
+    }
+
+    int skipped = stages.size() - 1 - lastRun
+    if (skipped > 0) {
+        stage("${skipped} stages skipped") {
+            catchError(buildResult: null, stageResult: 'NOT_BUILT') {
+                error("${skipped} stages never ran: ${jobName} #${run.number} stopped at '${stages[lastRun].name}'")
+            }
+        }
+    }
+}
+
 def suite(String name, String jobName, List jobParams) {
     return {
         stage(name) {
             def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
             echo "[${name}] ${run.result} -> ${run.absoluteUrl}"
+
+            mirrorChild(name, jobName, run)
+
             // propagate:false stops one failing suite from aborting the other 49,
             // but on its own it also leaves the stage green forever. catchError
             // colours the stage and the build without throwing, so the stage view
