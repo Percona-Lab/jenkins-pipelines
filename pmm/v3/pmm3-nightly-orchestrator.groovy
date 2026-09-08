@@ -225,6 +225,26 @@ def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, Stri
     }
 }
 
+def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion) {
+    // The AMI equivalent of upgradeBranches, and the last matrix wrapper this job
+    // replaces: pmm3-upgrade-ami-test fanned these five out itself, on an executor,
+    // behind a retry(2), and reported them as one box.
+    def amis = pmmVersion('v3-ami')
+    pmmVersion('v3')[-5..-1].each { ver ->
+        def name = "upgrade / ami ${ver}"
+        branches[name] = suite(name, 'pmm3-upgrade-ami-test-runner', [
+            string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
+            string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
+            string(name: 'AMI_TAG',                       value: amis[ver] ?: ''),
+            string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
+            string(name: 'CLIENT_VERSION',                value: ver),
+            string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
+            string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
+            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
+        ])
+    }
+}
+
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
     def amiId = pmmVersion('v3-ami').values()[-1]
@@ -305,11 +325,7 @@ timestamps {
     packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion, latestVersion)
     upgradeBranches(branches, upgradeVersions, clientDebVersions, serverImage, latestDevVersion)
 
-    branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
-        string(name: 'PMM_QA_GIT_BRANCH',   value: params.PMM_QA_GIT_BRANCH),
-        booleanParam(name: 'IS_RC_TESTING', value: false),
-        booleanParam(name: 'USE_ONDEMAND',  value: params.USE_ONDEMAND),
-    ])
+    amiUpgradeBranches(branches, serverImage, latestDevVersion)
 
     branches['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
