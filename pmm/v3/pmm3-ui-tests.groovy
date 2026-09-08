@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -120,6 +120,10 @@ pipeline {
         ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY')
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',

@@ -3,9 +3,13 @@ String OWNER_SLACK = ''
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: '',
             description: 'Commit hash for the branch',
