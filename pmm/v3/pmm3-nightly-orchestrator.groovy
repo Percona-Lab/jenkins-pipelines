@@ -295,18 +295,16 @@ timestamps {
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
                 ).trim()
-                // Ask the apt index which client debs still exist rather than
-                // assuming a retention depth; the client containers are jammy.
-                // A repo blip leaves the list empty, which installs every source
-                // from its tarball rather than failing the whole nightly here.
-                try {
-                    clientDebVersions = sh(
-                        returnStdout: true,
-                        script: '''curl -fsSL https://repo.percona.com/pmm3-client/apt/dists/jammy/main/binary-amd64/Packages | awk '/^Version:/{split($2,a,"-"); print a[1]}' | sort -u'''
-                    ).trim().tokenize()
-                } catch (err) {
-                    echo "Could not read the pmm3-client apt index (${err.message}); every upgrade source will install from its tarball."
-                }
+                // Ask the apt index which client debs exist rather than assuming a
+                // retention depth. jammy, noble and bookworm carry identical
+                // versions and revisions, so one query covers them; focal does not
+                // (3.0.0-3.2.0 only), so this is a proxy for the client containers
+                // that are focal. Resolving per container -- where lsb_release and
+                // the arch are actually known -- is the fix that removes the proxy.
+                clientDebVersions = sh(
+                    returnStdout: true,
+                    script: '''curl -fsSL https://repo.percona.com/pmm3-client/apt/dists/jammy/main/binary-amd64/Packages | awk '/^Package: pmm-client$/{p=1} p&&/^Version:/{split($2,a,"-"); print a[1]; p=0}' | sort -u'''
+                ).trim().tokenize()
             } finally {
                 deleteDir()
             }
