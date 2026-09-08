@@ -236,7 +236,7 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
     }
 }
 
-def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String latestVersion, String latestDevVersion) {
+def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, String latestVersion, String latestDevVersion) {
     // Mirrors pmm3-upgrade-tests-matrix: every recent version upgraded, with the
     // newest one going from its RC image up to the dev tip.
     def variants = ['SSL', 'EXTERNAL SERVICES', 'OTHERS']
@@ -244,8 +244,12 @@ def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String lat
         def isNewest = (ver == pmmVersions.last())
         def dockerTag = isNewest ? "perconalab/pmm-server:${ver}-rc" : "percona/pmm-server:${ver}"
         def dockerTagUpgrade = isNewest ? 'perconalab/pmm-server:3-dev-latest' : "perconalab/pmm-server:${pmmVersions.last()}-rc"
+        // repo.percona.com keeps only the newest few client debs, so the oldest
+        // sources in this matrix have no deb to install and pmm3-client-setup.sh's
+        // constructed pool URL 404s. clientDebVersions is what the apt index
+        // actually offers; anything missing from it installs from its tarball.
         def clientVersion = isNewest ? 'pmm3-rc'
-            : (ver in oldVersions ? "https://downloads.percona.com/downloads/pmm3/${ver}/binary/tarball/pmm-client-${ver}-x86_64.tar.gz" : ver)
+            : (ver in clientDebVersions ? ver : "https://downloads.percona.com/downloads/pmm3/${ver}/binary/tarball/pmm-client-${ver}-x86_64.tar.gz")
         def clientRepo = isNewest ? 'experimental' : 'testing'
         def serverLatest = isNewest ? latestDevVersion : latestVersion
 
@@ -272,7 +276,7 @@ timestamps {
     def amiId = pmmVersion('v3-ami').values()[-1]
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
-    def oldVersions = pmmVersion('v3-old')
+    def clientDebVersions = []
     def latestVersion = pmmVersion('v3').last()
     def latestDevVersion
 
@@ -284,6 +288,18 @@ timestamps {
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
                 ).trim()
+                // Ask the apt index which client debs still exist rather than
+                // assuming a retention depth; the client containers are jammy.
+                // A repo blip leaves the list empty, which installs every source
+                // from its tarball rather than failing the whole nightly here.
+                try {
+                    clientDebVersions = sh(
+                        returnStdout: true,
+                        script: '''curl -fsSL https://repo.percona.com/pmm3-client/apt/dists/jammy/main/binary-amd64/Packages | awk '/^Version:/{split($2,a,"-"); print a[1]}' | sort -u'''
+                    ).trim().tokenize()
+                } catch (err) {
+                    echo "Could not read the pmm3-client apt index (${err.message}); every upgrade source will install from its tarball."
+                }
             } finally {
                 deleteDir()
             }
@@ -295,6 +311,7 @@ timestamps {
   AMI             : ${amiId}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
+  client source   : deb ${upgradeVersions.findAll { it in clientDebVersions }.join(', ')} | tarball ${upgradeVersions.findAll { !(it in clientDebVersions) }.join(', ')}
   dev version     : ${latestDevVersion}
   on-demand       : ${params.USE_ONDEMAND}"""
     }
@@ -337,7 +354,7 @@ timestamps {
 
     packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion)
     packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion)
-    upgradeBranches(branches, upgradeVersions, oldVersions, latestVersion, latestDevVersion)
+    upgradeBranches(branches, upgradeVersions, clientDebVersions, latestVersion, latestDevVersion)
 
     branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
         string(name: 'PMM_QA_GIT_BRANCH',   value: params.PMM_QA_GIT_BRANCH),
