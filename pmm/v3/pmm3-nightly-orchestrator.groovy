@@ -236,6 +236,18 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
     }
 }
 
+// PMM 3.9.0 removed the in-app ("UI") updater: the Updates page renders a
+// "deprecated ... managed via the CLI" notice instead of an "Update now" button,
+// and POST /v1/server/updates:start answers 404. A UI upgrade cannot start from
+// 3.9.0 or later however UPGRADE_TYPE is set, so those sources take the Docker
+// path -- the one PMM itself now documents -- regardless.
+def supportsUiUpgrade(String version) {
+    def parts = version.tokenize('.')
+    def major = parts[0].toInteger()
+    def minor = parts.size() > 1 ? parts[1].toInteger() : 0
+    return major < 3 || (major == 3 && minor < 9)
+}
+
 def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String latestVersion, String latestDevVersion) {
     // Mirrors pmm3-upgrade-tests-matrix: every recent version upgraded, with the
     // newest one going from its RC image up to the dev tip.
@@ -249,6 +261,8 @@ def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String lat
         def clientRepo = isNewest ? 'experimental' : 'testing'
         def serverLatest = isNewest ? latestDevVersion : latestVersion
 
+        def upgradeType = supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'
+
         variants.each { variant ->
             def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
@@ -260,7 +274,7 @@ def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String lat
                 string(name: 'PMM_SERVER_LATEST',             value: serverLatest),
                 string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
                 string(name: 'UPGRADE_FLAG',                  value: variant),
-                string(name: 'UPGRADE_TYPE',                  value: params.UPGRADE_TYPE),
+                string(name: 'UPGRADE_TYPE',                  value: upgradeType),
                 booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
             ])
         }
@@ -288,6 +302,8 @@ timestamps {
                 deleteDir()
             }
         }
+        def uiCapable = upgradeVersions.findAll { supportsUiUpgrade(it) }
+        def dockerOnly = upgradeVersions.findAll { !supportsUiUpgrade(it) }
         currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
         echo """Nightly release readiness
   server image    : ${serverImage}
@@ -295,6 +311,7 @@ timestamps {
   AMI             : ${amiId}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
+  upgrade path    : UI-capable ${uiCapable.join(', ')} | Docker-only ${dockerOnly.join(', ')}
   dev version     : ${latestDevVersion}
   on-demand       : ${params.USE_ONDEMAND}"""
     }
