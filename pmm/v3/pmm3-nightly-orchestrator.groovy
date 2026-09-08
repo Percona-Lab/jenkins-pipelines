@@ -21,8 +21,13 @@ import groovy.json.JsonBuilder
 // The matrix jobs are gone on purpose. pmm3-package-tests-matrix-*,
 // pmm3-ui-tests-matrix and pmm3-upgrade-tests-matrix existed only to fan a
 // parameter out into parallel branches — with the fan-out here that layer is a
-// job, an executor and a level of indirection for nothing. Their branches are
-// inlined below, grouped so the stage view still reads by family.
+// job, an executor and a level of indirection for nothing.
+//
+// The fan-out is ONE flat parallel. Neither the Stage View nor Blue Ocean can
+// render parallel nested in parallel: the graph analyser fails to pair the end
+// nodes, so it reports still-running stages as SUCCESS with negative durations
+// (pmm3-nightly-orchestrator #1). The family therefore lives in the branch
+// name — "pkg amd64 / auth config" — not in a wrapper stage.
 
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
@@ -67,14 +72,19 @@ def suite(String name, String jobName, List jobParams) {
             def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
             echo "[${name}] ${run.result} -> ${run.absoluteUrl}"
-        }
-    }
-}
-
-def group(String name, Map branches) {
-    return {
-        stage(name) {
-            parallel branches
+            // propagate:false stops one failing suite from aborting the other 49,
+            // but on its own it also leaves the stage green forever. catchError
+            // colours the stage and the build without throwing, so the stage view
+            // reports what actually happened.
+            if (run.result == 'FAILURE' || run.result == 'ABORTED') {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    error("${name}: ${jobName} #${run.number} ${run.result} — ${run.absoluteUrl}")
+                }
+            } else if (run.result == 'UNSTABLE') {
+                catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                    error("${name}: ${jobName} #${run.number} UNSTABLE — ${run.absoluteUrl}")
+                }
+            }
         }
     }
 }
@@ -98,24 +108,25 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(String jobName, String serverArch, String serverImage, String pmmVersionLabel) {
+def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersionLabel) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
     def variants = [
-        ['pmm3-client_integration',                     '--help  '],
-        ['pmm3-client_integration_auth_config',         '--help   '],
-        ['pmm3-client_integration_auth_register',       ' --help'],
-        ['pmm3-client_integration_custom_path',         '  --help'],
-        ['pmm3-client_integration_custom_port',         '   --help'],
-        ['pmm3-client_integration_upgrade',             '    --help'],
-        ['pmm3-client_integration_upgrade_custom_path', '    --help '],
-        ['pmm3-client_integration_upgrade_custom_port', '    --help  '],
+        ['integration',          'pmm3-client_integration',                     '--help  '],
+        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
+        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
+        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
+        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
+        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
+        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
+        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
     ]
-    def branches = [:]
     variants.each { v ->
-        def tests = v[0]
-        def clients = v[1]
-        branches[tests] = suite(tests, jobName, [
+        def label = v[0]
+        def tests = v[1]
+        def clients = v[2]
+        def name = "${prefix} / ${label}"
+        branches[name] = suite(name, jobName, [
             string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
             string(name: 'DOCKER_VERSION',  value: serverImage),
             string(name: 'SERVER_ARCH',     value: serverArch),
@@ -128,14 +139,12 @@ def packageBranches(String jobName, String serverArch, String serverImage, Strin
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
     }
-    return branches
 }
 
-def upgradeBranches(List pmmVersions, List oldVersions, String latestVersion, String latestDevVersion) {
+def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String latestVersion, String latestDevVersion) {
     // Mirrors pmm3-upgrade-tests-matrix: every recent version upgraded, with the
     // newest one going from its RC image up to the dev tip.
     def variants = ['SSL', 'EXTERNAL SERVICES', 'OTHERS']
-    def branches = [:]
     pmmVersions.each { ver ->
         def isNewest = (ver == pmmVersions.last())
         def dockerTag = isNewest ? "perconalab/pmm-server:${ver}-rc" : "percona/pmm-server:${ver}"
@@ -146,7 +155,7 @@ def upgradeBranches(List pmmVersions, List oldVersions, String latestVersion, St
         def serverLatest = isNewest ? latestDevVersion : latestVersion
 
         variants.each { variant ->
-            def name = "${ver} / ${variant}"
+            def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
                 string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
                 string(name: 'DOCKER_TAG',                    value: dockerTag),
@@ -161,7 +170,6 @@ def upgradeBranches(List pmmVersions, List oldVersions, String latestVersion, St
             ])
         }
     }
-    return branches
 }
 
 timestamps {
@@ -196,25 +204,28 @@ timestamps {
   on-demand       : ${params.USE_ONDEMAND}"""
     }
 
-    def nightly = [:]
-    nightly['docker'] = nightlyGha('docker', serverImage, amiId)
-    nightly['docker (arm64)'] = nightlyGha('docker (arm64)', serverImage, amiId, [SERVER_ARCH: 'arm64'])
-    nightly['ami'] = nightlyGha('ami', serverImage, amiId, [SERVER_TYPE: 'ami'])
-    nightly['helm'] = nightlyGha('helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1'])
-    nightly['ha'] = nightlyGha('ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1'])
+    // Insertion order is the display order in the stage view, so families stay
+    // adjacent even though every branch is a sibling.
+    def branches = [:]
 
-    def compat = [:]
+    branches['nightly / docker'] = nightlyGha('nightly / docker', serverImage, amiId)
+    branches['nightly / docker arm64'] = nightlyGha('nightly / docker arm64', serverImage, amiId, [SERVER_ARCH: 'arm64'])
+    branches['nightly / ami'] = nightlyGha('nightly / ami', serverImage, amiId, [SERVER_TYPE: 'ami'])
+    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1'])
+    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1'])
+
     compatVersions.each { ver ->
-        compat["client ${ver}"] = nightlyGha("client ${ver}", serverImage, amiId, [CLIENT_VERSION: ver])
+        def name = "compat / client ${ver}"
+        branches[name] = nightlyGha(name, serverImage, amiId, [CLIENT_VERSION: ver])
     }
 
-    def uiTests = [:]
     [['@ia', ''],
      ['@instances', '--database ssl_mysql --database haproxy --database external'],
      ['@gcp', '']].each { t ->
         def tag = t[0]
         def clients = t[1]
-        uiTests[tag] = suite(tag, 'pmm3-ui-tests', [
+        def name = "ui / ${tag}"
+        branches[name] = suite(name, 'pmm3-ui-tests', [
             string(name: 'GIT_COMMIT_HASH',   value: ''),
             string(name: 'DOCKER_VERSION',    value: serverImage),
             string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
@@ -229,24 +240,17 @@ timestamps {
         ])
     }
 
-    def groups = [:]
-    groups['nightly'] = group('nightly', nightly)
-    groups['compat'] = group('compat', compat)
-    groups['ui-tests'] = group('ui-tests', uiTests)
-    groups['package (amd64)'] = group('package (amd64)',
-        packageBranches('nightly-package-testing-amd64', 'amd64', serverImage, latestVersion))
-    groups['package (arm64)'] = group('package (arm64)',
-        packageBranches('nightly-package-testing-arm64', 'arm64', serverImage, latestVersion))
-    groups['upgrade (docker)'] = group('upgrade (docker)',
-        upgradeBranches(upgradeVersions, oldVersions, latestVersion, latestDevVersion))
+    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestVersion)
+    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestVersion)
+    upgradeBranches(branches, upgradeVersions, oldVersions, latestVersion, latestDevVersion)
 
-    groups['upgrade (ami)'] = suite('upgrade (ami)', 'pmm3-upgrade-ami-test', [
+    branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
         string(name: 'PMM_QA_GIT_BRANCH',   value: params.PMM_QA_GIT_BRANCH),
         booleanParam(name: 'IS_RC_TESTING', value: false),
         booleanParam(name: 'USE_ONDEMAND',  value: params.USE_ONDEMAND),
     ])
 
-    groups['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
+    branches['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'SERVER_TYPE',       value: 'docker'),
         string(name: 'DOCKER_VERSION',    value: serverImage),
@@ -258,7 +262,7 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ])
 
-    groups['openshift'] = suite('openshift', 'openshift-helm-tests', [
+    branches['openshift'] = suite('openshift', 'openshift-helm-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'PMM_CHART_BRANCH',  value: 'latest'),
         string(name: 'IMAGE_REPO',        value: serverImage.split(':')[0]),
@@ -268,7 +272,7 @@ timestamps {
     ])
 
     if (params.RUN_GH_RC_SUITE) {
-        groups['github rc-testing-suite'] = {
+        branches['github rc-testing-suite'] = {
             stage('github rc-testing-suite') {
                 node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
                     try {
@@ -309,7 +313,7 @@ timestamps {
         }
     }
 
-    parallel groups
+    parallel branches
 
     stage('Report') {
         def links = results.collect { name, r ->
@@ -326,12 +330,12 @@ ${results.collect { n, r -> "  ${(r.result ?: 'UNKNOWN').padRight(10)} ${n}\n   
 
 failed: ${failed.size()}   unstable: ${unstable.size()}   ok: ${results.size() - failed.size() - unstable.size()}"""
 
+        // catchError has already set the build result; only escalate here, never
+        // reset to SUCCESS.
         if (failed) {
             currentBuild.result = 'FAILURE'
-        } else if (unstable) {
+        } else if (unstable && currentBuild.result != 'FAILURE') {
             currentBuild.result = 'UNSTABLE'
-        } else {
-            currentBuild.result = 'SUCCESS'
         }
     }
 }
