@@ -17,13 +17,17 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 // stage to point the server at itself, the eight OS stages that run the
 // playbooks, and the teardown.
 
+// Same default as pmm3-package-testing-*: the playbook runs PMM_VERSION
+// through regex_search, and an empty value there becomes None, not ''.
+def latestVersion = pmmVersion('v3').last()
+
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
     parameters([
         string(defaultValue: 'main', description: 'Tag/Branch for pmm-qa repository', name: 'GIT_BRANCH', trim: true),
         string(defaultValue: 'perconalab/pmm-server:3-dev-latest', description: 'PMM Server docker container version (image-name:version-tag)', name: 'DOCKER_VERSION', trim: true),
         choice(choices: ['amd64', 'arm64'], description: 'Architecture of the PMM server staging VM', name: 'SERVER_ARCH'),
-        string(defaultValue: '', description: 'PMM Version for testing', name: 'PMM_VERSION', trim: true),
+        string(defaultValue: latestVersion, description: 'PMM Version for testing', name: 'PMM_VERSION', trim: true),
         string(defaultValue: 'pmm3-client_integration', description: 'Name of the playbook, e.g. pmm3-client_integration', name: 'TESTS', trim: true),
         choice(choices: ['experimental', 'testing', 'release'], description: 'Enable repo for client nodes', name: 'INSTALL_REPO'),
         string(defaultValue: '', description: 'PMM Client (x64) tarball link or FB-code', name: 'TARBALL'),
@@ -147,6 +151,10 @@ timestamps {
             ]
             vmIp = stagingJob.buildVariables.IP
             vmName = stagingJob.buildVariables.VM_NAME
+            // The playbooks read these from the environment and silently fall
+            // back to 127.0.0.1/admin when they are unset.
+            env.PMM_SERVER_IP = vmIp
+            env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
             pmmUrl = "https://admin:${params.ADMIN_PASSWORD}@${vmIp}"
             currentBuild.description = "${params.TESTS} on ${params.SERVER_ARCH} — server ${vmIp}"
             echo "staging server ${vmName} at ${vmIp} (${stagingJob.absoluteUrl})"
