@@ -40,6 +40,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
         booleanParam(name: 'DEPLOY_PMM', value: true),
@@ -66,6 +67,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
@@ -305,6 +307,7 @@ pipeline {
                 }
                 if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
                     build job: 'openshift-cluster-destroy', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
                         booleanParam(name: 'FORCE_MODE', value: true),
@@ -312,6 +315,7 @@ pipeline {
                 }
                 if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
                     build job: 'pmm3-ha-eks-cleanup', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'ACTION', value: 'DELETE_CLUSTER'),
                         string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
                     ]

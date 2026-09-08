@@ -41,6 +41,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'AMI_ID', value: AMI_ID)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
@@ -56,6 +57,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
         booleanParam(name: 'DEPLOY_PMM', value: true),
@@ -78,6 +80,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
@@ -449,22 +452,24 @@ pipeline {
 void cleanupResources(String slackStatus = 'aborted/failed/cleaned up') {
     // 1. Clean Server based on Type
     if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
-         build job: 'pmm3-ami-staging-stop', parameters: [ string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID) ]
+         build job: 'pmm3-ami-staging-stop', parameters: [ booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND), string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID) ]
     }
     else if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
          build job: 'openshift-cluster-destroy', parameters: [
+            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
             string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
             string(name: 'DESTROY_REASON', value: 'testing-complete')
          ]
     }
     else if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
          build job: 'pmm3-ha-eks-cleanup', parameters: [
+            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
             string(name: 'ACTION', value: 'DELETE_CLUSTER'),
             string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME)
          ]
     }
     else if (env.VM_NAME) {
-         build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: env.VM_NAME) ]
+         build job: 'aws-staging-stop', parameters: [ booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND), string(name: 'VM', value: env.VM_NAME) ]
     }
 
     // 2. Clean Clients from the in-memory map populated by runClientWithRetry.
@@ -472,7 +477,7 @@ void cleanupResources(String slackStatus = 'aborted/failed/cleaned up') {
     // agent is gone before this post block runs.
     clientVMs.each { label, ip ->
         echo "Stopping Client VM (${label}) with IP ${ip}"
-        build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: ip) ]
+        build job: 'aws-staging-stop', parameters: [ booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND), string(name: 'VM', value: ip) ]
     }
 
     if (env.SLACK_DM) {
