@@ -3,22 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-// agent-none variant of pmm3-package-testing-arm64, for pmm3-nightly-orchestrator.
-//
-// The original holds an agent-amd64-ondemand executor across
-// `build job: 'pmm3-aws-staging-start'` — and that job runs on
-// agent-amd64-ondemand too. With eight of these in a matrix against a five
-// executor pool, every executor ends up held by a parent waiting for a child
-// that can never be scheduled. That is the deadlock captured in
-// pmm3-rc-testing #34.
-//
-// Here the staging call runs on the flyweight executor, so no agent is held
-// while waiting. Agents are taken only where a shell actually runs: one short
-// stage to point the server at itself, the eight OS stages that run the
-// playbooks, and the teardown.
-
-// Same default as pmm3-package-testing-*: the playbook runs PMM_VERSION
-// through regex_search, and an empty value there becomes None, not ''.
 def latestVersion = pmmVersion('v3').last()
 
 properties([
@@ -136,8 +120,6 @@ timestamps {
 
     try {
         stage('Start staging server') {
-            // Flyweight: no agent is held while pmm3-aws-staging-start runs, so
-            // it can never be starved by the jobs waiting on it.
             def stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
                 string(name: 'DOCKER_VERSION',       value: params.DOCKER_VERSION),
                 string(name: 'SERVER_ARCH',          value: params.SERVER_ARCH),
@@ -151,8 +133,6 @@ timestamps {
             ]
             vmIp = stagingJob.buildVariables.IP
             vmName = stagingJob.buildVariables.VM_NAME
-            // The playbooks read these from the environment and silently fall
-            // back to 127.0.0.1/admin when they are unset.
             env.PMM_SERVER_IP = vmIp
             env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
             pmmUrl = "https://admin:${params.ADMIN_PASSWORD}@${vmIp}"
