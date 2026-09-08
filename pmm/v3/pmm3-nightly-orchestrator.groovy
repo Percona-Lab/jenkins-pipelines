@@ -359,11 +359,12 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND',  value: params.USE_ONDEMAND),
     ])
 
+    // Not CLIENT_VERSION: GSSAPI is compiled into the dynamic client build only.
     branches['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'SERVER_TYPE',       value: 'docker'),
         string(name: 'DOCKER_VERSION',    value: serverImage),
-        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+        string(name: 'CLIENT_VERSION',    value: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz'),
         string(name: 'ENABLE_PULL_MODE',  value: 'no'),
         string(name: 'ADMIN_PASSWORD',    value: 'pmm3admin!'),
         string(name: 'PSMDB_VERSION',     value: '8.0'),
