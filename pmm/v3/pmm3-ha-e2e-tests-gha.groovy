@@ -67,6 +67,13 @@ pipeline {
     agent {
         label 'agent-amd64'
     }
+    environment {
+        PMM_QA_AWS_ACCESS_KEY_ID=credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY=credentials('PMM_QA_AWS_ACCESS_KEY')
+        PMM_QA_MYSQL_RDS_8_4_HOST=credentials('PMM_QA_MYSQL_RDS_8_4_HOST')
+        PMM_QA_MYSQL_RDS_8_4_USER=credentials('PMM_QA_MYSQL_RDS_8_4_USER')
+        PMM_QA_MYSQL_RDS_8_4_PASSWORD=credentials('PMM_QA_MYSQL_RDS_8_4_PASSWORD')
+    }
     parameters {
         string(
             defaultValue: 'main',
