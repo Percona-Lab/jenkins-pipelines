@@ -34,10 +34,12 @@ void scanImage(String image) {
             IMAGE='${image}'
             IMAGE_ID=\$(echo "\$IMAGE" | sed 's#[/:]#-#g')
             TrivyLog="$WORKSPACE/trivy-\${IMAGE_ID}.xml"
+            TrivyHtml="$WORKSPACE/trivy-\${IMAGE_ID}.html"
 
             sg docker -c "
                 echo "\$PASS" | docker login -u "\$USER" --password-stdin
                 /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/html.tpl -o \$TrivyHtml --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
                 docker logout
             "
 
@@ -54,46 +56,77 @@ void generateImageSummary(filePath) {
     report += "<ul>\n"
 
     images.each { image ->
-        report += "<li>${image}</li>\n"
+        def imageId = image.replaceAll('[/:]', '-')
+        report += "<li><a href=\"${env.BUILD_URL}artifact/trivy-${imageId}.html\">${image}</a></li>\n"
     }
 
     report += "</ul>\n"
     return report
 }
 
+String slackImageName(String imageId, Map imageIdToName) {
+    String image = imageIdToName.get(imageId, imageId)
+    if (image.contains('/')) {
+        return image.substring(image.lastIndexOf('/') + 1)
+    }
+    return image
+}
+
 String getTrivyCveSummary(String reportGlob) {
     int highCount = 0
     int criticalCount = 0
     def rows = []
+    def imageIdToName = [:]
+
+    if (fileExists('list-of-images.txt')) {
+        readFile('list-of-images.txt').trim().split('\n').each { image ->
+            image = image.trim()
+            if (image) {
+                imageIdToName[image.replaceAll('[/:]', '-')] = image
+            }
+        }
+    }
 
     findFiles(glob: reportGlob).each { file ->
         def report = readFile(file.path)
         int imageHighCount = report.split('\\[HIGH\\]', -1).size() - 1
         int imageCriticalCount = report.split('\\[CRITICAL\\]', -1).size() - 1
-        String imageName = file.name.replaceFirst('^trivy-', '').replaceFirst('\\.xml$', '')
+        String imageId = file.name.replaceFirst('^trivy-', '').replaceFirst('\\.xml$', '')
 
         highCount += imageHighCount
         criticalCount += imageCriticalCount
-        rows << [name: imageName, critical: imageCriticalCount, high: imageHighCount]
+        if (imageHighCount > 0 || imageCriticalCount > 0) {
+            rows << [name: slackImageName(imageId, imageIdToName), critical: imageCriticalCount, high: imageHighCount]
+        }
     }
 
     if (highCount == 0 && criticalCount == 0) {
         return ''
     }
 
-    int nameWidth = 'IMAGE'.length()
-    rows.each { r ->
-        if (r.name.length() > nameWidth) {
-            nameWidth = r.name.length()
-        }
-    }
-    String header = "${'IMAGE'.padRight(nameWidth)}  ${'CRITICAL'.padLeft(8)}  ${'HIGH'.padLeft(4)}"
-    String table = header + '\n'
-    rows.each { r ->
-        table += "${r.name.padRight(nameWidth)}  ${r.critical.toString().padLeft(8)}  ${r.high.toString().padLeft(4)}\n"
+    rows.sort { a, b ->
+        b.critical <=> a.critical ?: b.high <=> a.high ?: a.name <=> b.name
     }
 
-    return "\n*CVEs found:*\n```\n${table}```\n"
+    // Incoming webhooks cap messages at 4000 chars; leave room for the status prefix and BUILD_URL.
+    int maxChars = 3200
+    String header = "\n*CVEs found:* ${criticalCount} CRITICAL, ${highCount} HIGH in ${rows.size()} image(s)\n```\n"
+    String table = ''
+    int included = 0
+    for (int i = 0; i < rows.size(); i++) {
+        def r = rows[i]
+        String line = "${r.critical.toString().padLeft(4)} ${r.high.toString().padLeft(4)}  ${r.name}\n"
+        int omitted = rows.size() - i
+        String extra = (omitted > 1) ? "…and ${omitted} more\n" : ''
+        if ((header + table + line + extra + '```\n').length() > maxChars) {
+            table += "…and ${rows.size() - included} more\n"
+            break
+        }
+        table += line
+        included++
+    }
+
+    return "${header}${table}```\n"
 }
 
 pipeline {
@@ -134,6 +167,10 @@ IMAGE_MYSQL84=percona/percona-server:8.4.10-10.1''',
 
                     if [ ! -f /tmp/junit.tpl ]; then
                         wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                    fi
+
+                    if [ ! -f /tmp/html.tpl ]; then
+                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/html.tpl
                     fi
 
                     if ! command -v uv >/dev/null 2>&1; then
@@ -184,7 +221,7 @@ PY
             post {
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-*.xml"
-                    archiveArtifacts artifacts: "trivy-*.xml", allowEmptyArchive: true
+                    archiveArtifacts artifacts: "trivy-*.html", allowEmptyArchive: true
                 }
             }
         }
@@ -196,7 +233,7 @@ PY
                 def summary = generateImageSummary('list-of-images.txt')
 
                 addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-                    text: "<pre>${summary}</pre>"
+                    text: summary
                 )
                 writeFile(file: 'image-summary.html', text: summary)
             }

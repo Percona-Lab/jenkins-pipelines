@@ -28,6 +28,49 @@ def checkoutIfBranchExists(String repoUrl, String branch, String targetDir) {
     }
 }
 
+def formatSlackSummary(String report) {
+    def groups = [
+        'Helm / Operator': [],
+        'Version Service': [],
+        'Docker Hub': []
+    ]
+    def icons = [
+        'OK': ':white_check_mark:',
+        'MISMATCH': ':x:',
+        'SKIPPED': ':warning:'
+    ]
+
+    (report ?: '').readLines().each { line ->
+        def separator = line.indexOf(': ')
+        def label = separator > 0 ? line.substring(0, separator) : ''
+        def result = separator > 0 ? line.substring(separator + 2).tokenize(' ')[0] : ''
+        if (!icons[result]) {
+            return
+        }
+
+        def group
+        def shortLabel
+        if (label.startsWith('Version Service')) {
+            group = 'Version Service'
+            shortLabel = label.replace('Version Service ', '')
+        } else if (label == 'Bundle Images') {
+            group = 'Docker Hub'
+            shortLabel = 'Bundles'
+        } else if (['CRDs', 'Images', 'README', 'RBAC', 'Deployment'].any { label.startsWith(it) }) {
+            group = 'Helm / Operator'
+            shortLabel = label.tokenize(' ')[0]
+        }
+
+        if (group) {
+            groups[group] << "${icons[result]} ${shortLabel}"
+        }
+    }
+
+    return groups.findAll { it.value }.collect {
+        "*${it.key}:* ${it.value.join(' · ')}"
+    }.join('\n')
+}
+
 pipeline {
     agent {
         label 'docker-x64-min'
@@ -188,35 +231,25 @@ pipeline {
 
     post {
         success {
-            slackSend(
-                channel: '#cloud-dev-ci',
-                color: 'good',
-                message: """:white_check_mark: *Confirm Release passed*
+            script {
+                def details = formatSlackSummary(env.CONFIRM_RELEASE_REPORT)
+                slackSend(
+                    channel: '#cloud-dev-ci',
+                    color: 'good',
+                    message: """:white_check_mark: *Confirm Release passed*
 `${params.OPERATOR}` · `v${params.VERSION}`
+
+${details}
+
 <${env.BUILD_URL}|Build #${env.BUILD_NUMBER}> · <${env.BUILD_URL}artifact/confirm-release-report.txt|Report>"""
-            )
+                )
+            }
         }
         failure {
             script {
-                def summary = []
-                (env.CONFIRM_RELEASE_REPORT ?: '').readLines().each { line ->
-                    def separator = line.indexOf(': ')
-                    def label = separator > 0 ? line.substring(0, separator) : ''
-                    def result = separator > 0 ? line.substring(separator + 2).tokenize(' ')[0] : ''
-                    def icon = [
-                        'OK': ':white_check_mark:',
-                        'MISMATCH': ':x:',
-                        'SKIPPED': ':warning:'
-                    ][result]
-                    if (icon && ['CRDs', 'Images', 'README', 'Version Service', 'RBAC', 'Deployment'].any {
-                        label.startsWith(it)
-                    }) {
-                        summary << "${icon} ${label}: *${result}*"
-                    }
-                }
-
+                def summary = formatSlackSummary(env.CONFIRM_RELEASE_REPORT)
                 def details = summary
-                    ? summary.join('\n')
+                    ? summary
                     : ':warning: No validation report was generated. Check the build log.'
                 def links = "<${env.BUILD_URL}|Build #${env.BUILD_NUMBER}>"
                 if (env.CONFIRM_RELEASE_REPORT) {
