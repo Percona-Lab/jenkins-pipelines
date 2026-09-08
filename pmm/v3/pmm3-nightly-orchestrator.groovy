@@ -33,6 +33,11 @@ import groovy.json.JsonBuilder
 // graph does render: that is how each lane expands into the child's own steps
 // (see mirrorChild). So a lane is "suite name" followed by the job, the build
 // number and one box per stage the child ran.
+//
+// Two families are NOT one branch per suite, because flat is what broke them in
+// pmm3-nightly-orchestrator #3 (see `lanes`): the ten GHA suites and the sixteen
+// package suites each run in a small fixed number of lanes that take their
+// suites in turn. Everything else stays one branch per suite.
 
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
@@ -65,6 +70,16 @@ properties([
             defaultValue: false,
             description: 'Also dispatch the pmm-qa rc-testing-suite GitHub workflow. Off by default: that workflow composes its image names as <rc_version>-rc and cannot target a dev image yet.',
             name: 'RUN_GH_RC_SUITE'),
+        string(
+            defaultValue: '4',
+            description: 'How many of the ten GHA suites (nightly/*, compat/*) may run at once. Each one occupies 17 GitHub-hosted runners that have to be co-resident, so this is a runner budget: 4 lanes = 68 runners. Raising it past 7 reproduces the run-320 starvation.',
+            name: 'GHA_CONCURRENCY',
+            trim: true),
+        string(
+            defaultValue: '6',
+            description: 'How many of the sixteen package suites (pkg amd64/*, pkg arm64/*) may run at once. Each one takes a min-noble-x64(-ondemand) executor three times over, so this caps the demand on that one label.',
+            name: 'PKG_CONCURRENCY',
+            trim: true),
     ]),
 ])
 
@@ -203,7 +218,70 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersionLabel) {
+def laneWidth(String raw, int fallback, int ceiling) {
+    def trimmed = raw?.trim()
+    if (!trimmed?.isInteger()) {
+        echo "lane width '${raw}' is not a number; using ${fallback}"
+        return fallback
+    }
+    return Math.max(1, Math.min(ceiling, trimmed.toInteger()))
+}
+
+// Deal `suites` into at most `width` parallel branches, each of which runs the
+// suites it was dealt one after another. A family that arrives here is one the
+// flat fan-out oversubscribed a shared resource nobody sized for.
+//
+// GHA (ten suites): every pmm3-ui-tests-nightly-gha build dispatches a
+// nightly-e2e-tests-matrix run of 17 GitHub-hosted jobs — 14 setup shards plus
+// 3 test-execution jobs — and those 17 have to be CO-RESIDENT. The shards wait
+// on `expected_test_jobs: 3` while the test jobs wait on
+// `expected_setup_jobs: 14`, so a run that gets only some of its runners does
+// not run slowly: it sits until its step timeouts fire. In #3 the first seven
+// runs got runners and run 320 (dispatched 13:47) still had 13 of 14 shards
+// `queued` 84 minutes later, its three test jobs burning that time in "Wait for
+// all setup jobs to be ready". This is concurrency, not bandwidth —
+// `runs-on: ubuntu-22.04`, so every runner has its own egress, and one shard in
+// the same window pulled the 170MB client deb in 64s.
+//
+// Package (sixteen suites): both nightly-package-testing-* take a
+// min-noble-x64(-ondemand) executor three separate times — 'Point server at
+// itself', the amd64 'Ubuntu 24.04' playbook, and 'Teardown' — so sixteen jobs
+// want that one label three times each. The pool had two nodes at 13:50 and
+// nightly-package-testing-arm64 #22 waited 14m55s for a Teardown that runs one
+// curl. The eight per-OS labels each scaled to 8 concurrent without complaint;
+// this label is the one that is undersized for the demand.
+//
+// A lane holds nothing while it waits: every suite in it is still a
+// `build job:` on the flyweight executor, and no lane takes a `node`. So this
+// cannot reintroduce the pmm3-rc-testing #33/#34 hold-and-wait — the property
+// the header describes still holds, with fewer children in flight.
+//
+// Round-robin rather than contiguous chunks: it balances the lane lengths, and
+// it spreads the suites that provision their own server (ami, helm, ha) instead
+// of stacking them in one lane.
+def lanes(Map branches, String prefix, int width, List suites) {
+    int count = Math.min(width, suites.size())
+    def buckets = (0..<count).collect { [] }
+    suites.eachWithIndex { s, i ->
+        buckets[i % count].add(s)
+    }
+    buckets.eachWithIndex { bucket, i ->
+        branches["${prefix} lane ${i + 1}/${count}"] = {
+            bucket.each { s ->
+                // A flat branch got fault isolation for free; a lane has to ask
+                // for it. `suite` already catches the child's verdict, but an
+                // unexpected throw on this side — mirrorChild, a step failing
+                // against the controller — would otherwise take the suites
+                // queued behind it in the same lane down with it.
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    s()
+                }
+            }
+        }
+    }
+}
+
+def packageSuites(String prefix, String jobName, String serverArch, String serverImage, String pmmVersionLabel) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
     def variants = [
@@ -216,12 +294,13 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
         ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
         ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
     ]
+    def built = []
     variants.each { v ->
         def label = v[0]
         def tests = v[1]
         def clients = v[2]
         def name = "${prefix} / ${label}"
-        branches[name] = suite(name, jobName, [
+        built << suite(name, jobName, [
             string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
             string(name: 'DOCKER_VERSION',  value: serverImage),
             string(name: 'SERVER_ARCH',     value: serverArch),
@@ -234,6 +313,7 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
     }
+    return built
 }
 
 def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String latestVersion, String latestDevVersion) {
@@ -303,16 +383,19 @@ timestamps {
     // adjacent even though every branch is a sibling.
     def branches = [:]
 
-    branches['nightly / docker'] = nightlyGha('nightly / docker', serverImage, amiId)
-    branches['nightly / docker arm64'] = nightlyGha('nightly / docker arm64', serverImage, amiId, [SERVER_ARCH: 'arm64'])
-    branches['nightly / ami'] = nightlyGha('nightly / ami', serverImage, amiId, [SERVER_TYPE: 'ami'])
-    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1'])
-    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1'])
+    def ghaSuites = [
+        nightlyGha('nightly / docker', serverImage, amiId),
+        nightlyGha('nightly / docker arm64', serverImage, amiId, [SERVER_ARCH: 'arm64']),
+        nightlyGha('nightly / ami', serverImage, amiId, [SERVER_TYPE: 'ami']),
+        nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1']),
+        nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1']),
+    ]
 
     compatVersions.each { ver ->
-        def name = "compat / client ${ver}"
-        branches[name] = nightlyGha(name, serverImage, amiId, [CLIENT_VERSION: ver])
+        ghaSuites << nightlyGha("compat / client ${ver}", serverImage, amiId, [CLIENT_VERSION: ver])
     }
+
+    lanes(branches, 'gha', laneWidth(params.GHA_CONCURRENCY, 4, ghaSuites.size()), ghaSuites)
 
     [['@ia', ''],
      ['@instances', '--database ssl_mysql --database haproxy --database external'],
@@ -335,8 +418,21 @@ timestamps {
         ])
     }
 
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion)
+    // Interleaved before dealing, so the six lanes come out three amd64 and
+    // three arm64 rather than all eight amd64 landing in the first lanes. Only
+    // the amd64 job also runs its 'Ubuntu 24.04' playbook on
+    // min-noble-x64(-ondemand), so an even split halves what the long-held
+    // stage costs that label: 3 playbooks plus at most 6 short
+    // 'Point server at itself'/'Teardown' visits, against 8 + 16 when flat.
+    def pkgSuites = []
+    def pkgAmd64 = packageSuites('pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion)
+    def pkgArm64 = packageSuites('pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion)
+    pkgAmd64.eachWithIndex { s, i ->
+        pkgSuites << s
+        pkgSuites << pkgArm64[i]
+    }
+
+    lanes(branches, 'pkg', laneWidth(params.PKG_CONCURRENCY, 6, pkgSuites.size()), pkgSuites)
     upgradeBranches(branches, upgradeVersions, oldVersions, latestVersion, latestDevVersion)
 
     branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
