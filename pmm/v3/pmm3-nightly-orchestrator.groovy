@@ -203,24 +203,48 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersionLabel) {
+// PMM_VERSION has to name the client the suite actually installs, because the
+// playbooks assert it against `pmm-admin --version`. Most suites install from
+// INSTALL_REPO=experimental, which carries the dev build on both arches, so
+// they take devVersion.
+//
+// Three suites — custom path, custom port, upgrade custom path — install from a
+// tarball URL instead (package_tests/scripts/pmm3_client_install_tarball.sh),
+// and that URL is arch-specific:
+//
+//   amd64  downloads/TESTING/pmm/pmm-client-<v>.tar.gz          — carries dev builds
+//   arm64  downloads/pmm3/<v>/binary/tarball/…-aarch64.tar.gz   — GA releases only
+//
+// No dev arm64 client tarball is published anywhere: TESTING/pmm-arm was never
+// populated by any pipeline, so on arm64 those three can only ever exercise a
+// GA client. Handing them devVersion is a guaranteed 404, which is what
+// reddened all eight OS branches of `pkg arm64 / custom path`, `/ custom port`
+// and `/ upgrade custom path` in pmm3-nightly-orchestrator #3.
+//
+// So the split is per suite, not per arch: the arm64 tarball lanes take
+// gaVersion and say so in their stage name, so a green lane there is not
+// misread as dev-tarball coverage.
+def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
+    // The fourth column marks the suites that install from a tarball.
     def variants = [
-        ['integration',          'pmm3-client_integration',                     '--help  '],
-        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
-        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
-        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
-        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
-        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
-        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
-        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
+        ['integration',          'pmm3-client_integration',                     '--help  ',    false],
+        ['auth config',          'pmm3-client_integration_auth_config',         '--help   ',   false],
+        ['auth register',        'pmm3-client_integration_auth_register',       ' --help',     false],
+        ['custom path',          'pmm3-client_integration_custom_path',         '  --help',    true],
+        ['custom port',          'pmm3-client_integration_custom_port',         '   --help',   true],
+        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help',  false],
+        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help ', true],
+        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  ', false],
     ]
     variants.each { v ->
         def label = v[0]
         def tests = v[1]
         def clients = v[2]
-        def name = "${prefix} / ${label}"
+        def gaOnly = v[3] && serverArch == 'arm64'
+        def pmmVersionLabel = gaOnly ? gaVersion : devVersion
+        def name = gaOnly ? "${prefix} / ${label} (GA ${gaVersion})" : "${prefix} / ${label}"
         branches[name] = suite(name, jobName, [
             string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
             string(name: 'DOCKER_VERSION',  value: serverImage),
@@ -335,8 +359,8 @@ timestamps {
         ])
     }
 
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion)
+    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion, latestVersion)
+    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion, latestVersion)
     upgradeBranches(branches, upgradeVersions, oldVersions, latestVersion, latestDevVersion)
 
     branches['upgrade / ami'] = suite('upgrade / ami', 'pmm3-upgrade-ami-test', [
