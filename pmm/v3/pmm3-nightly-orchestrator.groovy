@@ -34,10 +34,6 @@ import groovy.json.JsonBuilder
 // (see mirrorChild). So a lane is "suite name" followed by the job, the build
 // number and one box per stage the child ran.
 
-// The GSSAPI suite needs the dynamic client tarball, not a package client;
-// see the gssapi lane below for why.
-GSSAPI_CLIENT_TARBALL = 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz'
-
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
     disableConcurrentBuilds(),
@@ -49,13 +45,8 @@ properties([
             trim: true),
         string(
             defaultValue: '3-dev-latest',
-            description: 'PMM Client for the main lanes. 3-dev-latest installs the package from the experimental repo; latest-tarball pulls the S3 tarball. Compatibility lanes always use GA releases, and the GSSAPI lane takes GSSAPI_CLIENT_VERSION instead.',
+            description: 'PMM Client for the main lanes. 3-dev-latest installs the package from the experimental repo; latest-tarball pulls the S3 tarball. Compatibility lanes always use GA releases.',
             name: 'CLIENT_VERSION',
-            trim: true),
-        string(
-            defaultValue: GSSAPI_CLIENT_TARBALL,
-            description: 'PMM Client for the GSSAPI lane. Must stay a "dynamic" build tarball — GSSAPI is compiled in only by the dynamic flavour, so a package client cannot run that suite. Point this at the RC tarball when testing an RC.',
-            name: 'GSSAPI_CLIENT_VERSION',
             trim: true),
         string(
             defaultValue: 'main',
@@ -289,7 +280,6 @@ def upgradeBranches(Map branches, List pmmVersions, List oldVersions, String lat
 
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
-    def gssapiClient = params.GSSAPI_CLIENT_VERSION ?: GSSAPI_CLIENT_TARBALL
     def amiId = pmmVersion('v3-ami').values()[-1]
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
@@ -315,7 +305,6 @@ timestamps {
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
-  gssapi client   : ${gssapiClient}
   AMI             : ${amiId}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
@@ -370,22 +359,12 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND',  value: params.USE_ONDEMAND),
     ])
 
-    // Not CLIENT_VERSION: GSSAPI lives only in the dynamic client build
-    // (build-client-binary runs `make release-gssapi`, -tags gssapi, for
-    // BUILD_TYPE=dynamic). The package client the other lanes use is the static
-    // build, whose pmm-agent carries the stub that answers a GSSAPI connection
-    // check with "GSSAPI support not enabled during build (-tags gssapi)" — so
-    // forwarding CLIENT_VERSION here fails the suite in setup, before any test
-    // runs (#2 and #3, pmm3-ui-tests-nightly-gssapi #462 and #464).
-    //
-    // gssapiClient falls back to the constant because a parameter is absent
-    // from `params` on the very run that first declares it, and that run must
-    // not hand the suite a null client.
+    // Not CLIENT_VERSION: GSSAPI is compiled into the dynamic client build only.
     branches['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'SERVER_TYPE',       value: 'docker'),
         string(name: 'DOCKER_VERSION',    value: serverImage),
-        string(name: 'CLIENT_VERSION',    value: gssapiClient),
+        string(name: 'CLIENT_VERSION',    value: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz'),
         string(name: 'ENABLE_PULL_MODE',  value: 'no'),
         string(name: 'ADMIN_PASSWORD',    value: 'pmm3admin!'),
         string(name: 'PSMDB_VERSION',     value: '8.0'),
