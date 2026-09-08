@@ -7,12 +7,37 @@ import argparse
 import hashlib
 import subprocess
 from datetime import datetime, timezone
+from functools import partial
 import requests
 from pathlib import Path
 
 GENERATOR_VERSION = "1"
 
 PG_RELEASE_MAJORS = ("18", "17", "16", "15", "14")
+PG_PRIMARY_ROWS = (
+    ("18", "max", "YES"),
+    ("17", "max", "NO"),
+    ("16", "min", "YES"),
+    ("15", "min", "NO"),
+    ("14", "max", "YES"),
+)
+
+OPERATOR_NAMES = {
+    "PXC": "PXC",
+    "MYSQL": "PS",
+    "MONGOD": "PSMDB",
+    "POSTGRESQL": "PG",
+}
+
+PLATFORM_DISPLAY = {
+    "GKE": "GKE",
+    "EKS": "EKS",
+    "AKS": "AKS",
+    "OPENSHIFT": "OpenShift",
+    "MINIKUBE": "MiniKube",
+    "DOKS": "DOKS",
+    "RANCHER": "Rancher/RKE2",
+}
 
 DB_TYPE_TO_OPERATOR = {
     "PXC": "pxc",
@@ -80,6 +105,24 @@ def extract_postgis_versions(versions: dict[str, str]) -> list[str]:
     return sorted(found, key=int, reverse=True)
 
 
+def image_tag(value: str) -> str:
+    return value.split(":")[-1] if ":" in value else value
+
+
+def dotted_major(suffix: str) -> str:
+    return f"{suffix[0]}.{suffix[1:]}" if len(suffix) == 2 else suffix
+
+
+def mysql_component_major(suffix: str) -> str:
+    return f"{suffix[0]}.{suffix[1:] if len(suffix) > 1 else '0'}"
+
+
+def prefixed_images(versions: dict[str, str], prefix: str, reverse: bool = True):
+    for key, val in sorted(versions.items(), reverse=reverse):
+        if key.startswith(prefix) and val:
+            yield key, val, key.replace(prefix, "")
+
+
 def _pg_image_variable(kind: str, major: str, ubi: str) -> str:
     prefix = "POSTGIS" if kind == "PostGIS" else "POSTGRESQL"
     suffix = "" if ubi == "UBI9" else f"_{ubi}"
@@ -127,54 +170,45 @@ def _pg_matrix_cell(
     return cell
 
 
-def generate_pg_test_plan(
+def _add_pg_cell(
+    cells: list[dict],
     versions: dict[str, str],
     k8s_platforms: dict[str, dict[str, str]],
-) -> list[dict]:
-    cells = []
-
-    def add(
-        platform: str,
-        k8s_version: str,
-        major: str,
-        cluster_wide: str,
-        kind: str,
-        flavor: str,
-        ubi_version: str,
-        image_variable: str | None = None,
-        manual: bool = False,
-        architecture: str = "amd64",
-        test_suite: str | None = None,
-    ) -> None:
-        variable = image_variable or _pg_image_variable(kind, major, ubi_version)
-        if not manual and not versions.get(variable):
-            return
-        cell = _pg_matrix_cell(
-            k8s_platforms,
-            platform,
-            k8s_version,
-            major,
-            cluster_wide,
-            kind,
-            flavor,
-            ubi_version,
-            variable,
-            manual,
-            architecture,
-            test_suite,
-        )
-        if cell:
-            cells.append(cell)
-
-    primary_rows = (
-        ("18", "max", "YES"),
-        ("17", "max", "NO"),
-        ("16", "min", "YES"),
-        ("15", "min", "NO"),
-        ("14", "max", "YES"),
+    platform: str,
+    k8s_version: str,
+    major: str,
+    cluster_wide: str,
+    kind: str,
+    flavor: str,
+    ubi_version: str,
+    image_variable: str | None = None,
+    manual: bool = False,
+    architecture: str = "amd64",
+    test_suite: str | None = None,
+) -> None:
+    variable = image_variable or _pg_image_variable(kind, major, ubi_version)
+    if not manual and not versions.get(variable):
+        return
+    cell = _pg_matrix_cell(
+        k8s_platforms,
+        platform,
+        k8s_version,
+        major,
+        cluster_wide,
+        kind,
+        flavor,
+        ubi_version,
+        variable,
+        manual,
+        architecture,
+        test_suite,
     )
+    if cell:
+        cells.append(cell)
 
-    for major, k8s_version, cluster_wide in primary_rows:
+
+def _add_pg_gke_official(add) -> None:
+    for major, k8s_version, cluster_wide in PG_PRIMARY_ROWS:
         add(
             "GKE",
             k8s_version,
@@ -186,7 +220,9 @@ def generate_pg_test_plan(
         )
     add("GKE", "max", "14", "NO", "PostGIS", "official", "UBI9")
 
-    for major, _, cluster_wide in primary_rows:
+
+def _add_pg_doks_official(add) -> None:
+    for major, _, cluster_wide in PG_PRIMARY_ROWS:
         add(
             "DOKS",
             "latest",
@@ -197,12 +233,14 @@ def generate_pg_test_plan(
             "UBI8",
         )
 
+
+def _add_pg_platform_official(add) -> None:
     for platform, kind, ubi_version in (
         ("EKS", "PostgreSQL", "UBI10"),
         ("OPENSHIFT", "PostGIS", "UBI8"),
         ("RANCHER", "PostGIS", "UBI10"),
     ):
-        for major, k8s_version, cluster_wide in primary_rows:
+        for major, k8s_version, cluster_wide in PG_PRIMARY_ROWS:
             add(
                 platform,
                 k8s_version,
@@ -213,7 +251,9 @@ def generate_pg_test_plan(
                 ubi_version,
             )
 
-    for major, k8s_version, cluster_wide in primary_rows[:-1]:
+
+def _add_pg_aks_postgis(add) -> None:
+    for major, k8s_version, cluster_wide in PG_PRIMARY_ROWS[:-1]:
         add(
             "AKS",
             k8s_version,
@@ -224,6 +264,8 @@ def generate_pg_test_plan(
             "UBI9",
         )
 
+
+def _add_pg_minikube(add) -> None:
     for major, cluster_wide in (("18", "YES"), ("17", "NO")):
         add(
             "MINIKUBE",
@@ -235,6 +277,8 @@ def generate_pg_test_plan(
             "UBI9",
         )
 
+
+def _add_pg_community(add) -> None:
     for platform, ubi_version in (("GKE", "UBI8"), ("EKS", "UBI9")):
         for major in PG_RELEASE_MAJORS:
             add(
@@ -248,6 +292,8 @@ def generate_pg_test_plan(
                 f"IMAGE_POSTGRESQL{major}_{ubi_version}_COMMUNITY",
             )
 
+
+def _add_pg_gke_arm(add) -> None:
     for kind, flavor, ubi_versions in (
         ("PostGIS", "official", ("UBI9", "UBI10", "UBI8")),
         ("PostgreSQL", "official", ("UBI9", "UBI10", "UBI8")),
@@ -273,6 +319,8 @@ def generate_pg_test_plan(
                     test_suite="run-community.csv",
                 )
 
+
+def _add_pg_custom(add, versions: dict[str, str]) -> None:
     for major in ("18", "17", "16"):
         if versions.get(f"IMAGE_POSTGRESQL{major}"):
             add(
@@ -287,6 +335,21 @@ def generate_pg_test_plan(
                 manual=True,
             )
 
+
+def generate_pg_test_plan(
+    versions: dict[str, str],
+    k8s_platforms: dict[str, dict[str, str]],
+) -> list[dict]:
+    cells = []
+    add = partial(_add_pg_cell, cells, versions, k8s_platforms)
+    _add_pg_gke_official(add)
+    _add_pg_doks_official(add)
+    _add_pg_platform_official(add)
+    _add_pg_aks_postgis(add)
+    _add_pg_minikube(add)
+    _add_pg_community(add)
+    _add_pg_gke_arm(add)
+    _add_pg_custom(add, versions)
     return cells
 
 
@@ -341,168 +404,154 @@ def repository_revision() -> str | None:
     return result.stdout.strip() or None
 
 
+def _minikube_info_line(name: str, info: dict[str, str]) -> str | None:
+    k8s_ver = info.get("max") or info.get("version") or info.get("latest")
+    if k8s_ver == "latest":
+        return f"{name} latest"
+    if k8s_ver:
+        return f"{name} {get_minikube()} with Kubernetes v{k8s_ver}"
+    return None
+
+
+def _cloud_platform_info_line(name: str, info: dict[str, str]) -> str:
+    min_v = info.get("min", "")
+    max_v = info.get("max", "")
+    if min_v and max_v:
+        return f"{name} {min_v} - {max_v}"
+    if max_v:
+        return f"{name} {max_v}"
+    return f"{name} latest"
+
+
+def _platform_info_line(platform: str, info: dict[str, str]) -> str | None:
+    name = PLATFORM_DISPLAY[platform]
+    if platform == "MINIKUBE":
+        return _minikube_info_line(name, info)
+    return _cloud_platform_info_line(name, info)
+
+
 def generate_version_info(versions: dict[str, str], db_type: str) -> str:
     """Generate informational message about tested versions.
 
     Does not include cert-manager (taken separately).
     """
-    operator_names = {
-        "PXC": "PXC",
-        "MYSQL": "PS",
-        "MONGOD": "PSMDB",
-        "POSTGRESQL": "PG",
-    }
-    op_name = operator_names.get(db_type, db_type)
-
+    op_name = OPERATOR_NAMES.get(db_type, db_type)
     release_version = ""
     if "IMAGE_OPERATOR" in versions:
         release_version = versions["IMAGE_OPERATOR"].split(":")[-1]
 
-    lines = [
-        f"INFO: For {op_name} Operator {release_version} release we will proceed with:"
-    ]
-    lines.append("")
-
-    lines.append("Kubernetes Platforms:")
     operator = DB_TYPE_TO_OPERATOR[db_type]
     k8s_platforms = extract_k8s_platforms(versions, operator)
-
-    platform_display = {
-        "GKE": "GKE",
-        "EKS": "EKS",
-        "AKS": "AKS",
-        "OPENSHIFT": "OpenShift",
-        "MINIKUBE": "MiniKube",
-        "DOKS": "DOKS",
-        "RANCHER": "Rancher/RKE2",
-    }
-
+    lines = [
+        f"INFO: For {op_name} Operator {release_version} release we will proceed with:",
+        "",
+        "Kubernetes Platforms:",
+    ]
     for platform in OPERATOR_PLATFORMS[operator]:
-        info = k8s_platforms[platform]
-        name = platform_display[platform]
-
-        if platform == "MINIKUBE":
-            k8s_ver = info.get("max") or info.get("version") or info.get("latest")
-            if k8s_ver == "latest":
-                lines.append(f"{name} latest")
-            elif k8s_ver:
-                lines.append(f"{name} {get_minikube()} with Kubernetes v{k8s_ver}")
-        else:
-            min_v = info.get("min", "")
-            max_v = info.get("max", "")
-            if min_v and max_v:
-                lines.append(f"{name} {min_v} - {max_v}")
-            elif max_v:
-                lines.append(f"{name} {max_v}")
-            else:
-                lines.append(f"{name} latest")
-
+        line = _platform_info_line(platform, k8s_platforms[platform])
+        if line:
+            lines.append(line)
     lines.append("")
     lines.append("Software supported:")
     lines.extend(_get_software_versions(versions, db_type))
-
     return "\n".join(lines)
+
+
+def _mongodb_software_versions(versions: dict[str, str]) -> list[str]:
+    lines = []
+    for _, val, suffix in prefixed_images(versions, "IMAGE_MONGOD"):
+        lines.append(f"MongoDB {suffix[0]}.{suffix[1:]}: {image_tag(val)}")
+    _add_if_exists(lines, versions, "IMAGE_BACKUP", "PBM")
+    _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM Client")
+    _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM3 Client")
+    _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector")
+    _add_cert_manager(lines, versions)
+    return lines
+
+
+def _pxc_software_versions(versions: dict[str, str]) -> list[str]:
+    lines = []
+    for _, val, suffix in prefixed_images(versions, "IMAGE_PXC"):
+        lines.append(f"PXC {dotted_major(suffix)}: {image_tag(val)}")
+    for key in ["IMAGE_BACKUP84", "IMAGE_BACKUP80", "IMAGE_BACKUP57"]:
+        if key in versions and versions[key]:
+            suffix = key.replace("IMAGE_BACKUP", "")
+            lines.append(f"XtraBackup-{dotted_major(suffix)}: {image_tag(versions[key])}")
+    _add_if_exists(lines, versions, "IMAGE_HAPROXY", "HAProxy")
+    _add_if_exists(lines, versions, "IMAGE_PROXY", "ProxySQL")
+    _add_if_exists(lines, versions, "IMAGE_PROXYSQL", "ProxySQL")
+    _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector (fluent-bit)")
+    _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM-Client2")
+    _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM-Client3")
+    _add_cert_manager(lines, versions)
+    return lines
+
+
+def _mysql_software_versions(versions: dict[str, str]) -> list[str]:
+    lines = []
+    for _, val, suffix in prefixed_images(versions, "IMAGE_MYSQL"):
+        lines.append(f"Percona Server {dotted_major(suffix)}: {image_tag(val)}")
+    for _, val, suffix in prefixed_images(versions, "IMAGE_BACKUP"):
+        if suffix:
+            lines.append(
+                f"XtraBackup {mysql_component_major(suffix)}: {image_tag(val)}"
+            )
+    for _, val, suffix in prefixed_images(versions, "IMAGE_ROUTER"):
+        if suffix:
+            lines.append(
+                f"MySQL Router {mysql_component_major(suffix)}: {image_tag(val)}"
+            )
+    _add_if_exists(lines, versions, "IMAGE_HAPROXY", "HAProxy")
+    _add_if_exists(lines, versions, "IMAGE_ORCHESTRATOR", "Orchestrator")
+    _add_if_exists(lines, versions, "IMAGE_TOOLKIT", "Percona Toolkit")
+    _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
+    _add_cert_manager(lines, versions)
+    return lines
+
+
+def _postgresql_software_versions(versions: dict[str, str]) -> list[str]:
+    lines = []
+    pg_versions = [
+        image_tag(val)
+        for key, val in sorted(versions.items())
+        if re.fullmatch(r"IMAGE_POSTGRESQL\d+", key) and val
+    ]
+    if pg_versions:
+        lines.append(f"Postgres: {', '.join(pg_versions)}")
+    community_versions = [
+        f"{major} {ubi}"
+        for major, ubi in extract_community_versions(versions)
+        if major in PG_RELEASE_MAJORS
+    ]
+    if community_versions:
+        lines.append(f"Community Postgres: {', '.join(community_versions)}")
+    _add_unique_versions(lines, versions, "IMAGE_BACKREST", "PGBackRest")
+    _add_unique_versions(lines, versions, "IMAGE_PGBOUNCER", "PGBouncer")
+    lines.append("patroni: <OVERRIDE>")
+    _add_postgis_versions(lines, versions)
+    _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM")
+    _add_cert_manager(lines, versions)
+    return lines
+
+
+SOFTWARE_VERSION_REPORTERS = {
+    "MONGOD": _mongodb_software_versions,
+    "PXC": _pxc_software_versions,
+    "MYSQL": _mysql_software_versions,
+    "POSTGRESQL": _postgresql_software_versions,
+}
 
 
 def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
     """Extract software versions based on database type."""
-    lines = []
-
-    if db_type == "MONGOD":
-        for key, val in sorted(versions.items(), reverse=True):
-            if key.startswith("IMAGE_MONGOD") and val:
-                ver = key.replace("IMAGE_MONGOD", "")
-                lines.append(
-                    f"MongoDB {ver[0]}.{ver[1:]}: {val.split(':')[-1] if ':' in val else val}"
-                )
-        _add_if_exists(lines, versions, "IMAGE_BACKUP", "PBM")
-        _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM Client")
-        _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM3 Client")
-        _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector")
-        _add_cert_manager(lines, versions)
-
-    elif db_type == "PXC":
-        for key, val in sorted(versions.items(), reverse=True):
-            if key.startswith("IMAGE_PXC") and val:
-                ver = key.replace("IMAGE_PXC", "")
-                major = f"{ver[0]}.{ver[1:]}" if len(ver) == 2 else ver
-                lines.append(
-                    f"PXC {major}: {val.split(':')[-1] if ':' in val else val}"
-                )
-        for key in ["IMAGE_BACKUP84", "IMAGE_BACKUP80", "IMAGE_BACKUP57"]:
-            if key in versions and versions[key]:
-                ver = key.replace("IMAGE_BACKUP", "")
-                major = f"{ver[0]}.{ver[1:]}" if len(ver) == 2 else ver
-                lines.append(f"XtraBackup-{major}: {versions[key].split(':')[-1]}")
-        _add_if_exists(lines, versions, "IMAGE_HAPROXY", "HAProxy")
-        _add_if_exists(lines, versions, "IMAGE_PROXY", "ProxySQL")
-        _add_if_exists(lines, versions, "IMAGE_PROXYSQL", "ProxySQL")
-        _add_if_exists(
-            lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector (fluent-bit)"
-        )
-        _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM-Client2")
-        _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM-Client3")
-        _add_cert_manager(lines, versions)
-
-    elif db_type == "MYSQL":
-        for key, val in sorted(versions.items(), reverse=True):
-            if key.startswith("IMAGE_MYSQL") and val:
-                ver = key.replace("IMAGE_MYSQL", "")
-                major = f"{ver[0]}.{ver[1:]}" if len(ver) == 2 else ver
-                lines.append(
-                    f"Percona Server {major}: {val.split(':')[-1] if ':' in val else val}"
-                )
-        for key, val in sorted(versions.items(), reverse=True):
-            if key.startswith("IMAGE_BACKUP") and val:
-                ver = key.replace("IMAGE_BACKUP", "")
-                if ver:
-                    lines.append(
-                        f"XtraBackup {ver[0]}.{ver[1:] if len(ver) > 1 else '0'}: {val.split(':')[-1] if ':' in val else val}"
-                    )
-        for key, val in sorted(versions.items(), reverse=True):
-            if key.startswith("IMAGE_ROUTER") and val:
-                ver = key.replace("IMAGE_ROUTER", "")
-                if ver:
-                    lines.append(
-                        f"MySQL Router {ver[0]}.{ver[1:] if len(ver) > 1 else '0'}: {val.split(':')[-1] if ':' in val else val}"
-                    )
-        _add_if_exists(lines, versions, "IMAGE_HAPROXY", "HAProxy")
-        _add_if_exists(lines, versions, "IMAGE_ORCHESTRATOR", "Orchestrator")
-        _add_if_exists(lines, versions, "IMAGE_TOOLKIT", "Percona Toolkit")
-        _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
-        _add_cert_manager(lines, versions)
-
-    elif db_type == "POSTGRESQL":
-        pg_versions = []
-        for key, val in sorted(versions.items()):
-            if re.fullmatch(r"IMAGE_POSTGRESQL\d+", key) and val:
-                ver_str = val.split(":")[-1] if ":" in val else val
-                pg_versions.append(ver_str)
-        if pg_versions:
-            lines.append(f"Postgres: {', '.join(pg_versions)}")
-        community_versions = [
-            f"{major} {ubi}"
-            for major, ubi in extract_community_versions(versions)
-            if major in PG_RELEASE_MAJORS
-        ]
-        if community_versions:
-            lines.append(f"Community Postgres: {', '.join(community_versions)}")
-        _add_unique_versions(lines, versions, "IMAGE_BACKREST", "PGBackRest")
-        _add_unique_versions(lines, versions, "IMAGE_PGBOUNCER", "PGBouncer")
-        lines.append("patroni: <OVERRIDE>")
-        _add_postgis_versions(lines, versions)
-        _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM")
-        _add_cert_manager(lines, versions)
-
-    return lines
+    reporter = SOFTWARE_VERSION_REPORTERS.get(db_type)
+    return reporter(versions) if reporter else []
 
 
 def _add_if_exists(lines: list[str], versions: dict[str, str], key: str, label: str):
     """Helper to add version line if key exists."""
     if key in versions and versions[key]:
-        val = versions[key]
-        ver = val.split(":")[-1] if ":" in val else val
-        lines.append(f"{label}: {ver}")
+        lines.append(f"{label}: {image_tag(versions[key])}")
 
 
 def _add_cert_manager(lines: list[str], versions: dict[str, str]):
@@ -537,21 +586,54 @@ def _add_postgis_versions(lines: list[str], versions: dict[str, str]):
         lines.append(f"PostGis: {', '.join(values)}")
 
 
+def _minikube_labels(info: dict[str, str]) -> list[str]:
+    if "max" in info:
+        return ["max"]
+    if "version" in info:
+        return ["version"]
+    return ["latest"]
+
+
+def _single_k8s_label(info: dict[str, str]) -> list[str]:
+    if "max" in info:
+        return ["max"]
+    return ["latest"]
+
+
 def _k8s_labels(platform: str, info: dict[str, str], is_latest: bool) -> list[str]:
     if platform == "MINIKUBE":
-        if "max" in info:
-            return ["max"]
-        if "version" in info:
-            return ["version"]
-        return ["latest"]
-
+        return _minikube_labels(info)
     if platform == "DOKS" or not is_latest:
-        if "max" in info:
-            return ["max"]
-        return ["latest"]
+        return _single_k8s_label(info)
+    return [label for label in ("min", "max") if label in info] or ["latest"]
 
-    labels = [label for label in ("min", "max") if label in info]
-    return labels or ["latest"]
+
+def _standard_platform_cells(
+    platform: str,
+    k8s_info: dict[str, str],
+    db_versions: list[str],
+    latest: str,
+    primary_platform: str,
+) -> list[dict]:
+    cells = []
+    for db_ver in db_versions:
+        is_latest = db_ver == latest
+        if not is_latest and platform != primary_platform:
+            continue
+        cw_modes = ["YES", "NO"] if is_latest else ["YES"]
+        for k8s_label in _k8s_labels(platform, k8s_info, is_latest):
+            k8s_actual = k8s_info[k8s_label]
+            for cw in cw_modes:
+                cells.append(
+                    {
+                        "platform": platform,
+                        "k8s_version": k8s_label,
+                        "k8s_version_actual": k8s_actual,
+                        "pillar_version": db_ver,
+                        "cluster_wide": cw,
+                    }
+                )
+    return cells
 
 
 def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> list[dict]:
@@ -579,32 +661,14 @@ def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> lis
     latest = db_versions[0]
     print(f"Primary version: {latest}")
     print(f"Primary platform: {primary_platform}\n")
-
-    test_plan = []
-
+    cells = []
     for platform, k8s_info in k8s_platforms.items():
-        for db_ver in db_versions:
-            is_latest = db_ver == latest
-
-            if not is_latest and platform != primary_platform:
-                continue
-
-            cw_modes = ["YES", "NO"] if is_latest else ["YES"]
-
-            for k8s_label in _k8s_labels(platform, k8s_info, is_latest):
-                k8s_actual = k8s_info[k8s_label]
-                for cw in cw_modes:
-                    test_plan.append(
-                        {
-                            "platform": platform,
-                            "k8s_version": k8s_label,
-                            "k8s_version_actual": k8s_actual,
-                            "pillar_version": db_ver,
-                            "cluster_wide": cw,
-                        }
-                    )
-
-    return test_plan
+        cells.extend(
+            _standard_platform_cells(
+                platform, k8s_info, db_versions, latest, primary_platform
+            )
+        )
+    return cells
 
 
 def generate_markdown_table(test_plan: list[dict]) -> str:

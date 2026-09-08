@@ -119,114 +119,135 @@ def load_chart_crds(chart_dir: Path) -> List[Any]:
     return render_helm_template(chart_dir, include_crds=True)
 
 
+def classify_crds(
+    operator_crds: Dict[str, Any], helm_crds: Dict[str, Any]
+) -> Tuple[List[str], List[str], List[str], List[str]]:
+    missing = sorted(operator_crds.keys() - helm_crds.keys())
+    extra = sorted(helm_crds.keys() - operator_crds.keys())
+    identical = []
+    different = []
+    for name in sorted(operator_crds.keys() & helm_crds.keys()):
+        if operator_crds[name] == helm_crds[name]:
+            identical.append(name)
+        else:
+            different.append(name)
+    return identical, missing, extra, different
+
+
+def chart_crd_errors(
+    chart_name: str, missing: List[str], extra: List[str], different: List[str]
+) -> List[str]:
+    errors = [
+        f"CRD '{name}' is present in operator repo but missing from Helm chart '{chart_name}'"
+        for name in missing
+    ]
+    errors.extend(
+        f"CRD '{name}' is present in Helm chart '{chart_name}' but missing from operator repo"
+        for name in extra
+    )
+    errors.extend(
+        f"CRD '{name}' differs between operator repo and Helm chart '{chart_name}'"
+        for name in different
+    )
+    return errors
+
+
+def load_helm_crds(
+    chart_dir: Path, chart_name: str
+) -> Tuple[Optional[Dict[str, Any]], List[str]]:
+    log("CRDs", f"helm chart: {chart_dir}")
+    if not chart_dir.exists():
+        log("CRDs", f"helm chart '{chart_name}' is missing")
+        return None, [f"Missing Helm chart: {chart_dir}"]
+    try:
+        helm_crds = crds_by_name(load_chart_crds(chart_dir))
+    except RuntimeError as exc:
+        log("CRDs", f"failed to load CRDs from '{chart_name}': {exc}")
+        return None, [f"Failed to render Helm chart '{chart_name}' for CRDs: {exc}"]
+    if not helm_crds:
+        log("CRDs", f"no CRDs found in helm chart '{chart_name}'")
+        return None, [f"No CRDs found in Helm chart '{chart_name}'"]
+    return helm_crds, []
+
+
+def check_chart_crds(
+    chart_dir: Path, chart_name: str, operator_crds: Dict[str, Any]
+) -> List[str]:
+    helm_crds, errors = load_helm_crds(chart_dir, chart_name)
+    if helm_crds is None:
+        return errors
+    identical, missing, extra, different = classify_crds(operator_crds, helm_crds)
+    log_list("CRDs", f"helm '{chart_name}' CRDs", sorted(helm_crds))
+    log_list("CRDs", "identical", identical)
+    log_list("CRDs", "only in operator", missing)
+    log_list("CRDs", f"only in helm '{chart_name}'", extra)
+    log_list("CRDs", "content differs", different)
+    return chart_crd_errors(chart_name, missing, extra, different)
+
+
 def check_crds(operator_path: Path, helm_dir: Path, abbrev: str) -> List[str]:
     log("CRDs", f"operator: {operator_path}")
     if not operator_path.exists():
         log("CRDs", "operator CRD file is missing")
         return [f"Missing CRD file in operator repo: {operator_path}"]
 
-    errors = []
     operator_crds = crds_by_name(load_yaml_docs(operator_path))
     log_list("CRDs", "operator CRDs", sorted(operator_crds))
     chart_names = [f"{abbrev}-operator", *EXTRA_CRD_CHARTS.get(abbrev, [])]
-
+    errors = []
     for chart_name in chart_names:
-        chart_dir = helm_dir / "charts" / chart_name
-        log("CRDs", f"helm chart: {chart_dir}")
-        if not chart_dir.exists():
-            log("CRDs", f"helm chart '{chart_name}' is missing")
-            errors.append(f"Missing Helm chart: {chart_dir}")
-            continue
-        try:
-            helm_crds = crds_by_name(load_chart_crds(chart_dir))
-        except RuntimeError as exc:
-            log("CRDs", f"failed to load CRDs from '{chart_name}': {exc}")
-            errors.append(f"Failed to render Helm chart '{chart_name}' for CRDs: {exc}")
-            continue
-        if not helm_crds:
-            log("CRDs", f"no CRDs found in helm chart '{chart_name}'")
-            errors.append(f"No CRDs found in Helm chart '{chart_name}'")
-            continue
-
-        log_list("CRDs", f"helm '{chart_name}' CRDs", sorted(helm_crds))
-        missing_from_helm = sorted(operator_crds.keys() - helm_crds.keys())
-        extra_in_helm = sorted(helm_crds.keys() - operator_crds.keys())
-        identical = []
-        different = []
-        for name in sorted(operator_crds.keys() & helm_crds.keys()):
-            if operator_crds[name] == helm_crds[name]:
-                identical.append(name)
-            else:
-                different.append(name)
-
-        log_list("CRDs", "identical", identical)
-        log_list("CRDs", "only in operator", missing_from_helm)
-        log_list("CRDs", f"only in helm '{chart_name}'", extra_in_helm)
-        log_list("CRDs", "content differs", different)
-
-        for name in missing_from_helm:
-            errors.append(
-                f"CRD '{name}' is present in operator repo but missing from Helm chart '{chart_name}'"
-            )
-        for name in extra_in_helm:
-            errors.append(
-                f"CRD '{name}' is present in Helm chart '{chart_name}' but missing from operator repo"
-            )
-        for name in different:
-            errors.append(
-                f"CRD '{name}' differs between operator repo and Helm chart '{chart_name}'"
-            )
-
+        errors.extend(
+            check_chart_crds(helm_dir / "charts" / chart_name, chart_name, operator_crds)
+        )
     return errors
 
 
-def collect_images(tree: Any, found: Optional[Set[str]] = None) -> Set[str]:
-    if found is None:
-        found = set()
-    if isinstance(tree, dict):
-        for key, value in tree.items():
-            if key == "image" and isinstance(value, str) and value:
-                found.add(value)
-            elif (
-                key == "image"
-                and isinstance(value, dict)
-                and value.get("repository")
-                and value.get("tag")
-            ):
-                found.add(f"{value['repository']}:{value['tag']}")
-            else:
-                collect_images(value, found)
-    elif isinstance(tree, list):
+def dict_image_ref(value: Any) -> Optional[str]:
+    if not isinstance(value, dict):
+        return None
+    repository = value.get("repository")
+    tag = value.get("tag")
+    if repository and tag:
+        return f"{repository}:{tag}"
+    return None
+
+
+def image_ref(key: str, value: Any) -> Optional[str]:
+    if key != "image":
+        return None
+    if isinstance(value, str):
+        return value or None
+    return dict_image_ref(value)
+
+
+def nested_path(prefix: str, key: str) -> str:
+    return f"{prefix}.{key}" if prefix else key
+
+
+def walk_images(tree: Any, prefix: str, found: Dict[str, str]) -> None:
+    if isinstance(tree, list):
         for value in tree:
-            collect_images(value, found)
+            walk_images(value, prefix, found)
+        return
+    if not isinstance(tree, dict):
+        return
+    for key, value in tree.items():
+        path = nested_path(prefix, key)
+        image = image_ref(key, value)
+        if image:
+            found[path] = image
+            continue
+        walk_images(value, path, found)
+
+
+def collect_images_with_paths(tree: Any) -> Dict[str, str]:
+    found: Dict[str, str] = {}
+    walk_images(tree, "", found)
     return found
 
 
-def collect_images_with_paths(
-    tree: Any,
-    prefix: str = "",
-    found: Optional[Dict[str, str]] = None,
-) -> Dict[str, str]:
-    if found is None:
-        found = {}
-    if isinstance(tree, dict):
-        for key, value in tree.items():
-            path = f"{prefix}.{key}" if prefix else key
-            if key == "image" and isinstance(value, str) and value:
-                found[path] = value
-            elif (
-                key == "image"
-                and isinstance(value, dict)
-                and value.get("repository")
-                and value.get("tag")
-            ):
-                found[path] = f"{value['repository']}:{value['tag']}"
-            else:
-                collect_images_with_paths(value, path, found)
-    elif isinstance(tree, list):
-        for value in tree:
-            collect_images_with_paths(value, prefix, found)
-    return found
+def collect_images(tree: Any) -> Set[str]:
+    return set(collect_images_with_paths(tree).values())
 
 
 def check_images(cr_path: Path, values_path: Path) -> Tuple[List[str], Set[str]]:
@@ -272,13 +293,22 @@ def normalize_image(image: str) -> str:
     return image
 
 
+def recommended_image(node: Dict[str, Any]) -> Optional[str]:
+    if node.get("status") != "recommended":
+        return None
+    image_path = node.get("image_path") or node.get("imagePath")
+    if not image_path:
+        return None
+    return normalize_image(image_path)
+
+
 def collect_recommended_images(node: Any, found: Optional[Set[str]] = None) -> Set[str]:
     if found is None:
         found = set()
     if isinstance(node, dict):
-        image_path = node.get("image_path") or node.get("imagePath")
-        if node.get("status") == "recommended" and image_path:
-            found.add(normalize_image(image_path))
+        image = recommended_image(node)
+        if image:
+            found.add(image)
         for value in node.values():
             collect_recommended_images(value, found)
     elif isinstance(node, list):
@@ -429,39 +459,89 @@ def check_bundle_digests(
     return [], [f"Both bundle images use digest {lab_digest}"], None
 
 
+def parse_readme_row(line: str) -> Optional[Tuple[str, str]]:
+    if not line.startswith("|") or "---" in line:
+        return None
+    cells = [cell.strip() for cell in line.strip("|").split("|")]
+    if len(cells) < 3:
+        return None
+    parameter = re.sub(r"[`~]", "", cells[0]).strip()
+    default = cells[-1].replace("`", "").strip()
+    if not parameter or parameter.lower() == "parameter":
+        return None
+    return parameter, default
+
+
 def parse_readme_table(path: Path) -> Dict[str, str]:
     rows = {}
     for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
-        if not line.startswith("|") or "---" in line:
-            continue
-        cells = [cell.strip() for cell in line.strip("|").split("|")]
-        if len(cells) < 3:
-            continue
-        parameter = re.sub(r"[`~]", "", cells[0]).strip()
-        default = cells[-1].replace("`", "").strip()
-        if parameter and parameter.lower() != "parameter":
+        row = parse_readme_row(raw_line.strip())
+        if row:
+            parameter, default = row
             rows[parameter] = default
     return rows
+
+
+def readme_image_part(parameter: str) -> Optional[Tuple[str, str]]:
+    if parameter.endswith(".image.repository") or parameter == "image.repository":
+        return parameter[: -len(".repository")], "repository"
+    if parameter.endswith(".image.tag") or parameter == "image.tag":
+        return parameter[: -len(".tag")], "tag"
+    return None
+
+
+def is_image_parameter(parameter: str) -> bool:
+    return parameter.endswith(".image") or parameter == "image"
+
+
+def composed_readme_images(parts: Dict[str, Dict[str, str]]) -> Dict[str, str]:
+    images = {}
+    for base, values in parts.items():
+        repository = values.get("repository")
+        tag = values.get("tag")
+        if repository and tag:
+            images[base] = f"{repository}:{tag}"
+    return images
 
 
 def readme_images(rows: Dict[str, str]) -> Dict[str, str]:
     images = {}
     parts: Dict[str, Dict[str, str]] = {}
     for parameter, default in rows.items():
-        if parameter.endswith(".image.repository") or parameter == "image.repository":
-            base = parameter[: -len(".repository")]
-            parts.setdefault(base, {})["repository"] = default
-        elif parameter.endswith(".image.tag") or parameter == "image.tag":
-            base = parameter[: -len(".tag")]
-            parts.setdefault(base, {})["tag"] = default
-        elif parameter.endswith(".image") or parameter == "image":
-            if default:
-                images[parameter] = default
-    for base, values in parts.items():
-        if values.get("repository") and values.get("tag"):
-            images[base] = f"{values['repository']}:{values['tag']}"
+        part = readme_image_part(parameter)
+        if part:
+            base, field = part
+            parts.setdefault(base, {})[field] = default
+            continue
+        if default and is_image_parameter(parameter):
+            images[parameter] = default
+    images.update(composed_readme_images(parts))
     return images
+
+
+def compare_readme_images(
+    values_images: Dict[str, str], documented: Dict[str, str]
+) -> Tuple[List[str], List[str], List[str], List[str]]:
+    errors = []
+    matching = []
+    missing = []
+    mismatched = []
+    for path, image in sorted(values_images.items()):
+        documented_image = documented.get(path)
+        if documented_image is None:
+            missing.append(f"{path} = {image}")
+            errors.append(
+                f"values.yaml image '{image}' at '{path}' is not documented in README.md"
+            )
+        elif documented_image != image:
+            mismatched.append(f"{path}: values.yaml={image} README.md={documented_image}")
+            errors.append(
+                f"values.yaml image at '{path}' is '{image}' but README.md documents "
+                f"'{documented_image}'"
+            )
+        else:
+            matching.append(f"{path} = {image}")
+    return errors, matching, missing, mismatched
 
 
 def check_readme_images(values_path: Path, readme_path: Path) -> List[str]:
@@ -476,7 +556,7 @@ def check_readme_images(values_path: Path, readme_path: Path) -> List[str]:
 
     values_images: Dict[str, str] = {}
     for doc in load_yaml_docs(values_path):
-        collect_images_with_paths(doc, found=values_images)
+        values_images.update(collect_images_with_paths(doc))
     documented = readme_images(parse_readme_table(readme_path))
     log_list(
         "README",
@@ -489,24 +569,9 @@ def check_readme_images(values_path: Path, readme_path: Path) -> List[str]:
         [f"{path} = {image}" for path, image in sorted(documented.items())],
     )
 
-    errors = []
-    matching = []
-    missing = []
-    mismatched = []
-    for path, image in sorted(values_images.items()):
-        if path not in documented:
-            missing.append(f"{path} = {image}")
-            errors.append(
-                f"values.yaml image '{image}' at '{path}' is not documented in README.md"
-            )
-        elif documented[path] != image:
-            mismatched.append(f"{path}: values.yaml={image} README.md={documented[path]}")
-            errors.append(
-                f"values.yaml image at '{path}' is '{image}' but README.md documents "
-                f"'{documented[path]}'"
-            )
-        else:
-            matching.append(f"{path} = {image}")
+    errors, matching, missing, mismatched = compare_readme_images(
+        values_images, documented
+    )
     log_list("README", "matching", matching)
     log_list("README", "missing from README.md", missing)
     log_list("README", "value mismatch", mismatched)
@@ -533,18 +598,31 @@ def unified_diff(
 Permission = Tuple[str, str, str, Tuple[str, ...]]
 
 
+def resource_permissions(rule: Dict[str, Any]) -> Set[Permission]:
+    verbs = rule.get("verbs") or []
+    names = tuple(sorted(rule.get("resourceNames") or []))
+    return {
+        (api_group, resource, verb, names)
+        for api_group in rule.get("apiGroups") or [""]
+        for resource in rule.get("resources") or []
+        for verb in verbs
+    }
+
+
+def non_resource_permissions(rule: Dict[str, Any]) -> Set[Permission]:
+    verbs = rule.get("verbs") or []
+    return {
+        ("<non-resource>", url, verb, ())
+        for url in rule.get("nonResourceURLs") or []
+        for verb in verbs
+    }
+
+
 def normalize_permissions(rules: Any) -> Set[Permission]:
-    permissions = set()
+    permissions: Set[Permission] = set()
     for rule in rules or []:
-        verbs = rule.get("verbs") or []
-        resource_names = tuple(sorted(rule.get("resourceNames") or []))
-        for api_group in rule.get("apiGroups") or [""]:
-            for resource in rule.get("resources") or []:
-                for verb in verbs:
-                    permissions.add((api_group, resource, verb, resource_names))
-        for url in rule.get("nonResourceURLs") or []:
-            for verb in verbs:
-                permissions.add(("<non-resource>", url, verb, ()))
+        permissions |= resource_permissions(rule)
+        permissions |= non_resource_permissions(rule)
     return permissions
 
 
@@ -555,6 +633,93 @@ def permission_lines(permissions: Set[Permission]) -> List[str]:
         suffix = f" resourceNames={','.join(resource_names)}" if resource_names else ""
         lines.append(f"{group}/{resource}: {verb}{suffix}")
     return lines
+
+
+def load_rbac_docs(
+    kind: str,
+    mode: str,
+    operator_path: Path,
+    chart_dir: Path,
+    set_args: List[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]], List[str]]:
+    if not operator_path.exists():
+        log("RBAC", f"{mode}: operator file is missing")
+        return None, None, [f"Missing {mode} RBAC file in operator repo: {operator_path}"]
+    operator_doc = first_document(load_yaml_docs(operator_path), kind)
+    if operator_doc is None:
+        log("RBAC", f"{mode}: no {kind} in {operator_path.name}")
+        return None, None, [f"No {kind} found in operator repo's {operator_path.name}"]
+    try:
+        helm_doc = first_document(render_helm_template(chart_dir, set_args), kind)
+    except RuntimeError as exc:
+        log("RBAC", f"{mode}: helm template failed: {exc}")
+        return None, None, [f"Failed to render Helm chart for {mode} RBAC: {exc}"]
+    if helm_doc is None:
+        log("RBAC", f"{mode}: helm chart did not render a {kind}")
+        return None, None, [f"Helm chart did not render a {kind} in {mode} mode"]
+    return operator_doc, helm_doc, []
+
+
+def rbac_mismatch(
+    mode: str,
+    operator_path: Path,
+    kind: str,
+    operator_permissions: Set[Permission],
+    helm_permissions: Set[Permission],
+) -> Tuple[List[str], List[str]]:
+    if operator_permissions == helm_permissions:
+        log("RBAC", f"{mode}: identical")
+        return [], []
+    log_list(
+        "RBAC",
+        f"{mode} missing from helm",
+        permission_lines(operator_permissions - helm_permissions),
+    )
+    log_list(
+        "RBAC",
+        f"{mode} only in helm",
+        permission_lines(helm_permissions - operator_permissions),
+    )
+    missing = len(operator_permissions - helm_permissions)
+    extra = len(helm_permissions - operator_permissions)
+    error = (
+        f"RBAC ({mode}) differs: {missing} permission(s) missing from Helm and "
+        f"{extra} permission(s) only in Helm"
+    )
+    diff = unified_diff(
+        f"RBAC diff ({mode})",
+        f"operator:{operator_path.name}",
+        f"helm:rendered-{kind}",
+        permission_lines(operator_permissions),
+        permission_lines(helm_permissions),
+    )
+    return [error], [diff]
+
+
+def check_rbac_mode(
+    kind: str,
+    mode: str,
+    operator_path: Path,
+    chart_dir: Path,
+    set_args: List[str],
+) -> Tuple[List[str], List[str]]:
+    helm_args = ",".join(set_args) if set_args else "(defaults)"
+    log("RBAC", f"{mode}: {operator_path} vs helm template {chart_dir} --set {helm_args}")
+    operator_doc, helm_doc, errors = load_rbac_docs(
+        kind, mode, operator_path, chart_dir, set_args
+    )
+    if errors:
+        return errors, []
+    operator_permissions = normalize_permissions(operator_doc.get("rules"))
+    helm_permissions = normalize_permissions(helm_doc.get("rules"))
+    log(
+        "RBAC",
+        f"{mode}: operator={len(operator_permissions)} permissions, "
+        f"helm={len(helm_permissions)} permissions",
+    )
+    return rbac_mismatch(
+        mode, operator_path, kind, operator_permissions, helm_permissions
+    )
 
 
 def check_rbac(
@@ -572,68 +737,12 @@ def check_rbac(
             ["watchAllNamespaces=true"],
         ),
     ]
-
     for kind, mode, operator_path, set_args in checks:
-        helm_args = ",".join(set_args) if set_args else "(defaults)"
-        log("RBAC", f"{mode}: {operator_path} vs helm template {chart_dir} --set {helm_args}")
-        if not operator_path.exists():
-            log("RBAC", f"{mode}: operator file is missing")
-            errors.append(f"Missing {mode} RBAC file in operator repo: {operator_path}")
-            continue
-        operator_doc = first_document(load_yaml_docs(operator_path), kind)
-        if operator_doc is None:
-            log("RBAC", f"{mode}: no {kind} in {operator_path.name}")
-            errors.append(f"No {kind} found in operator repo's {operator_path.name}")
-            continue
-        try:
-            helm_doc = first_document(
-                render_helm_template(chart_dir, set_args), kind
-            )
-        except RuntimeError as exc:
-            log("RBAC", f"{mode}: helm template failed: {exc}")
-            errors.append(f"Failed to render Helm chart for {mode} RBAC: {exc}")
-            continue
-        if helm_doc is None:
-            log("RBAC", f"{mode}: helm chart did not render a {kind}")
-            errors.append(f"Helm chart did not render a {kind} in {mode} mode")
-            continue
-
-        operator_permissions = normalize_permissions(operator_doc.get("rules"))
-        helm_permissions = normalize_permissions(helm_doc.get("rules"))
-        log(
-            "RBAC",
-            f"{mode}: operator={len(operator_permissions)} permissions, "
-            f"helm={len(helm_permissions)} permissions",
+        mode_errors, mode_diffs = check_rbac_mode(
+            kind, mode, operator_path, chart_dir, set_args
         )
-        if operator_permissions == helm_permissions:
-            log("RBAC", f"{mode}: identical")
-            continue
-        log_list(
-            "RBAC",
-            f"{mode} missing from helm",
-            permission_lines(operator_permissions - helm_permissions),
-        )
-        log_list(
-            "RBAC",
-            f"{mode} only in helm",
-            permission_lines(helm_permissions - operator_permissions),
-        )
-
-        missing = len(operator_permissions - helm_permissions)
-        extra = len(helm_permissions - operator_permissions)
-        errors.append(
-            f"RBAC ({mode}) differs: {missing} permission(s) missing from Helm and "
-            f"{extra} permission(s) only in Helm"
-        )
-        diffs.append(
-            unified_diff(
-                f"RBAC diff ({mode})",
-                f"operator:{operator_path.name}",
-                f"helm:rendered-{kind}",
-                permission_lines(operator_permissions),
-                permission_lines(helm_permissions),
-            )
-        )
+        errors.extend(mode_errors)
+        diffs.extend(mode_diffs)
     return errors, diffs
 
 
@@ -649,31 +758,42 @@ def operator_container(deployment: Optional[Dict[str, Any]]) -> Optional[Dict[st
     return containers[0] if containers else None
 
 
-def deployment_lines(container: Dict[str, Any]) -> List[str]:
-    lines = [
-        f"name: {container.get('name')}",
-        f"command: {container.get('command') or []}",
-    ]
-    for name in sorted(
+def env_lines(container: Dict[str, Any]) -> List[str]:
+    names = sorted(
         entry.get("name") for entry in container.get("env", []) if entry.get("name")
-    ):
-        lines.append(f"env: {name}")
-    for port in sorted(
-        (
-            entry.get("containerPort"),
-            entry.get("protocol", "TCP"),
-        )
+    )
+    return [f"env: {name}" for name in names]
+
+
+def port_lines(container: Dict[str, Any]) -> List[str]:
+    ports = sorted(
+        (entry.get("containerPort"), entry.get("protocol", "TCP"))
         for entry in container.get("ports", [])
-    ):
-        lines.append(f"port: {port[0]}/{port[1]}")
+    )
+    return [f"port: {port}/{protocol}" for port, protocol in ports]
+
+
+def probe_lines(container: Dict[str, Any]) -> List[str]:
+    lines = []
     for probe_name in ("livenessProbe", "readinessProbe"):
         http_get = (container.get(probe_name) or {}).get("httpGet")
-        if http_get:
-            lines.append(
-                f"{probe_name}: {http_get.get('path')}:{http_get.get('port')}/"
-                f"{http_get.get('scheme')}"
-            )
+        if not http_get:
+            continue
+        lines.append(
+            f"{probe_name}: {http_get.get('path')}:{http_get.get('port')}/"
+            f"{http_get.get('scheme')}"
+        )
     return lines
+
+
+def deployment_lines(container: Dict[str, Any]) -> List[str]:
+    return [
+        f"name: {container.get('name')}",
+        f"command: {container.get('command') or []}",
+        *env_lines(container),
+        *port_lines(container),
+        *probe_lines(container),
+    ]
 
 
 def service_lines(service: Optional[Dict[str, Any]]) -> List[str]:
@@ -684,6 +804,83 @@ def service_lines(service: Optional[Dict[str, Any]]) -> List[str]:
         f"service port: {port.get('port')} -> {port.get('targetPort')}"
         for port in sorted(ports, key=lambda item: (item.get("port"), str(item.get("targetPort"))))
     ]
+
+
+def load_deployment_docs(
+    mode: str, operator_path: Path, chart_dir: Path, set_args: List[str]
+) -> Tuple[Optional[List[Any]], Optional[List[Any]], List[str]]:
+    if not operator_path.exists():
+        log("Deployment", f"{mode}: operator file is missing")
+        return None, None, [f"Missing {mode} operator deployment: {operator_path}"]
+    operator_docs = load_yaml_docs(operator_path)
+    try:
+        helm_docs = render_helm_template(chart_dir, set_args)
+    except RuntimeError as exc:
+        log("Deployment", f"{mode}: helm template failed: {exc}")
+        return None, None, [f"Failed to render Helm chart for {mode} deployment: {exc}"]
+    return operator_docs, helm_docs, []
+
+
+def deployment_summaries(
+    mode: str, operator_docs: List[Any], helm_docs: List[Any]
+) -> Tuple[Optional[List[str]], Optional[List[str]], List[str]]:
+    operator_deployment = first_document(operator_docs, "Deployment")
+    helm_deployment = first_document(helm_docs, "Deployment")
+    if operator_deployment is None or helm_deployment is None:
+        log("Deployment", f"{mode}: Deployment is missing from operator or helm")
+        return None, None, [
+            f"Deployment ({mode}) is missing from operator repo or rendered Helm chart"
+        ]
+    operator_spec = operator_container(operator_deployment)
+    helm_spec = operator_container(helm_deployment)
+    if operator_spec is None or helm_spec is None:
+        log("Deployment", f"{mode}: no operator container to compare")
+        return None, None, [f"Deployment ({mode}) has no operator container to compare"]
+    operator_summary = deployment_lines(operator_spec) + service_lines(
+        first_document(operator_docs, "Service")
+    )
+    helm_summary = deployment_lines(helm_spec) + service_lines(
+        first_document(helm_docs, "Service")
+    )
+    return operator_summary, helm_summary, []
+
+
+def check_deployment_mode(
+    mode: str, operator_path: Path, chart_dir: Path, set_args: List[str]
+) -> Tuple[List[str], List[str]]:
+    helm_args = ",".join(set_args) if set_args else "(defaults)"
+    log(
+        "Deployment",
+        f"{mode}: {operator_path} vs helm template {chart_dir} --set {helm_args}",
+    )
+    operator_docs, helm_docs, errors = load_deployment_docs(
+        mode, operator_path, chart_dir, set_args
+    )
+    if errors:
+        return errors, []
+    operator_summary, helm_summary, errors = deployment_summaries(
+        mode, operator_docs, helm_docs
+    )
+    if errors:
+        return errors, []
+    log_list("Deployment", f"{mode} operator", operator_summary)
+    log_list("Deployment", f"{mode} helm", helm_summary)
+    if operator_summary == helm_summary:
+        log("Deployment", f"{mode}: identical")
+        return [], []
+    log("Deployment", f"{mode}: differs")
+    return (
+        [f"Deployment ({mode}) differs between operator repo and rendered Helm chart"],
+        [
+            unified_diff(
+                f"Deployment diff ({mode})",
+                f"operator:{operator_path.name}",
+                f"helm:rendered-deployment-{mode}",
+                operator_summary,
+                helm_summary,
+            )
+        ],
+    )
 
 
 def check_deployment(
@@ -700,61 +897,12 @@ def check_deployment(
             ["watchAllNamespaces=true"],
         ),
     ]
-
     for mode, operator_path, set_args in checks:
-        helm_args = ",".join(set_args) if set_args else "(defaults)"
-        log(
-            "Deployment",
-            f"{mode}: {operator_path} vs helm template {chart_dir} --set {helm_args}",
+        mode_errors, mode_diffs = check_deployment_mode(
+            mode, operator_path, chart_dir, set_args
         )
-        if not operator_path.exists():
-            log("Deployment", f"{mode}: operator file is missing")
-            errors.append(f"Missing {mode} operator deployment: {operator_path}")
-            continue
-        operator_docs = load_yaml_docs(operator_path)
-        operator_deployment = first_document(operator_docs, "Deployment")
-        try:
-            helm_docs = render_helm_template(chart_dir, set_args)
-        except RuntimeError as exc:
-            log("Deployment", f"{mode}: helm template failed: {exc}")
-            errors.append(f"Failed to render Helm chart for {mode} deployment: {exc}")
-            continue
-        helm_deployment = first_document(helm_docs, "Deployment")
-        if operator_deployment is None or helm_deployment is None:
-            log("Deployment", f"{mode}: Deployment is missing from operator or helm")
-            errors.append(f"Deployment ({mode}) is missing from operator repo or rendered Helm chart")
-            continue
-
-        operator_spec = operator_container(operator_deployment)
-        helm_spec = operator_container(helm_deployment)
-        if operator_spec is None or helm_spec is None:
-            log("Deployment", f"{mode}: no operator container to compare")
-            errors.append(f"Deployment ({mode}) has no operator container to compare")
-            continue
-
-        operator_service = first_document(operator_docs, "Service")
-        helm_service = first_document(helm_docs, "Service")
-        operator_summary = deployment_lines(operator_spec) + service_lines(operator_service)
-        helm_summary = deployment_lines(helm_spec) + service_lines(helm_service)
-        log_list("Deployment", f"{mode} operator", operator_summary)
-        log_list("Deployment", f"{mode} helm", helm_summary)
-        if operator_summary == helm_summary:
-            log("Deployment", f"{mode}: identical")
-            continue
-        log("Deployment", f"{mode}: differs")
-
-        errors.append(
-            f"Deployment ({mode}) differs between operator repo and rendered Helm chart"
-        )
-        diffs.append(
-            unified_diff(
-                f"Deployment diff ({mode})",
-                f"operator:{operator_path.name}",
-                f"helm:rendered-deployment-{mode}",
-                operator_summary,
-                helm_summary,
-            )
-        )
+        errors.extend(mode_errors)
+        diffs.extend(mode_diffs)
     return errors, diffs
 
 
