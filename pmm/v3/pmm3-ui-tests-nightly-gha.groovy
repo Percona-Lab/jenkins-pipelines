@@ -174,18 +174,27 @@ timestamps {
             slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
         }
 
-        stage('Start Server') {
-            if (params.SERVER_TYPE == 'docker') {
+        // One name per SERVER_TYPE, as before, so the stage view still says which
+        // path ran. Only ever one of them: SERVER_TYPE is a single choice, which
+        // is why the old `parallel` around these four was decorative.
+        if (params.SERVER_TYPE == 'docker') {
+            stage('Setup Docker Server Instance') {
                 runStagingServer(params.DOCKER_VERSION, params.CLIENT_VERSION, '--help', 'no', '127.0.0.1', params.PMM_QA_GIT_BRANCH, params.ADMIN_PASSWORD, params.SERVER_ARCH)
-            } else if (params.SERVER_TYPE == 'ami') {
-                runAMIStagingStart(params.AMI_ID)
-            } else if (params.SERVER_TYPE == 'helm') {
-                runOpenshiftClusterCreate(params.OPENSHIFT_VERSION, params.DOCKER_VERSION, params.ADMIN_PASSWORD)
-            } else if (params.SERVER_TYPE == 'ha') {
-                runHAClusterCreate(params.K8S_VERSION, params.DOCKER_VERSION, params.HELM_CHART_BRANCH, params.ADMIN_PASSWORD)
-            } else {
-                error("unknown SERVER_TYPE: ${params.SERVER_TYPE}")
             }
+        } else if (params.SERVER_TYPE == 'ami') {
+            stage('Setup AMI PMM Server Instance') {
+                runAMIStagingStart(params.AMI_ID)
+            }
+        } else if (params.SERVER_TYPE == 'helm') {
+            stage('Setup Helm PMM Server Instance') {
+                runOpenshiftClusterCreate(params.OPENSHIFT_VERSION, params.DOCKER_VERSION, params.ADMIN_PASSWORD)
+            }
+        } else if (params.SERVER_TYPE == 'ha') {
+            stage('Setup HA PMM Server Instance') {
+                runHAClusterCreate(params.K8S_VERSION, params.DOCKER_VERSION, params.HELM_CHART_BRANCH, params.ADMIN_PASSWORD)
+            }
+        } else {
+            error("unknown SERVER_TYPE: ${params.SERVER_TYPE}")
         }
 
         node(agentLabel) {
