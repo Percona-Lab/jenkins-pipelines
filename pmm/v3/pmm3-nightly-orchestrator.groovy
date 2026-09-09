@@ -86,7 +86,7 @@ def mirrorChild(String name, String jobName, def run) {
     for (int i = 0; i <= lastRun; i++) {
         def child = stages[i]
         stage("${child.name} · ${humanMs(child.durationMillis)}") {
-            // buildResult stays null on purpose: the suite's own verdict below
+            // buildResult stays null on purpose: the suite's own verdict above
             // owns the build result, and a mirrored step must not raise it.
             if (child.status == 'FAILED') {
                 catchError(buildResult: null, stageResult: 'FAILURE') {
@@ -121,8 +121,10 @@ def suite(String name, String jobName, List jobParams) {
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
             echo "[${name}] ${run.result} -> ${run.absoluteUrl}"
 
-            mirrorChild(name, jobName, run)
-
+            // The verdict must come before any nested stage. The stage graph closes
+            // this stage's chunk where the first nested stage opens, so a catchError
+            // placed after mirrorChild belongs to no stage at all and the suite
+            // renders green whatever the child did.
             if (run.result == 'FAILURE' || run.result == 'ABORTED') {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     error("${name}: ${jobName} #${run.number} ${run.result} — ${run.absoluteUrl}")
@@ -132,6 +134,8 @@ def suite(String name, String jobName, List jobParams) {
                     error("${name}: ${jobName} #${run.number} UNSTABLE — ${run.absoluteUrl}")
                 }
             }
+
+            mirrorChild(name, jobName, run)
         }
     }
 }
