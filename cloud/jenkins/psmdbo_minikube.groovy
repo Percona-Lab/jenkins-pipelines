@@ -83,8 +83,10 @@ void initTests() {
 
     def testsLib = load('cloud/common/vars/tests.groovy')
     tests.addAll(testsLib.loadTestList(TEST_LIST, TEST_SUITE, [
-        platform   : testVariables.platform,
-        clusterWide: CLUSTER_WIDE
+        platform      : testVariables.platform,
+        clusterWide   : CLUSTER_WIDE,
+        pillarVersion : PILLAR_VERSION,
+        imageMongod   : IMAGE_MONGOD
     ]))
 
     echo "Marking passed tests in the tests map!"

@@ -161,8 +161,10 @@ pipeline {
             steps {
                 script {
                     testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE, [
-                        platform   : testVariables.platform,
-                        clusterWide: CLUSTER_WIDE
+                        platform      : testVariables.platform,
+                        clusterWide   : CLUSTER_WIDE,
+                        pillarVersion : PILLAR_VERSION,
+                        imageMongod   : testVariables.images.IMAGE_MONGOD
                     ])
 
                     if (IGNORE_PREVIOUS_RUN == 'NO') {

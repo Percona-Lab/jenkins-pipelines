@@ -96,8 +96,10 @@ void initTests() {
     def testsLib = load('cloud/common/vars/tests.groovy')
     def platform = ("$ARCH" == "arm64") ? "${testVariables.platform}-arm64" : testVariables.platform
     tests.addAll(testsLib.loadTestList(TEST_LIST, TEST_SUITE, [
-        platform   : platform,
-        clusterWide: CLUSTER_WIDE
+        platform      : platform,
+        clusterWide   : CLUSTER_WIDE,
+        pillarVersion : PILLAR_VERSION,
+        imageMongod   : IMAGE_MONGOD
     ]))
 
     echo "Marking passed tests in the tests map!"
