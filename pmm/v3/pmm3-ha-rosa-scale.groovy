@@ -33,7 +33,9 @@ pipeline {
     stages {
         stage('Install Tools') {
             steps {
-                withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
+                                                 usernameVariable: 'ROSA_CLIENT_ID',
+                                                 passwordVariable: 'ROSA_CLIENT_SECRET')]) {
                     sh '''
                         mkdir -p $HOME/.local/bin
 
@@ -51,7 +53,7 @@ pipeline {
                             rm -f oc.tar.gz
                         fi
 
-                        rosa login --token="${ROSA_TOKEN}"
+                        rosa login --client-id="${ROSA_CLIENT_ID}" --client-secret="${ROSA_CLIENT_SECRET}"
                     '''
                 }
             }

@@ -274,7 +274,7 @@ pipeline {
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
 
-                    ./pmm-framework/pmm-framework \
+                    ./pmm-framework/pmm-framework --parallel \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
@@ -415,6 +415,7 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             npm ci
+                            npx playwright install
                         popd
                     '''
                     sh '''
@@ -625,16 +626,23 @@ pipeline {
                 tar -zcvf srv-logs.tar.gz srv-logs
             '''
             script {
-                archiveArtifacts artifacts: 'pmm-managed-full.log'
-                archiveArtifacts artifacts: 'pmm-update-perform.log'
-                archiveArtifacts artifacts: 'pmm-agent.log'
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'srv-logs.tar.gz'
-                archiveArtifacts artifacts: 'playwright-report.tar.gz'
-                archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
-                archiveArtifacts artifacts: 'playwright-logs.tar.gz'
+                archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'pmm-update-perform.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'pmm-agent.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'srv-logs.tar.gz', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'playwright-screenshots.tar.gz', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'playwright-logs.tar.gz', allowEmptyArchive: true
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
+                try {
+                    dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
+                        junit PATH_TO_REPORT_RESULTS
+                    }
+                } catch (err) {
+                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+                }
                 try {
                     dir('/srv/pmm-qa/codeceptjs-e2e') {
                         junit PATH_TO_REPORT_RESULTS
@@ -645,8 +653,11 @@ pipeline {
             }
         }
         failure {
+            dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
+            }
             dir('/srv/pmm-qa/codeceptjs-e2e') {
-                archiveArtifacts artifacts: 'tests/output/*.png'
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
             }
         }
     }

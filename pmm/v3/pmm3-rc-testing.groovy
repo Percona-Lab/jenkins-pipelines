@@ -32,6 +32,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         DOCKER_VERSION    : env.PMM_SERVER_IMAGE,
         AMI_ID            : params.AMI_ID.trim(),
         CLIENT_VERSION    : 'pmm3-rc',
+        SERVER_ARCH       : 'amd64',
         ADMIN_PASSWORD    : 'pmm3admin!',
         HELM_CHART_BRANCH : 'main',
         OPENSHIFT_VERSION : 'latest',
@@ -39,6 +40,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
         PTS_CONFIDENCE    : '100',
     ]
     def params = (defaults + cfg).collect { k, v -> string(name: k, value: v.toString()) }
+    params << booleanParam(name: 'USE_ONDEMAND', value: true)
     triggerJenkinsRc(shortName, 'pmm3-ui-tests-nightly-gha', params)
 }
 
@@ -46,7 +48,7 @@ def triggerNightlyGhaRc(String shortName, Map cfg = [:]) {
 
 pipeline {
     agent {
-        label 'cli'
+        label 'cli-ondemand'
     }
     options {
         disableConcurrentBuilds()
@@ -249,6 +251,7 @@ pipeline {
                                         string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
                                         string(name: 'PSMDB_VERSION',           value: '8.0'),
                                         string(name: 'MODB_VERSION',            value: '8.0'),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }
@@ -262,6 +265,7 @@ pipeline {
                                         string(name: 'IMAGE_REPO',         value: env.PMM_SERVER_IMAGE.split(':')[0]),
                                         string(name: 'IMAGE_TAG',          value: env.PMM_SERVER_IMAGE.split(':')[1]),
                                         string(name: 'OPENSHIFT_VERSION',  value: 'latest'),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }
@@ -319,6 +323,7 @@ pipeline {
                                         string(name: 'POSTGRES_IMAGE',   value: 'perconalab/percona-distribution-postgresql:16.0'),
                                         string(name: 'MONGO_IMAGE',      value: 'percona/percona-server-mongodb:4.4'),
                                         string(name: 'PROXYSQL_IMAGE',   value: 'proxysql/proxysql:2.3.0'),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }
@@ -329,6 +334,7 @@ pipeline {
                                     triggerJenkinsRc('pmm3-upgrade-ami-test', 'pmm3-upgrade-ami-test', [
                                         string(name: 'PMM_QA_GIT_BRANCH',   value: 'main'),
                                         booleanParam(name: 'IS_RC_TESTING', value: true),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ])
                                 }
                             }
@@ -356,6 +362,7 @@ pipeline {
                                         string(name: 'GIT_BRANCH',      value: 'main'),
                                         string(name: 'GIT_COMMIT_HASH', value: ''),
                                         string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
+                                        string(name: 'SERVER_ARCH',     value: 'arm64'),
                                         string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
                                         string(name: 'INSTALL_REPO',    value: 'testing'),
                                         string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL_ARM64.trim()),
@@ -399,7 +406,22 @@ pipeline {
                                         string(name: 'PMM_QA_GIT_BRANCH',              value: 'main'),
                                         booleanParam(name: 'GENERATE_DASHBOARD_SCREENSHOTS', value: true),
                                         string(name: 'SCREENSHOTS_SLACK_TARGET',       value: env.SLACK_RC_SCREENSHOTS_TARGET),
+                                        booleanParam(name: 'USE_ONDEMAND', value: true),
                                     ]
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('Lane 4 (arm64)') {
+                    stages {
+                        stage('nightly (Docker, arm64 server)') {
+                            steps {
+                                script {
+                                    triggerNightlyGhaRc('pmm3-ui-tests-nightly-gha (docker, arm64)', [
+                                        SERVER_ARCH: 'arm64',
+                                    ])
                                 }
                             }
                         }

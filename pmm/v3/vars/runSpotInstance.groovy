@@ -1,5 +1,5 @@
-def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false) {
-  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}", "USE_ONDEMAND=${USE_ONDEMAND}"]) {
+def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_64') {
+  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}", "USE_ONDEMAND=${USE_ONDEMAND}", "ARCH=${ARCH}"]) {
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
             set -o xtrace
@@ -8,11 +8,15 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false) {
             IMAGE_ID=$(
                 aws ec2 describe-images \
                     --owners self \
-                    --filters "Name=tag:iit-billing-tag,Values=pmm-worker-3" "Name=architecture,Values=x86_64" \
+                    --filters "Name=tag:iit-billing-tag,Values=pmm-worker-3" "Name=architecture,Values=${ARCH}" \
                     --region us-east-2 \
                     --output text \
                     --query 'Images[0].ImageId'
             )
+            if [ -z "$IMAGE_ID" ] || [ "$IMAGE_ID" = "None" ]; then
+                echo "No pmm-worker-3 AMI tagged for $ARCH in us-east-2"
+                exit 1
+            fi
             SUBNET=$(
                 aws ec2 describe-subnets \
                     --region us-east-2 \
@@ -54,7 +58,7 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false) {
                 )
 
                 PRICE_MULTIPLIER=1
-                while true; do
+                while [ $PRICE_MULTIPLIER -le 5 ]; do
                     # increase price by 15% each time
                     SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
                     echo $SPOT_PRICE > SPOT_PRICE
@@ -115,6 +119,11 @@ EOF
                     aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
                     PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
                 done
+
+                if [ ! -s IP ]; then
+                    echo "Could not get a spot instance of type $INSTANCE_TYPE after 5 attempts"
+                    exit 1
+                fi
 
                 AMI_ID=$(
                     aws ec2 describe-instances \

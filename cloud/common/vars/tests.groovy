@@ -130,14 +130,20 @@ void printTestVariables(Map testVariables) {
 String getReleaseParamName(String imageName, String pillarVersion, String operator, String ubiVersion = null) {
     if (operator?.equalsIgnoreCase("pg-operator") && pillarVersion.endsWith("-community")) {
         def pgVersion = pillarVersion.replace("-community", "")
+        def logcollectorKey = (ubiVersion == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR"
         def communityImages = [
             IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}_${ubiVersion}_COMMUNITY",
             IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER_COMMUNITY",
             IMAGE_BACKREST  : "IMAGE_PGBACKREST_COMMUNITY",
-            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY"
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY",
+            IMAGE_LOGCOLLECTOR: logcollectorKey
         ]
         return communityImages[imageName] ?: imageName
     }
+
+    def ubiSuffix = (ubiVersion && ubiVersion != "UBI9") ? "_${ubiVersion}" : ""
+    def pgVersion = pillarVersion.replace("-postgis", "")
+    def logcollectorKey = (ubiVersion == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR"
 
     def operatorImages = [
         "psmdb-operator": [
@@ -153,16 +159,18 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
         "pg-operator": [
-            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pillarVersion}",
-            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST  : "IMAGE_BACKREST${pillarVersion}"
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}${ubiSuffix}",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersion}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersion}",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE${ubiSuffix}",
+            IMAGE_LOGCOLLECTOR: logcollectorKey
         ]
     ]
 
     if (operator?.equalsIgnoreCase("pg-operator") &&
         imageName == "IMAGE_POSTGRESQL" &&
         pillarVersion.endsWith("-postgis")) {
-        return "IMAGE_POSTGIS${pillarVersion}"
+        return "IMAGE_POSTGIS${pgVersion}${ubiSuffix}"
     }
 
     return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName

@@ -203,6 +203,49 @@ def categorize_ps(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
     return categorize_by_rules(images, hashes, rules, categories)
 
 
+PG_SUFFIX_CATEGORIES = (
+    (re.compile(r"IMAGE_POSTGRESQL\d+"), "postgresql"),
+    (re.compile(r"IMAGE_PGBOUNCER\d+"), "pgbouncer"),
+    (re.compile(r"IMAGE_POSTGIS\d+"), "postgis"),
+    (re.compile(r"IMAGE_BACKREST\d+"), "pgbackrest"),
+)
+
+
+def pg_major_from_key(key: str) -> Optional[str]:
+    match = re.search(r"(\d+)$", key)
+    return match.group(1) if match else None
+
+
+def postgresql_version_map(images: Dict[str, str]) -> Dict[str, str]:
+    mapping = {}
+    for key, path in images.items():
+        if not re.fullmatch(r"IMAGE_POSTGRESQL\d+", key):
+            continue
+        major = pg_major_from_key(key)
+        if not major:
+            continue
+        full_ver = extract_version(path)
+        mapping[major] = full_ver.rsplit("-", 1)[0] if "-" in full_ver else full_ver
+    return mapping
+
+
+def pg_matrix_placement(
+    key: str, ver: str, operator_ver: str, version_map: Dict[str, str]
+) -> Optional[Tuple[str, str]]:
+    if key == "IMAGE_OPERATOR":
+        return "operator", ver
+    if key == "IMAGE_UPGRADE":
+        return "pgupgrade", operator_ver or ver
+    suffix = pg_major_from_key(key)
+    if suffix in version_map:
+        for pattern, category in PG_SUFFIX_CATEGORIES:
+            if pattern.fullmatch(key):
+                return category, version_map[suffix]
+    if is_pmm(key):
+        return "pmm", ver
+    return None
+
+
 def categorize_pg(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str, Dict]:
     result = {
         "operator": {},
@@ -211,45 +254,24 @@ def categorize_pg(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
         "pmm": {},
         "postgis": {},
         "postgresql": {},
+        "pgupgrade": {},
     }
-
-    pg_version_map = {}
-    for key, path in images.items():
-        if "POSTGRESQL" in key and "OPERATOR" not in key:
-            match = re.search(r"(\d+)$", key)
-            if match:
-                full_ver = extract_version(path)
-                pg_version_map[match.group(1)] = (
-                    full_ver.rsplit("-", 1)[0] if "-" in full_ver else full_ver
-                )
-
+    operator_ver = extract_version(images.get("IMAGE_OPERATOR", ""))
+    version_map = postgresql_version_map(images)
     for key, path in images.items():
         ver = extract_version(path)
         h = hashes.get(key, (None, None))
-        entry = make_entry(path, h[0], h[1])
-        suffix_match = re.search(r"(\d+)$", key)
-        suffix = suffix_match.group(1) if suffix_match else None
-
-        if key == "IMAGE_OPERATOR":
-            result["operator"][ver] = entry
-        elif "POSTGRESQL" in key and suffix in pg_version_map:
-            result["postgresql"][pg_version_map[suffix]] = entry
-        elif "PGBOUNCER" in key and suffix in pg_version_map:
-            result["pgbouncer"][pg_version_map[suffix]] = entry
-        elif "POSTGIS" in key and suffix in pg_version_map:
-            result["postgis"][pg_version_map[suffix]] = entry
-        elif "BACKREST" in key and suffix in pg_version_map:
-            result["pgbackrest"][pg_version_map[suffix]] = entry
-        elif is_pmm(key):
-            result["pmm"][ver] = entry
+        placed = pg_matrix_placement(key, ver, operator_ver, version_map)
+        if not placed:
+            continue
+        category, version_key = placed
+        result[category][version_key] = make_entry(path, h[0], h[1])
     return {k: v for k, v in result.items() if v}
 
 
-def categorize_images(images: Dict[str, str], max_workers: int = 10) -> Dict:
-    product_type = detect_product_type(images)
-    operator_version = get_operator_version(images)
-    session = requests.Session()
-
+def fetch_image_hash_results(
+    images: Dict[str, str], session: requests.Session, max_workers: int
+) -> Dict[str, Tuple]:
     hash_results = {}
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
@@ -264,24 +286,41 @@ def categorize_images(images: Dict[str, str], max_workers: int = 10) -> Dict:
             except Exception as e:
                 print(f"Error: {key}: {e}", file=sys.stderr)
                 hash_results[key] = (None, None)
-    session.close()
+    return hash_results
 
-    missing_digests = []
+
+def missing_digest_labels(
+    images: Dict[str, str], hash_results: Dict[str, Tuple]
+) -> List[str]:
+    missing = []
     for key, (h_amd, h_arm) in hash_results.items():
         image = images.get(key, key)
         if h_amd is None:
-            missing_digests.append(f"{image} (amd64)")
+            missing.append(f"{image} (amd64)")
         if h_arm is None:
-            missing_digests.append(f"{image} (arm64)")
+            missing.append(f"{image} (arm64)")
+    return missing
 
-    if missing_digests:
-        print(
-            f"\nWARNING: Missing digests for {len(missing_digests)} image(s):",
-            file=sys.stderr,
-        )
-        for m in missing_digests:
-            print(f"  - {m}", file=sys.stderr)
-        print("", file=sys.stderr)
+
+def warn_missing_digests(missing: List[str]) -> None:
+    if not missing:
+        return
+    print(
+        f"\nWARNING: Missing digests for {len(missing)} image(s):",
+        file=sys.stderr,
+    )
+    for item in missing:
+        print(f"  - {item}", file=sys.stderr)
+    print("", file=sys.stderr)
+
+
+def categorize_images(images: Dict[str, str], max_workers: int = 10) -> Dict:
+    product_type = detect_product_type(images)
+    operator_version = get_operator_version(images)
+    session = requests.Session()
+    hash_results = fetch_image_hash_results(images, session, max_workers)
+    session.close()
+    warn_missing_digests(missing_digest_labels(images, hash_results))
 
     categorizers = {
         "pxc": categorize_pxc,
@@ -290,7 +329,6 @@ def categorize_images(images: Dict[str, str], max_workers: int = 10) -> Dict:
         "psmdb": categorize_psmdb,
     }
     matrix = categorizers.get(product_type, categorize_psmdb)(images, hash_results)
-
     return {
         "versions": [
             {
@@ -332,12 +370,13 @@ PS_VERSION_LIMITS = {
 }
 
 PG_VERSION_LIMITS = {
-    "postgresql": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "pgbackrest": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "pgbouncer": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "postgis": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
+    "postgresql": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "pgbackrest": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "pgbouncer": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "postgis": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
     "pmm": {"2": 1, "3": 1},
     "operator": 1,
+    "pgupgrade": 1,
 }
 
 VERSION_LIMITS = {
@@ -374,85 +413,75 @@ def generate_psmdb_dep(result: Dict) -> Dict:
     return {}
 
 
+def newest_version_per_major(versions, major_fn) -> List[Tuple]:
+    by_major = {}
+    for ver in versions:
+        by_major.setdefault(major_fn(ver), []).append(ver)
+    return [
+        (major, max(ver_list, key=parse_version_key))
+        for major, ver_list in by_major.items()
+    ]
+
+
+def pg_dep_rule(major, ver, max_major) -> Dict:
+    if major == max_major:
+        return {">=": [{"var": "productVersion"}, ver]}
+    return {
+        "and": [
+            {">=": [{"var": "productVersion"}, ver]},
+            {"<": [{"var": "productVersion"}, f"{major + 1}.0"]},
+        ]
+    }
+
+
 def generate_pg_dep(result: Dict) -> Dict:
     """Generate dependency rules for PG operator based on newest version per major."""
     matrix = result["versions"][0]["matrix"]
     dep = {}
-
     for category in ["pgbackrest", "postgis", "pgbouncer"]:
         if category not in matrix:
             continue
-
-        by_major = {}
-        for ver in matrix[category].keys():
-            major = int(ver.split(".")[0])
-            by_major.setdefault(major, []).append(ver)
-
-        if not by_major:
+        newest = newest_version_per_major(
+            matrix[category], lambda ver: int(ver.split(".")[0])
+        )
+        if not newest:
             continue
-
-        newest_per_major = []
-        for major, versions in by_major.items():
-            newest = max(versions, key=parse_version_key)
-            newest_per_major.append((major, newest))
-
-        newest_per_major.sort(reverse=True)
-        max_major = newest_per_major[0][0]
-
-        dep[category] = {}
-        for major, ver in newest_per_major:
-            if major == max_major:
-                dep[category][ver] = {">=": [{"var": "productVersion"}, ver]}
-            else:
-                dep[category][ver] = {
-                    "and": [
-                        {">=": [{"var": "productVersion"}, ver]},
-                        {"<": [{"var": "productVersion"}, f"{major + 1}.0"]},
-                    ]
-                }
-
+        newest.sort(reverse=True)
+        max_major = newest[0][0]
+        dep[category] = {
+            ver: pg_dep_rule(major, ver, max_major) for major, ver in newest
+        }
     return dep
+
+
+def ps_dep_rule(major, ver, newest, max_major) -> Dict:
+    if major == max_major:
+        return {">=": [{"var": "productVersion"}, major]}
+    next_major_idx = [item[0] for item in newest].index(major) - 1
+    next_major = newest[next_major_idx][0]
+    return {
+        "and": [
+            {">=": [{"var": "productVersion"}, major]},
+            {"<": [{"var": "productVersion"}, next_major]},
+        ]
+    }
 
 
 def generate_ps_dep(result: Dict) -> Dict:
     """Generate dependency rules for PS operator based on newest version per major."""
     matrix = result["versions"][0]["matrix"]
     dep = {}
-
     for category in ["backup", "router"]:
         if category not in matrix:
             continue
-
-        by_major = {}
-        for ver in matrix[category].keys():
-            major = get_major_minor(ver)
-            by_major.setdefault(major, []).append(ver)
-
-        if not by_major:
+        newest = newest_version_per_major(matrix[category], get_major_minor)
+        if not newest:
             continue
-
-        newest_per_major = []
-        for major, versions in by_major.items():
-            newest = max(versions, key=parse_version_key)
-            newest_per_major.append((major, newest))
-
-        newest_per_major.sort(key=lambda x: parse_version_key(x[0]), reverse=True)
-        max_major = newest_per_major[0][0]
-
-        dep[category] = {}
-        for major, ver in newest_per_major:
-            if major == max_major:
-                dep[category][ver] = {">=": [{"var": "productVersion"}, major]}
-            else:
-                next_major_idx = [m for m, _ in newest_per_major].index(major) - 1
-                next_major = newest_per_major[next_major_idx][0]
-                dep[category][ver] = {
-                    "and": [
-                        {">=": [{"var": "productVersion"}, major]},
-                        {"<": [{"var": "productVersion"}, next_major]},
-                    ]
-                }
-
+        newest.sort(key=lambda item: parse_version_key(item[0]), reverse=True)
+        max_major = newest[0][0]
+        dep[category] = {
+            ver: ps_dep_rule(major, ver, newest, max_major) for major, ver in newest
+        }
     return dep
 
 
@@ -566,6 +595,32 @@ def merge_fragment(old_data: Dict, fragment: Dict) -> Dict:
     return result
 
 
+def versions_to_keep_by_major(versions: Dict, limit_by_major: Dict) -> set:
+    use_major_only = all("." not in key for key in limit_by_major)
+    by_major = {}
+    for ver_key in versions:
+        major = get_major_minor(ver_key, major_only=use_major_only)
+        by_major.setdefault(major, []).append(ver_key)
+    keep = set()
+    for major, ver_list in by_major.items():
+        sorted_vers = sorted(ver_list, key=parse_version_key, reverse=True)
+        keep.update(sorted_vers[: limit_by_major.get(major, 1)])
+    return keep
+
+
+def versions_to_keep_flat(versions: Dict, limit: int) -> set:
+    sorted_vers = sorted(versions, key=parse_version_key, reverse=True)
+    return set(sorted_vers[:limit])
+
+
+def trim_category(versions: Dict, limit) -> Dict:
+    if isinstance(limit, dict):
+        keep = versions_to_keep_by_major(versions, limit)
+    else:
+        keep = versions_to_keep_flat(versions, limit)
+    return {key: value for key, value in versions.items() if key in keep}
+
+
 def trim_old_versions(data: Dict, limits: Dict) -> Dict:
     """Remove old versions based on configured limits per category."""
     for version_entry in data.get("versions", []):
@@ -574,32 +629,7 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
             limit = limits.get(category)
             if limit is None:
                 continue
-
-            if isinstance(limit, dict):
-                use_major_only = all("." not in k for k in limit.keys())
-                by_major = {}
-                for ver_key in versions.keys():
-                    major = get_major_minor(ver_key, major_only=use_major_only)
-                    by_major.setdefault(major, []).append(ver_key)
-
-                versions_to_keep = set()
-                for major, ver_list in by_major.items():
-                    sorted_vers = sorted(ver_list, key=parse_version_key, reverse=True)
-                    major_limit = limit.get(major, 1)
-                    versions_to_keep.update(sorted_vers[:major_limit])
-
-                matrix[category] = {
-                    k: v for k, v in versions.items() if k in versions_to_keep
-                }
-            else:
-                sorted_vers = sorted(
-                    versions.keys(), key=parse_version_key, reverse=True
-                )
-                versions_to_keep = set(sorted_vers[:limit])
-                matrix[category] = {
-                    k: v for k, v in versions.items() if k in versions_to_keep
-                }
-
+            matrix[category] = trim_category(versions, limit)
     return data
 
 
@@ -649,6 +679,24 @@ def filter_supported_pg_majors(data: Dict) -> Dict:
     return data
 
 
+def sync_pg_sidecar_versions(data: Dict) -> Dict:
+    """Keep pgbackrest/pgbouncer/postgis entries aligned with postgresql version keys."""
+    for version_entry in data.get("versions", []):
+        matrix = version_entry.get("matrix", {})
+        pg_keys = set(matrix.get("postgresql", {}).keys())
+        if not pg_keys:
+            continue
+        for category in ["pgbackrest", "pgbouncer", "postgis"]:
+            if category not in matrix:
+                continue
+            matrix[category] = {
+                ver: entry
+                for ver, entry in matrix[category].items()
+                if ver in pg_keys
+            }
+    return data
+
+
 def generate_full_release_from_fragment(
     fragment: Dict, previous_version: str, output_file: str
 ) -> Dict:
@@ -671,6 +719,9 @@ def generate_full_release_from_fragment(
     limits = VERSION_LIMITS.get(product, {})
     if limits:
         result = trim_old_versions(result, limits)
+
+    if product == "pg-operator":
+        result = sync_pg_sidecar_versions(result)
 
     result = sort_matrix_versions(result)
 

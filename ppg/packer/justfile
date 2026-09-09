@@ -58,7 +58,13 @@ _bucket:
 
 # map arch -> "<uname-arch> <instance-type>" (single source for the arch dimension)
 _arch-meta arch:
-    @[ "{{arch}}" = "arm64" ] && echo "aarch64 t4g.large" || echo "x86_64 t3.large"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "{{arch}}" == "arm64" ]]; then
+      echo "aarch64 m7g.large"
+    else
+      echo "x86_64 t3.large"
+    fi
 
 # tag an AMI with a role (promotion / retag), retried; a transient create-tags
 # failure must never leave a smoke-passed AMI unpromoted or trigger a deregister.

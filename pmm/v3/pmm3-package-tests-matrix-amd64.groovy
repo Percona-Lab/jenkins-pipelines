@@ -7,6 +7,7 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
     packageTestJob = build job: 'pmm3-package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'SERVER_ARCH', value: 'amd64'),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: TESTS),
         string(name: 'INSTALL_REPO', value: INSTALL_REPO),

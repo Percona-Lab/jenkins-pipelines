@@ -6,11 +6,12 @@ import requests
 from datetime import datetime
 from packaging.version import parse as parse_version
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from xml.etree import ElementTree as ET
+from urllib.parse import urljoin
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
 PG_MAJOR_VERSIONS = ["14", "15", "16", "17", "18"]
+PG_COMMUNITY_MAJOR_VERSIONS = [*PG_MAJOR_VERSIONS, "19"]
 
 MONTH_MAP = {
     "jan": 1,
@@ -26,8 +27,6 @@ MONTH_MAP = {
     "nov": 11,
     "dec": 12,
 }
-
-GKE_VERSION_RE = r"\d+\.\d+\.\d+-gke\.\d+"
 
 _session = requests.Session()
 
@@ -62,13 +61,17 @@ def fetch_pg_upgrade_tag():
 
 
 def fetch_dockerhub_tag(repo, prefix=None):
+    params = {"page_size": 100}
+    if prefix:
+        params["name"] = str(prefix)
+
     resp = _session.get(
         f"https://registry.hub.docker.com/v2/repositories/{repo}/tags",
-        params={"page_size": 100},
+        params=params,
     )
     resp.raise_for_status()
     versions = []
-    for tag in resp.json()["results"]:
+    for tag in resp.json().get("results", []):
         name = tag["name"]
         if prefix and not name.startswith(f"{prefix}."):
             continue
@@ -76,13 +79,93 @@ def fetch_dockerhub_tag(repo, prefix=None):
             parsed = parse_version(name.lstrip("v").replace("-", "."))
             if not parsed.is_prerelease:
                 versions.append((parsed, name))
-        except:
+        except Exception:
             continue
     return max(versions)[1] if versions else None
 
 
-def format_image_line(name, repo, tag):
-    return f"IMAGE_{name}=percona/{repo}:{tag}"
+def fetch_community_dockerhub_tags(repo, name=None):
+    params = {"page_size": 100}
+    if name:
+        params["name"] = str(name)
+
+    resp = _session.get(
+        f"https://registry.hub.docker.com/v2/repositories/{repo}/tags",
+        params=params,
+    )
+    resp.raise_for_status()
+    return [tag["name"] for tag in resp.json().get("results", [])]
+
+
+COMMUNITY_PG_RE = re.compile(
+    r"^postgresql(?P<ver>\d+(?:\.\d+)*(?:-\d+)?)-community-ubi(?P<ubi>[89])$"
+)
+COMMUNITY_PGBOUNCER_RE = re.compile(r"^pgbouncer(?P<ver>.+)-community$")
+COMMUNITY_PGBACKREST_RE = re.compile(r"^pgbackrest(?P<ver>.+)-community$")
+COMMUNITY_UPGRADE_RE = re.compile(
+    r"^upgrade(?P<ver>.+)-community-ubi(?P<ubi>[89])$"
+)
+
+
+def _community_version_key(ver):
+    return parse_version(ver.replace("-", "."))
+
+
+def _pick_latest_tag(candidates):
+    """candidates: iterable of (version_str, tag_name)."""
+    return max(candidates, key=lambda item: _community_version_key(item[0]))[1]
+
+
+def index_community_tags(tags):
+    pg = {}
+    pgbouncer = []
+    pgbackrest = []
+    upgrade = {}
+    for tag in tags:
+        if match := COMMUNITY_PG_RE.match(tag):
+            major = match.group("ver").split(".", 1)[0].split("-", 1)[0]
+            pg.setdefault((major, match.group("ubi")), []).append(
+                (match.group("ver"), tag)
+            )
+        elif match := COMMUNITY_PGBOUNCER_RE.match(tag):
+            pgbouncer.append((match.group("ver"), tag))
+        elif match := COMMUNITY_PGBACKREST_RE.match(tag):
+            pgbackrest.append((match.group("ver"), tag))
+        elif match := COMMUNITY_UPGRADE_RE.match(tag):
+            upgrade.setdefault(match.group("ubi"), []).append((match.group("ver"), tag))
+    return pg, pgbouncer, pgbackrest, upgrade
+
+
+def fetch_pg_community_images():
+    """Map IMAGE_* names to latest community tags on percona/percona-postgresql-operator.
+
+    Examples from Hub:
+      postgresql14.24-1-community-ubi8
+      postgresql19-1-community-ubi9
+      pgbouncer1.25.2-43-community
+      pgbackrest2.59.1-1-community
+      upgrade18.6-17.11-16.15-15.19-14.24-1-community-ubi9
+    """
+    pg, pgbouncer, pgbackrest, upgrade = index_community_tags(
+        fetch_community_dockerhub_tags(
+            "percona/percona-postgresql-operator", name="community"
+        )
+    )
+    images = {
+        f"POSTGRESQL{major}_UBI{ubi}_COMMUNITY": _pick_latest_tag(cands)
+        for (major, ubi), cands in pg.items()
+    }
+    if pgbouncer:
+        images["PGBOUNCER_COMMUNITY"] = _pick_latest_tag(pgbouncer)
+    if pgbackrest:
+        images["PGBACKREST_COMMUNITY"] = _pick_latest_tag(pgbackrest)
+    for ubi, cands in upgrade.items():
+        images[f"UPGRADE_UBI{ubi}_COMMUNITY"] = _pick_latest_tag(cands)
+    return images
+
+
+def format_image_line(name, repo, tag, namespace="percona"):
+    return f"IMAGE_{name}={namespace}/{repo}:{tag}"
 
 
 def append_image_line(lines, name, repo, tag):
@@ -90,27 +173,66 @@ def append_image_line(lines, name, repo, tag):
         lines.append(format_image_line(name, repo, tag))
 
 
+def append_official_and_ubi_variants(lines, name, repo, tag):
+    append_image_line(lines, name, repo, tag)
+    for ubi in ("8", "10"):
+        append_image_line(
+            lines, f"{name}_UBI{ubi}", repo, f"{tag}-ubi{ubi}" if tag else None
+        )
+
+
+def build_pg_community_image_lines(community, major):
+    repo = "percona-postgresql-operator"
+    lines = []
+    for ubi in ("8", "9"):
+        name = f"POSTGRESQL{major}_UBI{ubi}_COMMUNITY"
+        tag = community.get(name)
+        if tag:
+            lines.append(format_image_line(name, repo, tag))
+    return lines
+
+
+def build_pg_shared_community_image_lines(community):
+    repo = "percona-postgresql-operator"
+    lines = []
+    for name in ("PGBOUNCER_COMMUNITY", "PGBACKREST_COMMUNITY"):
+        tag = community.get(name)
+        if tag:
+            lines.append(format_image_line(name, repo, tag))
+    return lines
+
+
+def build_pg_upgrade_community_image_lines(community):
+    repo = "percona-postgresql-operator"
+    lines = []
+    for ubi in ("8", "9"):
+        name = f"UPGRADE_UBI{ubi}_COMMUNITY"
+        tag = community.get(name)
+        if tag:
+            lines.append(format_image_line(name, repo, tag))
+    return lines
+
+
 def build_pg_image_lines(operator_version, versions, pmm3):
+    community = versions.pop("community", {}) or {}
     lines = [
         format_image_line("OPERATOR", "percona-postgresql-operator", operator_version)
     ]
 
     for major in PG_MAJOR_VERSIONS:
         pg_tag = versions.get(major)
-        if not pg_tag:
-            continue
-
         lines.append("")
-        append_image_line(
+        append_official_and_ubi_variants(
             lines, f"POSTGRESQL{major}", "percona-distribution-postgresql", pg_tag
         )
+        lines.extend(build_pg_community_image_lines(community, major))
         append_image_line(
             lines,
             f"PGBOUNCER{major}",
             "percona-pgbouncer",
             versions.get("pgbouncer"),
         )
-        append_image_line(
+        append_official_and_ubi_variants(
             lines,
             f"POSTGIS{major}",
             "percona-distribution-postgresql-with-postgis",
@@ -123,12 +245,29 @@ def build_pg_image_lines(operator_version, versions, pmm3):
             versions.get("pgbackrest"),
         )
 
+    for major in PG_COMMUNITY_MAJOR_VERSIONS:
+        if major not in PG_MAJOR_VERSIONS:
+            lines.append("")
+            lines.extend(build_pg_community_image_lines(community, major))
+
     lines.append("")
-    append_image_line(
+    lines.extend(build_pg_shared_community_image_lines(community))
+    lines.append("")
+    append_official_and_ubi_variants(
         lines,
         "UPGRADE",
         "percona-distribution-postgresql-upgrade",
         versions.get("upgrade"),
+    )
+    lines.extend(build_pg_upgrade_community_image_lines(community))
+    lines.append("")
+    append_image_line(lines, "LOGCOLLECTOR", "fluentbit", versions.get("logcollector"))
+    logcollector = versions.get("logcollector")
+    append_image_line(
+        lines,
+        "LOGCOLLECTOR_UBI10",
+        "fluentbit",
+        f"{logcollector}-ubi10" if logcollector else None,
     )
     lines.append("")
     append_image_line(lines, "PMM_CLIENT", "pmm-client", pmm3)
@@ -195,6 +334,8 @@ def get_image_tasks(op):
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
             "upgrade": (fetch_pg_upgrade_tag,),
+            "community": (fetch_pg_community_images,),
+            "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
         },
         "ps": {
@@ -295,97 +436,149 @@ def get_eks():
     return sort_vers(filter_active(resp.json(), datetime.now().date()))
 
 
-def gke_release_entries(xml_text):
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
-        return re.findall(r"<!\[CDATA\[(.*?)\]\]>", xml_text, re.DOTALL)
-
-    entries = []
-    for entry in root.iter():
-        if entry.tag.rsplit("}", 1)[-1] not in {"entry", "item"}:
-            continue
-        for child in entry:
-            if child.tag.rsplit("}", 1)[-1] in {"content", "description", "summary"}:
-                content = "".join(child.itertext()).strip()
-                if content:
-                    entries.append(content)
-                break
-    return entries
-
-
-def gke_removed_versions(html):
-    removed = set()
-    for block in re.findall(
-        r"no longer available in the Stable channel:.*?</ul>",
-        html,
-        re.DOTALL | re.IGNORECASE,
-    ):
-        removed.update(re.findall(GKE_VERSION_RE, block))
-    return removed
-
-
 def get_gke():
+    """Return [MAX, MIN] Stable-channel minor versions from the current versions table."""
     resp = _session.get(
-        "https://docs.cloud.google.com/feeds/kubernetes-engine-stable-channel-release-notes.xml",
-        timeout=10,
-    )
-    resp.raise_for_status()
-    available = set()
-    for entry in reversed(gke_release_entries(resp.text)):
-        removed = gke_removed_versions(entry)
-        available.update(set(re.findall(GKE_VERSION_RE, entry)) - removed)
-        available.difference_update(removed)
-
-    if available:
-        minors = sort_vers(list({".".join(v.split(".")[:2]) for v in available}))
-        return [minors[0], minors[-1]]
-    return None
-
-
-def get_rancher():
-    resp = _session.get(
-        "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/",
+        "https://docs.cloud.google.com/kubernetes-engine/docs/release-notes",
         timeout=15,
     )
     resp.raise_for_status()
-    html = resp.text
-    ver = re.search(r"Rancher Manager v([\d.]+)", html)
-    rke2 = re.search(
-        r"<td>\s*RKE2\s*</td>\s*<td>\s*v?([\d.]+)\s*</td>\s*<td>\s*v?([\d.]+)\s*</td>",
-        html,
+    # Columns: Rapid | Regular | Stable | Extended | No Channel
+    match = re.search(
+        r"Available minor versions</td>\s*"
+        r"<td>\d+\.\d+ to \d+\.\d+</td>\s*"  # Rapid
+        r"<td>\d+\.\d+ to \d+\.\d+</td>\s*"  # Regular
+        r"<td>(\d+\.\d+) to (\d+\.\d+)</td>",  # Stable
+        resp.text,
+        re.IGNORECASE,
     )
+    if not match:
+        return None
+    return sort_vers([match.group(1), match.group(2)])
+
+
+RANCHER_MATRIX_HREF_RE = re.compile(
+    r'href=["\']([^"\']*rancher-v(\d+)-(\d+)-(\d+))["\']', re.IGNORECASE
+)
+TABLE_ROW_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.DOTALL | re.IGNORECASE)
+TABLE_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.DOTALL | re.IGNORECASE)
+CELL_VERSION_RE = re.compile(r"v?([\d.]+)")
+
+
+def table_cells(row):
+    return [re.sub(r"<[^>]+>", "", cell).strip() for cell in TABLE_CELL_RE.findall(row)]
+
+
+def version_from_cell(cell):
+    match = CELL_VERSION_RE.search(cell)
+    return match.group(1) if match else None
+
+
+def parse_rke2_versions(html):
+    for row in TABLE_ROW_RE.findall(html):
+        cells = table_cells(row)
+        if cells and cells[0].upper() == "RKE2":
+            return [version for cell in cells[1:3] if (version := version_from_cell(cell))]
+    return []
+
+
+def rancher_matrix_links(base_url, html):
+    return [
+        (tuple(map(int, version)), urljoin(base_url, href))
+        for href, *version in RANCHER_MATRIX_HREF_RE.findall(html)
+    ]
+
+
+def fetch_url(url, timeout=30, attempts=3):
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = _session.get(url, timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt < attempts:
+                print(f"Retrying {url} ({attempt}/{attempts}): {exc}")
+    raise last_error
+
+
+def fetch_rancher_matrix_html(base_url):
+    landing_resp = fetch_url(base_url)
+    links = rancher_matrix_links(base_url, landing_resp.text)
+    if not links:
+        return landing_resp.text
+    _, matrix_url = max(links)
+    return fetch_url(matrix_url).text
+
+
+def fetch_cert_manager_version():
+    cert_resp = _session.get(
+        "https://api.github.com/repos/cert-manager/cert-manager/releases/latest",
+        timeout=10,
+    )
+    cert_resp.raise_for_status()
+    return cert_resp.json().get("tag_name", "").lstrip("v") or None
+
+
+def get_rancher():
+    base_url = (
+        "https://www.suse.com/suse-rancher/support-matrix/all-supported-versions/"
+    )
+    html = fetch_rancher_matrix_html(base_url)
+    ver = re.search(r"Rancher Manager v([\d.]+)", html)
+    rke2_versions = parse_rke2_versions(html)
+    cert_manager = fetch_cert_manager_version()
+    if not ver or len(rke2_versions) != 2 or not cert_manager:
+        raise ValueError("Incomplete Rancher support matrix response")
     return {
-        "rancher": ver.group(1) if ver else None,
-        "rke2_min": rke2.group(1) if rke2 else None,
-        "rke2_max": rke2.group(2) if rke2 else None,
+        "rancher": ver.group(1),
+        "rke2_min": rke2_versions[0],
+        "rke2_max": rke2_versions[1],
+        "cert_manager": cert_manager,
     }
+
+
+AKS_VERSION_ROW_RE = re.compile(
+    r"<tr[^>]*>.*?<td>(\d+\.\d+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?</tr>",
+    re.DOTALL,
+)
+
+
+def missing_aks_date(value):
+    return not value or value == "-"
+
+
+def aks_date_parts(value):
+    return value.replace(",", "").split()
+
+
+def aks_ga_month(parts):
+    return int(parts[-1]), MONTH_MAP.get(parts[0][:3], 0)
+
+
+def aks_eol_date(parts):
+    day = int(parts[1]) if len(parts) == 3 else 28
+    return datetime(
+        int(parts[-1]), MONTH_MAP.get(parts[0][:3], 1), min(day, 28)
+    ).date()
+
+
+def aks_version_is_supported(ga, eol, today):
+    ga = ga.strip().lower()
+    eol = eol.strip().lower()
+    if missing_aks_date(ga) or missing_aks_date(eol):
+        return False
+    if aks_ga_month(aks_date_parts(ga)) > (today.year, today.month):
+        return False
+    return aks_eol_date(aks_date_parts(eol)) >= today
 
 
 def parse_aks_versions(html, today):
     versions = []
-    for ver, _, _, ga, eol in re.findall(
-        r"<tr[^>]*>.*?<td>(\d+\.\d+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?</tr>",
-        html,
-        re.DOTALL,
-    ):
-        ga, eol = ga.strip().lower(), eol.strip().lower()
-        if not ga or ga == "-" or not eol or eol == "-":
-            continue
+    for ver, _, _, ga, eol in AKS_VERSION_ROW_RE.findall(html):
         try:
-            ga_p, eol_p = ga.replace(",", "").split(), eol.replace(",", "").split()
-            if (int(ga_p[-1]), MONTH_MAP.get(ga_p[0][:3], 0)) > (
-                today.year,
-                today.month,
-            ):
-                continue
-            eol_day = int(eol_p[1]) if len(eol_p) == 3 else 28
-            if (
-                datetime(
-                    int(eol_p[-1]), MONTH_MAP.get(eol_p[0][:3], 1), min(eol_day, 28)
-                ).date()
-                >= today
-            ):
+            if aks_version_is_supported(ga, eol, today):
                 versions.append(ver)
         except Exception:
             continue
@@ -419,17 +612,29 @@ def get_aks():
     return get_aks_from_eol(today)
 
 
+MINIKUBE_DEFAULT_K8S_RE = re.compile(
+    r"default:\s*v?(\d+\.\d+\.\d+)", re.IGNORECASE
+)
+MINIKUBE_K8S_RE = re.compile(
+    r"Kubernetes(?: version)? v?(\d+\.\d+(?:\.\d+)?)", re.IGNORECASE
+)
+
+
+def kubernetes_version_from_minikube_notes(body: str):
+    if match := MINIKUBE_DEFAULT_K8S_RE.search(body):
+        return match.group(1)
+    if match := MINIKUBE_K8S_RE.search(body):
+        version = match.group(1)
+        return version if version.count(".") == 2 else f"{version}.0"
+    return None
+
+
 def get_minikube():
     resp = _session.get(
         "https://api.github.com/repos/kubernetes/minikube/releases/latest", timeout=10
     )
     resp.raise_for_status()
-    body = resp.json().get("body", "")
-    if m := re.search(
-        r"Kubernetes(?: version)? v?(\d+\.\d+\.\d+)", body, re.IGNORECASE
-    ):
-        return m.group(1)
-    return None
+    return kubernetes_version_from_minikube_notes(resp.json().get("body", ""))
 
 
 def get_openshift():
@@ -485,37 +690,77 @@ def get_supported_platforms(operator):
     platforms = ["GKE", "EKS", "OPENSHIFT", "MINIKUBE"]
     if operator != "ps":
         platforms.insert(2, "AKS")
-    if operator == "psmdb":
+    if operator in {"ps", "psmdb", "pg"}:
         platforms.append("RANCHER")
     return platforms
 
 
-def get_k8s_lines(operator):
-    platforms = get_supported_platforms(operator)
+def fetch_platform_versions(platforms):
     tasks = {
         key: (fetcher,)
         for platform in platforms
         for key, fetcher in [K8S_VERSION_FETCHERS[platform]]
     }
-    r = fetch_parallel(tasks)
+    return fetch_parallel(tasks)
+
+
+def min_max_version_lines(prefix, versions):
+    return [f"{prefix}_MIN={versions[-1]}", f"{prefix}_MAX={versions[0]}"]
+
+
+def cloud_k8s_lines(platforms, results):
     lines = []
     for platform in ("GKE", "EKS", "AKS"):
         if platform not in platforms:
             continue
         key, _ = K8S_VERSION_FETCHERS[platform]
-        if v := r.get(key):
-            lines += [f"{platform}_MIN={v[-1]}", f"{platform}_MAX={v[0]}"]
-    if "OPENSHIFT" in platforms and (os := r.get("os")):
-        if os[0] and os[1]:
-            lines += [f"OPENSHIFT_MIN={os[0]}", f"OPENSHIFT_MAX={os[1]}"]
-    if "MINIKUBE" in platforms and (mk := r.get("mk")):
-        minikube_key = "MINIKUBE_MAX" if operator in {"ps", "pg"} else "MINIKUBE_REL"
-        lines.append(f"{minikube_key}={mk}")
-    if "RANCHER" in platforms and (rc := r.get("rancher")):
-        if rc.get("rke2_min") and rc.get("rke2_max"):
-            lines += [f"RKE2_MIN={rc['rke2_min']}", f"RKE2_MAX={rc['rke2_max']}"]
-        if rc.get("rancher"):
-            lines.append(f"RANCHER={rc['rancher']}")
+        versions = results.get(key)
+        if versions:
+            lines.extend(min_max_version_lines(platform, versions))
+    return lines
+
+
+def rancher_k8s_lines(results):
+    rancher = results.get("rancher")
+    if not rancher:
+        raise RuntimeError(
+            "Could not resolve required Rancher versions "
+            "(SUSE support matrix fetch failed; see error above)"
+        )
+    return [
+        f"RKE2_MIN={rancher['rke2_min']}",
+        f"RKE2_MAX={rancher['rke2_max']}",
+        f"RANCHER={rancher['rancher']}",
+        f"CERT_MANAGER={rancher['cert_manager']}",
+    ]
+
+
+def openshift_k8s_lines(results):
+    versions = results.get("os")
+    if not versions or not versions[0] or not versions[1]:
+        return []
+    return [f"OPENSHIFT_MIN={versions[0]}", f"OPENSHIFT_MAX={versions[1]}"]
+
+
+def minikube_k8s_lines(operator, results):
+    version = results.get("mk")
+    if not version:
+        print("Warning: could not resolve Minikube Kubernetes version")
+        return []
+    key = "MINIKUBE_MAX" if operator in {"ps", "pg"} else "MINIKUBE_REL"
+    return [f"{key}={version}"]
+
+
+def get_k8s_lines(operator):
+    platforms = get_supported_platforms(operator)
+    results = fetch_platform_versions(platforms)
+    lines = cloud_k8s_lines(platforms, results)
+    if "RANCHER" in platforms:
+        lines.extend(rancher_k8s_lines(results))
+    if "OPENSHIFT" in platforms:
+        lines.extend(openshift_k8s_lines(results))
+    if "MINIKUBE" in platforms:
+        lines.extend(minikube_k8s_lines(operator, results))
     return lines
 
 

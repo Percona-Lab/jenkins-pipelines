@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
 
     triggers {
@@ -8,6 +8,10 @@ pipeline {
     }
 
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         choice(
             name: 'ACTION',
             choices: ['LIST_ONLY', 'DELETE_CLUSTER', 'DELETE_ALL'],
