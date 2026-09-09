@@ -121,10 +121,6 @@ def suite(String name, String jobName, List jobParams) {
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
             echo "[${name}] ${run.result} -> ${run.absoluteUrl}"
 
-            // The verdict must come before any nested stage. The stage graph closes
-            // this stage's chunk where the first nested stage opens, so a catchError
-            // placed after mirrorChild belongs to no stage at all and the suite
-            // renders green whatever the child did.
             if (run.result == 'FAILURE' || run.result == 'ABORTED') {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     error("${name}: ${jobName} #${run.number} ${run.result} — ${run.absoluteUrl}")
