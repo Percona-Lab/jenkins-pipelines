@@ -102,6 +102,11 @@
                     - "c5.2xlarge"
                 description: "EC2 instance type for master nodes (x86_64)"
 
+          - bool:
+                name: USE_ONDEMAND
+                default: false
+                description: "Use on-demand instances instead of spot (for RC/Release testing)"
+
           # === PMM Configuration ===
           - bool:
                 name: DEPLOY_PMM
