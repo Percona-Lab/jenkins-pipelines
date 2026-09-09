@@ -144,7 +144,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 90, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -295,40 +295,52 @@ pipeline {
         stage('Upgrade PMM client') {
             steps {
                 sh '''
+                   # repo.percona.com republishes pool/experimental continuously and a
+                   # reader can see a package mid-write; refresh the index and try again.
+                   install_client() {
+                       for attempt in 1 2 3 4 5; do
+                           docker exec "\$1" \$2 install -y pmm-client && return 0
+                           echo "pmm-client install failed in \$1 (attempt \$attempt of 5), retrying in 60s"
+                           sleep 60
+                           docker exec "\$1" percona-release enable pmm3-client $CLIENT_REPOSITORY
+                       done
+                       return 1
+                   }
+
                    containers=\$(docker ps --format "{{ .Names }}")
 
                    for i in \$containers; do
                        if [[ \$i == *"rs10"* ]]; then
                            docker exec rs101 percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec rs101 dnf install -y pmm-client
+                           install_client rs101 dnf
                            docker exec rs101 systemctl restart pmm-agent
                        elif [[ \$i == *"mysql_"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$mysql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"pdpgsql"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$pdpgsql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"pgsql"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$pgsql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"ps_"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$ps_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"external_pmm"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$ps_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
