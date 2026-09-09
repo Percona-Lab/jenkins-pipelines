@@ -283,6 +283,19 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     cd ${product_to_test}-common-${param_test_type}
                     molecule ${action} -s ${scenario}
                     cd -
+
+                    if [ "${action}" = "create" ]; then
+                        # Copy the Molecule-generated SSH keys into the Jenkins workspace so that
+                        # later steps (e.g. the post-build log backup) don't depend on Molecule's
+                        # ephemeral cache directory under /home/admin/.cache, which can be
+                        # recreated or removed by another build before this build's post{} steps run.
+                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/"
+                        mkdir -p "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/"
+                        cp "/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${scenario}/ssh_key-us-west-1" "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        cp "/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${scenario}/ssh_key-us-west-1" "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                    fi
                 """
             }else{
 
@@ -434,8 +447,11 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
-                    KEYPATH_COMMON="/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    // Use the workspace copy of the SSH key made right after "molecule create"
+                    // (see runMoleculeAction) instead of Molecule's ephemeral cache directory,
+                    // which is shared across builds and can be recreated/removed by another build.
+                    KEYPATH_BOOTSTRAP="${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/${param_test_type}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/${param_test_type}/ssh_key-us-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-resolute") || ("${params.node_to_test}" == "ubuntu-resolute-arm") || ("${params.node_to_test}" == "ubuntu-noble") || ("${params.node_to_test}" == "ubuntu-focal") || ("${params.node_to_test}" == "ubuntu-jammy") || ("${params.node_to_test}" == "ubuntu-noble-arm") || ("${params.node_to_test}" == "ubuntu-jammy-arm") || ("${params.node_to_test}" == "ubuntu-focal-arm") || ("${params.node_to_test}" == "ubuntu-bionic")){

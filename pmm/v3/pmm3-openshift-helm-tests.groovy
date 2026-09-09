@@ -7,6 +7,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
     def clusterName = "helm-test-${env.BUILD_NUMBER}"
 
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
         booleanParam(name: 'DEPLOY_PMM', value: false),
@@ -23,6 +24,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
 
 def destroyOpenshift(CLUSTER_NAME) {
     build job: 'openshift-cluster-destroy', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: CLUSTER_NAME),
         string(name: 'DESTROY_REASON', value: 'testing-complete'),
     ]
@@ -30,9 +32,13 @@ def destroyOpenshift(CLUSTER_NAME) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',

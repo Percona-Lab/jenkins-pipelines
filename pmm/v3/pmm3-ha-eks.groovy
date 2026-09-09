@@ -87,7 +87,7 @@ def cleanupCluster() {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
 
     options {
@@ -96,6 +96,10 @@ pipeline {
     }
 
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         choice(
             name: 'K8S_VERSION',
             choices: ['1.35', '1.34', '1.33'],

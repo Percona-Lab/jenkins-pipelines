@@ -84,6 +84,80 @@ def fetch_dockerhub_tag(repo, prefix=None):
     return max(versions)[1] if versions else None
 
 
+def fetch_community_dockerhub_tags(repo, name=None):
+    params = {"page_size": 100}
+    if name:
+        params["name"] = str(name)
+
+    resp = _session.get(
+        f"https://registry.hub.docker.com/v2/repositories/{repo}/tags",
+        params=params,
+    )
+    resp.raise_for_status()
+    return [tag["name"] for tag in resp.json().get("results", [])]
+
+
+COMMUNITY_PG_RE = re.compile(
+    r"^postgresql(?P<ver>\d+(?:\.\d+)*(?:-\d+)?)-community-ubi(?P<ubi>[89])$"
+)
+COMMUNITY_PGBOUNCER_RE = re.compile(r"^pgbouncer(?P<ver>.+)-community$")
+COMMUNITY_PGBACKREST_RE = re.compile(r"^pgbackrest(?P<ver>.+)-community$")
+COMMUNITY_UPGRADE_RE = re.compile(
+    r"^upgrade(?P<ver>.+)-community-ubi(?P<ubi>[89])$"
+)
+
+
+def _community_version_key(ver):
+    return parse_version(ver.replace("-", "."))
+
+
+def _pick_latest_tag(candidates):
+    """candidates: iterable of (version_str, tag_name)."""
+    return max(candidates, key=lambda item: _community_version_key(item[0]))[1]
+
+
+def fetch_pg_community_images():
+    """Map IMAGE_* names to latest community tags on percona/percona-postgresql-operator.
+
+    Examples from Hub:
+      postgresql14.24-1-community-ubi8
+      postgresql19-1-community-ubi9
+      pgbouncer1.25.2-43-community
+      pgbackrest2.59.1-1-community
+      upgrade18.6-17.11-16.15-15.19-14.24-1-community-ubi9
+    """
+    tags = fetch_community_dockerhub_tags(
+        "percona/percona-postgresql-operator", name="community"
+    )
+    pg = {}
+    pgbouncer = []
+    pgbackrest = []
+    upgrade = {}
+
+    for tag in tags:
+        if m := COMMUNITY_PG_RE.match(tag):
+            major = m.group("ver").split(".", 1)[0].split("-", 1)[0]
+            pg.setdefault((major, m.group("ubi")), []).append((m.group("ver"), tag))
+        elif m := COMMUNITY_PGBOUNCER_RE.match(tag):
+            pgbouncer.append((m.group("ver"), tag))
+        elif m := COMMUNITY_PGBACKREST_RE.match(tag):
+            pgbackrest.append((m.group("ver"), tag))
+        elif m := COMMUNITY_UPGRADE_RE.match(tag):
+            upgrade.setdefault(m.group("ubi"), []).append((m.group("ver"), tag))
+
+    images = {
+        f"POSTGRESQL{major}_UBI{ubi}_COMMUNITY": _pick_latest_tag(cands)
+        for (major, ubi), cands in pg.items()
+    }
+    if pgbouncer:
+        images["PGBOUNCER_COMMUNITY"] = _pick_latest_tag(pgbouncer)
+    if pgbackrest:
+        images["PGBACKREST_COMMUNITY"] = _pick_latest_tag(pgbackrest)
+    for ubi, cands in upgrade.items():
+        images[f"UPGRADE_UBI{ubi}_COMMUNITY"] = _pick_latest_tag(cands)
+    return images
+
+
 def format_image_line(name, repo, tag, namespace="percona"):
     return f"IMAGE_{name}={namespace}/{repo}:{tag}"
 
@@ -101,69 +175,40 @@ def append_official_and_ubi_variants(lines, name, repo, tag):
         )
 
 
-def build_pg_community_image_lines(tag, major):
+def build_pg_community_image_lines(community, major):
     repo = "percona-postgresql-operator"
-    namespace = "perconalab"
     lines = []
-    if major in PG_MAJOR_VERSIONS:
-        lines.append(
-            format_image_line(
-                f"POSTGRESQL{major}_UBI8_COMMUNITY",
-                repo,
-                f"{tag}-ubi8-postgres{major}-community",
-                namespace,
-            )
-        )
-    lines.append(
-        format_image_line(
-            f"POSTGRESQL{major}_UBI9_COMMUNITY",
-            repo,
-            f"{tag}-postgres{major}-community",
-            namespace,
-        )
-    )
+    for ubi in ("8", "9"):
+        name = f"POSTGRESQL{major}_UBI{ubi}_COMMUNITY"
+        tag = community.get(name)
+        if tag:
+            lines.append(format_image_line(name, repo, tag))
     return lines
 
 
-def build_pg_shared_community_image_lines(tag):
+def build_pg_shared_community_image_lines(community):
     repo = "percona-postgresql-operator"
-    namespace = "perconalab"
-    return [
-        format_image_line(
-            "PGBOUNCER_COMMUNITY",
-            repo,
-            f"{tag}-pgbouncer-community",
-            namespace,
-        ),
-        format_image_line(
-            "PGBACKREST_COMMUNITY",
-            repo,
-            f"{tag}-pgbackrest-community",
-            namespace,
-        ),
-    ]
+    lines = []
+    for name in ("PGBOUNCER_COMMUNITY", "PGBACKREST_COMMUNITY"):
+        tag = community.get(name)
+        if tag:
+            lines.append(format_image_line(name, repo, tag))
+    return lines
 
 
-def build_pg_upgrade_community_image_lines(tag):
+def build_pg_upgrade_community_image_lines(community):
     repo = "percona-postgresql-operator"
-    namespace = "perconalab"
-    return [
-        format_image_line(
-            "UPGRADE_UBI8_COMMUNITY",
-            repo,
-            f"{tag}-ubi8-upgrade-community",
-            namespace,
-        ),
-        format_image_line(
-            "UPGRADE_UBI9_COMMUNITY",
-            repo,
-            f"{tag}-upgrade-community",
-            namespace,
-        ),
-    ]
+    lines = []
+    for ubi in ("8", "9"):
+        name = f"UPGRADE_UBI{ubi}_COMMUNITY"
+        tag = community.get(name)
+        if tag:
+            lines.append(format_image_line(name, repo, tag))
+    return lines
 
 
 def build_pg_image_lines(operator_version, versions, pmm3):
+    community = versions.pop("community", {}) or {}
     lines = [
         format_image_line("OPERATOR", "percona-postgresql-operator", operator_version)
     ]
@@ -174,7 +219,7 @@ def build_pg_image_lines(operator_version, versions, pmm3):
         append_official_and_ubi_variants(
             lines, f"POSTGRESQL{major}", "percona-distribution-postgresql", pg_tag
         )
-        lines.extend(build_pg_community_image_lines(operator_version, major))
+        lines.extend(build_pg_community_image_lines(community, major))
         append_image_line(
             lines,
             f"PGBOUNCER{major}",
@@ -197,10 +242,10 @@ def build_pg_image_lines(operator_version, versions, pmm3):
     for major in PG_COMMUNITY_MAJOR_VERSIONS:
         if major not in PG_MAJOR_VERSIONS:
             lines.append("")
-            lines.extend(build_pg_community_image_lines(operator_version, major))
+            lines.extend(build_pg_community_image_lines(community, major))
 
     lines.append("")
-    lines.extend(build_pg_shared_community_image_lines(operator_version))
+    lines.extend(build_pg_shared_community_image_lines(community))
     lines.append("")
     append_official_and_ubi_variants(
         lines,
@@ -208,7 +253,7 @@ def build_pg_image_lines(operator_version, versions, pmm3):
         "percona-distribution-postgresql-upgrade",
         versions.get("upgrade"),
     )
-    lines.extend(build_pg_upgrade_community_image_lines(operator_version))
+    lines.extend(build_pg_upgrade_community_image_lines(community))
     lines.append("")
     append_image_line(lines, "LOGCOLLECTOR", "fluentbit", versions.get("logcollector"))
     logcollector = versions.get("logcollector")
@@ -283,6 +328,7 @@ def get_image_tasks(op):
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
             "upgrade": (fetch_pg_upgrade_tag,),
+            "community": (fetch_pg_community_images,),
             "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
         },
