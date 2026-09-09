@@ -1,6 +1,5 @@
 def call() {
     return """
-        export ami_debian11_x86_64=ami-06687054858616b40
         export ami_debian12_x86_64=ami-0fe0ff90aca4c9a3d
         export ami_debian13_x86_64=ami-00baf448a290e0604
         export ami_ol8_x86_64=ami-0e0e998c65a976999
@@ -15,7 +14,6 @@ def call() {
         export ami_ubuntu22_x86_64=ami-0ae88d5843aab690d
         export ami_ubuntu24_x86_64=ami-04bc554a9635a77c8
         export ami_ubuntu26_x86_64=ami-0f60f7b735e5e576c
-        export ami_debian11_arm64=ami-08e24dd64c14e3365
         export ami_debian12_arm64=ami-03737899470c20c63
         export ami_debian13_arm64=ami-009aa536d30f23947
         export ami_ol8_arm64=ami-071bae27d870de243
