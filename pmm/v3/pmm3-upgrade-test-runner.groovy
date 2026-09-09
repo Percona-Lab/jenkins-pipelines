@@ -626,14 +626,14 @@ pipeline {
                 tar -zcvf srv-logs.tar.gz srv-logs
             '''
             script {
-                archiveArtifacts artifacts: 'pmm-managed-full.log'
-                archiveArtifacts artifacts: 'pmm-update-perform.log'
-                archiveArtifacts artifacts: 'pmm-agent.log'
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'srv-logs.tar.gz'
-                archiveArtifacts artifacts: 'playwright-report.tar.gz'
-                archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
-                archiveArtifacts artifacts: 'playwright-logs.tar.gz'
+                archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'pmm-update-perform.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'pmm-agent.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'srv-logs.tar.gz', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'playwright-screenshots.tar.gz', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'playwright-logs.tar.gz', allowEmptyArchive: true
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 try {
@@ -654,10 +654,10 @@ pipeline {
         }
         failure {
             dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
-                archiveArtifacts artifacts: 'tests/output/*.png'
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
             }
             dir('/srv/pmm-qa/codeceptjs-e2e') {
-                archiveArtifacts artifacts: 'tests/output/*.png'
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
             }
         }
     }
