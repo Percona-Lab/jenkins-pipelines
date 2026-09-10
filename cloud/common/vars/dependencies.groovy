@@ -186,6 +186,15 @@ void installAzureCLI() {
     '''
 }
 
+void installTrivy() {
+    sh '''
+        if ! command -v trivy >/dev/null 2>&1; then
+            curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh |
+                sh -s -- -b /usr/local/bin
+        fi
+    '''
+}
+
 void installExecutorDependencies(String testExecutorType) {
     switch (testExecutorType) {
         case 'kuttl':
