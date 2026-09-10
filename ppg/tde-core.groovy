@@ -79,16 +79,6 @@ pipeline {
             defaultValue: 'release-2.2.0',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
         )
-        string(
-            name: 'PERCONA_QA_REPO',
-            defaultValue: 'https://github.com/Percona-QA/percona-qa.git',
-            description: 'Repo that contains the percona-qa bash tests scripts.'
-        )
-        string(
-            name: 'PERCONA_QA_BRANCH',
-            defaultValue: 'master',
-            description: 'PERCONA_QA_REPO branch to use.'
-        )
         choice(
             name: 'TEST_SUITE',
             description: 'Which pytest suite to run.',
