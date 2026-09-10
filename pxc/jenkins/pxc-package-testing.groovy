@@ -290,9 +290,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                         # a fixed path, then copy it into this build's own workspace so later
                         # steps (e.g. the post-build log backup) have a stable place to read it.
                         mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/"
-                        BOOTSTRAP_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-us-west-1" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        BOOTSTRAP_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
                         if [ -z "\$BOOTSTRAP_KEY" ]; then
-                            echo "ERROR: could not locate Molecule ssh_key-us-west-1 for ${product_to_test}-bootstrap-${param_test_type}/${scenario}" >&2
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-bootstrap-${param_test_type}/${scenario}" >&2
                             exit 1
                         fi
                         cp "\$BOOTSTRAP_KEY" "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
@@ -305,9 +305,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
                     if [ "${action}" = "create" ]; then
                         mkdir -p "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/"
-                        COMMON_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-us-west-1" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        COMMON_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
                         if [ -z "\$COMMON_KEY" ]; then
-                            echo "ERROR: could not locate Molecule ssh_key-us-west-1 for ${product_to_test}-common-${param_test_type}/${scenario}" >&2
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-common-${param_test_type}/${scenario}" >&2
                             exit 1
                         fi
                         cp "\$COMMON_KEY" "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
