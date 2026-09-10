@@ -83,16 +83,9 @@ pipeline {
             name: 'TEST_SUITE',
             description: 'Which pytest suite to run.',
             choices: [
-                'All',
                 'Sanity',
-                'Smoke'
+                'All'
             ]
-        )
-        string(
-            name: 'PYTEST_SKIP_SECTIONS',
-            defaultValue: 'upgrade,minor_upgrade,slow,vault,kmip,openbao',
-            description: '''Comma separated list of percona-qa/postgresql/pytest sections to skip.
-            Defaults to skipping upgrade coverage (lives in the dedicated upgrade role), vault/kmip/openbao (need external key-provider services this role doesn't set up), and slow tests.'''
         )
         booleanParam(
             name: 'DESTROY_ENV',
