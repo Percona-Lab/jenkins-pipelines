@@ -48,7 +48,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('psmdb-operator-latest-scheduler');
+        copyArtifactPermission('psmdb-operator-latest-scheduler')
     }
     stages {
         stage('Init Workspace') {
@@ -94,7 +94,7 @@ pipeline {
             steps {
                 script {
                     def platformVersion = "$PLATFORM_VER"
-                    if ("$PILLAR_VERSION" != "none" && platformVersion.toLowerCase() == "rel") {
+                    if ("$PILLAR_VERSION" != 'none' && platformVersion.toLowerCase() == 'rel') {
                         platformVersion = libraries.tests.getReleaseVersionsParam(
                             'source/e2e-tests/release_versions',
                             'PLATFORM_VER',

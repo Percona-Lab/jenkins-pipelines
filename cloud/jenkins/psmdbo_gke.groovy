@@ -51,7 +51,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('psmdb-operator-latest-scheduler');
+        copyArtifactPermission('psmdb-operator-latest-scheduler')
     }
     stages {
         stage('Init Workspace') {

@@ -117,7 +117,7 @@ void installPxcTools() {
         sudo yum install -y percona-xtrabackup-84
     '''
 }
- 
+
 void installKuttl(String version = '0.25.0') {
     sh """
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"

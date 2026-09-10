@@ -50,7 +50,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('weekly-pso');
+        copyArtifactPermission('weekly-pso')
     }
     stages {
         stage('Init Workspace') {

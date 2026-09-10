@@ -2,7 +2,7 @@ def prepareSources(Map cfg) {
     def branch = cfg.branch
     def repo = cfg.repo
 
-    echo "=========================[ Cloning the sources ]========================="
+    echo '=========================[ Cloning the sources ]========================='
     echo "Using branch: ${branch}"
 
     sh """
@@ -15,7 +15,7 @@ def prepareSources(Map cfg) {
 def requireReleaseVersion(params) {
     def release = params.RELEASE?.trim()
     if (!release) {
-        error("RELEASE is required")
+        error('RELEASE is required')
     }
 
     return release
@@ -24,15 +24,15 @@ def requireReleaseVersion(params) {
 def loadReleaseVersions() {
     def images = [:]
 
-    readFile("source/e2e-tests/release_versions").readLines().each { line ->
+    readFile('source/e2e-tests/release_versions').readLines().each { line ->
         def releaseItem = line.trim()
-        if (!releaseItem || releaseItem.startsWith("#")) return
+        if (!releaseItem || releaseItem.startsWith('#')) return
 
-        def releaseParts = releaseItem.split("=", 2)
+        def releaseParts = releaseItem.split('=', 2)
         if (releaseParts.size() != 2) return
 
         def imageName = releaseParts[0].trim()
-        if (!imageName.startsWith("IMAGE_")) return
+        if (!imageName.startsWith('IMAGE_')) return
 
         images[imageName] = releaseParts[1].trim().replace('"', '')
     }
@@ -99,7 +99,7 @@ def sendSlack(tests, branch, platform, release) {
         def failedImages = tests.findAll { it.result == 'failure' }.collect { it.name }
         def skippedImages = tests.findAll { it.result == 'skipped' }.collect { it.name }
         if (!passedImages && !failedImages) {
-            echo "No image certification results found. Slack notification skipped."
+            echo 'No image certification results found. Slack notification skipped.'
             return
         }
 

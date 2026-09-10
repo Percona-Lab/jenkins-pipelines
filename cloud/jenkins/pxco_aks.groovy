@@ -58,7 +58,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('pxc-operator-latest-scheduler');
+        copyArtifactPermission('pxc-operator-latest-scheduler')
     }
     stages {
         stage('Init Workspace') {

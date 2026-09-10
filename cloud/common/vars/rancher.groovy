@@ -2,7 +2,7 @@ String cluster(Map clusterCfg) {
     def clusterName = clusterCfg.clusterName
     def clusterSuffix = clusterCfg.clusterSuffix
     if (!clusterName || !clusterSuffix) {
-        error("Set correct cluster name and suffix")
+        error('Set correct cluster name and suffix')
     }
 
     return "${clusterName}-${clusterSuffix}"
@@ -13,13 +13,13 @@ void createCluster(Map clusterCfg) {
     def envVars = [
         "PREFIX=${prefix}",
         "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
-        "WORKER_COUNT=${clusterCfg.workerCountMin ?: '4'}",
-        "MACHINE_TYPE=e2-standard-4",
-        "BOOT_DISK_SIZE=100GB",
-        "IMAGE_FAMILY=rocky-linux-9-optimized-gcp",
-        "IMAGE_PROJECT=rocky-linux-cloud",
-        "SOURCE_RANGES=0.0.0.0/0",
-        "OWNER=jenkins",
+        "WORKER_COUNT=${clusterCfg.workerCount}",
+        "MACHINE_TYPE=${clusterCfg.machineType}",
+        'BOOT_DISK_SIZE=100GB',
+        'IMAGE_FAMILY=rocky-linux-9-optimized-gcp',
+        'IMAGE_PROJECT=rocky-linux-cloud',
+        'SOURCE_RANGES=0.0.0.0/0',
+        'OWNER=jenkins',
         "PRODUCT=${clusterCfg.product}",
         "DELETE_AFTER_HOURS=${clusterCfg.deleteAfterHours ?: '6'}",
         "RANCHER_VERSION=${clusterCfg.rancherVersion ?: 'latest'}",
@@ -102,10 +102,8 @@ String getMachineType(String arch) {
     switch (arch) {
         case 'amd64':
             return 'e2-standard-4'
-        case 'arm64':
-            return 't2a-standard-4'
         default:
-            error("Unsupported architecture: ${arch}")
+            error("Architecture ${arch} is not supported for Rancher")
     }
 }
 
