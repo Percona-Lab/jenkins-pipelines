@@ -30,7 +30,7 @@ pipeline {
         )
         string(
             defaultValue: '3-dev-latest',
-            description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
+            description: 'PMM Client version ("3-dev-latest" for main branch, "pmm3-latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "latest-tarball" or "https://....tar.gz" for feature build)',
             name: 'CLIENT_VERSION'
         )
         string(
@@ -310,11 +310,7 @@ pipeline {
                         [ -z "${CLIENTS// }" ] && exit 0
 
                         export PATH=$PATH:/usr/sbin
-                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         mkdir -m 777 -p /tmp/backup_data
-                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                            export PMM_CLIENT_VERSION="latest"
-                        fi
 
                         if [[ "${CLIENT_INSTANCE}" = yes ]]; then
                             export EXTERNAL_PMM_SERVER_FLAG="--pmm-server-ip=${SERVER_IP}"
@@ -333,9 +329,10 @@ pipeline {
                         pushd /srv/pmm-qa/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
 
+                            # pmm-framework needs this value as-is; changing it installs nothing
                             ./pmm-framework/pmm-framework \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
-                                --client-version=${PMM_CLIENT_VERSION} \
+                                --client-version="${CLIENT_VERSION}" \
                                 ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
                         popd
                     '''
@@ -364,17 +361,21 @@ pipeline {
                 }
             }
         }
-        failure {
+        unsuccessful {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
+                    # read the files, not the env vars: those are only set once runSpotInstance
+                    # finishes, so a build aborted mid-launch would leave nothing to clean up
+                    REQ=$(cat REQUEST_ID 2>/dev/null)
+                    AMI=$(cat AMI_ID 2>/dev/null)
                     # On-demand has no spot request, so gate each call on its own id:
-                    # cancel only a real REQUEST_ID, but always terminate a running AMI_ID.
-                    if [ -n "${REQUEST_ID}" ]; then
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                    # cancel only a real request, but always terminate a running instance.
+                    if [ -n "$REQ" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQ
                     fi
-                    if [ -n "${AMI_ID}" ]; then
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${AMI_ID}
+                    if [ -n "$AMI" ]; then
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids $AMI
                     fi
                 '''
             }
