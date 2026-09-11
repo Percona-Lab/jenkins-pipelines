@@ -2,7 +2,7 @@ void gitClone(Map cfg) {
     def branch = cfg.branch
     def repo = cfg.repo
 
-    echo "=========================[ Cloning sources ]========================="
+    echo '=========================[ Cloning sources ]========================='
     echo "Using branch: ${branch}"
 
     withEnv([
@@ -133,9 +133,9 @@ void dockerBuildAndPush(Map cfg) {
 }
 
 void dockerCleanupVolumes() {
-    sh """
+    sh '''
         sudo docker system prune --volumes -af
-    """
+    '''
 }
 
 String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerLabel = 'docker-x64-min') {
