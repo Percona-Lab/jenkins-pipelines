@@ -193,7 +193,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.ADMIN_PASSWORD = "adminV3"
+                    env.ADMIN_PASSWORD = "admin"
                     if (env.TAG != "") {
                         currentBuild.description = env.TAG
                     }
