@@ -68,7 +68,6 @@ def amiVersions = versionsList.values()[-5..-1]
 def versions = versionsList.keySet().toList()[-5..-1]
 def upgradeAmiVersion = amiVersions[0]
 def latestVersion = versions[versions.size() - 1]
-def upgradeVersion = versions[versions.size() - 2]
 
 pipeline {
     agent {

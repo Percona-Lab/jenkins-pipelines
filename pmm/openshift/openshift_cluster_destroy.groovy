@@ -216,9 +216,7 @@ pipeline {
                 if (!params.DRY_RUN) {
                     echo "Cluster ${params.CLUSTER_NAME} destroyed successfully"
 
-                    // Get final resource count and OCP version for description
-                    def resourceCount = env.DESTROY_RESULT ?
-                        new JsonSlurper().parseText(env.DESTROY_RESULT).resourcesDeleted : 'Unknown'
+                    // Get OCP version for description
                     def ocpVersion = env.CLUSTER_METADATA ?
                         new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
 

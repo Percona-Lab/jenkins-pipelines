@@ -164,7 +164,6 @@ pipeline {
             steps {
                 runStaging(DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, params.USE_ONDEMAND)
                 script {
-                    def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${VM_IP}"
                      sh """
                         curl -k --location --request PUT "https://${VM_IP}/v1/server/settings" \

@@ -250,7 +250,7 @@ pipeline {
             }
             steps {
                 script {
-                    def rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
+                    build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
                     ]
                 }
