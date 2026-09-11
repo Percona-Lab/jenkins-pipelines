@@ -119,9 +119,11 @@ def mirrorChild(String name, String jobName, def run) {
 
 def suite(String name, String jobName, List jobParams) {
     return {
-        // The branch name is already the row label in Blue Ocean, so the first
-        // node names the job instead of repeating it.
-        stage(jobName) {
+        // The row label wraps and crops, so the first node leads with the part
+        // that tells the lanes of a family apart. The stage name is fixed before
+        // the child starts, so the run number can only go in the node's log.
+        def cut = name.lastIndexOf(' / ')
+        stage(cut > 0 ? name.substring(cut + 3) : name) {
             def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
             echo "[${name}] ${jobName} #${run.number} ${run.result} -> ${run.absoluteUrl}"
