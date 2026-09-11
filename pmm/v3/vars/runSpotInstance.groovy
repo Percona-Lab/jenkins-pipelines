@@ -7,7 +7,7 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
             set -o xtrace
-            declare IMAGE_ID SUBNET SG1 SG2 SG3 SPOT_PRICE
+            declare IMAGE_ID SUBNET SG1 SG2 SG3 BASE_PRICE SPOT_PRICE
 
             IMAGE_ID=$(
                 aws ec2 describe-images \
@@ -52,7 +52,7 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                 )
                 aws ec2 wait instance-running --instance-ids $AMI_ID
             else
-                SPOT_PRICE=$(
+                BASE_PRICE=$(
                     aws ec2 describe-spot-price-history \
                         --instance-types $INSTANCE_TYPE \
                         --region us-east-2 \
@@ -63,8 +63,8 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
 
                 PRICE_MULTIPLIER=1
                 while [ ! -s IP ] && [ $PRICE_MULTIPLIER -le 5 ]; do
-                    # increase price by 15% each time
-                    SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
+                    # bid 15% over the base price per attempt: 1.15x, 1.30x ... 1.75x
+                    SPOT_PRICE=$(bc <<< "scale=8; $BASE_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
                     echo $SPOT_PRICE > SPOT_PRICE
 
                     for TYPE in $CANDIDATE_TYPES; do
