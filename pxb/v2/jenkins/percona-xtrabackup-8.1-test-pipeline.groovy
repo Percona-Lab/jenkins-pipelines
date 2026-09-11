@@ -76,7 +76,7 @@ pipeline {
                         currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                     }
                     sh 'echo Prepare: \$(date -u "+%s")'
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    checkout scm
                     sh '''#!/bin/bash
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
