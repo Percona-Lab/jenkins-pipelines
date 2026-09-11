@@ -72,20 +72,31 @@ def mirrorChild(String name, String jobName, def run) {
         echo "[${name}] child stages unavailable (${err.message}); rendering the suite as one stage"
     }
 
-    stage("#${run.number} ${jobName}") {
-        echo "${run.absoluteUrl}"
-    }
+    def blue = "${env.JENKINS_URL}blue/organizations/jenkins/${jobName}/detail/${jobName}/${run.number}/pipeline"
 
-    int lastRun = -1
-    for (int i = 0; i < stages.size(); i++) {
-        if (stages[i].status != 'NOT_EXECUTED') {
-            lastRun = i
-        }
-    }
-
-    for (int i = 0; i <= lastRun; i++) {
+    int i = 0
+    while (i < stages.size()) {
         def child = stages[i]
+        if (child.status == 'NOT_EXECUTED') {
+            // A declarative child still runs its post actions after a failure, so
+            // never-run stages can sit in the middle; each run of them is one node.
+            int j = i
+            while (j < stages.size() && stages[j].status == 'NOT_EXECUTED') {
+                j++
+            }
+            def names = stages[i..<j].collect { it.name }
+            stage(names.size() == 1 ? names[0] : "${names.size()} stages skipped") {
+                catchError(buildResult: null, stageResult: 'NOT_BUILT') {
+                    error("never ran in ${jobName} #${run.number}: ${names.join(', ')}")
+                }
+            }
+            i = j
+            continue
+        }
         stage("${child.name} · ${humanMs(child.durationMillis)}") {
+            // Blue Ocean draws a stage with no steps as never run (hollow), whatever
+            // its status, so every mirrored stage carries at least this echo.
+            echo "${child.name}: ${child.status} in ${humanMs(child.durationMillis)} — ${blue}/${child.id}"
             // buildResult stays null on purpose: the suite's own verdict above
             // owns the build result, and a mirrored step must not raise it.
             if (child.status == 'FAILED') {
@@ -102,24 +113,18 @@ def mirrorChild(String name, String jobName, def run) {
                 }
             }
         }
-    }
-
-    int skipped = stages.size() - 1 - lastRun
-    if (skipped > 0) {
-        stage("${skipped} stages skipped") {
-            catchError(buildResult: null, stageResult: 'NOT_BUILT') {
-                error("${skipped} stages never ran: ${jobName} #${run.number} stopped at '${stages[lastRun].name}'")
-            }
-        }
+        i++
     }
 }
 
 def suite(String name, String jobName, List jobParams) {
     return {
-        stage(name) {
+        // The branch name is already the row label in Blue Ocean, so the first
+        // node names the job instead of repeating it.
+        stage(jobName) {
             def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
-            echo "[${name}] ${run.result} -> ${run.absoluteUrl}"
+            echo "[${name}] ${jobName} #${run.number} ${run.result} -> ${run.absoluteUrl}"
 
             if (run.result == 'FAILURE' || run.result == 'ABORTED') {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
