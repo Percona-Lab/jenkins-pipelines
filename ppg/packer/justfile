@@ -292,38 +292,113 @@ prune-all apply="0":
     @just prune-test "{{apply}}"
     @just prune-stale "{{apply}}"
 
-# deregister SUPERSEDED prod bases: per (os_major, arch) KEEP the newest role={{role_prod}}
-# AMI (the one the consumer selects) and remove older duplicates left by refreshes
-# (deprecate_at only marks, never deletes -> inventory grows). Lists by default; pass `1`
-# to deregister. NEVER deletes the newest-per-combo, and skips any AMI missing maj/arch.
-[doc("deregister superseded prod bases, keeping newest per combo; lists unless apply=1")]
+# deregister SUPERSEDED prod bases. Per (os, os_major, arch) the floor is the pin in
+# vars/moleculeEnvPPG.groovy on origin/master: the pin and every newer AMI survive (a newer
+# image may already be named by an open refresh PR), and so does any image an open refresh
+# PR pins. Only images older than the pin go (deprecate_at only marks, never deletes, so the
+# inventory grows). Lists by default, pass `1` to deregister. Refuses unless each of the 12
+# OL/Rocky pins parses exactly once and, for apply, unless origin/master and the open refresh
+# PRs could be read, so a stale checkout can never turn into a deletion of a live image.
+[doc("deregister prod bases older than the master pin per combo, keeping newest + pinned + open-PR images; lists unless apply=1")]
 prune-superseded apply="0":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "prune-superseded (apply={{apply}}; lists unless apply=1):"
+    pins_remote="${PINS_REMOTE:-origin}"
+    workdir=$(mktemp -d)
+    trap 'rm -rf "${workdir}"' EXIT
+    pins_pattern='^ *export ami_(ol|rocky)[0-9]+_(x86_64|arm64)=ami-[0-9a-f]+'
+    # Pins from the fetched master, never a stale local ref. Listing may fall back to
+    # the working tree, an apply run must not.
+    if git -C ../.. fetch -q "${pins_remote}" master && git -C ../.. show FETCH_HEAD:vars/moleculeEnvPPG.groovy > "${workdir}/pins" 2>/dev/null; then
+      echo "  pins from ${pins_remote}/master:vars/moleculeEnvPPG.groovy (fetched)"
+    elif [[ "{{apply}}" = "1" ]]; then
+      echo "refusing to prune: could not fetch ${pins_remote}/master for the current pins" >&2
+      exit 1
+    else
+      cp ../../vars/moleculeEnvPPG.groovy "${workdir}/pins"
+      echo "  pins from the working tree (${pins_remote}/master unavailable, list only)"
+    fi
+    declare -A pin_of protected
+    for var_prefix in ol rocky; do
+      os_name=oraclelinux
+      [[ "${var_prefix}" = rocky ]] && os_name=rocky
+      for os_major in 8 9 10; do
+        for arch in x86_64 arm64; do
+          mapfile -t values < <(grep -oE "^ *export ami_${var_prefix}${os_major}_${arch}=ami-[0-9a-f]+" "${workdir}/pins" | sed -E 's/.*=//')
+          if [[ "${#values[@]}" -ne 1 ]]; then
+            echo "refusing to prune: ami_${var_prefix}${os_major}_${arch} found ${#values[@]} times in the pins file, expected once" >&2
+            exit 1
+          fi
+          pin_of["${os_name}/${os_major}/${arch}"]="${values[0]}"
+          protected["${values[0]}"]="pinned on master"
+        done
+      done
+    done
+    # Images named by open refresh PRs are protected too: merging such a PR must never
+    # point pg.cd at a deregistered image.
+    repo_url=$(git -C ../.. remote get-url "${pins_remote}")
+    if open_heads=$(gh pr list -R "${repo_url}" --base master --state open --limit 500 --json headRefName,headRepositoryOwner \
+         --jq '.[] | select(.headRepositoryOwner.login == "Percona-Lab") | select(.headRefName | test("^ppg-ami-refresh(-[0-9]{8})?$")) | .headRefName'); then
+      for head in ${open_heads}; do
+        if git -C ../.. fetch -q "${pins_remote}" "${head}" && git -C ../.. show FETCH_HEAD:vars/moleculeEnvPPG.groovy > "${workdir}/pr-pins" 2>/dev/null; then
+          while read -r ami_id; do
+            [[ -z "${ami_id}" ]] && continue
+            protected["${ami_id}"]="${protected[${ami_id}]:-named by open refresh PR ${head}}"
+          done < <(grep -oE "${pins_pattern}" "${workdir}/pr-pins" | sed -E 's/.*=//')
+          echo "  protecting the pins of open refresh PR branch ${head}"
+        elif [[ "{{apply}}" = "1" ]]; then
+          echo "refusing to prune: could not read the pins of open refresh PR branch ${head}" >&2
+          exit 1
+        fi
+      done
+    elif [[ "{{apply}}" = "1" ]]; then
+      echo "refusing to prune: could not list open refresh PRs (gh)" >&2
+      exit 1
+    else
+      echo "  could not list open refresh PRs (gh), list only"
+    fi
     aws ec2 describe-images --profile {{profile}} --region {{region}} --owners self \
       --filters Name=tag:role,Values={{role_prod}} Name=tag:os,Values={{os_csv}} Name=state,Values=available \
-      --query "reverse(sort_by(Images,&CreationDate))[].[ImageId, Tags[?Key=='os']|[0].Value, Tags[?Key=='os_major']|[0].Value, Tags[?Key=='arch']|[0].Value]" --output text \
-      | { declare -A keep
-
-          while read -r ami_id os_name major arch; do
-            [[ -z "${ami_id}" ]] && continue
-            [[ "${os_name}" = None || "${major}" = None || "${arch}" = None ]] && { echo "  SKIP ${ami_id} (untagged os/major/arch)"; continue; }
-            combo_key="${os_name}/${major}/${arch}"
-
-            if [[ -z "${keep[${combo_key}]:-}" ]]; then
-              keep[${combo_key}]=${ami_id}
-              echo "  KEEP ${ami_id} (${os_name}${major} ${arch}, newest)"
-              continue
-            fi
-
-            if [[ "{{apply}}" = "1" ]]; then
-              echo "  deregister ${ami_id} (${os_name}${major} ${arch}, superseded)"
-              just _deregister "${ami_id}"
-            else
-              echo "  would deregister ${ami_id} (${os_name}${major} ${arch}, superseded)"
-            fi
-          done; }
+      --query "Images[].[CreationDate, ImageId, Tags[?Key=='os']|[0].Value, Tags[?Key=='os_major']|[0].Value, Tags[?Key=='arch']|[0].Value]" --output text \
+      | sort -r > "${workdir}/rows"
+    declare -A below_pin seen_pin
+    combo_errors=0
+    while read -r created ami_id os_name major arch; do
+      [[ -z "${ami_id}" ]] && continue
+      [[ "${os_name}" = None || "${major}" = None || "${arch}" = None ]] && { echo "  SKIP ${ami_id} (untagged os/major/arch)"; continue; }
+      combo_key="${os_name}/${major}/${arch}"
+      combo_pin="${pin_of[${combo_key}]:-}"
+      if [[ -z "${combo_pin}" ]]; then
+        echo "  SKIP ${ami_id} (${os_name}${major} ${arch}, no pin for this combo)"
+        continue
+      fi
+      if [[ -n "${protected[${ami_id}]:-}" ]]; then
+        echo "  KEEP ${ami_id} (${os_name}${major} ${arch}, ${protected[${ami_id}]})"
+        [[ "${ami_id}" = "${combo_pin}" ]] && seen_pin[${combo_key}]=1 && below_pin[${combo_key}]=1
+        continue
+      fi
+      if [[ -z "${below_pin[${combo_key}]:-}" ]]; then
+        echo "  KEEP ${ami_id} (${os_name}${major} ${arch}, newer than the pin)"
+        continue
+      fi
+      if [[ "{{apply}}" = "1" ]]; then
+        echo "  deregister ${ami_id} (${os_name}${major} ${arch}, older than the pin)"
+        just _deregister "${ami_id}"
+      else
+        echo "  would deregister ${ami_id} (${os_name}${major} ${arch}, older than the pin)"
+      fi
+    done < "${workdir}/rows"
+    for combo_key in "${!pin_of[@]}"; do
+      if [[ -z "${seen_pin[${combo_key}]:-}" ]]; then
+        echo "  ${combo_key}: pinned ${pin_of[${combo_key}]} is not among the {{role_prod}} candidates (deregistered or retagged?), nothing pruned for it" >&2
+        combo_errors=$((combo_errors + 1))
+      fi
+    done
+    if (( combo_errors > 0 )); then
+      echo "prune-superseded: ${combo_errors} combo(s) had no visible pin" >&2
+      exit 1
+    fi
 
 # create the SSM builder instance profile locally (one-time, for local builds).
 # PRODUCTION is terraform-managed: percona-cd-platform terraform/ppg-ami-factory.tf.

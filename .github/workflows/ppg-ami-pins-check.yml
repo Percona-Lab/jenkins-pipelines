@@ -1,0 +1,85 @@
+# Daily guard for the OL/Rocky package-test AMI pins: goes red when a pin on
+# master lags the newest promoted AMI by more than the review window, so an
+# unmerged (or emptied) weekly refresh PR cannot sit unnoticed. Read-only:
+# resolves with the same script the weekly refresh uses, writes nothing.
+# Actions are pinned to commit SHAs; the trailing "# vX.Y.Z" records the tag.
+
+name: ppg-ami-pins-check
+run-name: ppg AMI pins check (${{ github.event_name }})
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 2-6' # daily Tue-Sat 07:00 UTC, Monday is the bake + refresh day
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  GRACE_DAYS: '3' # review window for the weekly refresh PR before a lagging pin counts as stale
+
+jobs:
+  check-pins:
+    name: master pins vs newest promoted AMIs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # ONLY this job mints the OIDC token
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: master
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ secrets.PPG_AMI_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-ami-factory' }}
+          role-session-name: ppg-ami-pins-check-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Compare master pins with the newest promoted AMIs
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'boto3==1.43.74' 'botocore==1.43.74'
+          python3 ppg/packer/scripts/update_molecule_env.py --check --grace-days "$GRACE_DAYS" 2>&1 | tee check.log
+
+      - name: Step summary
+        # Separate step so the verdict lands in the summary on STALE and on a
+        # check that failed before producing one.
+        if: always()
+        run: |
+          {
+            echo "### OL/Rocky pins on master"
+            echo '```'
+            if [ -s check.log ]; then
+              grep -E '^(STALE|FAIL|pins current)' check.log || echo "check produced no verdict (see the job log)"
+            else
+              echo "check did not run (see the job log)"
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    needs: check-pins
+    if: failure()
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
+    steps:
+      - name: Refuse to alert into the void
+        # On the canonical repo a missing webhook secret is itself a failure.
+        if: env.SLACK_WEBHOOK == '' && github.repository == 'Percona-Lab/jenkins-pipelines'
+        run: |
+          echo "::error::RELEASES_CI_SLACK_WEBHOOK is not set in this repository, the stale-pins alert was not delivered"
+          exit 1
+
+      - name: Slack on stale pins
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "PPG OL/Rocky AMI pins check FAILED (stale pins, or the check itself could not run) - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
