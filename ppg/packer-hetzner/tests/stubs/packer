@@ -1,0 +1,21 @@
+#!/bin/bash
+# Fake packer for the smoke-run guard test: `init` succeeds silently, `build`
+# prints the scripted transcript (STUB_PACKER_OUTPUT) and exits with the
+# scripted status (STUB_PACKER_EXIT). Everything else fails loudly.
+set -euo pipefail
+
+echo "packer $*" >> "${STUB_CALL_LOG}"
+
+case "$1" in
+  init)
+    exit 0
+    ;;
+  build)
+    cat "${STUB_PACKER_OUTPUT}"
+    exit "${STUB_PACKER_EXIT}"
+    ;;
+  *)
+    echo "stub packer: unexpected invocation: $*" >&2
+    exit 64
+    ;;
+esac

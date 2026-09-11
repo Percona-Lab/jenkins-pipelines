@@ -1,0 +1,186 @@
+# EL snapshot factory (Rocky Linux + AlmaLinux on Hetzner Cloud) - local build
+# management. Sibling of the AWS AMI factory justfile (../packer/justfile).
+#
+# Runs the SAME packer templates + scripts the GitHub Actions workflow uses, so
+# a snapshot built locally is identical to a CI-built one. Recipes are
+# parameterized by os / os_major / arch / env, and every factory-identity
+# constant (labels, roles, location, server types) is a VARIABLE below -- to
+# lift this dir to another product, relabel HERE (and in the packer templates'
+# label blocks) and point a new consumer at the labels.
+#
+# Auth: `export HCLOUD_TOKEN=...` first (project-scoped factory token). The
+# token is read from the environment by packer and the hcloud CLI directly and
+# is never echoed. check/fmt/validate need no real token.
+#
+# env=prod  -> real labels the consumers select (role={{role_prod}}, source=factory)
+# env=test  -> isolated labels (role={{role_test}}, source=factory-test, factory_env=test),
+#              NEVER consumed by production. Use for local/CI testing, then `just prune test`.
+
+# --- factory identity: SINGLE SOURCE OF TRUTH (relabel here to lift this dir to another product) ---
+location        := "fsn1"                       # CAX (arm64) exists only in fsn1/nbg1/hel1
+role_prod       := "ppg-package-test"           # promoted role the consumers select
+role_test       := "ppg-test-package-test"      # isolated promoted role for env=test bakes
+keep_last       := "4"                          # promoted snapshots kept per combo by prune
+
+# --- build matrix dimensions ---
+os_list         := "rocky almalinux"
+os_majors       := "8 9 10"
+arches          := "x86_64 arm64"
+
+# list recipes
+default:
+    @just --list
+
+# ===========================================================================
+# generic helpers (private, hidden from --list)
+# ===========================================================================
+
+# fail fast when the live-API token is missing (never echoes it). The check/
+# fmt/validate recipes stay tokenless on purpose
+_need-token:
+    @[ -n "${HCLOUD_TOKEN:-}" ] || { echo "HCLOUD_TOKEN not set (export the project-scoped factory token)" >&2; exit 1; }
+
+# ===========================================================================
+# packer build / validate (refresh path, lineage roots via seed)
+# ===========================================================================
+
+# install/upgrade the hcloud plugin
+init:
+    packer init .
+
+# format the HCL (main + smoke templates)
+fmt:
+    packer fmt .
+    packer fmt smoke
+
+# validate one combo  (os_major=8|9|10  arch=x86_64|arm64  os=rocky|almalinux)
+validate os_major="9" arch="x86_64" os="rocky":
+    HCLOUD_TOKEN="${HCLOUD_TOKEN:-offline-validate-placeholder}" \
+      packer validate -var os={{os}} -var os_major={{os_major}} -var arch={{arch}} .
+
+# fmt-check + validate everything + drift guards (scripts/check.sh, the SAME
+# file the workflow check job runs, so the two gates cannot drift) + actionlint
+check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/check.sh
+
+    if command -v actionlint >/dev/null; then
+      actionlint ../../.github/workflows/ppg-hcloud-factory.yml ../../.github/workflows/ppg-hcloud-janitor.yml
+    else
+      echo "actionlint not installed; skipping workflow lint"
+    fi
+
+# trigger the GHA factory workflow for the FULL os x major x arch matrix, derived
+# from the dimension constants above so it never drifts from them. Targets the
+# current repo's origin. env=test isolates from the consumers (use for validation).
+[doc("trigger the GHA factory workflow for the full 12-combo matrix (env=test isolates)")]
+ci-validate ref="master" env="test":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    combos=$(python3 -c "import json,sys; oses,majors,arches=(part.split() for part in sys.argv[1:4]); print(json.dumps([{'os':os_name,'os_major':major,'arch':arch} for os_name in oses for major in majors for arch in arches]))" "{{os_list}}" "{{os_majors}}" "{{arches}}")
+    gh workflow run ppg-hcloud-factory.yml --ref "{{ref}}" -f "env={{env}}" -f "combos=${combos}"
+    echo "dispatched {{ref}} (env={{env}}) with the full matrix; list runs: gh run list --workflow ppg-hcloud-factory.yml -L1"
+
+# dispatch the GHA workflow to seed ALL twelve lineage roots from the official
+# Hetzner system images. Defaults to env=prod like seed: a test seed promotes
+# only the isolated test role, which the prod-role refresh lineage lookup never
+# sees (env=test validates only).
+[doc("dispatch the GHA workflow to seed all 12 lineage roots (env=prod|test)")]
+ci-seed ref="master" env="prod":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    combos=$(python3 -c "import json,sys; oses,majors,arches=(part.split() for part in sys.argv[1:4]); print(json.dumps([{'os':os_name,'os_major':major,'arch':arch,'seed':True} for os_name in oses for major in majors for arch in arches]))" "{{os_list}}" "{{os_majors}}" "{{arches}}")
+    gh workflow run ppg-hcloud-factory.yml --ref "{{ref}}" -f "env={{env}}" -f "combos=${combos}"
+    echo "dispatched {{ref}} (env={{env}}) with all 12 seeds; list runs: gh run list --workflow ppg-hcloud-factory.yml -L1"
+
+# build one combo  (env=prod real labels | test isolated labels)  -- candidate only, no promote
+build os_major="9" arch="x86_64" env="prod" os="rocky" seed="false": _need-token
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -f manifest.json
+    packer build -color=false \
+      -var os={{os}} -var seed={{seed}} -var os_major={{os_major}} -var arch={{arch}} \
+      -var env={{env}} -var location={{location}} .
+
+# smoke-test (fresh boot + install) an already-built candidate snapshot, then
+# promote on success. Both steps are the SAME scripts the workflow runs:
+# scripts/smoke-run.sh deletes the candidate only on a genuine post-SSH
+# failure (sentinel-gated, transient infrastructure failures keep it), and
+# scripts/promote.sh retries the label flip so a transient promote failure
+# never deletes a smoke-passed snapshot.
+[doc("smoke-test (boot+install) a candidate snapshot then promote on pass; delete only on genuine post-SSH failure")]
+smoke snapshot_id os_major arch env="prod" os="rocky": _need-token
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/smoke-run.sh {{snapshot_id}} {{os_major}} {{arch}} {{env}} {{os}} {{location}}
+    bash scripts/promote.sh {{snapshot_id}} {{env}}
+
+# full one-combo factory run: build (env) -> native smoke boot-test -> promote
+bake os_major="9" arch="x86_64" env="prod" os="rocky" seed="false": _need-token
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build {{os_major}} {{arch}} {{env}} {{os}} {{seed}}
+    snapshot_id=$(python3 -c "import json;print(json.load(open('manifest.json'))['builds'][-1]['artifact_id'])")
+    just smoke "${snapshot_id}" {{os_major}} {{arch}} {{env}} {{os}}
+
+# isolated TEST bake of one combo (env=test) - never consumed by production
+test os_major="9" arch="x86_64" os="rocky":
+    @just bake {{os_major}} {{arch}} test {{os}}
+
+# one-time per combo: seed a lineage root from the official Hetzner system image
+# (rocky-<major> / alma-<major>), then smoke + promote. After this,
+# `just bake <os_major> <arch> prod <os>` refreshes it. Defaults to env=prod like
+# `bake`: a test seed promotes only the isolated test role, which the refresh
+# lineage lookup (pinned to the prod role) never sees.
+[doc("seed a lineage root from the official Hetzner system image: bake + smoke + promote (env=test isolates)")]
+seed os_major="9" arch="x86_64" env="prod" os="rocky":
+    @just bake {{os_major}} {{arch}} {{env}} {{os}} true
+
+# build + promote ALL major x arch for one os (env=prod by default, pass test for
+# isolated). Resilient: a failed combo is recorded and the rest still run. Exits
+# non-zero with a summary if any combo failed (each combo's own delete-on-smoke-
+# failure still applies).
+[doc("build + promote every major x arch for one os (env=prod|test); resilient, non-zero if any combo fails")]
+all env="prod" os="rocky":
+    #!/usr/bin/env bash
+    set -uo pipefail
+    ok=""
+    fail=""
+
+    for major in {{os_majors}}; do
+      for arch in {{arches}}; do
+        echo "=========== bake {{os}} ${major} ${arch} (env={{env}}) ==========="
+
+        if just bake "${major}" "${arch}" {{env}} {{os}}; then
+          ok="${ok} {{os}}${major}-${arch}"
+        else
+          fail="${fail} {{os}}${major}-${arch}"
+        fi
+      done
+    done
+    echo "=========== summary (env={{env}}) ==========="
+    echo "  ok:    ${ok:- none}"
+    echo "  failed:${fail:- none}"
+    [[ -z "${fail}" ]] || exit 1
+
+# list factory snapshots for an env (prod|test) with identity + creation date
+list env="prod": _need-token
+    hcloud image list -t snapshot -l "factory_env={{env}}" -s created:desc \
+      -o columns=id,description,labels,created
+
+# resolve the newest promoted snapshot for a combo (exactly the consumer lookup)
+latest os_major="9" arch="x86_64" os="rocky" role=role_prod: _need-token
+    hcloud image list -t snapshot \
+      -l "role={{role}},os={{os}},os_major={{os_major}},arch={{arch}}" \
+      -s created:desc -o noheader -o columns=id | head -1
+
+# promote a smoke-passed candidate (retried label flip via scripts/promote.sh)
+promote snapshot_id env="prod": _need-token
+    bash scripts/promote.sh {{snapshot_id}} {{env}}
+
+# retention sweep (scripts/prune.sh): keep newest {{keep_last}} promoted per
+# combo + remove stale candidates. Lists by default. Pass apply=1 to delete.
+[doc("keep newest N promoted per combo + drop stale candidates; lists unless apply=1")]
+prune env="prod" apply="0" keep=keep_last: _need-token
+    bash scripts/prune.sh {{env}} {{apply}} {{keep}}
