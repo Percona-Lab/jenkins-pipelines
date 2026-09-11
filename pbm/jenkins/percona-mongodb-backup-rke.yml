@@ -1,0 +1,16 @@
+- job:
+    name: pbm-autobuild-rke
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        PBM-350 move PBM packages jobs to psmdb.cd.percona.com
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'ENG-1241_build_pbm_in_kubernetes'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pbm/jenkins/percona-mongodb-backup-rke.groovy
+
