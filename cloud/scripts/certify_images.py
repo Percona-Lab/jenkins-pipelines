@@ -282,7 +282,7 @@ def write_junit_result(image, dest, platform, _component, status):
     log(f"junit result saved: {path}")
 
 
-def run_preflight(dest, platform, docker_config, token, component):
+def run_preflight(dest, platform, docker_config, token, component, no_submit=False):
     preflight = install_preflight()
 
     log("running preflight")
@@ -298,11 +298,11 @@ def run_preflight(dest, platform, docker_config, token, component):
         "" if platform == "multiplatform" else f"--platform={platform}",
         f"--artifacts={os.path.abspath(results_dir)}",
         f"--docker-config={docker_config}",
-        f"--pyxis-api-token={token}",
-        f"--certification-component-id={component}",
+        "" if no_submit else f"--pyxis-api-token={token}",
+        "" if no_submit else f"--certification-component-id={component}",
         "--loglevel",
         "debug",
-        "--submit",
+        "" if no_submit else "--submit",
     ]
     cmd = [arg for arg in cmd if arg]
 
@@ -341,8 +341,14 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--image", required=True)
-    parser.add_argument("--dest_image", required=True)
-    parser.add_argument("--component", required=True)
+    parser.add_argument(
+        "--dest_image",
+        help="Destination image in quay.io ISV registry (required unless --no-submit)",
+    )
+    parser.add_argument(
+        "--component",
+        help="Pyxis certification component id (required unless --no-submit)",
+    )
     parser.add_argument(
         "--platform", choices=["amd64", "arm64", "multiplatform"], required=True
     )
@@ -358,7 +364,50 @@ def main():
         default=os.path.expanduser("~/.docker/config.json"),
     )
 
+    parser.add_argument(
+        "--no-submit",
+        action="store_true",
+        help="Skip the preflight --submit upload (smoke-test / dry-run safe)",
+    )
+
     args = parser.parse_args()
+
+    if args.no_submit:
+        log(f"Dry-run preflight on source image: {args.image}")
+        log("start (no registry login, no image push, no Pyxis submit)")
+        target_image = args.image
+        try:
+            run_preflight(
+                target_image,
+                args.platform,
+                args.docker_config,
+                token=None,
+                component=None,
+                no_submit=True,
+            )
+        except SystemExit as e:
+            status = e.code if isinstance(e.code, int) else 1
+            write_junit_result(
+                args.image,
+                target_image,
+                args.platform,
+                args.component or "dry-run",
+                status,
+            )
+            raise
+
+        write_junit_result(
+            args.image,
+            target_image,
+            args.platform,
+            args.component or "dry-run",
+            0,
+        )
+        log("done")
+        return
+
+    if not args.dest_image or not args.component:
+        parser.error("--dest_image and --component are required unless --no-submit is set")
 
     token = get_secret(args.token, "PYXIS_TOKEN")
     registry_user = get_secret(args.registry_user, "REGISTRY_USER")
@@ -382,6 +431,7 @@ def main():
             args.docker_config,
             token,
             args.component,
+            no_submit=args.no_submit,
         )
     except SystemExit as e:
         status = e.code if isinstance(e.code, int) else 1
