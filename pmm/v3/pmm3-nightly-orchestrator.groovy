@@ -64,6 +64,36 @@ def humanMs(def millis) {
     return "${s}s"
 }
 
+def nodeName(String name) {
+    // The parallel branch label wraps and crops, so the node leads with what tells
+    // the lanes of a family apart and keeps the family as a suffix or qualifier.
+    int cut = name.lastIndexOf(' / ')
+    if (cut < 0) {
+        return "${name} standalone"
+    }
+    def family = name.substring(0, cut)
+    def leaf = name.substring(cut + 3)
+    if (family == 'nightly') {
+        return "${leaf} nightly"
+    }
+    if (family == 'compat') {
+        return "compat nightly ${leaf.replace('client ', '')}"
+    }
+    if (family == 'ui') {
+        return "ui-tests ${leaf}"
+    }
+    if (family == 'pkg amd64') {
+        return "package (amd) ${leaf}"
+    }
+    if (family == 'pkg arm64') {
+        return "package (arm) ${leaf}"
+    }
+    if (family == 'upgrade') {
+        return leaf.startsWith('ami ') ? "upgrade (ami) ${leaf.replace('ami ', '')}" : "upgrade ${leaf}"
+    }
+    return "${leaf} ${family}"
+}
+
 def mirrorChild(String name, String jobName, def run) {
     def stages = []
     try {
@@ -72,20 +102,31 @@ def mirrorChild(String name, String jobName, def run) {
         echo "[${name}] child stages unavailable (${err.message}); rendering the suite as one stage"
     }
 
-    stage("#${run.number} ${jobName}") {
-        echo "${run.absoluteUrl}"
-    }
+    def blue = "${env.JENKINS_URL}blue/organizations/jenkins/${jobName}/detail/${jobName}/${run.number}/pipeline"
 
-    int lastRun = -1
-    for (int i = 0; i < stages.size(); i++) {
-        if (stages[i].status != 'NOT_EXECUTED') {
-            lastRun = i
-        }
-    }
-
-    for (int i = 0; i <= lastRun; i++) {
+    int i = 0
+    while (i < stages.size()) {
         def child = stages[i]
+        if (child.status == 'NOT_EXECUTED') {
+            // A declarative child still runs its post actions after a failure, so
+            // never-run stages can sit in the middle; each run of them is one node.
+            int j = i
+            while (j < stages.size() && stages[j].status == 'NOT_EXECUTED') {
+                j++
+            }
+            def names = stages[i..<j].collect { it.name }
+            stage(names.size() == 1 ? names[0] : "${names.size()} stages skipped") {
+                catchError(buildResult: null, stageResult: 'NOT_BUILT') {
+                    error("never ran in ${jobName} #${run.number}: ${names.join(', ')}")
+                }
+            }
+            i = j
+            continue
+        }
         stage("${child.name} · ${humanMs(child.durationMillis)}") {
+            // Blue Ocean draws a stage with no steps as never run (hollow), whatever
+            // its status, so every mirrored stage carries at least this echo.
+            echo "${child.name}: ${child.status} in ${humanMs(child.durationMillis)} — ${blue}/${child.id}"
             // buildResult stays null on purpose: the suite's own verdict above
             // owns the build result, and a mirrored step must not raise it.
             if (child.status == 'FAILED') {
@@ -102,24 +143,18 @@ def mirrorChild(String name, String jobName, def run) {
                 }
             }
         }
-    }
-
-    int skipped = stages.size() - 1 - lastRun
-    if (skipped > 0) {
-        stage("${skipped} stages skipped") {
-            catchError(buildResult: null, stageResult: 'NOT_BUILT') {
-                error("${skipped} stages never ran: ${jobName} #${run.number} stopped at '${stages[lastRun].name}'")
-            }
-        }
+        i++
     }
 }
 
 def suite(String name, String jobName, List jobParams) {
     return {
-        stage(name) {
+        // The stage name is fixed before the child starts, so the run number
+        // can only go in the node's log.
+        stage(nodeName(name)) {
             def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
-            echo "[${name}] ${run.result} -> ${run.absoluteUrl}"
+            echo "[${name}] ${jobName} #${run.number} ${run.result} -> ${run.absoluteUrl}"
 
             if (run.result == 'FAILURE' || run.result == 'ABORTED') {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
@@ -327,7 +362,7 @@ timestamps {
 
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
 
-    branches['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
+    branches['nightly / gssapi'] = suite('nightly / gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'SERVER_TYPE',       value: 'docker'),
         string(name: 'DOCKER_VERSION',    value: serverImage),
