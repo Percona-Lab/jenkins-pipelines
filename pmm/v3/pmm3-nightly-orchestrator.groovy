@@ -64,6 +64,36 @@ def humanMs(def millis) {
     return "${s}s"
 }
 
+def nodeName(String name) {
+    // The parallel branch label wraps and crops, so the node leads with what tells
+    // the lanes of a family apart and keeps the family as a suffix or qualifier.
+    int cut = name.lastIndexOf(' / ')
+    if (cut < 0) {
+        return "${name} standalone"
+    }
+    def family = name.substring(0, cut)
+    def leaf = name.substring(cut + 3)
+    if (family == 'nightly') {
+        return "${leaf} nightly"
+    }
+    if (family == 'compat') {
+        return "compat nightly ${leaf.replace('client ', '')}"
+    }
+    if (family == 'ui') {
+        return "ui-tests ${leaf}"
+    }
+    if (family == 'pkg amd64') {
+        return "package (amd) ${leaf}"
+    }
+    if (family == 'pkg arm64') {
+        return "package (arm) ${leaf}"
+    }
+    if (family == 'upgrade') {
+        return leaf.startsWith('ami ') ? "upgrade (ami) ${leaf.replace('ami ', '')}" : "upgrade ${leaf}"
+    }
+    return "${leaf} ${family}"
+}
+
 def mirrorChild(String name, String jobName, def run) {
     def stages = []
     try {
@@ -119,11 +149,9 @@ def mirrorChild(String name, String jobName, def run) {
 
 def suite(String name, String jobName, List jobParams) {
     return {
-        // The row label wraps and crops, so the first node leads with the part
-        // that tells the lanes of a family apart. The stage name is fixed before
-        // the child starts, so the run number can only go in the node's log.
-        def cut = name.lastIndexOf(' / ')
-        stage(cut > 0 ? name.substring(cut + 3) : name) {
+        // The stage name is fixed before the child starts, so the run number
+        // can only go in the node's log.
+        stage(nodeName(name)) {
             def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
             results[name] = [job: jobName, number: run.number, url: run.absoluteUrl, result: run.result]
             echo "[${name}] ${jobName} #${run.number} ${run.result} -> ${run.absoluteUrl}"
@@ -334,7 +362,7 @@ timestamps {
 
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
 
-    branches['gssapi'] = suite('gssapi', 'pmm3-ui-tests-nightly-gssapi', [
+    branches['nightly / gssapi'] = suite('nightly / gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'SERVER_TYPE',       value: 'docker'),
         string(name: 'DOCKER_VERSION',    value: serverImage),
