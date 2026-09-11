@@ -13,7 +13,7 @@
             - "master"
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxb/v2/jenkins/pxb9x-single-platform-run.groovy
+      script-path: pxb/v2/jenkins/percona-xtrabackup-9.x-single-platform.groovy
     parameters:
     - string:
         name: GIT_REPO
@@ -31,7 +31,14 @@
         - ubuntu:noble
         - debian:bookworm
         - debian:trixie
+        - amazonlinux:2023
         description: OS version for compilation and testing
+    - choice:
+        name: ARCH
+        choices:
+        - x86_64
+        - aarch64
+        description: CPU architecture; selects the pxc-build image variant and the worker label.
     - choice:
         name: XTRABACKUP_TARGET
         choices:

@@ -1,3 +1,7 @@
+if (params.ARCH != 'x86_64') {
+    error("Unsupported ARCH '${params.ARCH}'; PXB 2.4 requires x86_64")
+}
+
 pipeline_timeout = 10
 
 pipeline {
@@ -16,6 +20,10 @@ pipeline {
             choices: 'centos:7\ncentos:8\nubuntu:xenial\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster\ndebian:bullseye\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
+        choice(
+            choices: 'x86_64',
+            description: 'CPU architecture. PXB 2.4 is EOL and builds x86_64 only (no aarch64 base images for centos:7/EOL distros).',
+            name: 'ARCH')
         choice(
             choices: 'RelWithDebInfo\nDebug',
             description: 'Type of build to produce',
@@ -86,7 +94,7 @@ pipeline {
                                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                                     docker ps -q | xargs docker stop --time 1 || :
                                 fi
-                                ./docker/run-build ${DOCKER_OS}
+                                ./docker/run-build ${DOCKER_OS} ${ARCH}
                             " 2>&1 | tee build.log
 
                             echo Archive build: \$(date -u "+%s")

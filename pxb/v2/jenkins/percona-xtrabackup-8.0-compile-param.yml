@@ -60,12 +60,24 @@
          - debian:bullseye
          - debian:bookworm
          - asan
+      - axis:
+         type: user-defined
+         name: ARCH
+         values:
+         - x86_64
+         - aarch64
+    execution-strategy:
+      # Keep x86 coverage and one default ARM build. Other ARM cells are manual.
+      combination-filter: >-
+        ARCH == "x86_64" ||
+        (ARCH == "aarch64" && DOCKER_OS == "oraclelinux:9" && CMAKE_BUILD_TYPE == "RelWithDebInfo")
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.0-compile-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
           CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
           CLOUD=${{CLOUD}}
         block: true
