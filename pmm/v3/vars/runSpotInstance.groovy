@@ -121,7 +121,18 @@ EOF
                             break
                         fi
 
+                        # cancelling does not terminate an instance the request already launched
                         aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
+                        LAUNCHED=$(
+                            aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --output text \
+                                --spot-instance-request-ids $REQUEST_ID \
+                                --query 'SpotInstanceRequests[].InstanceId'
+                        )
+                        if [ -n "$LAUNCHED" ] && [ "$LAUNCHED" != None ]; then
+                            aws ec2 terminate-instances --region us-east-2 --instance-ids $LAUNCHED
+                        fi
                     done
 
                     PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
