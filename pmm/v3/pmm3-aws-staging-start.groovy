@@ -332,7 +332,7 @@ pipeline {
                             # pmm-framework needs this value as-is; changing it installs nothing
                             ./pmm-framework/pmm-framework \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
-                                --client-version="${CLIENT_VERSION}" \
+                                --client-version="${CLIENT_VERSION//[[:space:]]/}" \
                                 ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
                         popd
                     '''
