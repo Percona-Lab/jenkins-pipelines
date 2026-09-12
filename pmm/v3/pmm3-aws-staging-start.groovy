@@ -367,8 +367,8 @@ pipeline {
                     set -o xtrace
                     # read the files, not the env vars: those are only set once runSpotInstance
                     # finishes, so a build aborted mid-launch would leave nothing to clean up
-                    REQ=$(cat REQUEST_ID 2>/dev/null)
-                    AMI=$(cat AMI_ID 2>/dev/null)
+                    REQ=$(cat REQUEST_ID 2>/dev/null || true)
+                    AMI=$(cat AMI_ID 2>/dev/null || true)
                     # On-demand has no spot request, so gate each call on its own id:
                     # cancel only a real request, but always terminate a running instance.
                     if [ -n "$REQ" ]; then
