@@ -1,9 +1,13 @@
 def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_64') {
-  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}", "USE_ONDEMAND=${USE_ONDEMAND}", "ARCH=${ARCH}"]) {
+  // t4g.xlarge alone often has no spot capacity. These three are interchangeable (arm64,
+  // 4 vCPU, 16 GiB), so trying all of them usually finds one. Other types are left as-is.
+  String CANDIDATE_TYPES = (ARCH == 'arm64' && INSTANCE_TYPE == 't4g.xlarge') ? 't4g.xlarge m6g.xlarge m7g.xlarge' : INSTANCE_TYPE
+
+  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}", "USE_ONDEMAND=${USE_ONDEMAND}", "ARCH=${ARCH}", "CANDIDATE_TYPES=${CANDIDATE_TYPES}"]) {
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
             set -o xtrace
-            declare IMAGE_ID SUBNET SG1 SG2 SG3 SPOT_PRICE
+            declare IMAGE_ID SUBNET SG1 SG2 SG3 BASE_PRICE SPOT_PRICE
 
             IMAGE_ID=$(
                 aws ec2 describe-images \
@@ -48,7 +52,7 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                 )
                 aws ec2 wait instance-running --instance-ids $AMI_ID
             else
-                SPOT_PRICE=$(
+                BASE_PRICE=$(
                     aws ec2 describe-spot-price-history \
                         --instance-types $INSTANCE_TYPE \
                         --region us-east-2 \
@@ -58,12 +62,13 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                 )
 
                 PRICE_MULTIPLIER=1
-                while [ $PRICE_MULTIPLIER -le 5 ]; do
-                    # increase price by 15% each time
-                    SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
+                while [ ! -s IP ] && [ $PRICE_MULTIPLIER -le 5 ]; do
+                    # bid 15% over the base price per attempt: 1.15x, 1.30x ... 1.75x
+                    SPOT_PRICE=$(bc <<< "scale=8; $BASE_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
                     echo $SPOT_PRICE > SPOT_PRICE
 
-                    cat > config.json <<EOF
+                    for TYPE in $CANDIDATE_TYPES; do
+                        cat > config.json <<EOF
                       {
                         "DryRun": false,
                         "InstanceCount": 1,
@@ -71,7 +76,7 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                         "LaunchSpecification": {
                             "EbsOptimized": false,
                             "ImageId": "$IMAGE_ID",
-                            "InstanceType": "$INSTANCE_TYPE",
+                            "InstanceType": "$TYPE",
                             "KeyName": "jenkins",
                             "Monitoring": {
                                 "Enabled": false
@@ -87,41 +92,54 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                             "SubnetId": "$SUBNET"
                         },
                         "SpotPrice": "$SPOT_PRICE",
-                        "Type": "persistent"
+                        "Type": "one-time"
                       }
 EOF
 
-                    REQUEST_ID=$(
-                        aws ec2 request-spot-instances \
-                            --output text \
-                            --region us-east-2 \
-                            --cli-input-json file://config.json \
-                            --query 'SpotInstanceRequests[].SpotInstanceRequestId' \
-                            | tee REQUEST_ID
-                    )
+                        REQUEST_ID=$(
+                            aws ec2 request-spot-instances \
+                                --output text \
+                                --region us-east-2 \
+                                --cli-input-json file://config.json \
+                                --query 'SpotInstanceRequests[].SpotInstanceRequestId' \
+                                | tee REQUEST_ID
+                        )
 
-                    ATTEMPTS=2
-                    until [ -s IP ] || [ $ATTEMPTS -eq 0 ]; do
-                        sleep 5
-                        aws ec2 describe-instances \
-                            --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
-                            --query 'Reservations[].Instances[].PublicIpAddress' \
-                            --output text \
-                            --region us-east-2 \
-                            | tee IP
-                        ATTEMPTS=$((ATTEMPTS-1))
+                        ATTEMPTS=2
+                        until [ -s IP ] || [ $ATTEMPTS -eq 0 ]; do
+                            sleep 5
+                            aws ec2 describe-instances \
+                                --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
+                                --query 'Reservations[].Instances[].PublicIpAddress' \
+                                --output text \
+                                --region us-east-2 \
+                                | tee IP
+                            ATTEMPTS=$((ATTEMPTS-1))
+                        done
+
+                        if [ -s IP ]; then
+                            break
+                        fi
+
+                        # cancelling does not terminate an instance the request already launched
+                        aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
+                        LAUNCHED=$(
+                            aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --output text \
+                                --spot-instance-request-ids $REQUEST_ID \
+                                --query 'SpotInstanceRequests[].InstanceId'
+                        )
+                        if [ -n "$LAUNCHED" ] && [ "$LAUNCHED" != None ]; then
+                            aws ec2 terminate-instances --region us-east-2 --instance-ids $LAUNCHED
+                        fi
                     done
 
-                    if [ -s IP ]; then
-                        break
-                    fi
-
-                    aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
                     PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
                 done
 
                 if [ ! -s IP ]; then
-                    echo "Could not get a spot instance of type $INSTANCE_TYPE after 5 attempts"
+                    echo "Could not get a spot instance of [$CANDIDATE_TYPES] after 5 attempts"
                     exit 1
                 fi
 
