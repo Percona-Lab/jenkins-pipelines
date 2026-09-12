@@ -120,7 +120,7 @@ pipeline {
     string(name: 'AMI_ID', defaultValue: 'ami-0669b163befffb6c3', description: '[AMI Only] AWS AMI ID (e.g., ami-0669b163befffb6c3). Ignored for others.')
 
     // --- GLOBAL SETTINGS & VERSIONS ---
-    string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "latest" or "X.X.X" (release), "pmm3-rc" (Release Candidate), or a feature build URL provided in pmm-submodules repo (http://...).')
+    string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "X.X.X" (release), "pmm3-rc" (Release Candidate), "latest-tarball" (docker clients amd64 only), or a feature build tarball URL from pmm-submodules ("https://....tar.gz").')
     choice(name: 'ENABLE_PULL_MODE', choices: ['no', 'yes'], description: 'Enable Pull Mode for Clients')
     string(name: 'ADMIN_PASSWORD', defaultValue: 'pmm3admin!', description: 'Admin password applied after provisioning.')
     string(name: 'SSH_KEY', defaultValue: '', description: 'Public SSH key for "ec2-user". Paste your OpenSSH public key to enable SSH access to AWS instances')

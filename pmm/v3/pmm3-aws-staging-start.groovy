@@ -30,7 +30,7 @@ pipeline {
         )
         string(
             defaultValue: '3-dev-latest',
-            description: 'PMM Client version ("3-dev-latest" for main branch, "pmm3-latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "latest-tarball" or "https://....tar.gz" for feature build)',
+            description: 'PMM Client version ("3-dev-latest" for main branch, "X.X.X" for released version, "pmm3-rc" for Release Candidate, "latest-tarball" (docker clients amd64 only) or "https://....tar.gz" for feature build)',
             name: 'CLIENT_VERSION'
         )
         string(
