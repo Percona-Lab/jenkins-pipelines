@@ -280,20 +280,37 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     molecule ${action} -s ${scenario}
                     cd -
 
+                    if [ "${action}" = "create" ]; then
+                        # Molecule's ephemeral directory is not a fixed path - with concurrent
+                        # builds sharing this agent, Molecule may put it under the usual
+                        # ~/.cache/molecule/<role>/<scenario> location or under a randomized
+                        # ~/.ansible/tmp/molecule.*.<scenario> directory to avoid colliding with
+                        # another build using the same scenario name. Locate whichever key was
+                        # just written (the most recently modified match) instead of assuming
+                        # a fixed path, then copy it into this build's own workspace so later
+                        # steps (e.g. the post-build log backup) have a stable place to read it.
+                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/"
+                        BOOTSTRAP_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        if [ -z "\$BOOTSTRAP_KEY" ]; then
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-bootstrap-${param_test_type}/${scenario}" >&2
+                            exit 1
+                        fi
+                        cp "\$BOOTSTRAP_KEY" "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                    fi
+
                     cd ${product_to_test}-common-${param_test_type}
                     molecule ${action} -s ${scenario}
                     cd -
 
                     if [ "${action}" = "create" ]; then
-                        # Copy the Molecule-generated SSH keys into the Jenkins workspace so that
-                        # later steps (e.g. the post-build log backup) don't depend on Molecule's
-                        # ephemeral cache directory under /home/admin/.cache, which can be
-                        # recreated or removed by another build before this build's post{} steps run.
-                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/"
                         mkdir -p "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/"
-                        cp "/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${scenario}/ssh_key-us-west-1" "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
-                        chmod 600 "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
-                        cp "/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${scenario}/ssh_key-us-west-1" "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        COMMON_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        if [ -z "\$COMMON_KEY" ]; then
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-common-${param_test_type}/${scenario}" >&2
+                            exit 1
+                        fi
+                        cp "\$COMMON_KEY" "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
                         chmod 600 "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
                     fi
                 """
