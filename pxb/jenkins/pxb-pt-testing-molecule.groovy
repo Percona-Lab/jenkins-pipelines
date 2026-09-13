@@ -1,7 +1,7 @@
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@fix-pxb-docker-tests-trivy-curl", retriever: modernSCM([
         $class: 'GitSCMSource',
-        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+        remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
     ])
 
 
@@ -293,6 +293,10 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         osList = pxbInnovationPackageTesting()
                                     } else {
                                         error("Unsupported product_to_test: ${product_to_test}")
+                                    }
+
+                                    if (server_to_test.startsWith('ms')) {
+                                        osList = osList.findAll { !it.endsWith('-arm') }
                                     }
 
                                     if (REPO_TYPE == 'PRO') {
