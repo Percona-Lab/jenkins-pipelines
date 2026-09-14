@@ -74,6 +74,26 @@ String getDbTag(Map testVariables) {
     return imageTag(dbImage)
 }
 
+String getMongoVersionFromPillar(String pillarVersion, String imageMongod = '') {
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase("none")) {
+        def matcher = pillarVersion =~ /^(\d+)(\d)$/
+        if (matcher) {
+            return "${matcher[0][1]}.${matcher[0][2]}"
+        }
+    }
+
+    def imageMatcher = imageTag(imageMongod) =~ /(\d+)\.(\d+)/
+    if (imageMatcher) {
+        return "${imageMatcher[0][1]}.${imageMatcher[0][2]}"
+    }
+
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase("none")) {
+        error("Unable to detect MongoDB version from PILLAR_VERSION: ${pillarVersion} or IMAGE_MONGOD: ${imageMongod}")
+    }
+
+    return ""
+}
+
 String getDbVersion(Map testVariables) {
     return [
         testVariables.pillar_version,
@@ -257,24 +277,35 @@ Map prepareVersions(Map testVariables) {
     return testVariables
 }
 
-List loadTestList(String testList, String testSuite) {
+List loadTestList(String testList, String testSuite, Map opts = [:]) {
     echo "=========================[ Loading tests ]========================="
-    def suiteFileName = "source/e2e-tests/${testSuite}"
+    def records = []
 
     if (testList?.trim()) {
-        suiteFileName = "source/e2e-tests/run-custom.csv"
-
-        writeFile file: suiteFileName, text: testList
-
-        sh """
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
+        records = testList.split('\n').findAll { it.trim() }
+        echo "Custom test suite contains following tests:\n" + records.join('\n')
+    } else {
+        def operatorMode = opts.operatorMode ?: ((opts.clusterWide == 'YES') ? 'cluster-wide' : 'namespaced')
+        def platformArg = opts.platform ? "--platform ${opts.platform}" : ''
+        def mongoVersion = getMongoVersionFromPillar(
+            "${opts.pillarVersion ?: ''}",
+            "${opts.imageMongod ?: env.IMAGE_MONGOD ?: ''}"
+        )
+        def mongoVersionArg = mongoVersion ? "--mongo-version ${mongoVersion}" : ''
+        def output = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                cd source
+                uv run e2e-tests/select_tests.py list --suite ${testSuite} ${platformArg} ${mongoVersionArg} --operator-mode ${operatorMode} --format lines
+            """,
+            returnStdout: true
+        ).trim()
+        records = output.split('\n').findAll { it }
     }
 
-    def tests = readCSV(file: suiteFileName).collect { record ->
+    def tests = records.collect { name ->
         [
-            name   : record[0],
+            name   : name,
             cluster: "NA",
             result : "skipped",
             time   : 0.0,
