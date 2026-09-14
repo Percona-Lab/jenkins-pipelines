@@ -75,11 +75,14 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
+                    def buildName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.VERSION}"
                     if (params.MAJOR_REPO) {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.VERSION}-Major_Repo"
-                    } else {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.VERSION}"
+                        buildName += "-Major_Repo"
                     }
+                    if (params.USE_OBS_REPO) {
+                        buildName += "-OBS"
+                    }
+                    currentBuild.displayName = buildName
                 }
             }
         }
