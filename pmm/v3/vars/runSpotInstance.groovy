@@ -32,6 +32,10 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                     | tr '\t' '\n' \
                     | sort --random-sort
             )
+            if [ -z "$SUBNETS" ]; then
+                echo "No pmm-staging subnets found in us-east-2"
+                exit 1
+            fi
 
             MARKET_OPTS=""
             if [ "$USE_ONDEMAND" != "true" ]; then
@@ -57,10 +61,14 @@ def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_
                         $MARKET_OPTS \
                         --tag-specifications "ResourceType=instance,Tags=$TAGS" "ResourceType=volume,Tags=$TAGS" \
                         --output text \
-                        --query 'Instances[].InstanceId' > AMI_ID
+                        --query 'Instances[].InstanceId' > AMI_ID 2> run.err
                     then
                         break 2
                     fi
+
+                    # only a capacity refusal is worth another subnet or type
+                    cat run.err
+                    grep -qE 'InsufficientInstanceCapacity|InsufficientFreeAddressesInSubnet|SpotMaxPriceTooLow|MaxSpotInstanceCountExceeded|InstanceLimitExceeded|Unsupported' run.err || exit 1
                 done
             done
 
