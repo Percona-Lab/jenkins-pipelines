@@ -74,6 +74,26 @@ String getDbTag(Map testVariables) {
     return imageTag(dbImage)
 }
 
+String getMongoVersionFromPillar(String pillarVersion, String imageMongod = '') {
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase("none")) {
+        def matcher = pillarVersion =~ /^(\d+)(\d)$/
+        if (matcher) {
+            return "${matcher[0][1]}.${matcher[0][2]}"
+        }
+    }
+
+    def imageMatcher = imageTag(imageMongod) =~ /(\d+)\.(\d+)/
+    if (imageMatcher) {
+        return "${imageMatcher[0][1]}.${imageMatcher[0][2]}"
+    }
+
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase("none")) {
+        error("Unable to detect MongoDB version from PILLAR_VERSION: ${pillarVersion} or IMAGE_MONGOD: ${imageMongod}")
+    }
+
+    return ""
+}
+
 String getDbVersion(Map testVariables) {
     return [
         testVariables.pillar_version,
@@ -379,24 +399,65 @@ Map prepareVersions(Map testVariables) {
     return testVariables
 }
 
-List loadTestList(String testList, String testSuite) {
-    echo '=========================[ Loading tests ]========================='
-    def suiteFileName = "source/e2e-tests/${testSuite}"
+List csvTestNames(String testSuite) {
+    return readCSV(file: "source/e2e-tests/${testSuite}").collect { record -> record[0] }
+}
 
+String selectTestsPlatform(Map testVariables) {
+    def platform = testVariables.platform ?: ''
+    if (testVariables.platform_arch?.toLowerCase() == 'arm64' && platform) {
+        return "${platform}-arm64"
+    }
+    return platform
+}
+
+String selectTestsOperatorMode(Map opts) {
+    if (opts.operatorMode) {
+        return opts.operatorMode
+    }
+    return (opts.clusterWide == 'YES') ? 'cluster-wide' : 'namespaced'
+}
+
+List selectedTestNames(String testSuite, Map opts) {
+    def platformArg = opts.platform ? "--platform ${opts.platform}" : ''
+    def mongoVersion = getMongoVersionFromPillar(
+        "${opts.pillarVersion ?: ''}",
+        "${opts.imageMongod ?: ''}"
+    )
+    def mongoVersionArg = mongoVersion ? "--mongo-version ${mongoVersion}" : ''
+    def operatorMode = selectTestsOperatorMode(opts)
+    def output = sh(
+        script: """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            cd source
+            uv run e2e-tests/select_tests.py list --suite ${testSuite} ${platformArg} ${mongoVersionArg} --operator-mode ${operatorMode} --format lines
+        """,
+        returnStdout: true
+    ).trim()
+
+    return output.split('\n').findAll { it }
+}
+
+List loadTestNames(String testList, String testSuite, Map opts = [:]) {
     if (testList?.trim()) {
-        suiteFileName = 'source/e2e-tests/run-custom.csv'
-
-        writeFile file: suiteFileName, text: testList
-
-        sh """
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
+        def records = testList.split('\n').findAll { it.trim() }
+        echo "Custom test suite contains following tests:\n${records.join('\n')}"
+        return records
     }
 
-    def tests = readCSV(file: suiteFileName).collect { record ->
+    if (testSuite?.endsWith('.csv')) {
+        return csvTestNames(testSuite)
+    }
+
+    return selectedTestNames(testSuite, opts)
+}
+
+List loadTestList(String testList, String testSuite, Map opts = [:]) {
+    echo '=========================[ Loading tests ]========================='
+
+    def tests = loadTestNames(testList, testSuite, opts).collect { name ->
         [
-            name   : record[0],
+            name   : name,
             cluster: 'NA',
             result : 'skipped',
             time   : 0.0,
@@ -410,7 +471,12 @@ List loadTestList(String testList, String testSuite) {
 }
 
 void initTestRun(Map testVariables, Map config) {
-    testVariables.tests = loadTestList(config.testList, config.testSuite)
+    testVariables.tests = loadTestList(config.testList, config.testSuite, [
+        platform      : selectTestsPlatform(testVariables),
+        clusterWide   : testVariables.cluster_wide,
+        pillarVersion : testVariables.pillar_version,
+        imageMongod   : testVariables.images?.IMAGE_MONGOD
+    ])
 
     if (config.ignorePreviousRun == 'NO') {
         updateListWithLastExecutionStatus(testVariables)

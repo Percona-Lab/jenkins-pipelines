@@ -379,8 +379,12 @@ pipeline {
                             steps {
                                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                                     sh '''
+                                        for attempt in 1 2 3; do
+                                            docker pull ${DOCKER_TAG_UPGRADE} && break
+                                            [ "$attempt" = 3 ] && exit 1
+                                            sleep 30
+                                        done
                                         docker stop pmm-server
-                                        docker pull ${DOCKER_TAG_UPGRADE}
                                         docker rename pmm-server pmm-server-old
                                         docker run --detach --restart always \
                                             --network="pmm-qa" \
