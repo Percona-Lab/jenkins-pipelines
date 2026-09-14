@@ -312,10 +312,6 @@ pipeline {
                         export PATH=$PATH:/usr/sbin
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         mkdir -m 777 -p /tmp/backup_data
-                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                            export PMM_CLIENT_VERSION="latest"
-                        fi
-
                         if [[ "${CLIENT_INSTANCE}" = yes ]]; then
                             export EXTERNAL_PMM_SERVER_FLAG="--pmm-server-ip=${SERVER_IP}"
                         fi
