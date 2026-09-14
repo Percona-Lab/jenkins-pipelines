@@ -295,6 +295,10 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         error("Unsupported product_to_test: ${product_to_test}")
                                     }
 
+                                    if (server_to_test.startsWith('ms')) {
+                                        osList = osList.findAll { !it.endsWith('-arm') }
+                                    }
+
                                     if (REPO_TYPE == 'PRO') {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             script {
