@@ -25,12 +25,12 @@ pipeline {
         )
         choice(
             choices: ['amd64', 'arm64'],
-            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton t4g.xlarge)',
+            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton, t4g/m6g/m7g.xlarge, first with capacity)',
             name: 'SERVER_ARCH'
         )
         string(
             defaultValue: '3-dev-latest',
-            description: 'PMM Client version ("3-dev-latest" for main branch, "X.X.X" for released version, "pmm3-rc" for Release Candidate, "latest-tarball" (docker clients amd64 only) or "https://....tar.gz" for feature build)',
+            description: 'PMM Client version ("3-dev-latest" for main branch, "X.X.X" for released version (docker clients amd64 only), "pmm3-rc" for Release Candidate, "latest-tarball" (docker clients amd64 only) or "https://....tar.gz" for feature build)',
             name: 'CLIENT_VERSION'
         )
         string(
@@ -55,7 +55,7 @@ pipeline {
         )
         choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
-            description: 'Stop the instance in X days ("0" value disables the automated instance removal)',
+            description: 'Stop the instance in X days ("0" disables the automated removal). On spot this is best effort and an interruption ends the VM earlier. Use USE_ONDEMAND to keep the VM for the whole period.',
             name: 'DAYS'
         )
         text(
