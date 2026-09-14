@@ -102,7 +102,7 @@ pipeline {
         booleanParam(name: 'IMAGE_PROXY3', defaultValue: true, description: 'Certify IMAGE_PROXY3')
         booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
 
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
+        choice(name: 'JENKINS_AGENT', choices: ['AWS', 'Hetzner'], description: 'Cloud infra for build')
     }
 
     stages {

@@ -40,7 +40,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'AWS_REGION', defaultValue: 'eu-west-2', description: 'AWS region to use for openshift cluster')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
+        choice(name: 'JENKINS_AGENT', choices: ['AWS', 'Hetzner'], description: 'Cloud infra for build')
     }
     agent {
         label jenkinsAgentLabel()

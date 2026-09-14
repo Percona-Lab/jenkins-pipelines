@@ -48,7 +48,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'AKS_LOCATION', defaultValue: '', description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
+        choice(name: 'JENKINS_AGENT', choices: ['AWS', 'Hetzner'], description: 'Cloud infra for build')
     }
     agent {
         label jenkinsAgentLabel()
