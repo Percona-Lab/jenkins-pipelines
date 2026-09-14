@@ -8,14 +8,14 @@ def call(Map cfg = [:]) {
     def image = cfg.image ?: env.IMAGE_PXC ?: env.IMAGE_MYSQL ?: env.IMAGE_MONGOD ?: env.IMAGE_POSTGRESQL ?: env.IMAGE
     def operatorImage = cfg.operatorImage ?: cfg.imageOperator ?: env.IMAGE_OPERATOR
 
-    def failedTests = tests.findAll { it["result"] == "failure" }
-    def passedCount = tests.count { it["result"] == "passed" }
+    def failedTests = tests.findAll { it['result'] == 'failure' }
+    def passedCount = tests.count { it['result'] == 'passed' }
     def failedCount = failedTests.size()
-    def skippedCount = tests.count { it["result"] == "skipped" }
+    def skippedCount = tests.count { it['result'] == 'skipped' }
     def total = tests.size()
 
-    def duration = (currentBuild.durationString ?: "N/A").replace(' and counting', '')
-    def cw = ("$clusterWide" == "YES") ? "cluster-wide" : "non-cluster-wide"
+    def duration = (currentBuild.durationString ?: 'N/A').replace(' and counting', '')
+    def cw = ("$clusterWide" == 'YES') ? 'cluster-wide' : 'non-cluster-wide'
     def buildResult = (currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS')
     def status = (failedCount > 0 && buildResult == 'SUCCESS') ? 'FAILED' : buildResult
     def color = (status == 'SUCCESS') ? '#36A64F' : (status == 'UNSTABLE' ? '#DAA038' : '#FF0000')
@@ -56,11 +56,11 @@ def call(Map cfg = [:]) {
     message += "*Duration:* ${duration}\n"
 
     if (failedCount > 0) {
-        message += "\n*Failed tests:*\n"
+        message += '\n*Failed tests:*\n'
         failedTests.each { t ->
             def mins = 0.0
             try {
-                mins = ((t["time"] ?: 0) as Double) / 60
+                mins = ((t['time'] ?: 0) as Double) / 60
             } catch (ignored) {
                 mins = 0.0
             }

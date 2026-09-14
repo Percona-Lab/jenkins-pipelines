@@ -198,7 +198,7 @@ pipeline {
     post {
         always {
             script {
-                echo "CLUSTER ASSIGNMENTS\n" +
+                echo 'CLUSTER ASSIGNMENTS\n' +
                     testVariables.tests.toString()
                         .replace('], ', ']\n')
                         .replace(']]', ']')
