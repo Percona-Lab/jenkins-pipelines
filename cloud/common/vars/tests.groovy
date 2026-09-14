@@ -400,7 +400,10 @@ Map prepareVersions(Map testVariables) {
 }
 
 List csvTestNames(String testSuite) {
-    return readCSV(file: "source/e2e-tests/${testSuite}").collect { record -> record[0] }
+    def suiteFileName = "source/e2e-tests/${testSuite}"
+    echo "Loading tests from ${suiteFileName}"
+
+    return readCSV(file: suiteFileName).collect { record -> record[0] }.findAll { it?.trim() }
 }
 
 String selectTestsPlatform(Map testVariables) {
@@ -422,7 +425,7 @@ List selectedTestNames(String testSuite, Map opts) {
     def platformArg = opts.platform ? "--platform ${opts.platform}" : ''
     def mongoVersion = getMongoVersionFromPillar(
         "${opts.pillarVersion ?: ''}",
-        "${opts.imageMongod ?: ''}"
+        "${opts.imageMongod ?: env.IMAGE_MONGOD ?: ''}"
     )
     def mongoVersionArg = mongoVersion ? "--mongo-version ${mongoVersion}" : ''
     def operatorMode = selectTestsOperatorMode(opts)
