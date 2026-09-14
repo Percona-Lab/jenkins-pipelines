@@ -111,7 +111,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.SCENARIO, env.VERSION)
+                // sendSlackNotification(env.SCENARIO, env.VERSION)
             }
         }
     }
