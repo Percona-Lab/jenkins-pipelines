@@ -157,9 +157,56 @@ pipeline {
                                     fi
                                 fi
                             done < init_instances
+
+                            # A persistent request with no tags never enters the loop above: nothing
+                            # copies tags onto its instances, so an aborted build's request relaunches
+                            # an untagged VM every time something terminates it. Cancel any such
+                            # request older than an hour and terminate whatever it is running. Only
+                            # requests with no tags at all: a request tagged by anyone is not ours to
+                            # cancel, and this region is shared with other workloads.
+                            # CreateTime is UTC, so the cutoff must be too (the TTL check above compares local time)
+                            one_hour_ago=$(date -u --date=-1hour +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%S)
+                            # written to the file directly: a failed describe must fail the build, not read as an empty sweep.
+                            # disabled = a persistent request whose instance was stopped, it relaunches when re-enabled.
+                            aws ec2 describe-spot-instance-requests \
+                                --region us-east-2 \
+                                --output text \
+                                --filters Name=state,Values=open,active,disabled Name=type,Values=persistent \
+                                --query "SpotInstanceRequests[?CreateTime<='${one_hour_ago}' && !Tags].[SpotInstanceRequestId, InstanceId]" \
+                                > untagged_requests
+                            cat untagged_requests
+                            while read -r request instance; do
+                                if [[ -z $request ]]; then
+                                    continue
+                                fi
+                                # an instance somebody tagged by hand keeps its own TTL (the loop above
+                                # already decided KEEP or TERMINATE for it), only an untagged one goes
+                                # with its request. Checked live because a disabled request's instance is
+                                # stopped, so it is not in init_instances, and cancelling the request
+                                # would terminate it.
+                                instance_name=None
+                                if [[ $instance != None ]]; then
+                                    instance_name=$(aws ec2 describe-instances \
+                                        --region us-east-2 \
+                                        --output text \
+                                        --instance-ids "$instance" \
+                                        --query 'Reservations[].Instances[].[Tags[?Key==`Name`].Value | [0]]' 2>/dev/null || echo None)
+                                    instance_name=${instance_name:-None}
+                                fi
+                                if [[ $instance_name != None ]]; then
+                                    echo "KEEP tagged instance $instance behind untagged request $request"
+                                    continue
+                                fi
+                                echo TERMINATE untagged persistent request: $request
+                                echo ${request} >> requests_to_terminate
+                                if [[ $instance != None ]]; then
+                                    echo ${instance} >> instances_to_terminate
+                                fi
+                            done < untagged_requests
+
                             sort instances
                             cat requests_to_terminate instances_to_terminate
-                            wc -l instances_to_terminate
+                            wc -l requests_to_terminate instances_to_terminate
                         }
 
                         main
@@ -172,10 +219,10 @@ pipeline {
             steps {
                 unstash 'instances'
                 script {
-                    def instances_count = sh(returnStdout: true, script: '''
-                        wc -l instances_to_terminate
+                    def targets_count = sh(returnStdout: true, script: '''
+                        cat requests_to_terminate instances_to_terminate | wc -l
                     ''').trim()
-                    if (instances_count == '0 instances_to_terminate') {
+                    if (targets_count == '0') {
                         echo "WARNING: everything ok, skip terminate"
                         currentBuild.result = 'UNSTABLE'
                     }
@@ -187,8 +234,14 @@ pipeline {
                 unstash 'instances'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        grep -v None requests_to_terminate | xargs aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids || :
-                        cat instances_to_terminate | xargs aws ec2 --region us-east-2 terminate-instances --instance-ids
+                        # either list can be empty on its own: a request with no live instance, or on-demand instances.
+                        # A failed cancel fails the build: for a request with no instance it is the only action there is.
+                        if grep -qv None requests_to_terminate; then
+                            grep -v None requests_to_terminate | sort -u | xargs aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids
+                        fi
+                        if [ -s instances_to_terminate ]; then
+                            sort -u instances_to_terminate | xargs aws ec2 --region us-east-2 terminate-instances --instance-ids
+                        fi
                     '''
                 }
             }
