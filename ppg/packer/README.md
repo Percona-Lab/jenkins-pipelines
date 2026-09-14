@@ -36,7 +36,11 @@ bootstrap/re-image machinery.
 So we bake our own, on a schedule, in the CI build account (eu-central-1). The
 same Packer templates + scripts run whether driven locally (`justfile`) or by the
 GitHub Actions workflow. Builds connect over AWS Session Manager (no inbound SSH)
-and authenticate via GitHub OIDC (no static keys).
+and authenticate via GitHub OIDC (no static keys). Builders launch in a random
+default-VPC subnet across the region's AZs (`t3.large` x86_64, `m7g.large`
+arm64). Packer picks the subnet once per build and does not reselect on a
+capacity error, so this lowers the odds that one capacity-constrained AZ takes
+every lane, it does not guarantee failover. Set `-var subnet_id=...` to pin one.
 
 ## Build paths
 

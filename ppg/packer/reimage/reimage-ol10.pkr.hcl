@@ -23,8 +23,9 @@ variable "region" {
   default = "eu-central-1"
 }
 variable "subnet_id" {
-  type    = string
-  default = "subnet-068170595951ab3a9"
+  type        = string
+  default     = ""
+  description = "Pin the builder to one subnet. Empty (default) spreads launches across the default VPC's per-AZ subnets (see subnet_filter)."
 }
 variable "builder_instance_profile" {
   type    = string
@@ -44,7 +45,7 @@ variable "volume_size" {
 }
 
 locals {
-  instance_type  = var.arch == "arm64" ? "t4g.large" : "t3.large"
+  instance_type  = var.arch == "arm64" ? "m7g.large" : "t3.large"
   boot_mode      = var.arch == "arm64" ? "uefi" : "legacy-bios"
   ts             = formatdate("YYYYMMDD-hhmmss", timestamp())
   candidate_role = var.env == "test" ? "ppg-reimage-test-candidate" : "ppg-reimage-candidate"
@@ -67,9 +68,16 @@ source "amazon-ebssurrogate" "reimage" {
   ssh_clear_authorized_keys   = true
   iam_instance_profile        = var.builder_instance_profile
   skip_profile_validation     = true
-  subnet_id                   = var.subnet_id
   associate_public_ip_address = true
   deprecate_at                = timeadd(timestamp(), "168h") # a candidate; verify promotes it within hours
+  # Same multi-AZ placement as refresh.pkr.hcl (subnet_id overrides the filter).
+  subnet_id = var.subnet_id
+  subnet_filter {
+    filters = {
+      "default-for-az" = "true"
+    }
+    random = true
+  }
 
   # Source = the booted, verified full-size prebase (role=ppg-ol10-prebase) for THIS arch.
   source_ami_filter {

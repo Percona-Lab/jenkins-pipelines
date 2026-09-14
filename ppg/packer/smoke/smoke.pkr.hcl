@@ -36,8 +36,9 @@ variable "region" {
   default = "eu-central-1"
 }
 variable "subnet_id" {
-  type    = string
-  default = "subnet-068170595951ab3a9"
+  type        = string
+  default     = ""
+  description = "Pin the builder to one subnet. Empty (default) spreads launches across the default VPC's per-AZ subnets (see subnet_filter)."
 }
 variable "builder_instance_profile" {
   type    = string
@@ -49,7 +50,7 @@ variable "builder_security_group_name" {
 }
 
 locals {
-  instance_type = var.arch == "arm64" ? "t4g.large" : "t3.large"
+  instance_type = var.arch == "arm64" ? "m7g.large" : "t3.large"
   uname_arch    = var.arch == "arm64" ? "aarch64" : "x86_64"
   # Identity via /etc/os-release ID (release-file names cannot tell EL distros
   # apart once more are added: every clone ships /etc/redhat-release).
@@ -73,8 +74,15 @@ source "amazon-ebs" "smoke" {
   ssh_timeout                 = "10m"
   iam_instance_profile        = var.builder_instance_profile
   skip_profile_validation     = true # OIDC role has PassRole only, not iam:GetInstanceProfile
-  subnet_id                   = var.subnet_id
   associate_public_ip_address = true
+  # Same multi-AZ placement as refresh.pkr.hcl (subnet_id overrides the filter).
+  subnet_id = var.subnet_id
+  subnet_filter {
+    filters = {
+      "default-for-az" = "true"
+    }
+    random = true
+  }
   # Same pre-created no-ingress SG as the builder (disables Packer's temp SG).
   security_group_filter {
     filters = {
