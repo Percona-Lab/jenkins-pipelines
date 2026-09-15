@@ -118,7 +118,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
             cd \${build_dir}
             ls -laR ./
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -155,10 +155,6 @@ pipeline {
             defaultValue: '1',
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
-        string(
-            defaultValue: '100.18.0',
-            description: 'https://docs.mongodb.com/database-tools/installation/',
-            name: 'MONGO_TOOLS_TAG')
         string(
             defaultValue: 'psmdb-83',
             description: 'PSMDB repo name',
@@ -721,7 +717,6 @@ pipeline {
                         cat > branch_commit_id_83.last_successful <<EOF
 BRANCH_NAME=${GIT_BRANCH}
 COMMIT_ID=\${BUILT_COMMIT}
-MONGO_TOOLS_TAG=${MONGO_TOOLS_TAG}
 EOF
                         AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_83.last_successful s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                         echo "Recorded last_successful: ${GIT_BRANCH}@\${BUILT_COMMIT}"
