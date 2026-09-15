@@ -55,13 +55,19 @@
          - debian:stretch
          - debian:buster
          - asan
+      - axis:
+         type: user-defined
+         name: ARCH
+         values:
+         - x86_64
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-2.4-compile-pipeline
         current-parameters: true
         predefined-parameters: |
-          DOCKER_OS=${DOCKER_OS}
-          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+          DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
+          CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
@@ -72,10 +78,10 @@
     - copyartifact:
         project: percona-xtrabackup-2.4-compile-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_compile_pipeline}"
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_compile_pipeline}}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_compile_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_compile_pipeline}}" > PIPELINE_BUILD_NUMBER
         gunzip build.log.gz
     publishers:
     - raw:
