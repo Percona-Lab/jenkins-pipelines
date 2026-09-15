@@ -213,6 +213,16 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                 choices: ['NORMAL', 'PRO'],
                 description: 'Choose the product to test',
                 name: 'REPO_TYPE'
+            ),
+            choice(
+                choices: ['warn', 'enforce', 'off'],
+                description: 'PXB SBOM verification. warn: validate the SBOM files when the package ships them, skip when it does not (PXB does not ship them yet). enforce: require them. off: skip entirely.',
+                name: 'SBOM_CHECK_MODE'
+            ),
+            choice(
+                choices: ['warn', 'enforce', 'off'],
+                description: 'Vulnerability scanning of the SBOM. Gated separately from SBOM_CHECK_MODE so a new upstream CVE in a vendored library does not fail package testing.',
+                name: 'SBOM_VULN_MODE'
             )
         ])
     ])
@@ -229,6 +239,8 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
         scenario_to_test = "${params.scenario_to_test}"
         REPO_TYPE = "${params.REPO_TYPE}"
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
+        SBOM_CHECK_MODE = "${params.SBOM_CHECK_MODE}"
+        SBOM_VULN_MODE = "${params.SBOM_VULN_MODE}"
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())
@@ -325,6 +337,13 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                     //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
                                     archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
 
+                                    // Per-host SBOM results, fetched to the workspace
+                                    // root by tasks/check_pxb_sbom.yml. allowEmptyResults
+                                    // because SBOM_CHECK_MODE=off produces none.
+                                    junit testResults: '*_sbom-junit.xml',
+                                          keepLongStdio: true,
+                                          allowEmptyResults: true,
+                                          skipPublishingChecks: true
 
                                 }
                             }

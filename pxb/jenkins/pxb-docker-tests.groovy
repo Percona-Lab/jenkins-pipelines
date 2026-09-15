@@ -24,6 +24,18 @@ pipeline {
             description: 'Package Testing Repository Branch',
             name: 'PACKAGE_TESTING_REPO_BRANCH',
             trim: true)
+        choice(
+            choices: ['warn', 'enforce', 'off'],
+            description: 'PXB SBOM verification. warn: validate the SBOM files when the image ships them, skip when it does not (PXB images do not ship them yet). enforce: require them. off: skip entirely.',
+            name: 'SBOM_CHECK_MODE')
+        choice(
+            choices: ['warn', 'enforce', 'off'],
+            description: 'Vulnerability scanning of the SBOM. Gated separately so a new upstream CVE in a vendored library does not fail the docker tests.',
+            name: 'SBOM_VULN_MODE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Also verify an SBOM attached to the image in the registry as an OCI referrer. Off by default: percona-docker publishes no referrers today.',
+            name: 'SBOM_CHECK_OCI')
     }
     options {
         skipDefaultCheckout()
@@ -244,12 +256,37 @@ pipeline {
                                     sudo docker run --rm --entrypoint xbcloud    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcrypt    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbstream   \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
+
+                                    # SBOM checks (docker-image-tests/pxb/tests/test_pxb_sbom.py).
+                                    # trivy is already in /usr/local/bin from the trivy stage above.
+                                    # cyclonedx-cli and oras are arch-specific: copying the x64 asset
+                                    # onto the aarch64 agent gives an Exec format error that surfaces
+                                    # as a confusing pytest failure rather than a clear one.
+                                    ARCH=\$(uname -m)
+                                    if [ "\$ARCH" = "aarch64" ]; then
+                                        CDX_ASSET="cyclonedx-linux-arm64"
+                                        ORAS_ASSET="oras_1.2.3_linux_arm64.tar.gz"
+                                    else
+                                        CDX_ASSET="cyclonedx-linux-x64"
+                                        ORAS_ASSET="oras_1.2.3_linux_amd64.tar.gz"
+                                    fi
+                                    sudo curl -fsSL -o /usr/local/bin/cyclonedx \
+                                        https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET} || true
+                                    sudo chmod +x /usr/local/bin/cyclonedx || true
+                                    if [ "${params.SBOM_CHECK_OCI}" = "true" ]; then
+                                        curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/\${ORAS_ASSET} \
+                                            | sudo tar xz -C /usr/local/bin oras || true
+                                    fi
+                                    export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
+                                    export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
+                                    export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
+
                                     ./run.sh
                                 """
                             }
                             post {
                                 always {
-                                    junit 'package-testing/docker-image-tests/pxb/report.xml'
+                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true
                                 }
                             }
                         }
@@ -343,12 +380,37 @@ pipeline {
                                     sudo docker run --rm --entrypoint xbcloud    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcrypt    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbstream   \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
+
+                                    # SBOM checks (docker-image-tests/pxb/tests/test_pxb_sbom.py).
+                                    # trivy is already in /usr/local/bin from the trivy stage above.
+                                    # cyclonedx-cli and oras are arch-specific: copying the x64 asset
+                                    # onto the aarch64 agent gives an Exec format error that surfaces
+                                    # as a confusing pytest failure rather than a clear one.
+                                    ARCH=\$(uname -m)
+                                    if [ "\$ARCH" = "aarch64" ]; then
+                                        CDX_ASSET="cyclonedx-linux-arm64"
+                                        ORAS_ASSET="oras_1.2.3_linux_arm64.tar.gz"
+                                    else
+                                        CDX_ASSET="cyclonedx-linux-x64"
+                                        ORAS_ASSET="oras_1.2.3_linux_amd64.tar.gz"
+                                    fi
+                                    sudo curl -fsSL -o /usr/local/bin/cyclonedx \
+                                        https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET} || true
+                                    sudo chmod +x /usr/local/bin/cyclonedx || true
+                                    if [ "${params.SBOM_CHECK_OCI}" = "true" ]; then
+                                        curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/\${ORAS_ASSET} \
+                                            | sudo tar xz -C /usr/local/bin oras || true
+                                    fi
+                                    export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
+                                    export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
+                                    export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
+
                                     ./run.sh
                                 """
                             }
                             post {
                                 always {
-                                    junit 'package-testing/docker-image-tests/pxb/report.xml'
+                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true
                                 }
                             }
                         }
