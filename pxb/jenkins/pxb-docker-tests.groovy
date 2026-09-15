@@ -295,8 +295,6 @@ pipeline {
                             steps {
                                 sh """
                                     sudo yum install -y wget git
-                                    echo "installing curl"
-                                    sudo yum install -y curl
                                     TRIVY_VERSION="0.69.3"
                                     ARCH=\$(uname -m)
                                     if [[ "\$ARCH" == "aarch64" ]]; then
