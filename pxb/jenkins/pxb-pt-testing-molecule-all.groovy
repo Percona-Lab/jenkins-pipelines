@@ -43,6 +43,24 @@ pipeline {
             ],
             description: 'test upstream packages',
             name: 'upstream'
+        ),
+        choice(
+            choices: [
+                'warn',
+                'enforce',
+                'off'
+            ],
+            description: 'PXB SBOM verification, passed through to pxb-package-testing-molecule',
+            name: 'SBOM_CHECK_MODE'
+        ),
+        choice(
+            choices: [
+                'warn',
+                'enforce',
+                'off'
+            ],
+            description: 'SBOM vulnerability scanning, passed through to pxb-package-testing-molecule',
+            name: 'SBOM_VULN_MODE'
         )
 
     }
@@ -118,7 +136,9 @@ void runpxbptjob(String scenario_to_test) {
             string(name: "git_repo", value: git_repo),
             string(name: "install_repo", value: params.install_repo),
             string(name: "product_to_test", value: params.product_to_test),
-            string(name: "TESTING_BRANCH", value: params.TESTING_BRANCH)
+            string(name: "TESTING_BRANCH", value: params.TESTING_BRANCH),
+            string(name: "SBOM_CHECK_MODE", value: params.SBOM_CHECK_MODE),
+            string(name: "SBOM_VULN_MODE", value: params.SBOM_VULN_MODE)
         ],
         propagate: true,
         wait: true
