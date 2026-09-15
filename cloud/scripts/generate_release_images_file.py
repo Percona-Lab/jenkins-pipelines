@@ -339,8 +339,10 @@ def get_image_tasks(op):
             "pmm3": (D, "percona/pmm-client", "3"),
         },
         "ps": {
+            "9.7": (D, "percona/percona-server", "9.7"),
             "8.4": (D, "percona/percona-server", "8.4"),
             "8.0": (D, "percona/percona-server", "8.0"),
+            "backup97": (D, "percona/percona-xtrabackup", "9.7"),
             "backup84": (D, "percona/percona-xtrabackup", "8.4"),
             "backup80": (D, "percona/percona-xtrabackup", "8.0"),
             "orchestrator": (D, "percona/percona-orchestrator"),
@@ -384,6 +386,13 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
         ],
         "ps": [
             ("OPERATOR", "percona-server-mysql-operator", operator_version),
+            ("MYSQL97", "percona-server", versions.get("9.7")),
+            ("BACKUP97", "percona-xtrabackup", versions.get("backup97")),
+            (
+                "ROUTER97",
+                "percona-mysql-router",
+                versions.get("9.7", "").split("-")[0] or None,
+            ),
             ("MYSQL84", "percona-server", versions.get("8.4")),
             ("BACKUP84", "percona-xtrabackup", versions.get("backup84")),
             (
