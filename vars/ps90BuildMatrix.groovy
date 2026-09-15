@@ -614,5 +614,6 @@ def call(Map args) {
         }
     }
 
+    stagesMap['failFast'] = true
     parallel stagesMap
 }
