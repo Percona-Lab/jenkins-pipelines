@@ -227,6 +227,12 @@ pipeline {
                         envsubst < env.list > env.generated.list
                     '''
                 }
+                dir('e2e_tests') {
+                    sh '''
+                        npm ci
+                        npx playwright install chromium
+                    '''
+                }
             }
         }
         stage('Sleep') {
@@ -258,6 +264,18 @@ pipeline {
                 }
             }
         }
+        stage('Run Playwright UI Tests') {
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                dir('e2e_tests') {
+                    sh '''
+                        CI=true npx playwright test --grep '@gssapi-nightly'
+                    '''
+                }
+            }
+        }
     }
     post {
         always {
@@ -267,11 +285,11 @@ pipeline {
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'codeceptjs-e2e/tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'codeceptjs-e2e/tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png'
