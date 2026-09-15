@@ -273,19 +273,6 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Bullseye(11)(x86_64)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        script {
-                            buildStage("debian:bullseye", "--build_deb=1")
-                        }
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Debian Bookworm(12)(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
@@ -360,19 +347,6 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             buildStage("ubuntu:noble", "--build_tarball=1")
-                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
-                        }
-                    }
-                }
-                stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            buildStage("debian:bullseye", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
