@@ -1,4 +1,5 @@
 import groovy.transform.Field
+import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field String gitNamespace = 'percona'
 @Field String slackChannel = '#cloud-security-builds'
@@ -88,10 +89,12 @@ Map buildContext(Map repository, String date) {
     }
 
     def version = versionTag.substring(1)
-    def tag = "${versionTag}-sec.${date}"
-    def floatingTag = "${versionTag}-sec-latest"
-    def checkoutTag = libraries.tools.gitTagExists(floatingTag) ? floatingTag : versionTag
-    def imageTag = "${version}-sec.${date}"
+    def tag = "security/${version}-${date}"
+    def floatingTag = "security/${version}"
+    def checkoutTag = versionTag
+    def securityBaseBranch = "security/${version}"
+    def securityBranch = "${securityBaseBranch}-${date}"
+    def imageTag = "${version}-sec-${date}"
     def floatingImageTag = "${version}-sec-latest"
 
     [
@@ -101,14 +104,60 @@ Map buildContext(Map repository, String date) {
         SOURCE_BRANCH         : repository.sourceBranch,
         VERSION_TAG           : versionTag,
         CHECKOUT_TAG          : checkoutTag,
-        SECURITY_BRANCH       : tag,
+        SECURITY_BASE_BRANCH  : securityBaseBranch,
+        SECURITY_BRANCH       : securityBranch,
         TAG                   : tag,
         FLOATING_TAG          : floatingTag,
+        SOURCE_IMAGE          : "${repository.releaseImageRepo}/${repository.imageName}:${version}",
         IMAGE                 : "${repository.imageRepo}/${repository.imageName}:${imageTag}",
         FLOATING_IMAGE        : "${repository.imageRepo}/${repository.imageName}:${floatingImageTag}",
         RELEASE_IMAGE         : "${repository.releaseImageRepo}/${repository.imageName}:${imageTag}",
         FLOATING_RELEASE_IMAGE: "${repository.releaseImageRepo}/${repository.imageName}:${floatingImageTag}"
     ]
+}
+
+String pullProductionImage(Map context) {
+    def image = context.SECURITY_BASE_EXISTS ? context.FLOATING_RELEASE_IMAGE : context.SOURCE_IMAGE
+
+    withEnv(["PRODUCTION_IMAGE=${image}"]) {
+        sh '''
+            set -eu
+            echo "Pulling production image ${PRODUCTION_IMAGE}"
+            docker pull "${PRODUCTION_IMAGE}"
+        '''
+    }
+
+    return image
+}
+
+boolean ensureSecurityBaseBranch(Map context) {
+    def branchExists
+
+    withEnv([
+        "REPO_PATH=${context.REPO_PATH}",
+        "SECURITY_BASE_BRANCH=${context.SECURITY_BASE_BRANCH}"
+    ]) {
+        libraries.credentials.withGitHubCredentials {
+            branchExists = sh(
+                script: 'git ls-remote --exit-code --heads origin "refs/heads/${SECURITY_BASE_BRANCH}"',
+                returnStatus: true
+            ) == 0
+
+            if (branchExists) {
+                echo "Using existing security base branch ${context.SECURITY_BASE_BRANCH}"
+                sh '''
+                    git fetch origin \
+                        "refs/heads/${SECURITY_BASE_BRANCH}:refs/remotes/origin/${SECURITY_BASE_BRANCH}"
+                    git checkout --detach "refs/remotes/origin/${SECURITY_BASE_BRANCH}"
+                '''
+            } else {
+                echo "Using release tag ${context.VERSION_TAG} and creating ${context.SECURITY_BASE_BRANCH}"
+                sh 'git push origin "HEAD:refs/heads/${SECURITY_BASE_BRANCH}"'
+            }
+        }
+    }
+
+    return branchExists
 }
 
 void goSecurityFixScript(Map context) {
@@ -176,14 +225,47 @@ String fixVulnerabilities(Map context) {
     }
 }
 
-void rebuildVerifyAndPush(Map context) {
-    libraries.tools.dockerBuildImage(context.DOCKERFILE, context.IMAGE)
-    libraries.tools.trivyVerifyImage(context.IMAGE)
+void pushDevelopmentBuild(Map context) {
     libraries.tools.dockerTagImage(context.IMAGE, context.FLOATING_IMAGE)
 
     libraries.credentials.withDockerCredentials {
         libraries.tools.dockerPushImage(context.IMAGE)
         libraries.tools.dockerPushImage(context.FLOATING_IMAGE)
+    }
+}
+
+void addVulnerabilityBadge() {
+    def counts = sh(
+        script: '''
+            critical=$(grep -Eo '"Severity"[[:space:]]*:[[:space:]]*"CRITICAL"' trivy.json | wc -l)
+            high=$(grep -Eo '"Severity"[[:space:]]*:[[:space:]]*"HIGH"' trivy.json | wc -l)
+            total=$((critical + high))
+            printf '%s %s %s' "${critical}" "${high}" "${total}"
+        ''',
+        returnStdout: true
+    ).trim().tokenize()
+    def critical = counts[0]
+    def high = counts[1]
+    def total = counts[2]
+    def badgeStyle = 'padding: 4px 12px; border-radius: 8px; font-weight: 600;'
+
+    if (total != '0') {
+        addBadge(
+            id: 'trivy-critical',
+            text: "${critical} CRITICAL",
+            style: "${badgeStyle} color: #ff4d4f; background-color: #4a2328;"
+        )
+        addBadge(
+            id: 'trivy-high',
+            text: "${high} HIGH",
+            style: "${badgeStyle} color: #f0a500; background-color: #493817;"
+        )
+    } else {
+        addBadge(
+            id: 'trivy-clean',
+            text: 'NO VULNERABILITIES',
+            style: "${badgeStyle} color: #2ecc71; background-color: #183d2b;"
+        )
     }
 }
 
@@ -195,8 +277,8 @@ void runTests(Map repository, Map context) {
             propagate: true,
             parameters: [
                 string(name: 'TEST_SUITE', value: 'run-release.csv'),
-                string(name: 'GIT_BRANCH', value: context.SECURITY_BRANCH),
-                string(name: 'IMAGE_OPERATOR', value: context.IMAGE),
+                string(name: 'GIT_BRANCH', value: context.SECURITY_BASE_BRANCH),
+                string(name: 'IMAGE_OPERATOR', value: context.RELEASE_IMAGE),
                 string(name: 'GKE_RELEASE_CHANNEL', value: 'stable'),
                 string(name: 'CLUSTER_WIDE', value: 'yes'),
                 string(name: 'PILLAR_VERSION', value: repository.pillarVersion)
@@ -205,32 +287,82 @@ void runTests(Map repository, Map context) {
     }
 }
 
-void waitForApproval(Map repository, Map context, String vulnerabilitySummary) {
-    def changesUrl = "https://github.com/${gitNamespace}/${repository.name}/compare/" +
-        "${context.CHECKOUT_TAG}...${context.SECURITY_BRANCH}"
+String createPullRequest(Map context) {
+    def prUrl
 
+    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
+        libraries.credentials.withGitHubCredentials {
+            prUrl = libraries.tools.githubCreatePullRequest(
+                context.REPO_PATH,
+                context.GIT_NAMESPACE,
+                context.SECURITY_BRANCH,
+                context.SECURITY_BASE_BRANCH,
+                "Security build ${context.TAG}",
+                "Automated security update for ${context.TAG}."
+            )
+        }
+    }
+
+    return prUrl
+}
+
+void waitForApprovalOrMerge(Map repository, Map context, String vulnerabilitySummary, String prUrl) {
     slackSend(
         botUser: true,
         channel: slackChannel,
         color: '#FFA500',
         failOnError: true,
         message: [
-            ':warning: *Security build awaiting approval*',
+            ':warning: *Security build awaiting PR approval or merge*',
             '',
             "*Repository*: `${gitNamespace}/${repository.name}`",
             "*Branch*: `${context.SECURITY_BRANCH}`",
+            "*Target branch*: `${context.SECURITY_BASE_BRANCH}`",
+            "*DEV image*: `${context.IMAGE}`",
             "*Image*: `${context.RELEASE_IMAGE}`",
             "*Latest*: `${context.FLOATING_RELEASE_IMAGE}`",
             '',
             '*Vulnerabilities and selected fixes:*',
             vulnerabilitySummary,
             '',
-            "<${changesUrl}|Review branch changes against ${context.CHECKOUT_TAG}>",
-            "<${context.BUILD_URL}|Open Jenkins to approve>"
+            "<${prUrl}|Review security pull request>",
+            "<${context.BUILD_URL}|Open Jenkins build>"
         ].join('\n')
     )
 
-    input message: "Publish ${context.RELEASE_IMAGE}?", ok: 'Approve'
+    addSummary(
+        id: 'security-build-approval',
+        text: """
+            <b>Security build awaiting PR approval or merge</b><br>
+            <b>Repository:</b> ${gitNamespace}/${repository.name}<br>
+            <b>Branch:</b> ${context.SECURITY_BRANCH}<br>
+            <b>Target branch:</b> ${context.SECURITY_BASE_BRANCH}<br>
+            <b>DEV image:</b> ${context.IMAGE}<br>
+            <b>PROD image:</b> ${context.RELEASE_IMAGE}<br>
+            <b>Latest PROD image:</b> ${context.FLOATING_RELEASE_IMAGE}<br><br>
+            <b>Vulnerabilities and selected fixes:</b><br>
+            <pre>${vulnerabilitySummary}</pre>
+            <a href="${prUrl}" target="_blank"
+               style="display: inline-block; padding: 8px 14px; color: #fff; background-color: #238636; border-radius: 6px; text-decoration: none; font-weight: 600;">
+                Review security pull request
+            </a><br>
+            <a href="${context.BUILD_URL}">Open Jenkins build</a>
+        """.stripIndent().trim()
+    )
+
+    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
+        libraries.credentials.withGitHubCredentials {
+            waitUntil(initialRecurrencePeriod: 30000, quiet: true) {
+                if (libraries.tools.githubMergeApprovedPullRequest(context.REPO_PATH, prUrl)) {
+                    echo 'Pull request is merged; continuing the security build'
+                    return true
+                }
+
+                echo 'Pull request is waiting for approval, required checks, or merge'
+                return false
+            }
+        }
+    }
 }
 
 void publishBuild(Map context) {
@@ -241,8 +373,17 @@ void publishBuild(Map context) {
         libraries.tools.dockerPushImage(context.FLOATING_RELEASE_IMAGE)
     }
 
-    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
+    withEnv([
+        "REPO_PATH=${context.REPO_PATH}",
+        "SECURITY_BASE_BRANCH=${context.SECURITY_BASE_BRANCH}"
+    ]) {
         libraries.credentials.withGitHubCredentials {
+            sh '''
+                set -eu
+                git fetch origin \
+                    "refs/heads/${SECURITY_BASE_BRANCH}:refs/remotes/origin/${SECURITY_BASE_BRANCH}"
+                git checkout --detach "refs/remotes/origin/${SECURITY_BASE_BRANCH}"
+            '''
             libraries.tools.gitCreateTag(context.TAG, "Security build ${context.TAG}")
             libraries.tools.gitPushTag(context.TAG)
             libraries.tools.gitCreateTag(
@@ -251,16 +392,15 @@ void publishBuild(Map context) {
                 true
             )
             libraries.tools.gitPushTag(context.FLOATING_TAG, true)
+        }
+    }
+}
 
-            def prUrl = libraries.tools.githubCreatePullRequest(
-                context.REPO_PATH,
-                context.GIT_NAMESPACE,
-                context.SECURITY_BRANCH,
-                context.SOURCE_BRANCH,
-                "Security build ${context.TAG}",
-                "Automated security update for ${context.TAG}."
-            )
-            echo "Pull request: ${prUrl}"
+void skipStages(List<String> stages, String reason) {
+    stages.each { stageName ->
+        stage(stageName) {
+            echo reason
+            Utils.markStageSkippedForConditional(stageName)
         }
     }
 }
@@ -284,6 +424,7 @@ void processRepository(Map repository, String date) {
                 Base tag: ${context.VERSION_TAG}
                 Checkout tag: ${context.CHECKOUT_TAG}
                 Branch: ${context.SECURITY_BRANCH}
+                Target branch: ${context.SECURITY_BASE_BRANCH}
                 Image: ${context.IMAGE}
                 Floating image: ${context.FLOATING_IMAGE}
                 Release image: ${context.RELEASE_IMAGE}
@@ -291,6 +432,7 @@ void processRepository(Map repository, String date) {
             """.stripIndent().trim()
 
             libraries.tools.gitCheckoutTag(context.CHECKOUT_TAG)
+            context.SECURITY_BASE_EXISTS = ensureSecurityBaseBranch(context)
             context.DOCKERFILE = findDockerfile()
             echo "Dockerfile: ${context.DOCKERFILE}"
         }
@@ -298,10 +440,15 @@ void processRepository(Map repository, String date) {
 
     dir(repository.name) {
         def vulnerabilitySummary
+        def prUrl
 
-        stage("Build & Scan") {
-            libraries.tools.dockerBuildImage(context.DOCKERFILE, context.IMAGE)
-            libraries.tools.trivyScanImage(context.IMAGE)
+        stage("Pull PROD Image") {
+            context.SCAN_IMAGE = pullProductionImage(context)
+            echo "Scanning production image: ${context.SCAN_IMAGE}"
+        }
+        stage("Trivy Scan") {
+            libraries.tools.trivyScanImage(context.SCAN_IMAGE)
+            addVulnerabilityBadge()
         }
 
         stage("Fix vulnerabilities") {
@@ -309,24 +456,43 @@ void processRepository(Map repository, String date) {
         }
 
         if (!vulnerabilitySummary) {
-            echo "No fixable Go vulnerabilities found for ${repository.name}; skipping security publication"
+            def reason = "No fixable Go vulnerabilities found for ${repository.name}"
+            skipStages([
+                'Rebuild',
+                'Trivy Verify',
+                'Push DEV Image',
+                'Create Pull Request',
+                'Approval or Merge',
+                'Publish',
+                'E2E Tests'
+            ], reason)
             return
         }
-        stage("Rebuild & Verify") {
-            rebuildVerifyAndPush(context)
+        stage("Rebuild") {
+            libraries.tools.dockerBuildImage(context.DOCKERFILE, context.IMAGE)
         }
-        stage("E2E Tests") {
-            timeout(time: 6, unit: 'HOURS') {
-                runTests(repository, context)
-            }
+        stage("Trivy Verify") {
+            libraries.tools.trivyVerifyImage(context.IMAGE)
         }
-        stage("Approval") {
+        stage("Push DEV Image") {
+            pushDevelopmentBuild(context)
+        }
+        stage("Create Pull Request") {
+            prUrl = createPullRequest(context)
+            echo "Pull request: ${prUrl}"
+        }
+        stage("Approval or Merge") {
             timeout(time: 8, unit: 'HOURS') {
-                waitForApproval(repository, context, vulnerabilitySummary)
+                waitForApprovalOrMerge(repository, context, vulnerabilitySummary, prUrl)
             }
         }
         stage("Publish") {
             publishBuild(context)
+        }
+        stage("E2E Tests") {
+            timeout(time: 8, unit: 'HOURS') {
+                runTests(repository, context)
+            }
         }
     }
 }

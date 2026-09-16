@@ -197,6 +197,48 @@ String githubCreatePullRequest(String repository, String headNamespace, String h
     }
 }
 
+boolean githubMergeApprovedPullRequest(String repository, String pullRequestUrl) {
+    def ready
+
+    withEnv([
+        "GITHUB_PR_REPOSITORY=${repository}",
+        "GITHUB_PR_URL=${pullRequestUrl}"
+    ]) {
+        ready = sh(
+            script: '''
+                set -eu
+                set +x
+                pr_number="${GITHUB_PR_URL##*/}"
+                api="https://api.github.com/repos/${GITHUB_PR_REPOSITORY}/pulls/${pr_number}"
+
+                pull_request=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                    -H "Accept: application/vnd.github+json" "${api}")
+
+                if printf '%s' "${pull_request}" | grep -Eq '"merged"[[:space:]]*:[[:space:]]*true'; then
+                    exit 0
+                fi
+
+                reviews=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                    -H "Accept: application/vnd.github+json" "${api}/reviews")
+                printf '%s' "${reviews}" | grep -Eq \
+                    '"state"[[:space:]]*:[[:space:]]*"APPROVED"' || exit 1
+
+                response=$(curl -fsS -X PUT \
+                    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Content-Type: application/json" \
+                    -d '{"merge_method":"squash"}' "${api}/merge" || true)
+
+                printf '%s' "${response}" | grep -Eq \
+                    '"merged"[[:space:]]*:[[:space:]]*true'
+            ''',
+            returnStatus: true
+        ) == 0
+    }
+
+    return ready
+}
+
 void gitPushBranch(String branchName) {
     sh """
         set -eu
