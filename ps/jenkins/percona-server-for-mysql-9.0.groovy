@@ -52,6 +52,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
             bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
         else
+            SBOM_PARAM=""
+            if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
             docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                 set -o xtrace
                 cd \${build_dir}
@@ -59,8 +61,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     . ./test/percona-server-9.0.properties
                 fi
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                SBOM_PARAM=\"\"
-                if [ \"${ENABLE_SBOM}\" = \"ON\" ]; then SBOM_PARAM=\"--sbom=1\"; fi
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
         fi
     """

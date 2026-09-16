@@ -152,7 +152,7 @@ pipeline {
                             if ("${PS_MAJOR_RELEASE}" == "80") {
                                 buildStage("ubuntu:focal", "--build_source_deb=1")
                             } else {
-                                buildStage("ubuntu:focal", "--build_source_deb=1")
+                                buildStage("debian:bookworm", "--build_source_deb=1")
                             }
                         }
 
