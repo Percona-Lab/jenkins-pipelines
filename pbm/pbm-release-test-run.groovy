@@ -26,7 +26,7 @@ pipeline {
         }
         stage ('Run package tests') {
             steps {
-                build job: 'pbm-pkg-install-parallel', parameters: [ string(name: 'install_repo', value: "testing"), string(name: 'psmdb_to_test', value: "psmdb-60" ), string(name: 'VERSION', value: params.PBM_VERSION)]
+                build job: 'pbm-pkg-install-parallel', parameters: [ string(name: 'install_repo', value: "testing"), string(name: 'psmdb_to_test', value: "psmdb-80" ), string(name: 'VERSION', value: params.PBM_VERSION)]
             }
         }
         stage ('Build docker images and check for vulnerabilities') { 
