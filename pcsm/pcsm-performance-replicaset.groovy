@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'OPERATING_SYSTEM',description: 'Operating System',choices: ['ubuntu24', 'redhat8'])
-        choice(name: 'MONGODB_VERSION',description: 'PSMDB used for testing',choices: ['6', '7','8'])
+        choice(name: 'MONGODB_VERSION',description: 'PSMDB used for testing',choices: ['8', '7'])
         booleanParam(name: 'MONGODB_COMMUNITY', defaultValue: false, description: 'Do you want to use Mongodb Community Edition?')
         string(name: 'PCSM_BRANCH',description: 'PCSM Branch for testing',defaultValue: 'main')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
