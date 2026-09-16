@@ -38,6 +38,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         mkdir -p test
         wget \$(echo ${env.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${env.BRANCH}/build-ps/percona-server-9.0_builder.sh -O ps_builder.sh || curl \$(echo ${env.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${env.BRANCH}/build-ps/percona-server-9.0_builder.sh -o ps_builder.sh
         export build_dir=\$(pwd -P)
+        SBOM_PARAM=""
+        if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
         if [ "${DOCKER_OS}" = "none" ]; then
             set -o xtrace
             cd \${build_dir}
@@ -45,7 +47,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 . ./test/percona-server-9.0.properties
             fi
             sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} ${STAGE_PARAM}
+            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
         else
             docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                 set -o xtrace
@@ -54,7 +56,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     . ./test/percona-server-9.0.properties
                 fi
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} ${STAGE_PARAM}"
+                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
         fi
     """
 }
