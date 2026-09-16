@@ -75,7 +75,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'make',
-                        'psmdb-operator',
+                        'psmdb',
                         'rancher'
                     )
                 }
@@ -100,7 +100,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'psmdb-operator',
+                        operator              : 'psmdb',
                         platform              : 'rke2',
                         platform_provider     : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,

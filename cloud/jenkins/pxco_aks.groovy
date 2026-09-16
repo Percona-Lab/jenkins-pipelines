@@ -81,7 +81,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         '',
-                        'pxc-operator',
+                        'pxc',
                         'azure'
                     )
                 }
@@ -105,7 +105,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'pxc-operator',
+                        operator              : 'pxc',
                         platform              : 'aks',
                         platform_provider     : 'azure',
                         platform_version      : PLATFORM_VER,

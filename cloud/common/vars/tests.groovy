@@ -148,7 +148,7 @@ void printTestVariables(Map testVariables) {
 }
 
 String getReleaseParamName(String imageName, String pillarVersion, String operator, String ubiVersion = null) {
-    if (operator?.equalsIgnoreCase('pg-operator') && pillarVersion.endsWith('-community')) {
+    if (operator?.equalsIgnoreCase('pg') && pillarVersion.endsWith('-community')) {
         def pgVersion = pillarVersion.replace('-community', '')
         def logcollectorKey = (ubiVersion == 'UBI10') ? 'IMAGE_LOGCOLLECTOR_UBI10' : 'IMAGE_LOGCOLLECTOR'
         def communityImages = [
@@ -166,19 +166,19 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
     def logcollectorKey = (ubiVersion == 'UBI10') ? 'IMAGE_LOGCOLLECTOR_UBI10' : 'IMAGE_LOGCOLLECTOR'
 
     def operatorImages = [
-        'psmdb-operator': [
+        psmdb: [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
-        'ps-operator': [
+        ps: [
             IMAGE_MYSQL : "IMAGE_MYSQL${pillarVersion}",
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}",
             IMAGE_ROUTER: "IMAGE_ROUTER${pillarVersion}"
         ],
-        'pxc-operator': [
+        pxc: [
             IMAGE_PXC   : "IMAGE_PXC${pillarVersion}",
             IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
-        'pg-operator': [
+        pg: [
             IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}${ubiSuffix}",
             IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersion}",
             IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersion}",
@@ -187,7 +187,7 @@ String getReleaseParamName(String imageName, String pillarVersion, String operat
         ]
     ]
 
-    if (operator?.equalsIgnoreCase('pg-operator') &&
+    if (operator?.equalsIgnoreCase('pg') &&
         imageName == 'IMAGE_POSTGRESQL' &&
         pillarVersion.endsWith('-postgis')) {
         return "IMAGE_POSTGIS${pgVersion}${ubiSuffix}"
@@ -241,7 +241,7 @@ void validateTestVariables(Map testVariables) {
         error("Unsupported platform/provider combination: ${testVariables.platform}/${testVariables.platform_provider}")
     }
 
-    def validOperators = ['pg-operator', 'ps-operator', 'psmdb-operator', 'pxc-operator']
+    def validOperators = ['pg', 'ps', 'psmdb', 'pxc']
     if (!(testVariables.operator in validOperators)) {
         error("Unsupported operator: ${testVariables.operator}")
     }
@@ -682,7 +682,7 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     }
 
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
-    exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
+    exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}-operator'"
     exports << """
         [[ '${testVariables.images.IMAGE_OPERATOR}' ]] && \
             export IMAGE='${testVariables.images.IMAGE_OPERATOR}' || \
@@ -722,7 +722,7 @@ Map buildPsmdbTestVariables(Map config) {
         skip_kubeconfig        : config.skip_kubeconfig ?: false,
         debug_tests            : config.debug_tests,
         cluster_wide           : config.cluster_wide,
-        operator               : 'psmdb-operator',
+        operator               : 'psmdb',
         default_operator_image : config.default_operator_image,
         test_executor_type     : 'make',
         images                 : config.images,
@@ -738,7 +738,7 @@ Map buildPxcTestVariables(Map config) {
         skip_kubeconfig        : config.skip_kubeconfig ?: false,
         debug_tests            : config.debug_tests,
         cluster_wide           : config.cluster_wide,
-        operator               : 'pxc-operator',
+        operator               : 'pxc',
         default_operator_image : config.default_operator_image,
         images                 : config.images,
         extra_envs             : config.extra_envs ?: [:]
@@ -753,7 +753,7 @@ Map buildPsTestVariables(Map config) {
         skip_kubeconfig        : config.skip_kubeconfig ?: false,
         debug_tests            : config.debug_tests ?: 'NO',
         cluster_wide           : config.cluster_wide,
-        operator               : 'ps-operator',
+        operator               : 'ps',
         default_operator_image : config.default_operator_image,
         test_executor_type     : 'kuttl',
         images                 : config.images,
@@ -970,7 +970,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     def clusterCfg = [
         clusterName     : testVariables.cluster_name,
         clusterSuffix   : clusterSuffix,
-        product         : testVariables.operator,
+        product         : "${testVariables.operator}-operator",
         platformVersion : testVariables.platform_version,
         platformChannel : testVariables.platform_channel,
         machineType     : testVariables.machine_type,

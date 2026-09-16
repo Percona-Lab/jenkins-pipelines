@@ -80,7 +80,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'pg-operator',
+                        'pg',
                         'rancher'
                     )
                 }
@@ -93,7 +93,7 @@ pipeline {
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: operatorImage,
                         branch: GIT_BRANCH,
-                        operator: 'pg-operator'
+                        operator: 'pg'
                     )
                 }
             }
@@ -115,7 +115,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'pg-operator',
+                        operator              : 'pg',
 
                         platform              : 'rke2',
                         platform_provider     : 'rancher',

@@ -80,7 +80,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'rancher'
                     )
                 }
@@ -104,7 +104,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
+                        operator              : 'ps',
                         platform              : 'rke2',
                         platform_provider     : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,

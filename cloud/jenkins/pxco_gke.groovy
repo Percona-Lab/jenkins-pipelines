@@ -74,7 +74,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         '',
-                        'pxc-operator',
+                        'pxc',
                         'gcloud'
                     )
                 }
@@ -98,7 +98,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'pxc-operator',
+                        operator              : 'pxc',
                         platform              : 'gke',
                         platform_provider     : 'gcloud',
                         platform_channel      : GKE_RELEASE_CHANNEL,

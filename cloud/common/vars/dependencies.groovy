@@ -200,11 +200,11 @@ void installExecutorDependencies(String testExecutorType) {
 }
 
 Boolean needsGoogleAuth(String operator, String provider) {
-    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb-operator'
+    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb'
 }
 
 Boolean needsAzureCli(String operator, String provider) {
-    return provider == 'azure' || operator == 'psmdb-operator' || operator == 'pxc-operator'
+    return provider == 'azure' || operator == 'psmdb' || operator == 'pxc'
 }
 
 void installClusterProviderTools(String provider, String platformVersion) {
@@ -232,11 +232,11 @@ void installProviderDependencies(Map libraries, String operator, String provider
     // PSMDB and PXC require Google and Azure CLIs on every provider.
     // Rancher uses Google CLI because clusters run on GCE.
 
-    if (operator == 'pxc-operator') {
+    if (operator == 'pxc') {
         installPxcTools()
     }
 
-    if (needsGoogleAuth(operator, provider) || operator == 'pxc-operator') {
+    if (needsGoogleAuth(operator, provider) || operator == 'pxc') {
         installGoogleCLI()
     }
 

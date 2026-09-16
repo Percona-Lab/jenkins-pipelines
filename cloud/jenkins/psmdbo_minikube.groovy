@@ -71,7 +71,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'make',
-                        'psmdb-operator',
+                        'psmdb',
                         'minikube'
                     )
                 }
@@ -105,7 +105,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'psmdb-operator',
+                        operator              : 'psmdb',
                         platform              : 'minikube',
                         platform_provider     : 'minikube',
                         platform_version      : platformVersion,
