@@ -359,13 +359,13 @@ PSMDB_VERSION_LIMITS = {
 }
 
 PS_VERSION_LIMITS = {
-    "mysql": {"8.4": 5, "8.0": 5},
+    "mysql": {"9.7": 5, "8.4": 5, "8.0": 5},
     "pmm": 1,
     "haproxy": 1,
     "orchestrator": 1,
-    "router": {"8.4": 1, "8.0": 1},
+    "router": {"9.7": 1, "8.4": 1, "8.0": 1},
     "toolkit": 1,
-    "backup": {"8.4": 1, "8.0": 1},
+    "backup": {"9.7": 1, "8.4": 1, "8.0": 1},
     "operator": 1,
 }
 
