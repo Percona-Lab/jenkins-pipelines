@@ -184,8 +184,11 @@ pipeline {
                         set -o pipefail
                         cd valkey-packaging/images
 
-                        export SMOKE_SUBNET_ID=$(awk -F'"' '/subnet_id/ { print $2; exit }' packer/variables.pkr.hcl)
-                        export SMOKE_SECURITY_GROUP_ID=$(awk -F'"' '/security_group_id/ { print $2; exit }' packer/variables.pkr.hcl)
+                        # Anchored on the declaration line: a bare /subnet_id/ match
+                        # hits `variable "subnet_id" {` first and yields the name
+                        # instead of the value.
+                        export SMOKE_SUBNET_ID=$(awk -F'"' '/variable "subnet_id"/{f=1} f && /default/{print $2; exit}' packer/variables.pkr.hcl)
+                        export SMOKE_SECURITY_GROUP_ID=$(awk -F'"' '/variable "security_group_id"/{f=1} f && /default/{print $2; exit}' packer/variables.pkr.hcl)
                         export SMOKE_KEY_NAME="${SMOKE_KEY_NAME}"
 
                         failures=0
