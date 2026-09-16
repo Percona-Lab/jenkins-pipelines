@@ -3,12 +3,21 @@
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+
+        VALIDATION PHASE: this job reads its pipeline from the feat/ps97-ami
+        branch, not from hetzner, because the image build it drives has never
+        been run. Change the branch below to hetzner once a build has passed,
+        and merge the pipeline there in the same step.
+
+        The images repository branch must also be overridden: IMAGES_BRANCH
+        defaults to marketplace, which does not yet contain images/ps97.
+        Use IMAGES_BRANCH=feat/ps97-ami until that merges.
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'hetzner'
+            - 'feat/ps97-ami'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: ps/jenkins/ps97-ami.groovy
