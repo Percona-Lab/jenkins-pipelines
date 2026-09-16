@@ -14,7 +14,7 @@ pipeline {
         ANSIBLE_DISPLAY_SKIPPED_HOSTS = false
     }
     parameters {
-        choice(name: 'PSMDB',description: 'PSMDB repository',choices: ['psmdb-70','psmdb-80'])
+        choice(name: 'PSMDB',description: 'PSMDB repository',choices: ['psmdb-80','psmdb-83','psmdb-70'])
         choice(name: 'REPO',description: 'Repo for testing',choices: ['testing','experimental','release'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3en.large','t2.micro','i3.xlarge','i3en.xlarge','i3en.3xlarge'])
         choice(name: 'GENERATOR',description: 'Use mgodatagen for regular documents or mongofiles for GridFS',choices: ['mongofiles','mgodatagen'])

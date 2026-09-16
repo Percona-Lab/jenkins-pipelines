@@ -17,7 +17,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdmdbOperatingSystems('6.0')
+            choices: pdmdbOperatingSystems('8.0')
         )
         choice(
             name: 'REPO',
@@ -29,7 +29,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '4.4.8',
+            defaultValue: '8.0.12',
             description: 'PSMDB Version for tests',
             name: 'PSMDB_VERSION')
         choice(
