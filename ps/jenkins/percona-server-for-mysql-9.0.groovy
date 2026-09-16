@@ -177,7 +177,6 @@ def package_tests_ps90(def nodes) {
             }
         }
     }
-    stepsForParallel['failFast'] = true
     parallel stepsForParallel
 }
 
@@ -237,7 +236,6 @@ parameters {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
-        parallelsAlwaysFailFast()
     }
     stages {
 
