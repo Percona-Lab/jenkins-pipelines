@@ -14,6 +14,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             wget \$(echo ${BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/mysql-shell_builder.sh -O mysql-shell_builder.sh
             if [ "${USE_GIT_CREDENTIAL}" = "YES" ]; then
                 sed -i 's#GIT_TERMINAL_PROMPT=0 git clone "\$repo_url"\$#GIT_TERMINAL_PROMPT=0 git clone "\$(echo "\$repo_url" | sed -e "s|https://github.com/|https://x-access-token:${TOKEN}@github.com/|")"#' mysql-shell_builder.sh
+                sed -i 's#git submodule update\$#git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"\n        git submodule update#' mysql-shell_builder.sh
             fi
             export build_dir=\$(pwd -P)
             docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
