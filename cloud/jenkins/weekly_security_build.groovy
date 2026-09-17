@@ -315,9 +315,9 @@ void waitForApprovalOrMerge(Map repository, Map context, String vulnerabilitySum
             "*Repository*: `${gitNamespace}/${repository.name}`",
             "*Branch*: `${context.SECURITY_BRANCH}`",
             "*Target branch*: `${context.SECURITY_BASE_BRANCH}`",
-            "*DEV image*: `${context.IMAGE}`",
-            "*Image*: `${context.RELEASE_IMAGE}`",
-            "*Latest*: `${context.FLOATING_RELEASE_IMAGE}`",
+            "*Test image*: `${context.IMAGE}`",
+            "*Build image*: `${context.RELEASE_IMAGE}`",
+            "*Latest build image*: `${context.FLOATING_RELEASE_IMAGE}`",
             '',
             '*Vulnerabilities and selected fixes:*',
             vulnerabilitySummary,
@@ -334,9 +334,9 @@ void waitForApprovalOrMerge(Map repository, Map context, String vulnerabilitySum
             <b>Repository:</b> ${gitNamespace}/${repository.name}<br>
             <b>Branch:</b> ${context.SECURITY_BRANCH}<br>
             <b>Target branch:</b> ${context.SECURITY_BASE_BRANCH}<br>
-            <b>DEV image:</b> ${context.IMAGE}<br>
-            <b>PROD image:</b> ${context.RELEASE_IMAGE}<br>
-            <b>Latest PROD image:</b> ${context.FLOATING_RELEASE_IMAGE}<br><br>
+            <b>Test image:</b> ${context.IMAGE}<br>
+            <b>Build image:</b> ${context.RELEASE_IMAGE}<br>
+            <b>Latest build image:</b> ${context.FLOATING_RELEASE_IMAGE}<br><br>
             <b>Vulnerabilities and selected fixes:</b><br>
             <pre>${vulnerabilitySummary}</pre>
             <a href="${prUrl}" target="_blank"
