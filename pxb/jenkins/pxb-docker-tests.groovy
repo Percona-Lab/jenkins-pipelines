@@ -282,6 +282,19 @@ pipeline {
                                     export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
 
                                     ./run.sh
+
+                                    # Both arch stages publish the same report.xml
+                                    # path, so without a label the Jenkins table
+                                    # shows each SBOM test twice with no way to
+                                    # tell arm64 from amd64. Scoped to the SBOM
+                                    # tests so test_container_att.py is untouched.
+                                    case "\$(uname -m)" in
+                                        aarch64|arm64) SBOM_LABEL=arm64 ;;
+                                        *)             SBOM_LABEL=amd64 ;;
+                                    esac
+                                    (cd ../.. && python3 -m sbom_checks.label_junit \
+                                        docker-image-tests/pxb/report.xml \
+                                        --label "\$SBOM_LABEL" --only test_pxb_sbom) || true
                                 """
                             }
                             post {
@@ -406,6 +419,19 @@ pipeline {
                                     export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
 
                                     ./run.sh
+
+                                    # Both arch stages publish the same report.xml
+                                    # path, so without a label the Jenkins table
+                                    # shows each SBOM test twice with no way to
+                                    # tell arm64 from amd64. Scoped to the SBOM
+                                    # tests so test_container_att.py is untouched.
+                                    case "\$(uname -m)" in
+                                        aarch64|arm64) SBOM_LABEL=arm64 ;;
+                                        *)             SBOM_LABEL=amd64 ;;
+                                    esac
+                                    (cd ../.. && python3 -m sbom_checks.label_junit \
+                                        docker-image-tests/pxb/report.xml \
+                                        --label "\$SBOM_LABEL" --only test_pxb_sbom) || true
                                 """
                             }
                             post {
