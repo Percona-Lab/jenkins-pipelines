@@ -89,6 +89,27 @@ fi
 
 echo "  /boot ok: ${boot_free_mb}MB free"
 
+# 9. No crash-dump initramfs, and kdump stays off: kdump wrote one ~35MB image
+#    per newly booted kernel and nothing owned them, so retired kernels left
+#    theirs behind. provision.sh disables the service and removes the images.
+#    Fail if any survived, or if the unit exists in any state other than
+#    disabled or masked (static, indirect, enabled-runtime, or an empty answer
+#    from a failed lookup all count as "would start at boot").
+kdump_images="$(compgen -G '/boot/initramfs-*kdump.img' || true)"
+if [[ -n "${kdump_images}" ]]; then
+  fail "crash-dump initramfs still on /boot: ${kdump_images//$'\n'/ }"
+fi
+
+if [[ -f /usr/lib/systemd/system/kdump.service ]]; then
+  kdump_state="$(systemctl is-enabled kdump.service 2>/dev/null || true)"
+  case "${kdump_state}" in
+    disabled|masked) ;;
+    *) fail "kdump.service state is '${kdump_state}', need disabled or masked so no crash-dump initramfs is written on first boot" ;;
+  esac
+fi
+
+echo "  kdump ok: no crash-dump initramfs, service off"
+
 echo "VALIDATE OK: ${OS} ${OS_MAJOR} ${UNAME_ARCH}"
 # De-instancing is native now: packer `ssh_clear_authorized_keys` strips the temp
 # key, and cloud-init's default `ssh_deletekeys: true` regenerates host keys on
