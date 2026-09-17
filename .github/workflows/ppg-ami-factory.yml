@@ -3,7 +3,9 @@
 # Manager (no inbound SSH), authenticated via GitHub OIDC (no static keys), and
 # promotes each via a fresh-boot smoke test. Consumer: pg.cd molecule jobs use
 # the static AMI pins in vars/moleculeEnvPPG.groovy, refreshed weekly by the
-# update-molecule-env job through an auto-opened PR.
+# update-molecule-env job through a dated PR (one new PR per refresh, the
+# previous one closed as superseded). ppg-ami-pins-check.yml goes red when
+# master's pins lag the newest promoted AMIs.
 # Rocky lineage roots are seeded once per combo via dispatch (just ci-seed-rocky).
 #
 # Triggers: PR validate-only (pull_request -> check job, no AWS), recipe change
@@ -184,11 +186,18 @@ jobs:
   update-molecule-env:
     name: Update moleculeEnvPPG.groovy (OL/Rocky AMI IDs)
     needs: bake
-    # Weekly runs only, never manual/PR/push, where a partial or test-env combo
-    # list must not drive the pins. !cancelled() rather than success(): a partial
-    # bake still refreshes the pins, because the script resolves from the promote
-    # tags, so a failed combo simply keeps last week's AMI while the rest advance.
-    if: github.event_name == 'schedule' && !cancelled() && needs.bake.result != 'skipped'
+    # Every prod bake from master publishes: the weekly schedule, a recipe push
+    # (its bake promotes 12 new AMIs, and an unpublished promote would start the
+    # daily staleness clock with no PR to merge), and a manual prod dispatch so
+    # a failed Monday can be repaired the same day. The resolver reads the
+    # promote tags of every combo, never this run's matrix, and test bakes
+    # promote to a different role tag, so a partial or test-env combo list
+    # cannot drive the pins. !cancelled() rather than success(): a partial bake
+    # still refreshes the pins, a failed combo keeps last week's AMI.
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.env || 'prod') == 'prod'))
+      && !cancelled() && needs.bake.result != 'skipped'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -215,39 +224,82 @@ jobs:
 
       - name: Commit and open a PR if changed
         # master rejects direct pushes (protected branch, changes must go through
-        # a pull request), so the refresh is published as a PR on one fixed rolling
-        # branch. Force-push keeps that branch current; an already-open PR is
-        # reused. Needs pull-requests: write plus the repo setting "Allow GitHub
-        # Actions to create and approve pull requests".
+        # a pull request), so the refresh is published as a PR from a branch
+        # named after the run date. A new branch and PR every refresh keeps it
+        # visible: the PR date is the refresh date, CODEOWNERS requests the
+        # reviewers on creation, and every earlier refresh PR is closed as
+        # superseded, also when this run has nothing new to publish (a stale
+        # open refresh PR would otherwise pin an image the prune may remove). A
+        # same-day re-run reuses that day's PR. Needs pull-requests: write plus
+        # the repo setting "Allow GitHub Actions to create and approve pull
+        # requests".
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          same_repo='select(.head.repo.owner.login == "'"${GITHUB_REPOSITORY_OWNER}"'")'
+          refresh_head='select(.head.ref | test("^ppg-ami-refresh(-[0-9]{8})?$"))'
+          # All open same-repo refresh PRs, paginated so none hides behind newer PRs.
+          open_refresh_prs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=master&per_page=100" \
+            --jq ".[] | ${same_repo} | ${refresh_head} | .number")
+          pr_number=""
           if git diff --quiet -- vars/moleculeEnvPPG.groovy; then
-            echo "no AMI ID changes; nothing to commit"
-            exit 0
-          fi
-          branch=ppg-ami-refresh
-          git config user.name "ppg-ami-factory-bot"
-          git config user.email "actions@github.com"
-          git checkout -B "$branch"
-          git add vars/moleculeEnvPPG.groovy
-          git commit -m "Auto-update OL/Rocky molecule AMI IDs (weekly ppg-ami-factory refresh)"
-          # The rolling branch is bot-owned and rebuilt from master every week;
-          # manual commits on it do not survive the next refresh.
-          git push --force origin "HEAD:$branch"
-          # Count only same-repo PRs: an unqualified --head also matches a fork
-          # PR whose head branch happens to share the name, which would skip
-          # creation here and silently leave the refresh unpublished.
-          open_prs=$(gh pr list --head "$branch" --base master --state open \
-            --json number,headRepositoryOwner \
-            --jq '[.[] | select(.headRepositoryOwner.login == "'"${GITHUB_REPOSITORY_OWNER}"'")] | length')
-          if [ "$open_prs" = "0" ]; then
-            gh pr create --head "$branch" --base master \
-              --title "Auto-update OL/Rocky molecule AMI IDs (weekly refresh)" \
-              --body "Weekly ppg-ami-factory refresh: OL/Rocky pins in vars/moleculeEnvPPG.groovy updated to the newest promoted AMIs (tag role=ppg-package-test). Opened automatically by the update-molecule-env job."
+            echo "no AMI ID changes; nothing to publish"
           else
-            echo "open PR for $branch already exists; branch force-updated"
+            refresh_date=$(date -u +%Y-%m-%d)
+            branch="ppg-ami-refresh-${refresh_date//-/}"
+            git config user.name "ppg-ami-factory-bot"
+            git config user.email "actions@github.com"
+            git checkout -B "$branch"
+            git add vars/moleculeEnvPPG.groovy
+            git commit -m "Auto-update OL/Rocky molecule AMI IDs (ppg-ami-factory refresh ${refresh_date})"
+            # Force only matters for a same-day re-run: the branch is bot-owned and
+            # rebuilt from master, manual commits on it do not survive.
+            git push --force origin "HEAD:$branch"
+            pr_number=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=master&head=${GITHUB_REPOSITORY_OWNER}:${branch}&per_page=100" \
+              --jq ".[] | ${same_repo} | .number" | head -n 1)
+            if [ -z "$pr_number" ]; then
+              # A failed create must not leave an orphan branch behind: the next
+              # run publishes from a new dated branch and only closes PRs.
+              if ! pr_url=$(gh pr create --head "$branch" --base master \
+                --title "Auto-update OL/Rocky molecule AMI IDs (${refresh_date})" \
+                --body "ppg-ami-factory refresh of ${refresh_date}: OL/Rocky pins in vars/moleculeEnvPPG.groovy updated to the newest promoted AMIs (tag role=ppg-package-test). Opened automatically by the update-molecule-env job. The branch is bot-owned: do not merge master into it, merge or close only."); then
+                echo "FAIL: could not open the refresh PR, deleting branch $branch"
+                git push origin --delete "$branch"
+                exit 1
+              fi
+              pr_number=${pr_url##*/}
+              echo "opened PR #${pr_number}"
+            else
+              echo "open PR #${pr_number} for $branch already exists; branch force-updated"
+            fi
+            # The published PR must carry the pins file, otherwise the refresh is
+            # lost silently (a merge of master into the branch did exactly that).
+            gh pr diff "$pr_number" --name-only > changed-files.txt
+            grep -Fxq 'vars/moleculeEnvPPG.groovy' changed-files.txt \
+              || { echo "FAIL: PR #${pr_number} does not change vars/moleculeEnvPPG.groovy"; exit 1; }
+          fi
+          # Close every other open refresh PR (older dated branches and the legacy
+          # rolling branch). One failed close is reported and the rest still run,
+          # the step fails at the end so a stale PR never stays open unnoticed.
+          close_failures=0
+          for old_pr in $open_refresh_prs; do
+            [ "$old_pr" = "$pr_number" ] && continue
+            if [ -n "$pr_number" ]; then
+              reason="Superseded by #${pr_number}."
+            else
+              reason="Superseded: master already carries the newest promoted AMIs."
+            fi
+            if gh pr close "$old_pr" --comment "$reason" --delete-branch; then
+              echo "closed superseded PR #${old_pr}"
+            else
+              echo "::warning::could not close superseded PR #${old_pr}"
+              close_failures=$((close_failures + 1))
+            fi
+          done
+          if [ "$close_failures" -gt 0 ]; then
+            echo "FAIL: ${close_failures} superseded refresh PR(s) could not be closed"
+            exit 1
           fi
 
   notify:
@@ -263,9 +315,15 @@ jobs:
     env:
       SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
     steps:
+      - name: Refuse to alert into the void
+        # On the canonical repo a missing webhook secret is itself a failure:
+        # a skipped alert hid three red weeks in a row. Forks stay quiet.
+        if: env.SLACK_WEBHOOK == '' && github.repository == 'Percona-Lab/jenkins-pipelines'
+        run: |
+          echo "::error::RELEASES_CI_SLACK_WEBHOOK is not set in this repository, the failure alert was not delivered"
+          exit 1
+
       - name: Slack on failure
-        # Skip cleanly when the webhook secret is unset (e.g. fork tests), so a real
-        # bake failure is not masked by a second "missing webhook" failure.
         if: env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
         with:
