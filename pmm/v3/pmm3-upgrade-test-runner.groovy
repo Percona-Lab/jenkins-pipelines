@@ -172,13 +172,7 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
                         env.PLAYWRIGHT_FLAG= "noTestsRunning"
-                        // The pre-upgrade half of this leg runs from pmm-ui-tests at the
-                        // release being upgraded FROM, which still names the container
-                        // mysql_ssl_8.0 and reads its certificates from
-                        // tls-ssl-setup/mysql/8.0/. pmm-qa's own default moved to 8.4, so
-                        // pin it here and hand the same version to the post-upgrade tests.
-                        env.SSL_MYSQL_VERSION = "8.0"
-                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql=${env.SSL_MYSQL_VERSION} --database ssl_pdpgsql"
+                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
                     } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
@@ -357,7 +351,15 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npm ci
+                            npx playwright install
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${PRE_UPGRADE_FLAG}
+                        popd
                     '''
                 }
             }
