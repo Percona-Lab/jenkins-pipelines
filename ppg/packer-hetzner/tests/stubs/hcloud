@@ -1,0 +1,50 @@
+#!/bin/bash
+# Fake hcloud for the stub tests (tests/*.sh): records every invocation to
+# STUB_CALL_LOG and serves canned JSON from STUB_FIXTURE_DIR. No network, no
+# token. Unexpected invocations fail loudly so a test can never silently pass
+# over a call path it does not model.
+set -euo pipefail
+
+echo "$*" >> "${STUB_CALL_LOG}"
+
+case "$1 $2" in
+  "image describe")
+    # Serve image-<id>.json; from the SECOND describe of the same id on, serve
+    # image-<id>.2.json when present (lets a test flip labels mid-run to prove
+    # the pre-delete re-check).
+    describe_count=$(grep -c "^image describe $3 " "${STUB_CALL_LOG}" || true)
+
+    if [[ "${describe_count}" -ge 2 && -f "${STUB_FIXTURE_DIR}/image-$3.2.json" ]]; then
+      cat "${STUB_FIXTURE_DIR}/image-$3.2.json"
+    else
+      cat "${STUB_FIXTURE_DIR}/image-$3.json"
+    fi
+    ;;
+  "image delete")
+    exit 0
+    ;;
+  "image add-label")
+    exit 0
+    ;;
+  "server list")
+    echo "[]"
+    ;;
+  "ssh-key list")
+    # $3 $4 are "-l <selector>"; serve ssh-keys-<selector>.json ("=" -> "_")
+    # or an empty listing for selectors the test seeds no fixture for.
+    fixture="${STUB_FIXTURE_DIR}/ssh-keys-${4//=/_}.json"
+
+    if [[ -f "${fixture}" ]]; then
+      cat "${fixture}"
+    else
+      echo "[]"
+    fi
+    ;;
+  "ssh-key delete")
+    exit 0
+    ;;
+  *)
+    echo "stub hcloud: unexpected invocation: $*" >&2
+    exit 64
+    ;;
+esac

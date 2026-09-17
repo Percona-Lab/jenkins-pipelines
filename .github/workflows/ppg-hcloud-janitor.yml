@@ -1,0 +1,162 @@
+# Janitor for leaked Hetzner Cloud resources (ppg/packer-hetzner/scripts/janitor.sh):
+# factory builder/smoke servers a crashed bake left behind, molecule test servers,
+# and leaked SSH keys: Packer's labeled per-build temp keys plus the per-run keys
+# the bootstrap and molecule producers upload. Selection is label-contract-only
+# and age-bound (see the script header).
+#
+# Triggers: hourly cron (APPLIES with a conservative 6h age floor: a leak the
+# producers' own cleanup missed for 6h is debris, and a list-only cron is pure
+# noise), manual dispatch with both knobs (apply defaults to list-only there).
+# Any leak listed or deleted posts a Slack alert.
+# Actions are pinned to commit SHAs. The trailing "# vX.Y.Z" records the tag.
+
+name: ppg-hcloud-janitor
+run-name: ppg hcloud janitor (${{ (github.event_name == 'schedule' || inputs.apply == true) && 'APPLY' || 'list-only' }}, ${{ github.event_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Actually delete the selected leaks (default: list only)'
+        required: false
+        default: false
+        type: boolean
+      max_age_hours:
+        description: 'Only touch resources older than this many hours (long molecule suites can pass 2h, so stay conservative)'
+        required: false
+        default: '6'
+  schedule:
+    - cron: '22 * * * *' # hourly apply sweep (offset from the top of the hour)
+
+permissions:
+  contents: read # workflow-level default: read-only
+
+concurrency:
+  group: ppg-hcloud-janitor
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Sweep leaked servers + ssh keys (${{ (github.event_name == 'schedule' || inputs.apply == true) && 'APPLY' || 'list-only' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # OIDC token for AssumeRole
+    # Consumed by the credential-free alert job below, so the Slack action
+    # never runs beside the token-bearing steps.
+    outputs:
+      count: ${{ steps.janitor.outputs.count }}
+      mode: ${{ steps.janitor.outputs.mode }}
+    steps:
+      # Tool setup runs BEFORE authentication; neither the AWS credentials nor
+      # the token enter the job env (explicitly wired per step only).
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install hcloud CLI (pinned, checksum-verified)
+        uses: ./.github/actions/setup-hcloud
+
+      # Master-pinned OIDC trust + SSM token: a branch-ref dispatch fails at
+      # AssumeRole, and GitHub stores no Hetzner credential.
+      - name: Configure AWS credentials (OIDC)
+        id: aws
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          # Hardcoded on purpose; security is the master-only trust, not ARN secrecy.
+          role-to-assume: arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-hcloud-factory
+          role-session-name: ppg-hcloud-janitor-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: us-east-1
+          role-duration-seconds: 900
+          output-credentials: true
+          output-env-credentials: false
+
+      - name: Read factory token from SSM
+        id: hcloud_token
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws.outputs.aws-access-key-id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws.outputs.aws-secret-access-key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws.outputs.aws-session-token }}
+          AWS_REGION: us-east-1
+        run: |
+          set -euo pipefail
+          token=$(aws ssm get-parameter --name /ppg/hcloud-factory-token \
+            --with-decryption --query Parameter.Value --output text)
+          if [ -z "$token" ] || [ "$token" = "REPLACE-out-of-band" ]; then
+            echo "SSM parameter still holds the placeholder; populate it first" >&2
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Run janitor
+        id: janitor
+        # Scheduled sweeps APPLY at a conservative 6h age floor. Dispatch keeps
+        # both knobs and stays list-only unless apply=true is picked.
+        env:
+          HCLOUD_TOKEN: ${{ steps.hcloud_token.outputs.token }}
+          APPLY: ${{ (github.event_name == 'schedule' || inputs.apply == true) && '1' || '0' }}
+          MAX_AGE_HOURS: ${{ github.event_name == 'schedule' && '6' || inputs.max_age_hours || '6' }}
+        run: |
+          set -euo pipefail
+          set +e
+          bash ppg/packer-hetzner/scripts/janitor.sh "${APPLY}" "${MAX_AGE_HOURS}" | tee janitor.log
+          janitor_exit="${PIPESTATUS[0]}"
+          set -e
+          cat janitor.log >> "$GITHUB_STEP_SUMMARY"
+          # Idempotent probe: a run that died before its summary line has no
+          # count. Default to 0 and let the exit-code check below surface it.
+          count=$(grep -oE '^(leaked|deleted)=[0-9]+$' janitor.log | tail -n 1 | cut -d= -f2 || true)
+          {
+            echo "count=${count:-0}"
+            echo "mode=$([ "${APPLY}" = "1" ] && echo deleted || echo listed)"
+          } >> "$GITHUB_OUTPUT"
+          # Exit 3 is the janitor's "leaks listed" signal, not a sweep failure:
+          # the alert step below reports it. Anything else non-zero is real.
+          if [ "${janitor_exit}" -ne 0 ] && [ "${janitor_exit}" -ne 3 ]; then
+            exit "${janitor_exit}"
+          fi
+
+  # Separate job so the third-party Slack action never runs in the
+  # token-bearing sweep job.
+  alert:
+    needs: sweep
+    if: needs.sweep.outputs.count != '0'
+    runs-on: ubuntu-latest
+    # Job-level so the step `if` below reads it reliably. A step-scoped env can be
+    # unavailable to its own step's `if`, which would skip the alert silently.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
+    steps:
+      - name: Slack alert on leaks (listed or deleted)
+        # Skip cleanly when the webhook secret is unset (e.g. fork tests), same
+        # guard pattern as the factory notify, so the sweep result is never
+        # masked by a second "missing webhook" failure.
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "PPG hcloud janitor: ${{ needs.sweep.outputs.count }} leaked resource(s) ${{ needs.sweep.outputs.mode }} in ${{ github.repository }} - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  notify:
+    needs: sweep
+    if: failure()
+    runs-on: ubuntu-latest
+    # Job-level so the step `if` below reads it reliably. A step-scoped env can be
+    # unavailable to its own step's `if`, which would skip the alert silently.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
+    steps:
+      - name: Slack on failure
+        # Skip cleanly when the webhook secret is unset (e.g. fork tests), so a real
+        # sweep failure is not masked by a second "missing webhook" failure.
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "PPG hcloud janitor FAILED - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
