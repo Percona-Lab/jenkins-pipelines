@@ -15,8 +15,8 @@ properties([
             name: 'DOCKER_VERSION',
             trim: true),
         string(
-            defaultValue: '3-dev-latest',
-            description: 'PMM Client for the main lanes. 3-dev-latest installs the package from the experimental repo; latest-tarball pulls the S3 tarball. Compatibility lanes always use GA releases.',
+            defaultValue: 'latest-tarball',
+            description: 'PMM Client for the main lanes. latest-tarball curls the S3 tarball the client packages are themselves built from; 3-dev-latest installs the package from the experimental repo instead, which contends with concurrent client builds for the repo. Compatibility lanes always use GA releases.',
             name: 'CLIENT_VERSION',
             trim: true),
         string(
