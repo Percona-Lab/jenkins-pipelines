@@ -343,7 +343,6 @@ void waitForApprovalOrMerge(Map repository, Map context, String vulnerabilitySum
                style="display: inline-block; padding: 8px 14px; color: #fff; background-color: #238636; border-radius: 6px; text-decoration: none; font-weight: 600;">
                 Review security pull request
             </a><br>
-            <a href="${context.BUILD_URL}">Open Jenkins build</a>
         """.stripIndent().trim()
     )
 
