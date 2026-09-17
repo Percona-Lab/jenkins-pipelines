@@ -649,13 +649,6 @@ pipeline {
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 try {
-                    dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
-                        junit PATH_TO_REPORT_RESULTS
-                    }
-                } catch (err) {
-                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
-                }
-                try {
                     dir('/srv/pmm-qa/codeceptjs-e2e') {
                         junit PATH_TO_REPORT_RESULTS
                     }
@@ -665,9 +658,6 @@ pipeline {
             }
         }
         failure {
-            dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
-                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
-            }
             dir('/srv/pmm-qa/codeceptjs-e2e') {
                 archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
             }
