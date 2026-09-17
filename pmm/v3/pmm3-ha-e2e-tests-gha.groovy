@@ -128,7 +128,12 @@ pipeline {
                     currentBuild.description = "HA on ${env.CLUSTER_TYPE} ${clusterVersion}. Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}. Tags: ${env.TAGS_FOR_TESTS}"
                 }
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
                 sh '''
                     sudo rm -rf /srv/pmm-qa || :
                     sudo mkdir -p /srv/pmm-qa

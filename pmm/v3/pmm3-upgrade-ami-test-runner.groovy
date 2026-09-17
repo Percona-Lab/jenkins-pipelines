@@ -153,9 +153,12 @@ pipeline {
                     println versionsListParameter
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_QA_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_PRE_UPGRADE_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
 
                 sh '''
                     sudo rm -rf /srv/pmm-qa
