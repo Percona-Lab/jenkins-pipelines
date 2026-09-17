@@ -1,0 +1,67 @@
+// npm-groovy-lint config for the PMM pipelines, applied by
+// .github/workflows/pmm-groovy-lint.yml to the pmm/ files a PR changed.
+// Only `error` fails a PR; warning and info are advisory.
+//
+// Baseline that produced this: 5,557 violations over the 62 .groovy files under
+// pmm/ with the stock `recommended` ruleset, every file offending. 384 remain.
+{
+  // CodeNarc's own Jenkinsfile profile: no CompileStatic, no static typing
+  // rules, no VariableName, NestedBlockDepth 10 instead of 5.
+  "extends": "recommended-jenkinsfile",
+
+  "rules": {
+    // Defects, promoted to error. None of these fires under pmm/ today.
+    "basic.EmptyCatchBlock": "error",
+    "basic.EmptyIfStatement": "error",
+    "basic.EmptyElseBlock": "error",
+    "basic.EmptyWhileStatement": "error",
+    "basic.ConstantIfExpression": "error",
+    "basic.ComparisonOfTwoConstants": "error",
+    "basic.DuplicateCaseStatement": "error",
+    "imports.DuplicateImport": "error",
+    "imports.UnusedImport": "error",
+    // Restated because recommended-jenkinsfile overrides this rule only to add
+    // ignoreVariableNames, which silently drops it from error back to warning.
+    "unused.UnusedVariable": { "severity": "error", "ignoreVariableNames": "_" },
+
+    // Off: the DSL works this way. Pipelines repeat branch names, agent labels
+    // and credential ids; double quotes are the norm; `KEY=credentials('id')`
+    // fills environment blocks; job parameters are UPPER_CASE; steps take
+    // untyped closures and maps; 2- and 4-space indents are both established.
+    "dry.DuplicateStringLiteral": "off",
+    "dry.DuplicateMapLiteral": "off",
+    "dry.DuplicateListLiteral": "off",
+    "dry.DuplicateNumberLiteral": "off",
+    "unnecessary.UnnecessaryGString": "off",
+    "formatting.SpaceAroundOperator": "off",
+    "formatting.Indentation": "off",
+    "naming.ParameterName": "off",
+    "convention.MethodParameterTypeRequired": "off",
+    "convention.FieldTypeRequired": "off",
+    "design.BuilderMethodWithSideEffects": "off",
+    // Catching broadly to keep a stage non-fatal is deliberate, and declarative
+    // pipelines are long by construction.
+    "exceptions.CatchException": "off",
+    "size.MethodSize": "off",
+    "size.MethodCount": "off",
+    "size.ClassSize": "off",
+    "size.ParameterCount": "off",
+    // `env.X = env.X` is how an environment{} var gets persisted onto the build
+    // for `build job:` callers to read out of buildVariables -- see pmm3-ha-eks
+    // and pmm3-ha-rosa, which both do it deliberately and say so.
+    "unnecessary.UnnecessarySelfAssignment": "off",
+
+    // Off: subjective refactoring advice, not defects.
+    "convention.InvertedIfElse": "off",
+    "convention.ConfusingTernary": "off",
+    "convention.CouldBeElvis": "off",
+    "convention.CouldBeSwitchStatement": "off",
+    "convention.IfStatementCouldBeTernary": "off",
+    "convention.PublicMethodsBeforeNonPublicMethods": "off",
+    "unnecessary.UnnecessaryObjectReferences": "off",
+    "design.Instanceof": "off",
+
+    // 120 is unworkable for embedded shell one-liners: 661 hits at 120, 82 at 200.
+    "formatting.LineLength": { "length": 200 }
+  }
+}
