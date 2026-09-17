@@ -183,7 +183,7 @@ void goSecurityFixScript(Map context) {
                       -e DOCKERFILE \
                       -e TAG \
                       -w "${PWD}" \
-                      golang:alpine \
+                      golang:1.27-alpine \
                       sh -ceu 'apk add --no-cache bash curl git jq make patch python3 su-exec yq; \
                         exec su-exec "${HOST_UID}:${HOST_GID}" \
                           python3 -u .jenkins-security_build_fix_go_vulnerabilities.py \
@@ -226,11 +226,8 @@ String fixVulnerabilities(Map context) {
 }
 
 void pushDevelopmentBuild(Map context) {
-    libraries.tools.dockerTagImage(context.IMAGE, context.FLOATING_IMAGE)
-
     libraries.credentials.withDockerCredentials {
-        libraries.tools.dockerPushImage(context.IMAGE)
-        libraries.tools.dockerPushImage(context.FLOATING_IMAGE)
+        libraries.tools.dockerCopyImage(context.IMAGE, [context.FLOATING_IMAGE])
     }
 }
 
@@ -280,7 +277,7 @@ void runTests(Map repository, Map context) {
                 string(name: 'GIT_BRANCH', value: context.SECURITY_BASE_BRANCH),
                 string(name: 'IMAGE_OPERATOR', value: context.RELEASE_IMAGE),
                 string(name: 'GKE_RELEASE_CHANNEL', value: 'stable'),
-                string(name: 'CLUSTER_WIDE', value: 'yes'),
+                string(name: 'CLUSTER_WIDE', value: 'YES'),
                 string(name: 'PILLAR_VERSION', value: repository.pillarVersion)
             ]
         )
@@ -367,10 +364,10 @@ void waitForApprovalOrMerge(Map repository, Map context, String vulnerabilitySum
 
 void publishBuild(Map context) {
     libraries.credentials.withDockerCredentials {
-        libraries.tools.dockerTagImage(context.IMAGE, context.RELEASE_IMAGE)
-        libraries.tools.dockerTagImage(context.IMAGE, context.FLOATING_RELEASE_IMAGE)
-        libraries.tools.dockerPushImage(context.RELEASE_IMAGE)
-        libraries.tools.dockerPushImage(context.FLOATING_RELEASE_IMAGE)
+        libraries.tools.dockerCopyImage(
+            context.IMAGE,
+            [context.RELEASE_IMAGE, context.FLOATING_RELEASE_IMAGE]
+        )
     }
 
     withEnv([
@@ -384,8 +381,23 @@ void publishBuild(Map context) {
                     "refs/heads/${SECURITY_BASE_BRANCH}:refs/remotes/origin/${SECURITY_BASE_BRANCH}"
                 git checkout --detach "refs/remotes/origin/${SECURITY_BASE_BRANCH}"
             '''
-            libraries.tools.gitCreateTag(context.TAG, "Security build ${context.TAG}")
-            libraries.tools.gitPushTag(context.TAG)
+            def releaseCommit = libraries.tools.gitHead()
+
+            if (libraries.tools.gitTagExists(context.TAG)) {
+                def taggedCommit = libraries.tools.gitTagCommit(context.TAG)
+
+                if (taggedCommit != releaseCommit) {
+                    error(
+                        "Tag ${context.TAG} already points to ${taggedCommit}, " +
+                        "but the approved branch points to ${releaseCommit}"
+                    )
+                }
+
+                echo "Reusing ${context.TAG}, which already points to ${releaseCommit}"
+            } else {
+                libraries.tools.gitCreateTag(context.TAG, "Security build ${context.TAG}")
+                libraries.tools.gitPushTag(context.TAG)
+            }
             libraries.tools.gitCreateTag(
                 context.FLOATING_TAG,
                 "Latest security build for ${context.FLOATING_TAG}",
@@ -469,7 +481,9 @@ void processRepository(Map repository, String date) {
             return
         }
         stage("Rebuild") {
-            libraries.tools.dockerBuildImage(context.DOCKERFILE, context.IMAGE)
+            libraries.credentials.withDockerCredentials {
+                libraries.tools.dockerBuildMultiarchImage(context.DOCKERFILE, context.IMAGE)
+            }
         }
         stage("Trivy Verify") {
             libraries.tools.trivyVerifyImage(context.IMAGE)
@@ -502,6 +516,10 @@ pipeline {
         label 'docker-x64-min'
     }
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     parameters {
         choice(
             name: 'OPERATOR',
@@ -516,7 +534,7 @@ pipeline {
                 script {
                     getLibraries()
                     validateRepositories()
-                    libraries.dependencies.installTrivy()
+                    installTrivy(method: 'binary')
                     securityBuildDate = sh(script: 'date -u +%Y%m%d', returnStdout: true).trim()
                     echo "Build date: ${securityBuildDate}; operator: ${params.OPERATOR}"
                     processRepository(selectRepository(params.OPERATOR), securityBuildDate)

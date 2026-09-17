@@ -14,6 +14,9 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 Version = Tuple[int, int, int]
 VERSION_PATTERN = re.compile(r"^(?:go|v)?(\d+)\.(\d+)\.(\d+)(?:\+incompatible)?$")
+MODULE_VERSION_PATTERN = re.compile(
+    r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+incompatible)?$"
+)
 DOCKER_GO_PATTERN = re.compile(r"golang:(\d+)\.(\d+)(?:\.(\d+))?")
 
 
@@ -56,6 +59,28 @@ def stable_versions(versions: Iterable[str]) -> List[Version]:
             if VERSION_PATTERN.fullmatch(version.strip())
         }
     )
+
+
+def normalize_module_version(version: str) -> str:
+    normalized = version.strip()
+    if not MODULE_VERSION_PATTERN.fullmatch(normalized):
+        raise ValueError(f"Unsupported module version: {version}")
+    return normalized if normalized.startswith("v") else f"v{normalized}"
+
+
+def module_version_key(version: str) -> Tuple:
+    match = MODULE_VERSION_PATTERN.fullmatch(version.strip())
+    if not match:
+        raise ValueError(f"Unsupported module version: {version}")
+
+    major, minor, patch = map(int, match.groups()[:3])
+    prerelease = match.group(4)
+    prerelease_key = tuple(
+        (0, int(identifier)) if identifier.isdigit() else (1, identifier)
+        for identifier in (prerelease or "").split(".")
+        if identifier
+    )
+    return major, minor, patch, prerelease is None, prerelease_key
 
 
 def select_fixed_line(installed: str, fixed_versions: Iterable[str]) -> Version:
@@ -104,7 +129,7 @@ def latest_module_version(
     installed: str,
     fixed_versions: Iterable[str],
     go_mod_directory: Path,
-) -> Version:
+) -> str:
     available = output(
         "go", "list", "-m", "-versions", module, cwd=go_mod_directory
     ).split()[1:]
@@ -115,26 +140,43 @@ def select_latest_module_version(
     installed: str,
     fixed_versions: Iterable[str],
     available_versions: Iterable[str],
-) -> Version:
-    fixes = stable_versions(fixed_versions)
+) -> str:
+    fixes = [
+        normalize_module_version(version)
+        for version in fixed_versions
+        if MODULE_VERSION_PATTERN.fullmatch(version.strip())
+    ]
     if not fixes:
-        raise RuntimeError("Trivy did not provide a stable fixed module version")
+        raise RuntimeError("Trivy did not provide a supported fixed module version")
 
-    installed_version = parse_version(installed) if installed else None
+    installed_version = (
+        normalize_module_version(installed)
+        if installed and MODULE_VERSION_PATTERN.fullmatch(installed.strip())
+        else None
+    )
+    installed_major = (
+        module_version_key(installed_version)[0] if installed_version else None
+    )
     fixed_major = (
-        installed_version[0]
-        if installed_version
-        and any(version[0] == installed_version[0] for version in fixes)
-        else min(fixes)[0]
+        installed_major
+        if installed_major is not None
+        and any(module_version_key(version)[0] == installed_major for version in fixes)
+        else min(module_version_key(version)[0] for version in fixes)
     )
-    candidates = stable_versions(
-        [*available_versions, *fixed_versions, *([installed] if installed else [])]
-    )
-    same_major = [version for version in candidates if version[0] == fixed_major]
+    candidates = {
+        normalize_module_version(version)
+        for version in [*available_versions, *fixed_versions, installed]
+        if version and MODULE_VERSION_PATTERN.fullmatch(version.strip())
+    }
+    same_major = [
+        version
+        for version in candidates
+        if module_version_key(version)[0] == fixed_major
+    ]
     if not same_major:
-        raise RuntimeError(f"No stable version found for major v{fixed_major}")
+        raise RuntimeError(f"No module version found for major v{fixed_major}")
 
-    return max(same_major)
+    return max(same_major, key=module_version_key)
 
 
 def find_security_fixes(report: Path) -> Dict[str, Tuple[Set[str], Set[str]]]:
@@ -284,8 +326,9 @@ def fix_module(
     preferred_go_version: str,
 ) -> None:
     old_version = module_version(module, go_mod.parent)
-    selected = latest_module_version(module, old_version, fixed_versions, go_mod.parent)
-    target_version = format_version(selected, "v")
+    target_version = latest_module_version(
+        module, old_version, fixed_versions, go_mod.parent
+    )
     print(f"Updating {module}: {old_version or 'not-present'} -> {target_version}")
 
     run("go", "get", f"{module}@{target_version}", cwd=go_mod.parent)

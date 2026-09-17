@@ -22,12 +22,39 @@ void dockerBuildAndPush(Map cfg) {
     }
 }
 
-void dockerBuildImage(String dockerfile, String image) {
+void dockerBuildMultiarchImage(String dockerfile, String image) {
     withEnv([
         "DOCKERFILE=${dockerfile}",
         "DOCKER_IMAGE=${image}"
     ]) {
-        sh 'docker build --pull -f "${DOCKERFILE}" -t "${DOCKER_IMAGE}" .'
+        sh '''
+            set -eu
+            docker buildx use multiarch 2>/dev/null ||
+                docker buildx create --name multiarch --use
+            docker buildx inspect --bootstrap
+            docker buildx build --pull \
+                --platform linux/amd64,linux/arm64 \
+                --file "${DOCKERFILE}" \
+                --tag "${DOCKER_IMAGE}" \
+                --push .
+        '''
+    }
+}
+
+void dockerCopyImage(String sourceImage, List<String> targetImages) {
+    if (!targetImages) {
+        error('At least one target image is required')
+    }
+
+    withEnv([
+        "DOCKER_SOURCE_IMAGE=${sourceImage}",
+        "DOCKER_TARGET_TAGS=${targetImages.collect { "--tag ${it}" }.join(' ')}"
+    ]) {
+        sh '''
+            set -eu
+            docker buildx imagetools create \
+                ${DOCKER_TARGET_TAGS} "${DOCKER_SOURCE_IMAGE}"
+        '''
     }
 }
 
@@ -104,6 +131,7 @@ void gitClone(Map cfg, String source = 'source') {
     echo "Source directory: ${source}"
 
     dir(source) {
+        sh 'sudo chown -R "$(id -u):$(id -g)" .'
         deleteDir()
     }
 
@@ -150,6 +178,15 @@ String gitHead() {
     sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
 }
 
+String gitTagCommit(String tagName) {
+    withEnv(["GIT_TAG_NAME=${tagName}"]) {
+        return sh(
+            script: 'git rev-list -n 1 "refs/tags/${GIT_TAG_NAME}"',
+            returnStdout: true
+        ).trim()
+    }
+}
+
 String githubCreatePullRequest(String repository, String headNamespace, String headBranch, String baseBranch, String title, String body) {
     def head = headNamespace ? "${headNamespace}:${headBranch}" : headBranch
 
@@ -175,15 +212,18 @@ String githubCreatePullRequest(String repository, String headNamespace, String h
                 response=$(github_api --get --data-urlencode state=open \
                     --data-urlencode "head=${GITHUB_PR_HEAD}" \
                     --data-urlencode "base=${GITHUB_PR_BASE}" "${api}")
-                pr_url=$(printf '%s' "${response}" | grep -m 1 '"html_url"' | cut -d '"' -f 4 || true)
+                pr_url=$(printf '%s' "${response}" | jq -r '.[0].html_url // empty')
 
                 if [ -z "${pr_url}" ]; then
-                    payload=$(printf '{"title":"%s","head":"%s","base":"%s","body":"%s"}' \
-                        "${GITHUB_PR_TITLE}" "${GITHUB_PR_HEAD}" \
-                        "${GITHUB_PR_BASE}" "${GITHUB_PR_BODY}")
+                    payload=$(jq -n \
+                        --arg title "${GITHUB_PR_TITLE}" \
+                        --arg head "${GITHUB_PR_HEAD}" \
+                        --arg base "${GITHUB_PR_BASE}" \
+                        --arg body "${GITHUB_PR_BODY}" \
+                        '{title: $title, head: $head, base: $base, body: $body}')
                     response=$(github_api -X POST -H "Content-Type: application/json" \
                         -d "${payload}" "${api}")
-                    pr_url=$(printf '%s' "${response}" | grep -m 1 '"html_url"' | cut -d '"' -f 4 || true)
+                    pr_url=$(printf '%s' "${response}" | jq -r '.html_url // empty')
                     [ -n "${pr_url}" ] || {
                         echo "ERROR: GitHub did not return the PR URL" >&2
                         exit 1
@@ -214,14 +254,14 @@ boolean githubMergeApprovedPullRequest(String repository, String pullRequestUrl)
                 pull_request=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                     -H "Accept: application/vnd.github+json" "${api}")
 
-                if printf '%s' "${pull_request}" | grep -Eq '"merged"[[:space:]]*:[[:space:]]*true'; then
+                if printf '%s' "${pull_request}" | jq -e '.merged == true' >/dev/null; then
                     exit 0
                 fi
 
                 reviews=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                     -H "Accept: application/vnd.github+json" "${api}/reviews")
-                printf '%s' "${reviews}" | grep -Eq \
-                    '"state"[[:space:]]*:[[:space:]]*"APPROVED"' || exit 1
+                printf '%s' "${reviews}" | jq -e \
+                    'any(.[]; .state == "APPROVED")' >/dev/null || exit 1
 
                 response=$(curl -fsS -X PUT \
                     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
@@ -229,8 +269,7 @@ boolean githubMergeApprovedPullRequest(String repository, String pullRequestUrl)
                     -H "Content-Type: application/json" \
                     -d '{"merge_method":"squash"}' "${api}/merge" || true)
 
-                printf '%s' "${response}" | grep -Eq \
-                    '"merged"[[:space:]]*:[[:space:]]*true'
+                printf '%s' "${response}" | jq -e '.merged == true' >/dev/null
             ''',
             returnStatus: true
         ) == 0

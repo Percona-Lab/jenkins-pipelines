@@ -1,6 +1,7 @@
 - job-template:
     name: 'weekly-security-build-{repository_id}'
     project-type: pipeline
+    concurrent: false
     description: |
         Do not edit this job through the web!
     # Enable when the scheduled security builds are ready to run.

@@ -5,13 +5,28 @@ def withGitHubCredentials(Closure body) {
             variable: 'GITHUB_TOKEN'
         )
     ]) {
-        sh """
-            git config user.email "jenkins@percona.com"
-            git config user.name "JNKPercona"
-            git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/${env.REPO_PATH}.git
-        """
+        def originalRemote = sh(
+            script: 'git remote get-url origin',
+            returnStdout: true
+        ).trim()
 
-        body()
+        try {
+            sh """
+                set +x
+                git config user.email "jenkins@percona.com"
+                git config user.name "JNKPercona"
+                git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/${env.REPO_PATH}.git
+            """
+
+            body()
+        } finally {
+            withEnv(["GIT_ORIGINAL_REMOTE=${originalRemote}"]) {
+                sh '''
+                    set +x
+                    git remote set-url origin "${GIT_ORIGINAL_REMOTE}"
+                '''
+            }
+        }
     }
 }
 
