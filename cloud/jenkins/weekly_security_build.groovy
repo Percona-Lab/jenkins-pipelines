@@ -534,7 +534,7 @@ pipeline {
                 script {
                     getLibraries()
                     validateRepositories()
-                    installTrivy(method: 'binary')
+                    libraries.dependencies.installTrivy()
                     securityBuildDate = sh(script: 'date -u +%Y%m%d', returnStdout: true).trim()
                     echo "Build date: ${securityBuildDate}; operator: ${params.OPERATOR}"
                     processRepository(selectRepository(params.OPERATOR), securityBuildDate)

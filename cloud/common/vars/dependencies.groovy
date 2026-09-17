@@ -186,6 +186,30 @@ void installAzureCLI() {
     '''
 }
 
+void installTrivy(String version = '0.74.0') {
+    withEnv(["TRIVY_VERSION=${version}"]) {
+        sh '''
+            set -eu
+            case "$(uname -m)" in
+                aarch64|arm64) TRIVY_ARCH=ARM64 ;;
+                x86_64|amd64)  TRIVY_ARCH=64bit ;;
+                *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+            esac
+
+            [ "$(trivy --version 2>/dev/null | sed -n 's/.*Version: \\([0-9.]*\\).*/\\1/p')" = "$TRIVY_VERSION" ] && exit 0
+
+            archive="trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"
+            url="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+
+            curl -fsSLO "$url/$archive"
+            curl -fsSL "$url/trivy_${TRIVY_VERSION}_checksums.txt" | grep " $archive\$" | sha256sum -c -
+            sudo tar -xzf "$archive" -C /usr/local/bin trivy
+            rm -f "$archive"
+            trivy --version
+        '''
+    }
+}
+
 void installExecutorDependencies(String testExecutorType) {
     switch (testExecutorType) {
         case 'kuttl':
