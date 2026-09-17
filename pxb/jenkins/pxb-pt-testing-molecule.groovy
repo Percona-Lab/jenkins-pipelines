@@ -223,6 +223,11 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                 choices: ['warn', 'enforce', 'off'],
                 description: 'Vulnerability scanning of the SBOM. Gated separately from SBOM_CHECK_MODE so a new upstream CVE in a vendored library does not fail package testing.',
                 name: 'SBOM_VULN_MODE'
+            ),
+            booleanParam(
+                defaultValue: true,
+                description: 'Install trivy and cyclonedx-cli on the target and run the SBOM schema validation and vulnerability scan there. Untick to skip them; the checks then report as skipped rather than failing.',
+                name: 'SBOM_EXTERNAL_TOOLS'
             )
         ])
     ])
@@ -241,6 +246,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
         SBOM_CHECK_MODE = "${params.SBOM_CHECK_MODE}"
         SBOM_VULN_MODE = "${params.SBOM_VULN_MODE}"
+        SBOM_EXTERNAL_TOOLS = "${params.SBOM_EXTERNAL_TOOLS}"
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())

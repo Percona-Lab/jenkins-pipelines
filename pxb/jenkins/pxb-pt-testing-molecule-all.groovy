@@ -61,6 +61,11 @@ pipeline {
             ],
             description: 'SBOM vulnerability scanning, passed through to pxb-package-testing-molecule',
             name: 'SBOM_VULN_MODE'
+        ),
+        booleanParam(
+            defaultValue: true,
+            description: 'Run trivy and cyclonedx-cli on the target, passed through to pxb-package-testing-molecule',
+            name: 'SBOM_EXTERNAL_TOOLS'
         )
 
     }
@@ -138,7 +143,8 @@ void runpxbptjob(String scenario_to_test) {
             string(name: "product_to_test", value: params.product_to_test),
             string(name: "TESTING_BRANCH", value: params.TESTING_BRANCH),
             string(name: "SBOM_CHECK_MODE", value: params.SBOM_CHECK_MODE),
-            string(name: "SBOM_VULN_MODE", value: params.SBOM_VULN_MODE)
+            string(name: "SBOM_VULN_MODE", value: params.SBOM_VULN_MODE),
+            booleanParam(name: "SBOM_EXTERNAL_TOOLS", value: params.SBOM_EXTERNAL_TOOLS)
         ],
         propagate: true,
         wait: true
