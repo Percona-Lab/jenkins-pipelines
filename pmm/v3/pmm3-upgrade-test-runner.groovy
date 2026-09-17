@@ -96,10 +96,6 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: "pmm-$oldestVersion",
-            description: 'Tag/Branch for UI Tests repository for pre upgrade',
-            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
-        string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
@@ -151,10 +147,6 @@ pipeline {
                     env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - ${env.UPGRADE_TYPE} Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
-
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -254,12 +246,6 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    npm ci
-                    npx playwright install chromium
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
                     ansible-galaxy collection install ansible.utils
                 '''
             }
@@ -373,7 +359,9 @@ pipeline {
                     steps {
                         withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh '''
-                                ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                pushd /srv/pmm-qa/codeceptjs-e2e
+                                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                popd
                             '''
                         }
                     }

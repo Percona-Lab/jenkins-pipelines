@@ -245,7 +245,6 @@ def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, Stri
         variants.each { variant ->
             def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
-                string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
                 string(name: 'DOCKER_TAG',                    value: "percona/pmm-server:${ver}"),
                 string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
                 string(name: 'CLIENT_VERSION',                value: clientVersion),
@@ -268,7 +267,6 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
     pmmVersion('v3')[-5..-1].each { ver ->
         def name = "upgrade / ami ${ver}"
         branches[name] = suite(name, 'pmm3-upgrade-ami-test-runner', [
-            string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
             string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
             string(name: 'AMI_TAG',                       value: amis[ver] ?: ''),
             string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
