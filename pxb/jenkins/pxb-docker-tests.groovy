@@ -36,6 +36,10 @@ pipeline {
             defaultValue: false,
             description: 'Also verify an SBOM attached to the image in the registry as an OCI referrer. Off by default: percona-docker publishes no referrers today.',
             name: 'SBOM_CHECK_OCI')
+        booleanParam(
+            defaultValue: true,
+            description: 'Run the SBOM schema validation and vulnerability scan on this agent. When on, a missing or unusable trivy/cyclonedx-cli FAILS the test rather than skipping it.',
+            name: 'SBOM_EXTERNAL_TOOLS')
     }
     options {
         skipDefaultCheckout()
@@ -280,6 +284,7 @@ pipeline {
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
                                     export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
+                                    export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
 
                                     ./run.sh
 
@@ -410,6 +415,7 @@ pipeline {
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
                                     export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
+                                    export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
 
                                     ./run.sh
 
