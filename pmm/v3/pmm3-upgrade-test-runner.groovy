@@ -261,6 +261,7 @@ pipeline {
                     mkdir -m 777 -p /tmp/backup_data
 
                     ./pmm-framework/pmm-framework --parallel \
+                        --setup-retries 1 \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
