@@ -357,6 +357,18 @@ pipeline {
                         expression { return params.UPGRADE_TYPE == "UI" }
                     }
                     steps {
+                        // Watchtower pulls this image itself once the UI asks it to, inside the
+                        // 240 seconds PMM-T3 allows for the whole upgrade. The Docker path
+                        // already pulls it up front with the same retry loop; doing it here too
+                        // leaves watchtower only the container swap, so a stall can no longer be
+                        // the download.
+                        sh '''
+                            for attempt in 1 2 3; do
+                                docker pull ${DOCKER_TAG_UPGRADE} && break
+                                [ "$attempt" = 3 ] && exit 1
+                                sleep 30
+                            done
+                        '''
                         withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh '''
                                 pushd /srv/pmm-qa/codeceptjs-e2e
