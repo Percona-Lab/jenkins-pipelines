@@ -138,7 +138,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -430,6 +430,21 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
+                        # A container whose client was installed from a tarball has no
+                        # percona-release, and an empty CLIENT_TARBALL_UPGRADE still routes it
+                        # down the package path -- external_pmm then exits 127 on the whole stage.
+                        ensure_percona_release() {
+                            if docker exec \$1 sh -c 'command -v percona-release >/dev/null 2>&1'; then
+                                return 0
+                            fi
+
+                            if docker exec \$1 sh -c 'command -v apt-get >/dev/null 2>&1'; then
+                                docker exec \$1 sh -c 'apt-get update && apt-get install -y wget && wget -qO /tmp/percona-release.deb https://repo.percona.com/apt/percona-release_latest.generic_all.deb && apt-get install -y /tmp/percona-release.deb'
+                            else
+                                docker exec \$1 sh -c 'dnf install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm'
+                            fi
+                        }
+
                         containers=\$(docker ps --format "{{ .Names }}")
 
                         for i in \$containers; do
@@ -445,6 +460,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i dnf install -y pmm-client
                                     docker exec \$i systemctl restart pmm-agent
@@ -460,6 +476,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -477,6 +494,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -494,6 +512,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -511,6 +530,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -528,6 +548,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -546,6 +567,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i dnf install -y pmm-client
                                     docker exec \$i systemctl restart pmm-agent
@@ -619,6 +641,12 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
+
+                # pmm-managed only hands the update to watchtower, which then pulls the image
+                # and recreates the container; nothing else records what watchtower did, so a
+                # stalled upgrade shows up as "Successfully triggered update" and silence.
+                docker logs watchtower > watchtower.log 2>&1 || true
+
                 docker cp pmm-server:/srv/logs srv-logs
                 tar -zcvf playwright-report.tar.gz /srv/pmm-qa/e2e_tests/playwright-report || true
                 tar -zcvf playwright-screenshots.tar.gz /srv/pmm-qa/e2e_tests/screenshots || true
@@ -628,6 +656,7 @@ pipeline {
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'pmm-update-perform.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'watchtower.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'pmm-agent.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'srv-logs.tar.gz', allowEmptyArchive: true

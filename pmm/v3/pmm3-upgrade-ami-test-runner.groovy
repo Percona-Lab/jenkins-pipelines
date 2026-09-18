@@ -143,7 +143,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 90, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -296,6 +296,10 @@ pipeline {
                         "'
                     """
                 }
+                // The UI reports the update done as soon as the new container is up; Grafana
+                // behind it still needs time, and the first post-upgrade page load only gets
+                // 60 seconds for the shell to appear before the suite calls it a failure.
+                sh 'timeout 300 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
                         sh '''
