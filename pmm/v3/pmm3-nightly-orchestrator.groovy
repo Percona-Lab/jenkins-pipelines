@@ -25,7 +25,7 @@ properties([
             name: 'PMM_QA_GIT_BRANCH',
             trim: true),
         choice(
-            choices: ['UI', 'DOCKER'],
+            choices: ['DOCKER', 'UI'],
             description: 'How the upgrade suites upgrade PMM Server',
             name: 'UPGRADE_TYPE'),
         booleanParam(
