@@ -274,8 +274,16 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
+                        // @ami-upgrade lived in pmm-ui-tests and was never carried into
+                        // pmm-qa, so this stage has matched nothing since the migration.
+                        // CodeceptJS 3.6 exited 0 on an empty --grep, which hid it; 3.7
+                        // exits 1, so the lanes whose pre-upgrade branch pins 3.7 (3.8.1,
+                        // 3.9.0, 3.9.1) started failing here while 3.7.1 and 3.8.0 passed
+                        // without ever upgrading anything. @pmm-upgrade is the suite that
+                        // actually drives the UI update, and it is what the docker runner
+                        // greps; its one docker-only case already guards on isOvFAmiJenkinsJob.
                         sh '''
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-upgrade'
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
                         '''
                     }
                     sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
