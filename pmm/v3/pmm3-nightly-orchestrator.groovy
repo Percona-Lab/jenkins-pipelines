@@ -277,6 +277,7 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
             string(name: 'CLIENT_VERSION',                value: ver),
             string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
             string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
+            string(name: 'UPGRADE_TYPE',                  value: supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
     }

@@ -136,6 +136,10 @@ pipeline {
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
+        choice(
+            choices: ['DOCKER', 'UI'],
+            description: 'DOCKER swaps the container image on the instance; UI drives the in-app update, which PMM 3.9 removed',
+            name: 'UPGRADE_TYPE')
         string(
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
@@ -267,34 +271,76 @@ pipeline {
                 }
             }
         }
-        stage('Run UI upgrade') {
-            environment {
-                ADMIN_PASSWORD = "pmm3admin!"
+        stage('Run upgrade') {
+            parallel {
+                stage('Run UI upgrade') {
+                    when {
+                        expression { return params.UPGRADE_TYPE == 'UI' }
+                    }
+                    environment {
+                        ADMIN_PASSWORD = "pmm3admin!"
+                    }
+                    steps {
+                        withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                            dir('codeceptjs-e2e') {
+                                // @ami-upgrade lived in pmm-ui-tests and was never carried into
+                                // pmm-qa, so this stage matched nothing since the migration.
+                                // @pmm-upgrade is the suite that drives the in-app update; PMM 3.9
+                                // removed that button ("All updates are now securely managed via
+                                // the CLI"), so the orchestrator sends 3.9+ lanes down the DOCKER
+                                // branch below, the same gate it applies to the docker runner.
+                                sh '''
+                                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                '''
+                            }
+                        }
+                    }
+                }
+                stage('Run container upgrade') {
+                    when {
+                        expression { return params.UPGRADE_TYPE == 'DOCKER' }
+                    }
+                    environment {
+                        ADMIN_PASSWORD = "pmm3admin!"
+                    }
+                    steps {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                            sh '''
+                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                                    sed -i \\"s|PMM_IMAGE=.*|PMM_IMAGE=docker.io/${DOCKER_TAG_UPGRADE}|g\\" /home/admin/.config/systemd/user/pmm-server.env
+                                    cat /home/admin/.config/systemd/user/pmm-server.env
+                                    source /home/admin/.config/systemd/user/pmm-server.env
+                                    podman pull \\${PMM_IMAGE}
+                                    systemctl --user restart pmm-server
+                                    for i in 1 2 3 4 5 6 7 8 9 10 11 12; do podman ps | grep pmm-server && break; sleep 5; done
+                                '
+                                "
+                            '''
+                        }
+                        // The UI path asserts the new version from the Updates page; do the same here.
+                        sh '''
+                            timeout 300 bash -c 'until [ "$(curl -k -s -o /dev/null -w %{http_code} ${PMM_UI_URL}v1/server/readyz)" = "200" ]; do sleep 5; done'
+                            version=$(curl -k -s --user admin:${ADMIN_PASSWORD} ${PMM_UI_URL}v1/server/version | jq -r .version)
+                            echo "PMM Server reports ${version}"
+                            case "${version}" in
+                                ${PMM_SERVER_LATEST}*) ;;
+                                *) echo "expected ${PMM_SERVER_LATEST}"; exit 1 ;;
+                            esac
+                        '''
+                    }
+                }
             }
+        }
+        stage('Switch to the post-upgrade suite') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    dir('codeceptjs-e2e') {
-                        // @ami-upgrade lived in pmm-ui-tests and was never carried into
-                        // pmm-qa, so this stage has matched nothing since the migration.
-                        // CodeceptJS 3.6 exited 0 on an empty --grep, which hid it; 3.7
-                        // exits 1, so the lanes whose pre-upgrade branch pins 3.7 (3.8.1,
-                        // 3.9.0, 3.9.1) started failing here while 3.7.1 and 3.8.0 passed
-                        // without ever upgrading anything. @pmm-upgrade is the suite that
-                        // actually drives the UI update, and it is what the docker runner
-                        // greps; its one docker-only case already guards on isOvFAmiJenkinsJob.
-                        sh '''
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
-                        '''
-                    }
-                    sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
-                    dir('codeceptjs-e2e') {
-                        sh '''
-                            npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        '''
-                    }
+                sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
+                dir('codeceptjs-e2e') {
+                    sh '''
+                        npm ci
+                        npx playwright install
+                        envsubst < env.list > env.generated.list
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    '''
                 }
             }
         }
