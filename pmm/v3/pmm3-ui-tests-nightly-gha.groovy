@@ -174,7 +174,12 @@ pipeline {
                     currentBuild.description = "[GHA] ${env.SERVER_TYPE}/${env.SERVER_ARCH} Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}"
                 }
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -280,11 +285,16 @@ pipeline {
 
                         chmod +x .github/scripts/wait-for-gh-run.sh .github/scripts/wait-for-gh-run-completion.sh
 
+                        # VM_IP is what the workflow puts at the end of its run-name, and
+                        # it is the only thing distinguishing this lane's dispatch from the
+                        # nine others that hit the same file on the same branch seconds
+                        # either side of it.
                         RUN_ID=$(.github/scripts/wait-for-gh-run.sh \
                             "percona/pmm-qa" \
                             "nightly-e2e-tests-matrix.yml" \
                             "${PMM_QA_GIT_BRANCH}" \
-                            "${DISPATCH_AT}")
+                            "${DISPATCH_AT}" \
+                            "${VM_IP}")
                         echo "GH Actions run id: ${RUN_ID}"
                         echo "${RUN_ID}" > gh_run_id.txt
 

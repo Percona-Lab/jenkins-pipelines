@@ -15,8 +15,8 @@ properties([
             name: 'DOCKER_VERSION',
             trim: true),
         string(
-            defaultValue: '3-dev-latest',
-            description: 'PMM Client for the main lanes. 3-dev-latest installs the package from the experimental repo; latest-tarball pulls the S3 tarball. Compatibility lanes always use GA releases.',
+            defaultValue: 'latest-tarball',
+            description: 'PMM Client for the main lanes. latest-tarball curls the S3 tarball the client packages are themselves built from; 3-dev-latest installs the package from the experimental repo instead, which contends with concurrent client builds for the repo. Compatibility lanes always use GA releases.',
             name: 'CLIENT_VERSION',
             trim: true),
         string(
@@ -25,7 +25,7 @@ properties([
             name: 'PMM_QA_GIT_BRANCH',
             trim: true),
         choice(
-            choices: ['UI', 'DOCKER'],
+            choices: ['DOCKER', 'UI'],
             description: 'How the upgrade suites upgrade PMM Server',
             name: 'UPGRADE_TYPE'),
         booleanParam(
@@ -245,7 +245,6 @@ def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, Stri
         variants.each { variant ->
             def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
-                string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
                 string(name: 'DOCKER_TAG',                    value: "percona/pmm-server:${ver}"),
                 string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
                 string(name: 'CLIENT_VERSION',                value: clientVersion),
@@ -268,13 +267,17 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
     pmmVersion('v3')[-5..-1].each { ver ->
         def name = "upgrade / ami ${ver}"
         branches[name] = suite(name, 'pmm3-upgrade-ami-test-runner', [
-            string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
             string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
+            // Without this the runner falls back to its own default, which is pinned to
+            // the oldest version, so every lane ran 3.7.1's pre-upgrade suite against the
+            // version it was actually upgrading from.
+            string(name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
             string(name: 'AMI_TAG',                       value: amis[ver] ?: ''),
             string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
             string(name: 'CLIENT_VERSION',                value: ver),
             string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
             string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
+            string(name: 'UPGRADE_TYPE',                  value: supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
     }
