@@ -246,7 +246,7 @@ pipeline {
                                 export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
                                 echo \\${PMM_VERSION}
                                 echo "PMM Version is: \\${PMM_VERSION}"
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                                sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
                                 python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \\$PMM_VERSION -p pre
                                 '
                             "
