@@ -78,13 +78,6 @@ pipeline {
                     sh '''
                         set -o errexit
                         set +x
-                        # Columns, not '|' fields: with one instance left `--output table`
-                        # switches to a vertical key/value layout, so grepping it for the VM
-                        # name matched the "Name" row and field 2 was the column label.
-                        # cancel-spot-instance-requests got the literal "Name", errexit
-                        # aborted, and terminate-instances never ran -- leaking whichever
-                        # lane tore down last. `--output text` is one row per instance,
-                        # tab separated in key order, the same shape the robot job reads.
                         ROW=$(echo "${VMList}" | grep "${INPUT}")
                         REQUEST_ID=$(echo "$ROW" | awk '{print $1}')
                         INSTANCE_ID=$(echo "$ROW" | awk '{print $2}')
