@@ -315,12 +315,14 @@ pipeline {
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }
+                // Not FORCE_MODE: without an INFRA_ID it destroys by the bare cluster
+                // name, which owns no AWS resources, and reports success having removed
+                // nothing. The create job left the state in S3, so let destroy use it.
                 if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
                     build job: 'openshift-cluster-destroy', parameters: [
                         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
-                        booleanParam(name: 'FORCE_MODE', value: true),
                     ]
                 }
                 if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
