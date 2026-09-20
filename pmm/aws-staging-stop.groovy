@@ -26,7 +26,7 @@ pipeline {
                             set +o xtrace
 
                             aws ec2 describe-instances \
-                                --output table \
+                                --output text \
                                 --region us-east-2 \
                                 --filters "Name=tag:iit-billing-tag,Values=pmm-staging" \
                                           "Name=instance-state-name,Values=running" \
@@ -78,30 +78,26 @@ pipeline {
                     sh '''
                         set -o errexit
                         set +x
-                        # Ask AWS for the ids rather than parsing the table above. With a
-                        # single running instance `--output table` switches to a vertical
-                        # key/value layout, so grepping it for the VM name matched the
-                        # "Name" row and cut took the column label as the request id:
-                        # cancel-spot-instance-requests was handed the literal "Name",
-                        # errexit aborted, and terminate-instances never ran. That leaked
-                        # the last lane of every nightly, which is why it stayed hidden.
-                        # One line per instance has no layout to get wrong.
-                        MATCHES=$(
-                            aws ec2 describe-instances                                 --region us-east-2                                 --output text                                 --filters "Name=tag:iit-billing-tag,Values=pmm-staging"                                           "Name=instance-state-name,Values=running"                                 --query 'Reservations[].Instances[].[SpotInstanceRequestId,InstanceId,PublicIpAddress,[Tags[?Key==`Name`].Value][0][0]]'                             | grep -F "${INPUT}" || true
-                        )
-                        COUNT=$(printf '%s' "$MATCHES" | grep -c . || true)
+                        # Columns, not '|' fields: with one instance left `--output table`
+                        # switches to a vertical key/value layout, so grepping it for the VM
+                        # name matched the "Name" row and field 2 was the column label.
+                        # cancel-spot-instance-requests got the literal "Name", errexit
+                        # aborted, and terminate-instances never ran -- leaking whichever
+                        # lane tore down last. `--output text` is one row per instance,
+                        # tab separated in key order, the same shape the robot job reads.
+                        ROW=$(echo "${VMList}" | grep "${INPUT}")
+                        REQUEST_ID=$(echo "$ROW" | awk '{print $1}')
+                        INSTANCE_ID=$(echo "$ROW" | awk '{print $2}')
                         set -x
-                        if [ "$COUNT" != "1" ]; then
-                            echo "Expected exactly one running pmm-staging instance matching '${INPUT}', found ${COUNT}:"
-                            printf '%s\n' "$MATCHES"
-                            exit 1
-                        fi
-                        REQUEST_ID=$(printf '%s' "$MATCHES" | awk '{print $1}')
-                        INSTANCE_ID=$(printf '%s' "$MATCHES" | awk '{print $2}')
                         echo $REQUEST_ID
                         echo $INSTANCE_ID
+                        if [ -z "$REQUEST_ID" -o -z "$INSTANCE_ID" ]; then
+                            echo "Wrong or not enough parameters passed"
+                            echo "REQUEST_ID: '$REQUEST_ID', INSTANCE_ID: '$INSTANCE_ID'"
+                            exit 1
+                        fi
                         # On-demand instances have no spot request -- AWS renders that as the
-                        # literal "None" in the table above, not an empty string.
+                        # literal "None", not an empty string.
                         if [ "$REQUEST_ID" != "None" ]; then
                             aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
                         fi
