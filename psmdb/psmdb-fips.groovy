@@ -4,7 +4,15 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb/psmdb"
-def fipsOS = ['al2023','rhel8-fips','rhel9','rhel10-fips','ubuntu-jammy-pro']
+
+def fipsOS() {
+    def os = ['al2023', 'rhel8-fips', 'rhel9', 'ubuntu-jammy-pro']
+    def major = (params.PSMDB_VERSION ?: '8.0.32').tokenize('.')[0].toInteger()
+    if (major >= 8) {
+        os.add(3, 'rhel10-fips')
+    }
+    return os
+}
 
 pipeline {
     agent {
@@ -25,7 +33,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.17',
+            defaultValue: '8.0.32',
             description: 'PSMDB Version for tests',
             name: 'PSMDB_VERSION'
         )
@@ -65,7 +73,7 @@ pipeline {
                     string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE'),
                     usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
                       script {
-                        moleculeParallelTestPSMDB(fipsOS, moleculeDir)
+                        moleculeParallelTestPSMDB(fipsOS(), moleculeDir)
                     }
                 }
             }
@@ -85,7 +93,7 @@ pipeline {
         }
         always {
             script {
-                moleculeParallelPostDestroy(fipsOS, moleculeDir)
+                moleculeParallelPostDestroy(fipsOS(), moleculeDir)
             }
         }
     }
