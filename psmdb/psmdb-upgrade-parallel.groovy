@@ -125,7 +125,9 @@ pipeline {
          }
         stage('Install old version') {
           steps {
-                withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                withCredentials([
+                    usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+                    string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                 script {
                     runMoleculeCommandParallelWithVariableListPSMDB(pdmdbOperatingSystems(FROM_PSMDB_VERSION,TO_PSMDB_VERSION), moleculeDir, "converge", env.OLDVERSIONS)
                 }
