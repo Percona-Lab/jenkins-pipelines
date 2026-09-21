@@ -412,10 +412,6 @@ timestamps {
                                 skip_compatibility     : false,
                             ],
                         ]).toString()
-                        // Dispatching and walking away recorded DISPATCHED for a run
-                        // nobody then read. The orchestrator is the only thing that
-                        // sees the whole night, so this lane waits for its verdict
-                        // like every other one.
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
                             sh """
                                 set -euo pipefail
@@ -529,9 +525,8 @@ timestamps {
             currentBuild.result = 'UNSTABLE'
         }
 
-        // One notification for the whole night, from the only place that sees
-        // it. Firing per failed suite spawned a session per lane, each one
-        // provisioning its own VM to rediscover the one cause they shared.
+        // One notification for the whole night: most lanes never reach GitHub
+        // Actions, and this is the only place that sees all of them.
         if (totalBad > 0) {
             def failed = []
             results.each { name, r ->
