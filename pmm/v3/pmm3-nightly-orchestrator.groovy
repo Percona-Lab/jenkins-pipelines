@@ -379,10 +379,6 @@ timestamps {
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
-        string(name: 'ADMIN_PASSWORD',    value: 'pmm3admin!'),
-        string(name: 'HELM_CHART_BRANCH', value: 'PMM-HA-GA'),
-        string(name: 'CLUSTER_TYPE',      value: 'EKS'),
-        string(name: 'TAGS_FOR_TESTS',    value: '@pmm-ha'),
     ])
 
     branches['openshift'] = suite('openshift', 'openshift-helm-tests', [
