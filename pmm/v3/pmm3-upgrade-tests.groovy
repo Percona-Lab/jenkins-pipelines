@@ -88,9 +88,6 @@ pipeline {
     options {
         timeout(time: 180, unit: 'MINUTES')
     }
-    triggers {
-        cron('0 3 * * *')
-    }
     stages {
         stage('Prepare') {
             steps {

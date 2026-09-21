@@ -8,6 +8,7 @@ import groovy.json.JsonBuilder
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
     disableConcurrentBuilds(),
+    pipelineTriggers([cron('0 0 * * *')]),
     parameters([
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
@@ -33,8 +34,8 @@ properties([
             description: 'Route the suites to on-demand executors instead of spot',
             name: 'USE_ONDEMAND'),
         booleanParam(
-            defaultValue: false,
-            description: 'Also dispatch the pmm-qa rc-testing-suite GitHub workflow. Off by default: that workflow composes its image names as <rc_version>-rc and cannot target a dev image yet.',
+            defaultValue: true,
+            description: 'Also dispatch the pmm-qa rc-testing-suite GitHub workflow. It composes its image names as <rc_version>-rc from the dev VERSION, so outside an RC cycle that tag does not exist and the suite fails on the image pull.',
             name: 'RUN_GH_RC_SUITE'),
     ]),
 ])

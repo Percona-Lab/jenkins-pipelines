@@ -174,7 +174,6 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
