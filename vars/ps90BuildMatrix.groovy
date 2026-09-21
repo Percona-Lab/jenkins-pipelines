@@ -219,7 +219,7 @@ def call(Map args) {
                 echo 'Skipped: not in BUILD_STAGES filter'
                 return
             }
-            #node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
+            // node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
             node(cloud == 'docker-64gb-aarch64') {
                 cleanUpWS()
                 installCli()
