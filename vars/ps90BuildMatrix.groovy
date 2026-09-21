@@ -67,6 +67,7 @@ def call(Map args) {
     def fipsMode         = args.fipsMode
     def experimentalMode = args.experimentalMode
     def onlyStages       = args.get('onlyStages', [])
+    def failFast         = args.get('failFast', 'NO')
 
     def shouldRun = { String name -> !onlyStages || onlyStages.contains(name) }
 
@@ -219,8 +220,7 @@ def call(Map args) {
                 echo 'Skipped: not in BUILD_STAGES filter'
                 return
             }
-            // node(cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64') {
-            node(cloud == 'docker-64gb-aarch64') {
+            node('docker-64gb-aarch64') {
                 cleanUpWS()
                 installCli()
                 unstash 'properties'
@@ -615,6 +615,10 @@ def call(Map args) {
                 if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'tarball/', awsStashPath) }
             }
         }
+    }
+
+    if (failFast == 'YES') {
+        stagesMap['failFast'] = true
     }
 
     parallel stagesMap

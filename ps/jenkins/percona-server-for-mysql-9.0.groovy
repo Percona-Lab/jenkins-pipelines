@@ -230,6 +230,10 @@ parameters {
             defaultValue: '',
             description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
             name: 'BUILD_STAGES')
+        choice(
+            choices: 'NO\nYES',
+            description: 'If YES, abort the whole build as soon as any parallel step is aborted or canceled',
+            name: 'FAIL_FAST')
     }
     options {
         skipDefaultCheckout()
@@ -268,6 +272,7 @@ parameters {
         }
         stage('Build PS generic source packages') {
             parallel {
+                failFast params.FAIL_FAST == 'YES'
                 stage('Build PS generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -319,7 +324,8 @@ parameters {
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE,
                         experimentalMode: env.EXPERIMENTALMODE,
-                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : [],
+                        failFast: params.FAIL_FAST
                     )
                 }
             }
