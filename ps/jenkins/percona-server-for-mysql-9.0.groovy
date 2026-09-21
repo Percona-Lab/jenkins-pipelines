@@ -52,6 +52,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
             bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
         else
+            SBOM_PARAM=""
+            if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
             docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
                 set -o xtrace
                 cd \${build_dir}
@@ -59,8 +61,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     . ./test/percona-server-9.0.properties
                 fi
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                SBOM_PARAM=\"\"
-                if [ \"${ENABLE_SBOM}\" = \"ON\" ]; then SBOM_PARAM=\"--sbom=1\"; fi
                 bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
         fi
     """
@@ -211,7 +211,7 @@ parameters {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'OFF\nON',
+            choices: 'ON\nOFF',
             description: 'Enable SBOM generation',
             name: 'ENABLE_SBOM')
         choice(
@@ -230,6 +230,10 @@ parameters {
             defaultValue: '',
             description: 'Comma-separated list of build stages to run (e.g. "Oracle Linux 9,Oracle Linux 9 ARM"). Leave empty to run all stages.',
             name: 'BUILD_STAGES')
+        choice(
+            choices: 'NO\nYES',
+            description: 'If YES, abort the whole build as soon as any parallel step is aborted or canceled',
+            name: 'FAIL_FAST')
     }
     options {
         skipDefaultCheckout()
@@ -268,6 +272,7 @@ parameters {
         }
         stage('Build PS generic source packages') {
             parallel {
+                failFast params.FAIL_FAST == 'YES'
                 stage('Build PS generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -319,7 +324,8 @@ parameters {
                         awsStashPath: AWS_STASH_PATH,
                         fipsMode: env.FIPSMODE,
                         experimentalMode: env.EXPERIMENTALMODE,
-                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : [],
+                        failFast: params.FAIL_FAST
                     )
                 }
             }

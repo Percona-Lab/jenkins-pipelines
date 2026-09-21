@@ -62,6 +62,7 @@ pipeline {
                 script {
                         echo "====> Build docker containers"
                         cleanUpWS()
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                         sh '''
                             PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                             PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
@@ -85,7 +86,7 @@ pipeline {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                             . ./MYSQL_VERSION
-                            git clone ${REPO_DOCKER}
+                            git clone $(echo ${REPO_DOCKER} | sed -e "s|https://github.com/|https://x-access-token:${TOKEN}@github.com/|")
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             case ${PXC_MAJOR_RELEASE} in
@@ -150,6 +151,7 @@ pipeline {
 
                             sudo docker images
                         '''
+                        }
                             withCredentials([
                             usernamePassword(credentialsId: 'hub.docker.com',
                             passwordVariable: 'PASS',

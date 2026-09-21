@@ -26,8 +26,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
           else
               wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
           fi
+          sed -i 's#-o "\${OS_NAME}" == "trixie"#-o "\${OS_NAME}" == "trixie" -o "\${OS_NAME}" == "resolute"#' percona-xtrabackup-8.0_builder.sh
           pwd -P
           export build_dir=\$(pwd -P)
+          SBOM_PARAM=""
+          if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
           docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
               set -o xtrace
               cd \${build_dir}
@@ -37,8 +40,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                   mv -f \${build_dir}/percona-xtrabackup-private-build \${build_dir}/test/.
                   ls \${build_dir}/test
               fi
-              SBOM_PARAM=\"\"
-              if [ \"${ENABLE_SBOM}\" = \"ON\" ]; then SBOM_PARAM=\"--sbom=1\"; fi
               bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
       """
     }
@@ -347,10 +348,8 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
 
-                            if (env.EXPERIMENTALMODE == 'NO') { 
-                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         }
                     }
                 } 
@@ -368,10 +367,8 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
 
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         }
                     }
                 }

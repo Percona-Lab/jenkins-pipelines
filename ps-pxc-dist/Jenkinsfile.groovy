@@ -328,10 +328,12 @@ ENDSSH
                     try {
                         // 🔹 Install Trivy if not already installed
                         installTrivy(method: 'apt')
+                        // 🔹 Pick the proxysql image generation based on PERCONA_PROXYSQL_PATH
+                        def proxysqlImage = params.PERCONA_PROXYSQL_PATH?.contains('proxysql3') ? 'perconalab/proxysql3:latest' : 'perconalab/proxysql2:latest'
                         // 🔹 Define the image tags
                         def imageList = [
                             "perconalab/haproxy:latest",
-                            "perconalab/proxysql2:latest",
+                            proxysqlImage,
                             "perconalab/percona-toolkit:latest",
                             "perconalab/percona-xtrabackup:latest",
                             "perconalab/percona-xtradb-cluster:latest",

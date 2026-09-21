@@ -64,6 +64,7 @@ pipeline {
             steps {
                 script {
                         echo "====> Build docker containers"
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                         sh '''
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -92,7 +93,7 @@ pipeline {
                             fi
                             . ./MYSQL_VERSION
                             rm -rf percona-docker
-                            git clone ${REPO_DOCKER}
+                            git clone $(echo ${REPO_DOCKER} | sed -e "s|https://github.com/|https://x-access-token:${TOKEN}@github.com/|")
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
@@ -123,6 +124,7 @@ pipeline {
 
                             sudo docker images
                         '''
+                        }
                         withCredentials([
                             usernamePassword(credentialsId: 'hub.docker.com',
                             passwordVariable: 'PASS',

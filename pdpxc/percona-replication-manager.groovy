@@ -69,9 +69,9 @@ pipeline {
     }
     stages {
         stage('Create PRM source tarball') {
-             agent {
-                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-             }
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+            }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
@@ -128,6 +128,9 @@ pipeline {
                 stage('Centos 7') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    when {
+                        expression { true }
                     }
                     steps {
                         cleanUpWS()
@@ -350,6 +353,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
+                    when {
+                        expression { true }
+                    }
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -362,6 +368,9 @@ pipeline {
                 stage('Debian Bullseye(11) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { true }
                     }
                     steps {
                         cleanUpWS()

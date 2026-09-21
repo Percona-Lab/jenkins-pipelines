@@ -53,6 +53,7 @@ pipeline {
                 script {
                     echo "====> Build docker containers"
                     cleanUpWS()
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                     sh '''
                         sudo apt-get -y install apparmor
                         sudo aa-status
@@ -73,7 +74,7 @@ pipeline {
                         sudo qemu-system-x86_64 --version
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                         rm -rf percona-docker
-                        git clone ${REPO_DOCKER}
+                        git clone $(echo ${REPO_DOCKER} | sed -e "s|https://github.com/|https://x-access-token:${TOKEN}@github.com/|")
                         cd percona-docker
                         git checkout ${REPO_DOCKER_BRANCH}
                         cd percona-toolkit
@@ -91,6 +92,7 @@ pipeline {
                         fi
                         sudo docker images
                     '''
+                    }
                     withCredentials([
                     usernamePassword(credentialsId: 'hub.docker.com',
                     passwordVariable: 'PASS',

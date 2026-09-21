@@ -80,6 +80,7 @@ parameters {
             }
             steps {
                 script {
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                         sh '''
                             Dockerfile="Dockerfile"
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -98,7 +99,7 @@ parameters {
                             sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             rm -rf percona-docker
-                            git clone ${REPO_DOCKER}
+                            git clone $(echo ${REPO_DOCKER} | sed -e "s|https://github.com/|https://x-access-token:${TOKEN}@github.com/|")
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             cd haproxy
@@ -115,6 +116,7 @@ parameters {
                             fi
                             sudo docker images
                         '''
+                        }
                         withCredentials([
                         usernamePassword(credentialsId: 'hub.docker.com',
                         passwordVariable: 'PASS',
