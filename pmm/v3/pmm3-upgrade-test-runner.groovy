@@ -438,9 +438,6 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        # A container whose client was installed from a tarball has no
-                        # percona-release, and an empty CLIENT_TARBALL_UPGRADE still routes it
-                        # down the package path -- external_pmm then exits 127 on the whole stage.
                         ensure_percona_release() {
                             if docker exec \$1 sh -c 'command -v percona-release >/dev/null 2>&1'; then
                                 return 0
@@ -650,9 +647,6 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
 
-                # pmm-managed only hands the update to watchtower, which then pulls the image
-                # and recreates the container; nothing else records what watchtower did, so a
-                # stalled upgrade shows up as "Successfully triggered update" and silence.
                 docker logs watchtower > watchtower.log 2>&1 || true
 
                 docker cp pmm-server:/srv/logs srv-logs
