@@ -35,8 +35,8 @@ properties([
             name: 'USE_ONDEMAND'),
         booleanParam(
             defaultValue: true,
-            description: 'Also dispatch the pmm-qa rc-testing-suite GitHub workflow. It composes its image names as <rc_version>-rc from the dev VERSION, so outside an RC cycle that tag does not exist and the suite fails on the image pull.',
-            name: 'RUN_GH_RC_SUITE'),
+            description: 'Also dispatch the pmm-qa full-test-suite GitHub workflow against the server image above.',
+            name: 'RUN_GH_FULL_SUITE'),
     ]),
 ])
 
@@ -375,6 +375,16 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ])
 
+    branches['ha'] = suite('ha', 'pmm3-ha-tests', [
+        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+        string(name: 'DOCKER_VERSION',    value: serverImage),
+        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+        string(name: 'ADMIN_PASSWORD',    value: 'pmm3admin!'),
+        string(name: 'HELM_CHART_BRANCH', value: 'PMM-HA-GA'),
+        string(name: 'CLUSTER_TYPE',      value: 'EKS'),
+        string(name: 'TAGS_FOR_TESTS',    value: '@pmm-ha'),
+    ])
+
     branches['openshift'] = suite('openshift', 'openshift-helm-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'PMM_CHART_BRANCH',  value: 'latest'),
@@ -384,15 +394,17 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ])
 
-    if (params.RUN_GH_RC_SUITE) {
-        branches['github rc-testing-suite'] = {
-            stage('github rc-testing-suite') {
+    if (params.RUN_GH_FULL_SUITE) {
+        branches['github full-test-suite'] = {
+            stage('github full-test-suite') {
                 node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
                     try {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : 'main',
                             inputs: [
-                                rc_version             : latestDevVersion,
+                                build_type             : 'dev-latest',
+                                pmm_version            : latestDevVersion,
+                                pmm_server_image       : serverImage,
                                 pmm_client_tarball_ol8 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
                                 pmm_client_tarball_ol9 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
                                 pmm_qa_branch          : params.PMM_QA_GIT_BRANCH,
@@ -409,13 +421,13 @@ timestamps {
                                     -H "Accept: application/vnd.github+json" \\
                                     -H "Authorization: Bearer \${GITHUB_TOKEN}" \\
                                     -H "X-GitHub-Api-Version: 2022-11-28" \\
-                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/rc-testing-suite.yml/dispatches" \\
+                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/full-test-suite.yml/dispatches" \\
                                     --data @gh-dispatch.json
                             """
                         }
-                        results['github rc-testing-suite'] = [
-                            job   : 'rc-testing-suite.yml',
-                            url   : 'https://github.com/percona/pmm-qa/actions/workflows/rc-testing-suite.yml',
+                        results['github full-test-suite'] = [
+                            job   : 'full-test-suite.yml',
+                            url   : 'https://github.com/percona/pmm-qa/actions/workflows/full-test-suite.yml',
                             result: 'DISPATCHED',
                         ]
                     } finally {
