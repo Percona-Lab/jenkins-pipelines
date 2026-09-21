@@ -35,8 +35,8 @@ properties([
             name: 'USE_ONDEMAND'),
         booleanParam(
             defaultValue: true,
-            description: 'Also dispatch the pmm-qa full-test-suite GitHub workflow against the server image above.',
-            name: 'RUN_GH_FULL_SUITE'),
+            description: 'Also dispatch the pmm-qa nightly-test-suite GitHub workflow against the server image above.',
+            name: 'RUN_GH_NIGHTLY_SUITE'),
     ]),
 ])
 
@@ -390,9 +390,9 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ])
 
-    if (params.RUN_GH_FULL_SUITE) {
-        branches['github full-test-suite'] = {
-            stage('github full-test-suite') {
+    if (params.RUN_GH_NIGHTLY_SUITE) {
+        branches['github nightly-test-suite'] = {
+            stage('github nightly-test-suite') {
                 node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
                     try {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
@@ -417,13 +417,13 @@ timestamps {
                                     -H "Accept: application/vnd.github+json" \\
                                     -H "Authorization: Bearer \${GITHUB_TOKEN}" \\
                                     -H "X-GitHub-Api-Version: 2022-11-28" \\
-                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/full-test-suite.yml/dispatches" \\
+                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/nightly-test-suite.yml/dispatches" \\
                                     --data @gh-dispatch.json
                             """
                         }
-                        results['github full-test-suite'] = [
-                            job   : 'full-test-suite.yml',
-                            url   : 'https://github.com/percona/pmm-qa/actions/workflows/full-test-suite.yml',
+                        results['github nightly-test-suite'] = [
+                            job   : 'nightly-test-suite.yml',
+                            url   : 'https://github.com/percona/pmm-qa/actions/workflows/nightly-test-suite.yml',
                             result: 'DISPATCHED',
                         ]
                     } finally {
