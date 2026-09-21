@@ -78,6 +78,8 @@ pipeline {
                     sh '''
                         set -o errexit
                         set +x
+                        # cut on '|' instead of awk fields -- awk's whitespace splitting
+                        # breaks when a short value like "None" doesn't butt up against the next '|'.
                         ROW=$(echo "${VMList}" | grep "${INPUT}")
                         REQUEST_ID=$(echo "$ROW" | awk '{print $1}')
                         INSTANCE_ID=$(echo "$ROW" | awk '{print $2}')
