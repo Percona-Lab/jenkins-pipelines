@@ -13,7 +13,6 @@ pipeline {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
       OLDVERSIONS = "PSMDB_VERSION=${params.FROM_PSMDB_VERSION}"
       NEWVERSIONS = "PSMDB_VERSION=${params.TO_PSMDB_VERSION}"
-      VAULT_TRIAL_LICENSE = credentials('VAULT_TRIAL_LICENSE')
   }
   parameters {
         choice(
