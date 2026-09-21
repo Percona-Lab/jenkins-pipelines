@@ -168,11 +168,7 @@ pipeline {
                     extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
                 ]
 
-                // The workspace stays on the pre-upgrade branch for the pre-upgrade suite,
-                // but /srv/pmm-qa supplies tooling -- pmm-framework and support_scripts --
-                // which a release branch that old does not carry: pmm-3.7.1 has no
-                // pmm-framework at all, so rsyncing the workspace here left every AMI lane
-                // failing on "./pmm-framework/pmm-framework: No such file or directory".
+                // Not the workspace: a release branch this old carries no pmm-framework.
                 sh '''
                     sudo rm -rf /srv/pmm-qa
                     sudo git clone --single-branch --depth 1 --branch ${PMM_QA_GIT_BRANCH} \
@@ -456,9 +452,6 @@ pipeline {
             }
         }
         failure {
-            // Plain `codeceptjs run` writes screenshots straight into tests/output,
-            // not into the parallel_chunk* directories run-multiple created, and an
-            // archiveArtifacts that matches nothing fails the build on its own.
             archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/**/*.png', allowEmptyArchive: true
         }
     }

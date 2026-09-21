@@ -268,9 +268,6 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
         def name = "upgrade / ami ${ver}"
         branches[name] = suite(name, 'pmm3-upgrade-ami-test-runner', [
             string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
-            // Without this the runner falls back to its own default, which is pinned to
-            // the oldest version, so every lane ran 3.7.1's pre-upgrade suite against the
-            // version it was actually upgrading from.
             string(name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
             string(name: 'AMI_TAG',                       value: amis[ver] ?: ''),
             string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
