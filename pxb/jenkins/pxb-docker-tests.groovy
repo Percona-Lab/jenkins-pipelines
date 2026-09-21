@@ -33,10 +33,6 @@ pipeline {
             description: 'Vulnerability scanning of the SBOM. Gated separately so a new upstream CVE in a vendored library does not fail the docker tests.',
             name: 'SBOM_VULN_MODE')
         booleanParam(
-            defaultValue: false,
-            description: 'Also verify an SBOM attached to the image in the registry as an OCI referrer. Off by default: percona-docker publishes no referrers today.',
-            name: 'SBOM_CHECK_OCI')
-        booleanParam(
             defaultValue: true,
             description: 'Run the SBOM schema validation and vulnerability scan on this agent. When on, a missing or unusable trivy/cyclonedx-cli FAILS the test rather than skipping it.',
             name: 'SBOM_EXTERNAL_TOOLS')
@@ -263,27 +259,20 @@ pipeline {
 
                                     # SBOM checks (docker-image-tests/pxb/tests/test_pxb_sbom.py).
                                     # trivy is already in /usr/local/bin from the trivy stage above.
-                                    # cyclonedx-cli and oras are arch-specific: copying the x64 asset
-                                    # onto the aarch64 agent gives an Exec format error that surfaces
-                                    # as a confusing pytest failure rather than a clear one.
+                                    # cyclonedx-cli is arch-specific: copying the x64 asset onto the
+                                    # aarch64 agent gives an Exec format error that surfaces as a
+                                    # confusing pytest failure rather than a clear one.
                                     ARCH=\$(uname -m)
                                     if [ "\$ARCH" = "aarch64" ]; then
                                         CDX_ASSET="cyclonedx-linux-arm64"
-                                        ORAS_ASSET="oras_1.2.3_linux_arm64.tar.gz"
                                     else
                                         CDX_ASSET="cyclonedx-linux-x64"
-                                        ORAS_ASSET="oras_1.2.3_linux_amd64.tar.gz"
                                     fi
                                     sudo curl -fsSL -o /usr/local/bin/cyclonedx \
                                         https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET} || true
                                     sudo chmod +x /usr/local/bin/cyclonedx || true
-                                    if [ "${params.SBOM_CHECK_OCI}" = "true" ]; then
-                                        curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/\${ORAS_ASSET} \
-                                            | sudo tar xz -C /usr/local/bin oras || true
-                                    fi
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
-                                    export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
                                     export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
 
                                     ./run.sh
@@ -394,27 +383,20 @@ pipeline {
 
                                     # SBOM checks (docker-image-tests/pxb/tests/test_pxb_sbom.py).
                                     # trivy is already in /usr/local/bin from the trivy stage above.
-                                    # cyclonedx-cli and oras are arch-specific: copying the x64 asset
-                                    # onto the aarch64 agent gives an Exec format error that surfaces
-                                    # as a confusing pytest failure rather than a clear one.
+                                    # cyclonedx-cli is arch-specific: copying the x64 asset onto the
+                                    # aarch64 agent gives an Exec format error that surfaces as a
+                                    # confusing pytest failure rather than a clear one.
                                     ARCH=\$(uname -m)
                                     if [ "\$ARCH" = "aarch64" ]; then
                                         CDX_ASSET="cyclonedx-linux-arm64"
-                                        ORAS_ASSET="oras_1.2.3_linux_arm64.tar.gz"
                                     else
                                         CDX_ASSET="cyclonedx-linux-x64"
-                                        ORAS_ASSET="oras_1.2.3_linux_amd64.tar.gz"
                                     fi
                                     sudo curl -fsSL -o /usr/local/bin/cyclonedx \
                                         https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET} || true
                                     sudo chmod +x /usr/local/bin/cyclonedx || true
-                                    if [ "${params.SBOM_CHECK_OCI}" = "true" ]; then
-                                        curl -fsSL https://github.com/oras-project/oras/releases/download/v1.2.3/\${ORAS_ASSET} \
-                                            | sudo tar xz -C /usr/local/bin oras || true
-                                    fi
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
-                                    export SBOM_CHECK_OCI="${params.SBOM_CHECK_OCI}"
                                     export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
 
                                     ./run.sh
