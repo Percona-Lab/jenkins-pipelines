@@ -394,6 +394,8 @@ timestamps {
         branches['github nightly-test-suite'] = {
             stage('github nightly-test-suite') {
                 node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
+                    def ghUrl = 'https://github.com/percona/pmm-qa/actions/workflows/nightly-test-suite.yml'
+                    def ghVerdict = 'FAILURE'
                     try {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : 'main',
@@ -410,24 +412,54 @@ timestamps {
                                 skip_compatibility     : false,
                             ],
                         ]).toString()
-                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                        // Dispatching and walking away recorded DISPATCHED for a run
+                        // nobody then read. The orchestrator is the only thing that
+                        // sees the whole night, so this lane waits for its verdict
+                        // like every other one.
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
                             sh """
                                 set -euo pipefail
+                                git clone --depth 1 --single-branch --branch "${params.PMM_QA_GIT_BRANCH}" \\
+                                    https://github.com/percona/pmm-qa.git pmm-qa
+
+                                DISPATCH_AT=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
                                 curl -fsS -X POST \\
                                     -H "Accept: application/vnd.github+json" \\
-                                    -H "Authorization: Bearer \${GITHUB_TOKEN}" \\
+                                    -H "Authorization: Bearer \${GH_TOKEN}" \\
                                     -H "X-GitHub-Api-Version: 2022-11-28" \\
                                     "https://api.github.com/repos/percona/pmm-qa/actions/workflows/nightly-test-suite.yml/dispatches" \\
                                     --data @gh-dispatch.json
+
+                                chmod +x pmm-qa/.github/scripts/wait-for-gh-run.sh \\
+                                         pmm-qa/.github/scripts/wait-for-gh-run-completion.sh
+
+                                RUN_ID=\$(pmm-qa/.github/scripts/wait-for-gh-run.sh \\
+                                    "percona/pmm-qa" "nightly-test-suite.yml" "main" "\${DISPATCH_AT}")
+                                echo "\${RUN_ID}" > gh_run_id.txt
+
+                                pmm-qa/.github/scripts/wait-for-gh-run-completion.sh "percona/pmm-qa" "\${RUN_ID}"
                             """
+                        }
+                        ghVerdict = 'SUCCESS'
+                    } catch (ignored) {
+                        ghVerdict = 'FAILURE'
+                    } finally {
+                        if (fileExists('gh_run_id.txt')) {
+                            ghUrl = "https://github.com/percona/pmm-qa/actions/runs/" + readFile('gh_run_id.txt').trim()
                         }
                         results['github nightly-test-suite'] = [
                             job   : 'nightly-test-suite.yml',
-                            url   : 'https://github.com/percona/pmm-qa/actions/workflows/nightly-test-suite.yml',
-                            result: 'DISPATCHED',
+                            url   : ghUrl,
+                            result: ghVerdict,
                         ]
-                    } finally {
                         deleteDir()
+                    }
+
+                    if (ghVerdict == 'FAILURE') {
+                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            error("github nightly-test-suite: ${ghUrl}")
+                        }
                     }
                 }
             }
@@ -495,6 +527,45 @@ timestamps {
             currentBuild.result = 'FAILURE'
         } else if (totalWarn > 0 && currentBuild.result != 'FAILURE') {
             currentBuild.result = 'UNSTABLE'
+        }
+
+        // One notification for the whole night, from the only place that sees
+        // it. Firing per failed suite spawned a session per lane, each one
+        // provisioning its own VM to rediscover the one cause they shared.
+        if (totalBad > 0) {
+            def failed = []
+            results.each { name, r ->
+                if (r.result == 'FAILURE' || r.result == 'ABORTED') {
+                    failed.add("${name} (${r.result}): ${r.url}")
+                }
+            }
+            node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
+                try {
+                    writeFile file: 'investigator.json', text: new JsonBuilder([
+                        text: "Nightly orchestrator #${currentBuild.number} finished with " +
+                              "${totalBad} failed suites of ${results.size()}. " +
+                              "Build: ${env.BUILD_URL}\n\n" + failed.join('\n'),
+                    ]).toString()
+                    withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
+                        sh '''
+                            set -euo pipefail
+                            curl -fsS --connect-timeout 10 --max-time 60 -X POST \
+                                "https://api.anthropic.com/v1/claude_code/routines/trig_01FhHBdz2yBibyVEfnG5gbQz/fire" \
+                                -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
+                                -H "anthropic-version: 2023-06-01" \
+                                -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+                                -H "Content-Type: application/json" \
+                                --data @investigator.json
+                        '''
+                    }
+                } catch (ignored) {
+                    // A nightly that failed and could not say so is still a nightly
+                    // that failed; never turn the report red over the messenger.
+                    echo 'Could not notify the Investigator routine.'
+                } finally {
+                    deleteDir()
+                }
+            }
         }
     }
 }
