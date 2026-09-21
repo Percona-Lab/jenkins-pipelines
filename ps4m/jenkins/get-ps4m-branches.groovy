@@ -17,18 +17,6 @@ pipeline {
             description: 'URL for Percona Search for MongoDB (mongot) repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'release-1.70.1-1',
-            description: 'Glob for release branches to watch. The latest one (by version sort) is built.',
-            name: 'RELEASE_BRANCH_PATTERN')
-        string(
-            defaultValue: '1.70.1',
-            description: 'mongot release version passed to the build job (mongot does not encode the version in the branch name).',
-            name: 'VERSION')
-        string(
-            defaultValue: '1',
-            description: 'Package release/revision number (same for rpm and deb)',
-            name: 'PS4M_RELEASE')
-        string(
             defaultValue: 'ps4m',
             description: 'Target repo name for the build job (mongot is shipped under the ps4m repo)',
             name: 'MONGOT_REPO')
@@ -60,7 +48,7 @@ pipeline {
                         # Capture git's own exit status separately: a `| tail` pipe would
                         # mask a git/network failure and the empty result would be misread
                         # as "no branches" -> silent skip of a real build.
-                        LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} '${RELEASE_BRANCH_PATTERN}') || {
+                        LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} 'release-*') || {
                           echo "ERROR: 'git ls-remote' against ${GIT_REPO} failed; aborting to avoid a wrong build decision."
                           exit 1
                         }
@@ -69,7 +57,7 @@ pipeline {
                         LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
 
                         if [ -z "\${LATEST_BRANCH_NAME}" ]; then
-                          echo "No branches matching ${RELEASE_BRANCH_PATTERN} found in ${GIT_REPO} - nothing to build yet."
+                          echo "No branches matching release-* found in ${GIT_REPO} - nothing to build yet."
                           echo "START_NEW_BUILD=NO" > startBuild
                           echo "BRANCH_NAME=" > branch_commit_id_ps4m.properties
                           echo "COMMIT_ID=" >> branch_commit_id_ps4m.properties
@@ -100,6 +88,19 @@ pipeline {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source startBuild; echo \${START_NEW_BUILD}").trim()
                     BRANCH_NAME = sh(returnStdout: true, script: "source branch_commit_id_ps4m.properties; echo \${BRANCH_NAME}").trim()
                     COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id_ps4m.properties; echo \${COMMIT_ID}").trim()
+
+                    if (BRANCH_NAME) {
+                        if (!BRANCH_NAME.startsWith('release-')) {
+                            error("Cannot read version from branch name '${BRANCH_NAME}'; expected release-<version>-<release>.")
+                        }
+                        String verRel = BRANCH_NAME.substring('release-'.length())
+                        if (!verRel.contains('-')) {
+                            error("Cannot read version from branch name '${BRANCH_NAME}'; expected release-<version>-<release>.")
+                        }
+                        PS4M_VERSION = verRel.substring(0, verRel.lastIndexOf('-'))
+                        PS4M_RELEASE = verRel.substring(verRel.lastIndexOf('-') + 1)
+                        echo "Detected version ${PS4M_VERSION}, package release ${PS4M_RELEASE} from ${BRANCH_NAME}"
+                    }
                 }
             }
         }
@@ -113,8 +114,8 @@ pipeline {
                     string(name: 'CLOUD',       value: params.CLOUD),
                     string(name: 'GIT_REPO',    value: params.GIT_REPO),
                     string(name: 'GIT_BRANCH',  value: BRANCH_NAME),
-                    string(name: 'VERSION',      value: params.VERSION),
-                    string(name: 'PS4M_RELEASE', value: params.PS4M_RELEASE),
+                    string(name: 'VERSION',      value: PS4M_VERSION),
+                    string(name: 'PS4M_RELEASE', value: PS4M_RELEASE),
                     string(name: 'MONGOT_REPO',  value: params.MONGOT_REPO),
                     string(name: 'COMPONENT',   value: 'testing')
                 ]
