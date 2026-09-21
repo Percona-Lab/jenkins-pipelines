@@ -358,11 +358,6 @@ pipeline {
                         expression { return params.UPGRADE_TYPE == "UI" }
                     }
                     steps {
-                        // Watchtower pulls this image itself once the UI asks it to, inside the
-                        // 240 seconds PMM-T3 allows for the whole upgrade. The Docker path
-                        // already pulls it up front with the same retry loop; doing it here too
-                        // leaves watchtower only the container swap, so a stall can no longer be
-                        // the download.
                         sh '''
                             for attempt in 1 2 3; do
                                 docker pull ${DOCKER_TAG_UPGRADE} && break

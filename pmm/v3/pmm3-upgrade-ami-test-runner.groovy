@@ -168,7 +168,6 @@ pipeline {
                     extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
                 ]
 
-                // Not the workspace: a release branch this old carries no pmm-framework.
                 sh '''
                     sudo rm -rf /srv/pmm-qa
                     sudo git clone --single-branch --depth 1 --branch ${PMM_QA_GIT_BRANCH} \
@@ -279,12 +278,6 @@ pipeline {
                     steps {
                         withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             dir('codeceptjs-e2e') {
-                                // @ami-upgrade lived in pmm-ui-tests and was never carried into
-                                // pmm-qa, so this stage matched nothing since the migration.
-                                // @pmm-upgrade is the suite that drives the in-app update; PMM 3.9
-                                // removed that button ("All updates are now securely managed via
-                                // the CLI"), so the orchestrator sends 3.9+ lanes down the DOCKER
-                                // branch below, the same gate it applies to the docker runner.
                                 sh '''
                                     ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
                                 '''
@@ -355,9 +348,6 @@ pipeline {
                         "'
                     """
                 }
-                // The UI reports the update done as soon as the new container is up; Grafana
-                // behind it still needs time, and the first post-upgrade page load only gets
-                // 60 seconds for the shell to appear before the suite calls it a failure.
                 sh 'timeout 300 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {

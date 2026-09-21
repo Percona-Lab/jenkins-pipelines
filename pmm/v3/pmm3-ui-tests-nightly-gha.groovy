@@ -285,10 +285,6 @@ pipeline {
 
                         chmod +x .github/scripts/wait-for-gh-run.sh .github/scripts/wait-for-gh-run-completion.sh
 
-                        # VM_IP is what the workflow puts at the end of its run-name, and
-                        # it is the only thing distinguishing this lane's dispatch from the
-                        # nine others that hit the same file on the same branch seconds
-                        # either side of it.
                         RUN_ID=$(.github/scripts/wait-for-gh-run.sh \
                             "percona/pmm-qa" \
                             "nightly-e2e-tests-matrix.yml" \
@@ -315,9 +311,6 @@ pipeline {
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }
-                // Not FORCE_MODE: without an INFRA_ID it destroys by the bare cluster
-                // name, which owns no AWS resources, and reports success having removed
-                // nothing. The create job left the state in S3, so let destroy use it.
                 if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
                     build job: 'openshift-cluster-destroy', parameters: [
                         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),

@@ -74,9 +74,6 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
                 sudo mkdir -p /srv/pmm-qa || :
-                # pmm3-aws-staging-start already clones pmm-qa here at this same branch, and
-                # git refuses to clone into a non-empty directory. Under errexit that fatal
-                # ends the whole nightly with exit 128, so treat an existing checkout as fine.
                 sudo git clone --depth 1 --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa || true
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
