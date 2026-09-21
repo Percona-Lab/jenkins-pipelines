@@ -92,7 +92,7 @@ pipeline {
                             exit 1
                         fi
                         # On-demand instances have no spot request -- AWS renders that as the
-                        # literal "None", not an empty string.
+                        # literal "None" in the table above, not an empty string.
                         if [ "$REQUEST_ID" != "None" ]; then
                             aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
                         fi
