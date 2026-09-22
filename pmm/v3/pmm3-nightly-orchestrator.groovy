@@ -16,7 +16,7 @@ properties([
             trim: true),
         string(
             defaultValue: 'latest-tarball',
-            description: 'PMM Client for the main lanes. latest-tarball curls the S3 tarball the client packages are themselves built from; 3-dev-latest installs the package from the experimental repo instead, which contends with concurrent client builds for the repo. Compatibility lanes always use GA releases.',
+            description: 'PMM Client for the main lanes',
             name: 'CLIENT_VERSION',
             trim: true),
         string(
@@ -26,27 +26,27 @@ properties([
             trim: true),
         string(
             defaultValue: 'latest',
-            description: 'AMI under test. latest resolves to the one pmm3-ami last built, so a manual run need not look the id up. pmm3-ami passes the id it has just built, or an empty value when it produced none -- that fails the AMI lane rather than quietly testing an older image.',
+            description: 'AMI under test, or latest for the one pmm3-ami built',
             name: 'AMI_ID',
             trim: true),
         string(
-            defaultValue: '',
-            description: 'amd64 pmm-client tarball for the package lanes. Empty lets them resolve the tarball from the version, which only works once that version is released -- a release candidate has to name its own.',
+            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz',
+            description: 'amd64 pmm-client tarball for the package lanes',
             name: 'PMM_CLIENT_TARBALL',
             trim: true),
         string(
             defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz',
-            description: 'arm64 pmm-client tarball. Required: unlike amd64, an arm64 tarball cannot be resolved from a version number.',
+            description: 'arm64 pmm-client tarball for the package lanes',
             name: 'PMM_CLIENT_TARBALL_ARM64',
             trim: true),
         string(
             defaultValue: 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
-            description: 'OL8 dynamic pmm-client tarball for the GitHub suite.',
+            description: 'OL8 dynamic pmm-client tarball',
             name: 'PMM_CLIENT_TARBALL_OL8',
             trim: true),
         string(
             defaultValue: 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
-            description: 'OL9 dynamic pmm-client tarball for the GitHub suite.',
+            description: 'OL9 dynamic pmm-client tarball',
             name: 'PMM_CLIENT_TARBALL_OL9',
             trim: true),
         choice(
@@ -55,11 +55,11 @@ properties([
             name: 'UPGRADE_TYPE'),
         booleanParam(
             defaultValue: true,
-            description: 'Route the suites to on-demand executors instead of spot. On by default: a run of this size loses lanes to spot reclamation, and every run of it so far has been on-demand.',
+            description: 'Route the suites to on-demand executors instead of spot',
             name: 'USE_ONDEMAND'),
         booleanParam(
             defaultValue: true,
-            description: 'Also dispatch the pmm-qa nightly-test-suite GitHub workflow against the server image above.',
+            description: 'Also dispatch the pmm-qa nightly-test-suite workflow',
             name: 'RUN_GH_NIGHTLY_SUITE'),
     ]),
 ])
