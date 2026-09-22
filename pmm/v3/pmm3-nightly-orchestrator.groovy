@@ -29,6 +29,26 @@ properties([
             description: 'AMI under test. latest resolves to the one pmm3-ami last built, so a manual run need not look the id up. pmm3-ami passes the id it has just built, or an empty value when it produced none -- that fails the AMI lane rather than quietly testing an older image.',
             name: 'AMI_ID',
             trim: true),
+        string(
+            defaultValue: '',
+            description: 'amd64 pmm-client tarball for the package lanes. Empty lets them resolve the tarball from the version, which only works once that version is released -- a release candidate has to name its own.',
+            name: 'PMM_CLIENT_TARBALL',
+            trim: true),
+        string(
+            defaultValue: '',
+            description: 'arm64 pmm-client tarball, as PMM_CLIENT_TARBALL.',
+            name: 'PMM_CLIENT_TARBALL_ARM64',
+            trim: true),
+        string(
+            defaultValue: 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
+            description: 'OL8 dynamic pmm-client tarball for the GitHub suite.',
+            name: 'PMM_CLIENT_TARBALL_OL8',
+            trim: true),
+        string(
+            defaultValue: 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
+            description: 'OL9 dynamic pmm-client tarball for the GitHub suite.',
+            name: 'PMM_CLIENT_TARBALL_OL9',
+            trim: true),
         choice(
             choices: ['DOCKER', 'UI'],
             description: 'How the upgrade suites upgrade PMM Server',
@@ -195,7 +215,7 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion) {
+def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion, String installRepo, String tarball) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
     def variants = [
@@ -221,8 +241,8 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
             string(name: 'SERVER_ARCH',     value: serverArch),
             string(name: 'PMM_VERSION',     value: pmmVersionLabel),
             string(name: 'TESTS',           value: tests),
-            string(name: 'INSTALL_REPO',    value: 'experimental'),
-            string(name: 'TARBALL',         value: ''),
+            string(name: 'INSTALL_REPO',    value: gaOnly ? 'experimental' : installRepo),
+            string(name: 'TARBALL',         value: gaOnly ? '' : tarball),
             string(name: 'METRICS_MODE',    value: 'auto'),
             string(name: 'CLIENTS',         value: clients),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
@@ -287,6 +307,12 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
 
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
+    // A tag carrying -rc is a release candidate: its client packages live in the
+    // testing repository, not experimental, and its tarballs are not on the
+    // downloads site yet, so the package lanes have to be given them.
+    def imageTag = serverImage.split(':')[1]
+    def isRc = imageTag.contains('-rc')
+    def installRepo = isRc ? 'testing' : 'experimental'
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
@@ -321,7 +347,7 @@ timestamps {
         def dockerOnly = upgradeVersions.findAll { !supportsUiUpgrade(it) }
         currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
         echo """Nightly release readiness
-  server image    : ${serverImage}
+  server image    : ${serverImage}${isRc ? ' (release candidate)' : ''}
   client          : ${params.CLIENT_VERSION}
   AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
@@ -368,8 +394,11 @@ timestamps {
         ])
     }
 
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion, latestVersion)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion, latestVersion)
+    def packageVersion = isRc ? imageTag.tokenize('-')[0] : latestDevVersion
+    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, latestVersion,
+                    installRepo, params.PMM_CLIENT_TARBALL)
+    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, latestVersion,
+                    installRepo, params.PMM_CLIENT_TARBALL_ARM64)
     upgradeBranches(branches, upgradeVersions, clientDebVersions, serverImage, latestDevVersion)
 
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
@@ -411,9 +440,9 @@ timestamps {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : 'main',
                             inputs: [
-                                pmm_image_tag          : serverImage.split(':')[1],
-                                pmm_client_tarball_ol8 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
-                                pmm_client_tarball_ol9 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
+                                pmm_image_tag          : imageTag,
+                                pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8,
+                                pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9,
                                 pmm_qa_branch          : params.PMM_QA_GIT_BRANCH,
                                 pxc_version            : '8.0',
                                 pxc_glibc              : '2.35',

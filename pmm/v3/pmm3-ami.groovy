@@ -67,8 +67,8 @@ pipeline {
             script {
                 // The nightly orchestrator tests this AMI instead of the last GA
                 // one, so it is chained here rather than kept on a cron of its
-                // own. A release candidate does not chain here: its testing is
-                // driven by pmm3-rc-testing, which takes the RC AMI as a param.
+                // own. A release candidate does not chain here: pmm3-release-candidate
+                // triggers the orchestrator itself, with the AMI this build returns.
                 // Nothing else gates the handoff -- whatever AMI this build
                 // produced is passed on, and a failed or aborted build passes
                 // none, which fails the orchestrator's AMI lane on an empty id
