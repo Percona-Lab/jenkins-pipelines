@@ -25,8 +25,8 @@ properties([
             name: 'PMM_QA_GIT_BRANCH',
             trim: true),
         string(
-            defaultValue: '',
-            description: 'AMI under test. pmm3-ami passes the one it has just built; empty falls back to the last GA AMI.',
+            defaultValue: 'latest',
+            description: 'AMI under test. latest resolves to the one pmm3-ami last built, so a manual run need not look the id up. pmm3-ami passes the id it has just built, or an empty value when it produced none -- that fails the AMI lane rather than quietly testing an older image.',
             name: 'AMI_ID',
             trim: true),
         choice(
@@ -287,7 +287,7 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
 
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
-    def amiId = params.AMI_ID ?: pmmVersion('v3-ami').values()[-1]
+    def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
     def clientDebVersions = []
@@ -298,6 +298,13 @@ timestamps {
         // The one shell in this job, and the only executor it ever takes.
         node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
             try {
+                if (amiId == 'latest') {
+                    copyArtifacts projectName: 'pmm3-ami', selector: lastSuccessful(), filter: 'AMI_ID', optional: true
+                    if (!fileExists('AMI_ID')) {
+                        error 'AMI_ID=latest, but pmm3-ami has no successful build carrying an AMI_ID artifact. Pass an explicit ami-... id.'
+                    }
+                    amiId = readFile('AMI_ID').trim()
+                }
                 latestDevVersion = sh(
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
@@ -316,7 +323,7 @@ timestamps {
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
-  AMI             : ${amiId}${params.AMI_ID ? '' : ' (last GA -- pmm3-ami passed none)'}
+  AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
   client source   : deb ${upgradeVersions.findAll { it in clientDebVersions }.join(', ')} | tarball ${upgradeVersions.findAll { !(it in clientDebVersions) }.join(', ')}

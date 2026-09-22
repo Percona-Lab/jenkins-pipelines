@@ -48,7 +48,9 @@ pipeline {
                     sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE} make pmm-ami"
                 }
                 script {
-                    env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
+                    env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true).trim()
+                    writeFile file: 'AMI_ID', text: env.AMI_ID
+                    archiveArtifacts 'AMI_ID'
                 }
             }
         }
@@ -65,14 +67,14 @@ pipeline {
             script {
                 // The nightly orchestrator tests this AMI instead of the last GA
                 // one, so it is chained here rather than kept on a cron of its
-                // own. Only the nightly dev build feeds it: an RC AMI belongs to
-                // pmm3-rc-testing. This build's result is not a gate -- with no
-                // AMI the orchestrator falls back to GA, and a bad AMI is meant
-                // to fail its own lane there rather than hold back the docker,
-                // helm and upgrade suites. An abort is the one case that does not
-                // launch it, so aborting and re-running does not queue a second
-                // six-hour nightly behind the first.
-                if (params.RELEASE_CANDIDATE != 'yes' && currentBuild.currentResult != 'ABORTED') {
+                // own. A release candidate does not chain: pmm3-rc-testing
+                // triggers the orchestrator itself, once its own AMI is ready.
+                // Nothing else gates the handoff -- whatever AMI this build
+                // produced is passed on, and a failed or aborted build passes
+                // none, which fails the orchestrator's AMI lane on an empty id
+                // rather than quietly testing an older image while the docker,
+                // helm, package and upgrade suites run.
+                if (params.RELEASE_CANDIDATE != 'yes') {
                     build job: 'pmm3-nightly-orchestrator', wait: false, parameters: [
                         string(name: 'AMI_ID', value: env.AMI_ID ?: ''),
                     ]
