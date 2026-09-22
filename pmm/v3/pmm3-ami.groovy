@@ -27,7 +27,7 @@ pipeline {
         parallelsAlwaysFailFast()
     }
     triggers {
-        cron('0 3 * * 1-5')
+        cron('0 0 * * 1-5')
     }
     stages {
         stage('Prepare') {
@@ -48,7 +48,9 @@ pipeline {
                     sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE} make pmm-ami"
                 }
                 script {
-                    env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
+                    env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true).trim()
+                    writeFile file: 'AMI_ID', text: env.AMI_ID
+                    archiveArtifacts 'AMI_ID'
                 }
             }
         }
@@ -61,6 +63,15 @@ pipeline {
         }
     }
     post {
+        always {
+            script {
+                if (params.RELEASE_CANDIDATE != 'yes') {
+                    build job: 'pmm3-nightly-orchestrator', wait: false, parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_ID ?: ''),
+                    ]
+                }
+            }
+        }
         success {
             script {
                 if (params.RELEASE_CANDIDATE == "yes") {

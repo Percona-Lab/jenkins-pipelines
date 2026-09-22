@@ -15,8 +15,8 @@ properties([
             name: 'DOCKER_VERSION',
             trim: true),
         string(
-            defaultValue: '3-dev-latest',
-            description: 'PMM Client for the main lanes. 3-dev-latest installs the package from the experimental repo; latest-tarball pulls the S3 tarball. Compatibility lanes always use GA releases.',
+            defaultValue: 'latest-tarball',
+            description: 'PMM Client for the main lanes. latest-tarball curls the S3 tarball the client packages are themselves built from; 3-dev-latest installs the package from the experimental repo instead, which contends with concurrent client builds for the repo. Compatibility lanes always use GA releases.',
             name: 'CLIENT_VERSION',
             trim: true),
         string(
@@ -24,18 +24,43 @@ properties([
             description: 'Tag/Branch for the pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH',
             trim: true),
+        string(
+            defaultValue: 'latest',
+            description: 'AMI under test. latest resolves to the one pmm3-ami last built, so a manual run need not look the id up. pmm3-ami passes the id it has just built, or an empty value when it produced none -- that fails the AMI lane rather than quietly testing an older image.',
+            name: 'AMI_ID',
+            trim: true),
+        string(
+            defaultValue: '',
+            description: 'amd64 pmm-client tarball for the package lanes. Empty lets them resolve the tarball from the version, which only works once that version is released -- a release candidate has to name its own.',
+            name: 'PMM_CLIENT_TARBALL',
+            trim: true),
+        string(
+            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz',
+            description: 'arm64 pmm-client tarball. Required: unlike amd64, an arm64 tarball cannot be resolved from a version number.',
+            name: 'PMM_CLIENT_TARBALL_ARM64',
+            trim: true),
+        string(
+            defaultValue: 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
+            description: 'OL8 dynamic pmm-client tarball for the GitHub suite.',
+            name: 'PMM_CLIENT_TARBALL_OL8',
+            trim: true),
+        string(
+            defaultValue: 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
+            description: 'OL9 dynamic pmm-client tarball for the GitHub suite.',
+            name: 'PMM_CLIENT_TARBALL_OL9',
+            trim: true),
         choice(
-            choices: ['UI', 'DOCKER'],
+            choices: ['DOCKER', 'UI'],
             description: 'How the upgrade suites upgrade PMM Server',
             name: 'UPGRADE_TYPE'),
         booleanParam(
-            defaultValue: false,
-            description: 'Route the suites to on-demand executors instead of spot',
+            defaultValue: true,
+            description: 'Route the suites to on-demand executors instead of spot. On by default: a run of this size loses lanes to spot reclamation, and every run of it so far has been on-demand.',
             name: 'USE_ONDEMAND'),
         booleanParam(
-            defaultValue: false,
-            description: 'Also dispatch the pmm-qa rc-testing-suite GitHub workflow. Off by default: that workflow composes its image names as <rc_version>-rc and cannot target a dev image yet.',
-            name: 'RUN_GH_RC_SUITE'),
+            defaultValue: true,
+            description: 'Also dispatch the pmm-qa nightly-test-suite GitHub workflow against the server image above.',
+            name: 'RUN_GH_NIGHTLY_SUITE'),
     ]),
 ])
 
@@ -190,34 +215,32 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion) {
+def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersion, String installRepo, String tarball) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
     def variants = [
-        ['integration',          'pmm3-client_integration',                     '--help  ',    false],
-        ['auth config',          'pmm3-client_integration_auth_config',         '--help   ',   false],
-        ['auth register',        'pmm3-client_integration_auth_register',       ' --help',     false],
-        ['custom path',          'pmm3-client_integration_custom_path',         '  --help',    true],
-        ['custom port',          'pmm3-client_integration_custom_port',         '   --help',   true],
-        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help',  false],
-        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help ', true],
-        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  ', false],
+        ['integration',          'pmm3-client_integration',                     '--help  '],
+        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
+        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
+        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
+        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
+        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
+        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
+        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
     ]
     variants.each { v ->
         def label = v[0]
         def tests = v[1]
         def clients = v[2]
-        def gaOnly = v[3] && serverArch == 'arm64'
-        def pmmVersionLabel = gaOnly ? gaVersion : devVersion
-        def name = gaOnly ? "${prefix} / ${label} (GA ${gaVersion})" : "${prefix} / ${label}"
+        def name = "${prefix} / ${label}"
         branches[name] = suite(name, jobName, [
             string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
             string(name: 'DOCKER_VERSION',  value: serverImage),
             string(name: 'SERVER_ARCH',     value: serverArch),
-            string(name: 'PMM_VERSION',     value: pmmVersionLabel),
+            string(name: 'PMM_VERSION',     value: pmmVersion),
             string(name: 'TESTS',           value: tests),
-            string(name: 'INSTALL_REPO',    value: 'experimental'),
-            string(name: 'TARBALL',         value: ''),
+            string(name: 'INSTALL_REPO',    value: installRepo),
+            string(name: 'TARBALL',         value: tarball),
             string(name: 'METRICS_MODE',    value: 'auto'),
             string(name: 'CLIENTS',         value: clients),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
@@ -245,7 +268,6 @@ def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, Stri
         variants.each { variant ->
             def name = "upgrade / ${ver} ${variant}"
             branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
-                string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
                 string(name: 'DOCKER_TAG',                    value: "percona/pmm-server:${ver}"),
                 string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
                 string(name: 'CLIENT_VERSION',                value: clientVersion),
@@ -268,13 +290,14 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
     pmmVersion('v3')[-5..-1].each { ver ->
         def name = "upgrade / ami ${ver}"
         branches[name] = suite(name, 'pmm3-upgrade-ami-test-runner', [
-            string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
             string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
+            string(name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH', value: "pmm-${ver}"),
             string(name: 'AMI_TAG',                       value: amis[ver] ?: ''),
             string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
             string(name: 'CLIENT_VERSION',                value: ver),
             string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
             string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
+            string(name: 'UPGRADE_TYPE',                  value: supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
     }
@@ -282,17 +305,26 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
 
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
-    def amiId = pmmVersion('v3-ami').values()[-1]
+    def imageTag = serverImage.split(':')[1]
+    def isRc = imageTag.contains('-rc')
+    def installRepo = isRc ? 'testing' : 'experimental'
+    def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
     def clientDebVersions = []
-    def latestVersion = pmmVersion('v3').last()
     def latestDevVersion
 
     stage('Plan') {
         // The one shell in this job, and the only executor it ever takes.
         node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
             try {
+                if (amiId == 'latest') {
+                    copyArtifacts projectName: 'pmm3-ami', selector: lastSuccessful(), filter: 'AMI_ID', optional: true
+                    if (!fileExists('AMI_ID')) {
+                        error 'AMI_ID=latest, but pmm3-ami has no successful build carrying an AMI_ID artifact. Pass an explicit ami-... id.'
+                    }
+                    amiId = readFile('AMI_ID').trim()
+                }
                 latestDevVersion = sh(
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
@@ -311,7 +343,7 @@ timestamps {
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
-  AMI             : ${amiId}
+  AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
   client source   : deb ${upgradeVersions.findAll { it in clientDebVersions }.join(', ')} | tarball ${upgradeVersions.findAll { !(it in clientDebVersions) }.join(', ')}
@@ -356,8 +388,9 @@ timestamps {
         ])
     }
 
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, latestDevVersion, latestVersion)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, latestDevVersion, latestVersion)
+    def packageVersion = isRc ? imageTag.tokenize('-')[0] : latestDevVersion
+    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL)
+    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL_ARM64)
     upgradeBranches(branches, upgradeVersions, clientDebVersions, serverImage, latestDevVersion)
 
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
@@ -383,17 +416,25 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ])
 
-    if (params.RUN_GH_RC_SUITE) {
-        branches['github rc-testing-suite'] = {
-            stage('github rc-testing-suite') {
+    branches['ha'] = suite('ha', 'pmm3-ha-tests', [
+        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+        string(name: 'DOCKER_VERSION',    value: serverImage),
+        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+    ])
+
+    if (params.RUN_GH_NIGHTLY_SUITE) {
+        branches['github nightly-test-suite'] = {
+            stage('github nightly-test-suite') {
                 node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
+                    def ghUrl = 'https://github.com/percona/pmm-qa/actions/workflows/nightly-test-suite.yml'
+                    def ghVerdict = 'FAILURE'
                     try {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : 'main',
                             inputs: [
-                                rc_version             : latestDevVersion,
-                                pmm_client_tarball_ol8 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
-                                pmm_client_tarball_ol9 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
+                                pmm_image_tag          : imageTag,
+                                pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8,
+                                pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9,
                                 pmm_qa_branch          : params.PMM_QA_GIT_BRANCH,
                                 pxc_version            : '8.0',
                                 pxc_glibc              : '2.35',
@@ -401,24 +442,50 @@ timestamps {
                                 skip_compatibility     : false,
                             ],
                         ]).toString()
-                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
                             sh """
                                 set -euo pipefail
+                                git clone --depth 1 --single-branch --branch "${params.PMM_QA_GIT_BRANCH}" \\
+                                    https://github.com/percona/pmm-qa.git pmm-qa
+
+                                DISPATCH_AT=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
                                 curl -fsS -X POST \\
                                     -H "Accept: application/vnd.github+json" \\
-                                    -H "Authorization: Bearer \${GITHUB_TOKEN}" \\
+                                    -H "Authorization: Bearer \${GH_TOKEN}" \\
                                     -H "X-GitHub-Api-Version: 2022-11-28" \\
-                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/rc-testing-suite.yml/dispatches" \\
+                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/nightly-test-suite.yml/dispatches" \\
                                     --data @gh-dispatch.json
+
+                                chmod +x pmm-qa/.github/scripts/wait-for-gh-run.sh \\
+                                         pmm-qa/.github/scripts/wait-for-gh-run-completion.sh
+
+                                RUN_ID=\$(pmm-qa/.github/scripts/wait-for-gh-run.sh \\
+                                    "percona/pmm-qa" "nightly-test-suite.yml" "main" "\${DISPATCH_AT}")
+                                echo "\${RUN_ID}" > gh_run_id.txt
+
+                                pmm-qa/.github/scripts/wait-for-gh-run-completion.sh "percona/pmm-qa" "\${RUN_ID}"
                             """
                         }
-                        results['github rc-testing-suite'] = [
-                            job   : 'rc-testing-suite.yml',
-                            url   : 'https://github.com/percona/pmm-qa/actions/workflows/rc-testing-suite.yml',
-                            result: 'DISPATCHED',
-                        ]
+                        ghVerdict = 'SUCCESS'
+                    } catch (ignored) {
+                        ghVerdict = 'FAILURE'
                     } finally {
+                        if (fileExists('gh_run_id.txt')) {
+                            ghUrl = "https://github.com/percona/pmm-qa/actions/runs/" + readFile('gh_run_id.txt').trim()
+                        }
+                        results['github nightly-test-suite'] = [
+                            job   : 'nightly-test-suite.yml',
+                            url   : ghUrl,
+                            result: ghVerdict,
+                        ]
                         deleteDir()
+                    }
+
+                    if (ghVerdict == 'FAILURE') {
+                        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                            error("github nightly-test-suite: ${ghUrl}")
+                        }
                     }
                 }
             }
@@ -486,6 +553,44 @@ timestamps {
             currentBuild.result = 'FAILURE'
         } else if (totalWarn > 0 && currentBuild.result != 'FAILURE') {
             currentBuild.result = 'UNSTABLE'
+        }
+
+        // One notification for the whole night: most lanes never reach GitHub
+        // Actions, and this is the only place that sees all of them.
+        if (totalBad > 0) {
+            def failed = []
+            results.each { name, r ->
+                if (r.result == 'FAILURE' || r.result == 'ABORTED') {
+                    failed.add("${name} (${r.result}): ${r.url}")
+                }
+            }
+            node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
+                try {
+                    writeFile file: 'investigator.json', text: new JsonBuilder([
+                        text: "Nightly orchestrator #${currentBuild.number} finished with " +
+                              "${totalBad} failed suites of ${results.size()}. " +
+                              "Build: ${env.BUILD_URL}\n\n" + failed.join('\n'),
+                    ]).toString()
+                    withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
+                        sh '''
+                            set -euo pipefail
+                            curl -fsS --connect-timeout 10 --max-time 60 -X POST \
+                                "https://api.anthropic.com/v1/claude_code/routines/trig_01FhHBdz2yBibyVEfnG5gbQz/fire" \
+                                -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
+                                -H "anthropic-version: 2023-06-01" \
+                                -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+                                -H "Content-Type: application/json" \
+                                --data @investigator.json
+                        '''
+                    }
+                } catch (ignored) {
+                    // A nightly that failed and could not say so is still a nightly
+                    // that failed; never turn the report red over the messenger.
+                    echo 'Could not notify the Investigator routine.'
+                } finally {
+                    deleteDir()
+                }
+            }
         }
     }
 }

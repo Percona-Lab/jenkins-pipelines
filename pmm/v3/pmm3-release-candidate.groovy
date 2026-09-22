@@ -343,17 +343,19 @@ pipeline {
             steps {
                 script {
                     try {
-                        build job: 'pmm3-rc-testing', wait: false, propagate: false, parameters: [
-                                string(name: 'RC_VERSION', value: env.VERSION),
+                        build job: 'pmm3-nightly-orchestrator', wait: false, propagate: false, parameters: [
+                                string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${env.VERSION}-rc"),
+                                string(name: 'CLIENT_VERSION', value: 'pmm3-rc'),
+                                string(name: 'AMI_ID', value: env.AMI_ID.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL', value: env.TARBALL_AMD64_URL.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL_ARM64', value: env.TARBALL_ARM64_URL.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL_OL8', value: env.TARBALL_AMD64_DYNAMIC_OL8_URL.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL_OL9', value: env.TARBALL_AMD64_DYNAMIC_OL9_URL.trim()),
-                                string(name: 'AMI_ID', value: env.AMI_ID.trim()),
+                                booleanParam(name: 'USE_ONDEMAND', value: true),
                             ]
                         echo "[rc-tests] Release Candidate testing queued for ${env.VERSION}."
                     } catch (Throwable e) {
-                        echo "[rc-tests] Could not queue pmm3-rc-testing: ${e.message}"
+                        echo "[rc-tests] Could not queue pmm3-nightly-orchestrator: ${e.message}"
                     }
                 }
             }
