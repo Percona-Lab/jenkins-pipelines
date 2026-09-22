@@ -35,8 +35,8 @@ properties([
             name: 'PMM_CLIENT_TARBALL',
             trim: true),
         string(
-            defaultValue: '',
-            description: 'arm64 pmm-client tarball, as PMM_CLIENT_TARBALL.',
+            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz',
+            description: 'arm64 pmm-client tarball. Required: unlike amd64, an arm64 tarball cannot be resolved from a version number.',
             name: 'PMM_CLIENT_TARBALL_ARM64',
             trim: true),
         string(
@@ -215,37 +215,31 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String devVersion, String gaVersion, String installRepo, String tarball) {
+def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersion, String installRepo, String tarball) {
     // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
     // they keep otherwise identical parameter sets from collapsing in the queue.
     def variants = [
-        ['integration',          'pmm3-client_integration',                     '--help  ',    false],
-        ['auth config',          'pmm3-client_integration_auth_config',         '--help   ',   false],
-        ['auth register',        'pmm3-client_integration_auth_register',       ' --help',     false],
-        ['custom path',          'pmm3-client_integration_custom_path',         '  --help',    true],
-        ['custom port',          'pmm3-client_integration_custom_port',         '   --help',   true],
-        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help',  false],
-        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help ', true],
-        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  ', false],
+        ['integration',          'pmm3-client_integration',                     '--help  '],
+        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
+        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
+        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
+        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
+        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
+        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
+        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
     ]
     variants.each { v ->
         def label = v[0]
         def tests = v[1]
         def clients = v[2]
-        // The tarball variants resolve an arm64 tarball from the released
-        // downloads path, which has nothing for an unreleased version, so on
-        // arm64 they fall back to the last GA one -- unless a tarball URL was
-        // given, which is exactly what removes that constraint.
-        def gaOnly = v[3] && serverArch == 'arm64' && !tarball
-        def pmmVersionLabel = gaOnly ? gaVersion : devVersion
-        def name = gaOnly ? "${prefix} / ${label} (GA ${gaVersion})" : "${prefix} / ${label}"
+        def name = "${prefix} / ${label}"
         branches[name] = suite(name, jobName, [
             string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
             string(name: 'DOCKER_VERSION',  value: serverImage),
             string(name: 'SERVER_ARCH',     value: serverArch),
-            string(name: 'PMM_VERSION',     value: pmmVersionLabel),
+            string(name: 'PMM_VERSION',     value: pmmVersion),
             string(name: 'TESTS',           value: tests),
-            string(name: 'INSTALL_REPO',    value: gaOnly ? 'experimental' : installRepo),
+            string(name: 'INSTALL_REPO',    value: installRepo),
             string(name: 'TARBALL',         value: tarball),
             string(name: 'METRICS_MODE',    value: 'auto'),
             string(name: 'CLIENTS',         value: clients),
@@ -311,9 +305,6 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
 
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
-    // A tag carrying -rc is a release candidate: its client packages live in the
-    // testing repository, not experimental, and its tarballs are not on the
-    // downloads site yet, so the package lanes have to be given them.
     def imageTag = serverImage.split(':')[1]
     def isRc = imageTag.contains('-rc')
     def installRepo = isRc ? 'testing' : 'experimental'
@@ -321,7 +312,6 @@ timestamps {
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
     def clientDebVersions = []
-    def latestVersion = pmmVersion('v3').last()
     def latestDevVersion
 
     stage('Plan') {
@@ -351,7 +341,7 @@ timestamps {
         def dockerOnly = upgradeVersions.findAll { !supportsUiUpgrade(it) }
         currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
         echo """Nightly release readiness
-  server image    : ${serverImage}${isRc ? ' (release candidate)' : ''}
+  server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
   AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
@@ -399,10 +389,8 @@ timestamps {
     }
 
     def packageVersion = isRc ? imageTag.tokenize('-')[0] : latestDevVersion
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, latestVersion,
-                    installRepo, params.PMM_CLIENT_TARBALL)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, latestVersion,
-                    installRepo, params.PMM_CLIENT_TARBALL_ARM64)
+    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL)
+    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL_ARM64)
     upgradeBranches(branches, upgradeVersions, clientDebVersions, serverImage, latestDevVersion)
 
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
