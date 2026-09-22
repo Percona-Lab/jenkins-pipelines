@@ -400,9 +400,7 @@ timestamps {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : 'main',
                             inputs: [
-                                build_type             : 'dev-latest',
-                                pmm_version            : latestDevVersion,
-                                pmm_server_image       : serverImage,
+                                pmm_image_tag          : serverImage.split(':')[1],
                                 pmm_client_tarball_ol8 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest.tar.gz',
                                 pmm_client_tarball_ol9 : 'https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
                                 pmm_qa_branch          : params.PMM_QA_GIT_BRANCH,
