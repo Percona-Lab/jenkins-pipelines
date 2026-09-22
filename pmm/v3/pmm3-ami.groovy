@@ -27,7 +27,7 @@ pipeline {
         parallelsAlwaysFailFast()
     }
     triggers {
-        cron('0 3 * * 1-5')
+        cron('0 0 * * 1-5')
     }
     stages {
         stage('Prepare') {
@@ -61,6 +61,24 @@ pipeline {
         }
     }
     post {
+        always {
+            script {
+                // The nightly orchestrator tests this AMI instead of the last GA
+                // one, so it is chained here rather than kept on a cron of its
+                // own. Only the nightly dev build feeds it: an RC AMI belongs to
+                // pmm3-rc-testing. This build's result is not a gate -- with no
+                // AMI the orchestrator falls back to GA, and a bad AMI is meant
+                // to fail its own lane there rather than hold back the docker,
+                // helm and upgrade suites. An abort is the one case that does not
+                // launch it, so aborting and re-running does not queue a second
+                // six-hour nightly behind the first.
+                if (params.RELEASE_CANDIDATE != 'yes' && currentBuild.currentResult != 'ABORTED') {
+                    build job: 'pmm3-nightly-orchestrator', wait: false, parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_ID ?: ''),
+                    ]
+                }
+            }
+        }
         success {
             script {
                 if (params.RELEASE_CANDIDATE == "yes") {

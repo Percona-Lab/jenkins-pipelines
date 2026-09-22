@@ -8,7 +8,6 @@ import groovy.json.JsonBuilder
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
     disableConcurrentBuilds(),
-    pipelineTriggers([cron('0 0 * * *')]),
     parameters([
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
@@ -24,6 +23,11 @@ properties([
             defaultValue: 'main',
             description: 'Tag/Branch for the pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH',
+            trim: true),
+        string(
+            defaultValue: '',
+            description: 'AMI under test. pmm3-ami passes the one it has just built; empty falls back to the last GA AMI.',
+            name: 'AMI_ID',
             trim: true),
         choice(
             choices: ['DOCKER', 'UI'],
@@ -283,7 +287,7 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
 
 timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
-    def amiId = pmmVersion('v3-ami').values()[-1]
+    def amiId = params.AMI_ID ?: pmmVersion('v3-ami').values()[-1]
     def compatVersions = pmmVersion('v3')[-5..-1]
     def upgradeVersions = pmmVersion('v3')[-6..-1]
     def clientDebVersions = []
@@ -312,7 +316,7 @@ timestamps {
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
-  AMI             : ${amiId}
+  AMI             : ${amiId}${params.AMI_ID ? '' : ' (last GA -- pmm3-ami passed none)'}
   compat clients  : ${compatVersions.join(', ')}
   upgrade from    : ${upgradeVersions.join(', ')}
   client source   : deb ${upgradeVersions.findAll { it in clientDebVersions }.join(', ')} | tarball ${upgradeVersions.findAll { !(it in clientDebVersions) }.join(', ')}
