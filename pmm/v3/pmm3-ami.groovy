@@ -65,15 +65,6 @@ pipeline {
     post {
         always {
             script {
-                // The nightly orchestrator tests this AMI instead of the last GA
-                // one, so it is chained here rather than kept on a cron of its
-                // own. A release candidate does not chain here: pmm3-release-candidate
-                // triggers the orchestrator itself, with the AMI this build returns.
-                // Nothing else gates the handoff -- whatever AMI this build
-                // produced is passed on, and a failed or aborted build passes
-                // none, which fails the orchestrator's AMI lane on an empty id
-                // rather than quietly testing an older image while the docker,
-                // helm, package and upgrade suites run.
                 if (params.RELEASE_CANDIDATE != 'yes') {
                     build job: 'pmm3-nightly-orchestrator', wait: false, parameters: [
                         string(name: 'AMI_ID', value: env.AMI_ID ?: ''),
