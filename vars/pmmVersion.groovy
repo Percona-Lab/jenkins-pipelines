@@ -104,6 +104,9 @@ def call(String type='dev-latest') {
       return versionsList
     case 'v3':
       return v3
+    case 'v3-dev':
+      def v3Dev = httpRequest "https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION"
+      return v3Dev.content.trim()
     case 'v3-old':
       return v3[0..-7]
     case 'v3-ami':
