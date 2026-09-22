@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def devVersion = pmmVersion('v3-dev')
+def devVersion = httpRequest("https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION").content.trim()
 
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
