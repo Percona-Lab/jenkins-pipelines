@@ -54,8 +54,8 @@ properties([
             description: 'How the upgrade suites upgrade PMM Server',
             name: 'UPGRADE_TYPE'),
         booleanParam(
-            defaultValue: false,
-            description: 'Route the suites to on-demand executors instead of spot',
+            defaultValue: true,
+            description: 'Route the suites to on-demand executors instead of spot. On by default: a run of this size loses lanes to spot reclamation, and every run of it so far has been on-demand.',
             name: 'USE_ONDEMAND'),
         booleanParam(
             defaultValue: true,
