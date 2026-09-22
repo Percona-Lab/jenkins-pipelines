@@ -30,7 +30,7 @@ properties([
             name: 'AMI_ID',
             trim: true),
         string(
-            defaultValue: '',
+            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz',
             description: 'amd64 pmm-client tarball for the package lanes',
             name: 'PMM_CLIENT_TARBALL',
             trim: true),
