@@ -21,18 +21,40 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, String INSTALL_DEPS = '1')
     """
 }
 
-// Builds packages of one kind ('rpm', 'deb' or 'tarball') from the stashed source tarball
-// and uploads them to repo.ci.percona.com.
-void buildPackages(String DOCKER_OS, String KIND, String STASH_PATH) {
+// Builds the source packages the binary packages are then rebuilt from, so that the published
+// sources reproduce the shipped packages.
+void buildSourcePackages(String DOCKER_OS, String KIND, String STASH_PATH) {
     cleanUpWS()
     popArtifactFolder(params.CLOUD, "source_tarball/", STASH_PATH)
-    buildStage(DOCKER_OS, "--build_${KIND}=1")
-    pushArtifactFolder(params.CLOUD, "${KIND}/", STASH_PATH)
+    if (KIND == 'srpm') {
+        buildStage(DOCKER_OS, "--build_src_rpm=1")
+        pushArtifactFolder(params.CLOUD, "srpm/", STASH_PATH)
+        uploadRPMfromAWS(params.CLOUD, "srpm/", STASH_PATH)
+    } else {
+        buildStage(DOCKER_OS, "--build_source_deb=1")
+        pushArtifactFolder(params.CLOUD, "source_deb/", STASH_PATH)
+        uploadDEBfromAWS(params.CLOUD, "source_deb/", STASH_PATH)
+    }
+}
+
+// Builds packages of one kind ('rpm', 'deb' or 'tarball') and uploads them to repo.ci.percona.com.
+// RPMs and DEBs are rebuilt from the source packages, tarballs from the source tarball.
+void buildPackages(String DOCKER_OS, String KIND, String STASH_PATH) {
+    cleanUpWS()
     if (KIND == 'rpm') {
+        popArtifactFolder(params.CLOUD, "srpm/", STASH_PATH)
+        buildStage(DOCKER_OS, "--build_rpm=1")
+        pushArtifactFolder(params.CLOUD, "rpm/", STASH_PATH)
         uploadRPMfromAWS(params.CLOUD, "rpm/", STASH_PATH)
     } else if (KIND == 'deb') {
+        popArtifactFolder(params.CLOUD, "source_deb/", STASH_PATH)
+        buildStage(DOCKER_OS, "--build_deb=1")
+        pushArtifactFolder(params.CLOUD, "deb/", STASH_PATH)
         uploadDEBfromAWS(params.CLOUD, "deb/", STASH_PATH)
     } else {
+        popArtifactFolder(params.CLOUD, "source_tarball/", STASH_PATH)
+        buildStage(DOCKER_OS, "--build_tarball=1")
+        pushArtifactFolder(params.CLOUD, "tarball/", STASH_PATH)
         uploadTarballfromAWS(params.CLOUD, "tarball/", STASH_PATH, 'binary')
     }
 }
@@ -132,6 +154,26 @@ pipeline {
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
+        stage('Build MaxScale generic source packages') {
+            parallel {
+                stage('Build MaxScale generic source rpm') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        buildSourcePackages("oraclelinux:9", "srpm", AWS_STASH_PATH)
+                    }
+                }
+                stage('Build MaxScale generic source deb') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        buildSourcePackages("ubuntu:noble", "sdeb", AWS_STASH_PATH)
+                    }
+                }
+            }  //parallel
+        } // stage
         stage('Build MaxScale RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Oracle Linux 8') {
