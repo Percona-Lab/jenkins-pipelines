@@ -407,12 +407,6 @@ timestamps {
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ])
 
-    branches['ha'] = suite('ha', 'pmm3-ha-tests', [
-        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-        string(name: 'DOCKER_VERSION',    value: serverImage),
-        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
-    ])
-
     branches['openshift'] = suite('openshift', 'openshift-helm-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'PMM_CHART_BRANCH',  value: 'latest'),
@@ -420,6 +414,12 @@ timestamps {
         string(name: 'IMAGE_TAG',         value: serverImage.split(':')[1]),
         string(name: 'OPENSHIFT_VERSION', value: 'latest'),
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
+    ])
+
+    branches['ha'] = suite('ha', 'pmm3-ha-tests', [
+        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+        string(name: 'DOCKER_VERSION',    value: serverImage),
+        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
     ])
 
     if (params.RUN_GH_NIGHTLY_SUITE) {
