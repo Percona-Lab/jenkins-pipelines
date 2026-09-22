@@ -129,7 +129,9 @@ pipeline {
     }
     stage ('Run playbook for test with old version') {
       steps {
-          withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
+          withCredentials([
+             usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+             string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]){
           script{
               moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "converge", env.PLATFORM, env.OLDVERSIONS)
             }
