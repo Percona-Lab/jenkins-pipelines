@@ -232,7 +232,11 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
         def label = v[0]
         def tests = v[1]
         def clients = v[2]
-        def gaOnly = v[3] && serverArch == 'arm64'
+        // The tarball variants resolve an arm64 tarball from the released
+        // downloads path, which has nothing for an unreleased version, so on
+        // arm64 they fall back to the last GA one -- unless a tarball URL was
+        // given, which is exactly what removes that constraint.
+        def gaOnly = v[3] && serverArch == 'arm64' && !tarball
         def pmmVersionLabel = gaOnly ? gaVersion : devVersion
         def name = gaOnly ? "${prefix} / ${label} (GA ${gaVersion})" : "${prefix} / ${label}"
         branches[name] = suite(name, jobName, [
@@ -242,7 +246,7 @@ def packageBranches(Map branches, String prefix, String jobName, String serverAr
             string(name: 'PMM_VERSION',     value: pmmVersionLabel),
             string(name: 'TESTS',           value: tests),
             string(name: 'INSTALL_REPO',    value: gaOnly ? 'experimental' : installRepo),
-            string(name: 'TARBALL',         value: gaOnly ? '' : tarball),
+            string(name: 'TARBALL',         value: tarball),
             string(name: 'METRICS_MODE',    value: 'auto'),
             string(name: 'CLIENTS',         value: clients),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
