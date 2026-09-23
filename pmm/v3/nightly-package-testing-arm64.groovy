@@ -123,7 +123,7 @@ timestamps {
             def stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
                 string(name: 'DOCKER_VERSION',       value: params.DOCKER_VERSION),
                 string(name: 'SERVER_ARCH',          value: params.SERVER_ARCH),
-                string(name: 'CLIENT_VERSION',       value: '3-dev-latest'),
+                string(name: 'CLIENT_VERSION',       value: 'latest-tarball'),
                 string(name: 'DOCKER_ENV_VARIABLE',  value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
                 string(name: 'CLIENTS',              value: params.CLIENTS),
                 string(name: 'ADMIN_PASSWORD',       value: params.ADMIN_PASSWORD),
