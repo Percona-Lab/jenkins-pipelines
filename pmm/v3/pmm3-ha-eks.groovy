@@ -107,8 +107,8 @@ pipeline {
         )
         choice(
             name: 'WORKER_COUNT',
-            choices: ['6', '7', '8', '9', '10', '11', '12'],
-            description: 'Worker nodes in the spot nodegroup. 6 fits the minimal RESOURCE_PROFILE; raise it when overriding replicas via HELM_VALUES. Ignored with the chart profile, which always uses 12.'
+            choices: ['7', '8', '9', '10', '11', '12', '6'],
+            description: 'Worker nodes in the spot nodegroup. 7 fits the minimal RESOURCE_PROFILE; raise it when overriding replicas via HELM_VALUES. Ignored with the chart profile, which always uses 12.'
         )
         booleanParam(
             name: 'DEPLOY_PMM',
@@ -123,7 +123,7 @@ pipeline {
         choice(
             name: 'RESOURCE_PROFILE',
             choices: ['minimal', 'chart'],
-            description: 'PMM HA resources: "minimal" fits the default 6 workers, "chart" keeps the pmm-ha chart values and always creates 12 workers.'
+            description: 'PMM HA resources: "minimal" fits the default 7 workers, "chart" keeps the pmm-ha chart values and always creates 12 workers.'
         )
         string(
             name: 'PMM_IMAGE_REPOSITORY',
@@ -441,7 +441,7 @@ EOF
                             esac
                         done
 
-                        # Smaller resources that fit PMM HA on the default 6 workers. helm applies -f
+                        # Smaller resources that fit PMM HA on the default 7 workers. helm applies -f
                         # before --set, so HELM_VALUES can still override any of these.
                         RESOURCE_ARGS=""
                         if [ "${RESOURCE_PROFILE}" = "minimal" ]; then
