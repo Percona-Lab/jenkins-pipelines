@@ -56,9 +56,6 @@ def call(String DESTINATION, String UPLOAD_PATH, String PMM_CLIENT_SUBPATH = 'pm
                         # Update /srv/repo-copy/version
                         date +%s > /srv/repo-copy/version
 
-                        # --delay-updates renames every changed file into place at the end, so packages
-                        # and their indexes switch together; copied one by one, a republished package
-                        # and its index disagree for minutes and apt/dnf reject the download.
                         rsync -avt --bwlimit=50000 --delete-after --delay-updates --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/
