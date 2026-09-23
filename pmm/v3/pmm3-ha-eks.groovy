@@ -410,15 +410,6 @@ EOF
                         CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
                         VM_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
 
-                        # PMM-HA-GA charts renamed the VictoriaMetrics keys and reject the old ones; main still reads the old ones
-                        if grep -rq PMM_HA_VM_USERNAME helm-charts/charts/pmm-ha/templates; then
-                            VM_USER_KEY=PMM_HA_VM_USERNAME
-                            VM_PASS_KEY=PMM_HA_VM_PASSWORD
-                        else
-                            VM_USER_KEY=VMAGENT_remoteWrite_basicAuth_username
-                            VM_PASS_KEY=VMAGENT_remoteWrite_basicAuth_password
-                        fi
-
                         kubectl create secret generic pmm-secret -n pmm \
                             --from-literal=PMM_ADMIN_PASSWORD="${PMM_PW}" \
                             --from-literal=GF_SECURITY_ADMIN_PASSWORD="${PMM_PW}" \
@@ -426,8 +417,8 @@ EOF
                             --from-literal=GF_PASSWORD="${GF_PW}" \
                             --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
                             --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
-                            --from-literal=${VM_USER_KEY}="victoriametrics_pmm" \
-                            --from-literal=${VM_PASS_KEY}="${VM_PW}" \
+                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
+                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
                             --dry-run=client -o yaml | kubectl apply -f -
 
                         helm dependency update helm-charts/charts/pmm-ha
@@ -567,7 +558,7 @@ EOF
                         echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
                         echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
                         echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
-                        echo "VictoriaMetrics: $(get_secret PMM_HA_VM_USERNAME)$(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret PMM_HA_VM_PASSWORD)$(get_secret VMAGENT_remoteWrite_basicAuth_password)"
+                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
                         echo ""
 
                         echo "PMM access:"
