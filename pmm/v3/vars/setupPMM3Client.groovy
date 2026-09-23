@@ -30,21 +30,20 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export IP=192.168.0.1
             fi
 
-            # repo.percona.com republishes a dev build non-atomically: for up to
-            # ~8 minutes the RPM's Content-Length disagrees with the repodata size
-            # and dnf aborts with "Inconsistent server data". Retry across that
-            # window, refreshing the metadata so a republished index is seen.
+            # Percona's CDN occasionally serves an RPM whose Content-Length
+            # disagrees with the repodata-advertised size, which makes dnf abort
+            # with "Inconsistent server data ... please report to repository maintainer".
+            # The mismatch usually clears within a minute, so retry a few times.
             retry_dnf_install() {
-                local n=10
+                local n=3
                 local i
                 for i in $(seq 1 $n); do
                     if sudo dnf -y install "$@"; then
                         return 0
                     fi
                     if [ "$i" -lt "$n" ]; then
-                        echo "dnf install failed (attempt $i/$n); retrying in 60s..."
-                        sleep 60
-                        sudo dnf clean expire-cache
+                        echo "dnf install failed (attempt $i/$n); retrying in 30s..."
+                        sleep 30
                     fi
                 done
                 echo "dnf install failed after $n attempts"
