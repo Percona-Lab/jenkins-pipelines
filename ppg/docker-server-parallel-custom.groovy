@@ -60,7 +60,10 @@ pipeline {
         }
         stage('Prepare') {
             steps {
-                script { installMoleculePython39() }
+                script {
+                    installMoleculePython39()
+                    sh "python3 tools/render.py --group docker/ppg-docker-custom"
+                }
             }
         }
         stage('Test') {

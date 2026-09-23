@@ -25,6 +25,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
+        copyArtifactPermission('pmm3-nightly-orchestrator')
     }
     triggers {
         cron('0 0 * * 1-5')
