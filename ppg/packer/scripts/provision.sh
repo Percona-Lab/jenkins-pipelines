@@ -30,10 +30,32 @@ for entry in /boot/loader/entries/*.conf; do
   fi
 done
 
+# kdump writes a crash-dump initramfs for the running kernel at boot whenever
+# that kernel has none, so each chained bake adds one more ~35MB image that no
+# package owns. Retiring the kernel later removes its own files but leaves
+# that image, and ten of them tripped the headroom gate on Rocky 10. Package
+# tests never take a crash dump: turn the service off where it is on (the unit
+# ships in kdump-utils on EL10 and in kexec-tools on EL8/9, or is absent) and
+# drop the images.
+kdump_state="$(systemctl is-enabled kdump.service 2>/dev/null || true)"
+if [[ "${kdump_state}" == enabled* ]]; then
+  systemctl disable --now kdump.service
+fi
+
+rm -f /boot/initramfs-*kdump.img
+
 # The update needs old+new kernel on /boot at once, plus the ~80MB initramfs
 # dracut writes after rpm's disk check. Fail here, with a clear message,
-# rather than mid-transaction.
-boot_free_mb="$(df -BM --output=avail /boot | tail -1 | tr -dc '0-9')"
+# rather than mid-transaction. XFS frees the blocks of the files removed above
+# in the background, so re-read a few times before giving up.
+boot_free_mb=0
+for attempt in 1 2 3 4 5 6; do
+  boot_free_mb="$(df -BM --output=avail /boot | tail -1 | tr -dc '0-9')"
+  (( boot_free_mb >= 200 )) && break
+  echo "/boot has ${boot_free_mb}MB free after cleanup, waiting for XFS to release blocks (attempt ${attempt})"
+  sync
+  sleep 2
+done
 if (( boot_free_mb < 200 )); then
   echo "PROVISION FAIL: /boot has ${boot_free_mb}MB free, need >= 200MB for a kernel update" >&2
   exit 1
@@ -62,6 +84,8 @@ rm -rf /var/cache/dnf
 
 # Reset cloud-init + machine-id so a launched instance re-initialises. The temp
 # SSH key is cleared natively by Packer (ssh_clear_authorized_keys) after the build.
+# Truncate the machine-id, never delete it: an empty file is not a systemd
+# first boot, so no preset-all runs on the consumer and kdump.service stays off.
 cloud-init clean --logs || true
 rm -rf /var/lib/cloud/instances/* || true
 : > /etc/machine-id || true
