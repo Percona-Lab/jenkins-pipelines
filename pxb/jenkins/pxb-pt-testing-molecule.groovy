@@ -247,6 +247,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
         SBOM_CHECK_MODE = "${params.SBOM_CHECK_MODE}"
         SBOM_VULN_MODE = "${params.SBOM_VULN_MODE}"
         SBOM_EXTERNAL_TOOLS = "${params.SBOM_EXTERNAL_TOOLS}"
+        SBOM_LICENSE_STRICT = "1"
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())

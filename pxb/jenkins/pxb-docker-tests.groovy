@@ -274,6 +274,7 @@ pipeline {
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
                                     export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
+                                    export SBOM_LICENSE_STRICT="1"
 
                                     ./run.sh
 
@@ -398,6 +399,7 @@ pipeline {
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
                                     export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
+                                    export SBOM_LICENSE_STRICT="${params.SBOM_LICENSE_STRICT}"
 
                                     ./run.sh
 
