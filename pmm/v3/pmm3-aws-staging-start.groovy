@@ -29,7 +29,7 @@ pipeline {
             name: 'SERVER_ARCH'
         )
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'latest-tarball',
             description: 'PMM Client version ("3-dev-latest" for main branch, "X.X.X" for released version (docker clients amd64 only), "pmm3-rc" for Release Candidate, "latest-tarball" (docker clients amd64 only) or "https://....tar.gz" for feature build)',
             name: 'CLIENT_VERSION'
         )
