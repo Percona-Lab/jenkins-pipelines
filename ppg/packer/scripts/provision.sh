@@ -22,10 +22,15 @@ fi
 rm -f /boot/vmlinuz-0-rescue-* /boot/initramfs-0-rescue-* /boot/.vmlinuz-0-rescue-*.hmac
 rm -f /boot/loader/entries/*-0-rescue*.conf
 
+# An entry's "linux" path is relative to the filesystem that holds /boot: a
+# separate /boot partition gives "/vmlinuz-<ver>", /boot on the root filesystem
+# (the Oracle Linux cloud images) gives "/boot/vmlinuz-<ver>". Check both forms,
+# or every entry on a root-filesystem /boot image is deleted and the image only
+# boots again if this same bake happens to install a new kernel.
 for entry in /boot/loader/entries/*.conf; do
   [[ -e "${entry}" ]] || continue
   image="$(sed -n 's/^linux //p' "${entry}")"
-  if [[ -n "${image}" && ! -e "/boot${image}" ]]; then
+  if [[ -n "${image}" && ! -e "/boot${image}" && ! -e "${image}" ]]; then
     rm -f "${entry}"
   fi
 done
