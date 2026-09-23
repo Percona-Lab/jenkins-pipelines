@@ -26,7 +26,7 @@ pipeline {
                             set +o xtrace
 
                             aws ec2 describe-instances \
-                                --output table \
+                                --output text \
                                 --region us-east-2 \
                                 --filters "Name=tag:iit-billing-tag,Values=pmm-staging" \
                                           "Name=instance-state-name,Values=running" \
@@ -81,8 +81,8 @@ pipeline {
                         # cut on '|' instead of awk fields -- awk's whitespace splitting
                         # breaks when a short value like "None" doesn't butt up against the next '|'.
                         ROW=$(echo "${VMList}" | grep "${INPUT}")
-                        REQUEST_ID=$(echo "$ROW" | cut -d '|' -f2 | xargs)
-                        INSTANCE_ID=$(echo "$ROW" | cut -d '|' -f3 | xargs)
+                        REQUEST_ID=$(echo "$ROW" | awk '{print $1}')
+                        INSTANCE_ID=$(echo "$ROW" | awk '{print $2}')
                         set -x
                         echo $REQUEST_ID
                         echo $INSTANCE_ID

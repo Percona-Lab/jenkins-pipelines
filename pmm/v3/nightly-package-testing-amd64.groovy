@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def latestVersion = pmmVersion('v3').last()
+def devVersion = httpRequest("https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION").content.trim()
 
 properties([
     buildDiscarder(logRotator(numToKeepStr: '30')),
@@ -11,7 +11,7 @@ properties([
         string(defaultValue: 'main', description: 'Tag/Branch for pmm-qa repository', name: 'GIT_BRANCH', trim: true),
         string(defaultValue: 'perconalab/pmm-server:3-dev-latest', description: 'PMM Server docker container version (image-name:version-tag)', name: 'DOCKER_VERSION', trim: true),
         choice(choices: ['amd64', 'arm64'], description: 'Architecture of the PMM server staging VM', name: 'SERVER_ARCH'),
-        string(defaultValue: latestVersion, description: 'PMM Version for testing', name: 'PMM_VERSION', trim: true),
+        string(defaultValue: devVersion, description: 'Version the client is expected to report, e.g. 3.10.0. Defaults to the dev version, matching the DOCKER_VERSION default above.', name: 'PMM_VERSION', trim: true),
         string(defaultValue: 'pmm3-client_integration', description: 'Name of the playbook, e.g. pmm3-client_integration', name: 'TESTS', trim: true),
         choice(choices: ['experimental', 'testing', 'release'], description: 'Enable repo for client nodes', name: 'INSTALL_REPO'),
         string(defaultValue: '', description: 'PMM Client (x64) tarball link or FB-code', name: 'TARBALL'),
