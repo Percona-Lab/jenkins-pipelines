@@ -268,9 +268,20 @@ pipeline {
                                     else
                                         CDX_ASSET="cyclonedx-linux-x64"
                                     fi
-                                    sudo curl -fsSL -o /usr/local/bin/cyclonedx \
-                                        https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET} || true
-                                    sudo chmod +x /usr/local/bin/cyclonedx || true
+                                    if [ "${params.SBOM_EXTERNAL_TOOLS}" = "true" ]; then
+                                        # rm first, and no "|| true": curl -f does not
+                                        # truncate its output file on an HTTP error, so a
+                                        # failed download would otherwise leave the PREVIOUS
+                                        # build's binary on this persistent agent and the
+                                        # schema validation would silently run against a
+                                        # stale version. Letting the failure through reports
+                                        # it here rather than later as a confusing
+                                        # "cyclonedx-cli is not installed" pytest failure.
+                                        sudo rm -f /usr/local/bin/cyclonedx
+                                        sudo curl -fsSL -o /usr/local/bin/cyclonedx \
+                                            https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET}
+                                        sudo chmod +x /usr/local/bin/cyclonedx
+                                    fi
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
                                     export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
@@ -393,13 +404,24 @@ pipeline {
                                     else
                                         CDX_ASSET="cyclonedx-linux-x64"
                                     fi
-                                    sudo curl -fsSL -o /usr/local/bin/cyclonedx \
-                                        https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET} || true
-                                    sudo chmod +x /usr/local/bin/cyclonedx || true
+                                    if [ "${params.SBOM_EXTERNAL_TOOLS}" = "true" ]; then
+                                        # rm first, and no "|| true": curl -f does not
+                                        # truncate its output file on an HTTP error, so a
+                                        # failed download would otherwise leave the PREVIOUS
+                                        # build's binary on this persistent agent and the
+                                        # schema validation would silently run against a
+                                        # stale version. Letting the failure through reports
+                                        # it here rather than later as a confusing
+                                        # "cyclonedx-cli is not installed" pytest failure.
+                                        sudo rm -f /usr/local/bin/cyclonedx
+                                        sudo curl -fsSL -o /usr/local/bin/cyclonedx \
+                                            https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET}
+                                        sudo chmod +x /usr/local/bin/cyclonedx
+                                    fi
                                     export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
                                     export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
                                     export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
-                                    export SBOM_LICENSE_STRICT="${params.SBOM_LICENSE_STRICT}"
+                                    export SBOM_LICENSE_STRICT="1"
 
                                     ./run.sh
 
