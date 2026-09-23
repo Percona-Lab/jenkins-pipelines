@@ -349,8 +349,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                     // because SBOM_CHECK_MODE=off produces none.
                                     junit testResults: '*_sbom-junit.xml',
                                           keepLongStdio: true,
-                                          allowEmptyResults: true,
-                                          skipPublishingChecks: true
+                                          allowEmptyResults: false
 
                                 }
                             }

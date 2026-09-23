@@ -287,7 +287,7 @@ pipeline {
                             }
                             post {
                                 always {
-                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true
+                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: false, keepLongStdio: true
                                 }
                             }
                         }
@@ -412,7 +412,7 @@ pipeline {
                             }
                             post {
                                 always {
-                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true
+                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: false, keepLongStdio: true
                                 }
                             }
                         }
