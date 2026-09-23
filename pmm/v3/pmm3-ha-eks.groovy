@@ -117,7 +117,7 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'main',
+            defaultValue: 'PMM-HA-GA',
             description: 'Branch of percona-helm-charts repo'
         )
         choice(
@@ -540,6 +540,13 @@ EOF
 
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=600s
+                        kubectl wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=600s
                         kubectl get pods -n pmm
                     '''
                 }
