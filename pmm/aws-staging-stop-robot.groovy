@@ -109,6 +109,7 @@ pipeline {
                             echo -n > requests_to_terminate
                             echo -n > instances_to_terminate
 
+                            # stopped as well: a disabled persistent request keeps its stopped VM and volumes until the TTL check reaps them
                             aws ec2 describe-instances \
                                 --region us-east-2 \
                                 --output text \
@@ -118,7 +119,7 @@ pipeline {
                                     C_RequestId:SpotInstanceRequestId,
                                     D_Days: [Tags[?Key==`stop-after-days`].Value][0][0]
                                 }' \
-                                --filter Name=instance-state-name,Values=running \
+                                --filter Name=instance-state-name,Values=running,stopped \
                                 | sort -n \
                                 | tee init_instances
 
