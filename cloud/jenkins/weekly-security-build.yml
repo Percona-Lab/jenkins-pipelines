@@ -4,9 +4,10 @@
     concurrent: false
     description: |
         Do not edit this job through the web!
-    triggers:
-      - parameterized-timer:
-          cron: '{schedule} % OPERATOR={repository}'
+    # Disable scheduled triggers
+    # triggers:
+    #   - parameterized-timer:
+    #       cron: '{schedule} % OPERATOR={repository}'
     pipeline-scm:
       scm:
         - git:
