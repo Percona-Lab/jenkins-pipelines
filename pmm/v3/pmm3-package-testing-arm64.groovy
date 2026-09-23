@@ -156,9 +156,6 @@ pipeline {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
     }
-    triggers {
-        cron('0 2 * * *')
-    }
     stages {
         stage('Setup Server Instance') {
             steps {

@@ -117,6 +117,8 @@ build {
       "sudo dnf -qy module disable postgresql 2>/dev/null || true",
       "sudo dnf -y install percona-postgresql17-server || sudo dnf -y install percona-ppg-server17",
       "echo \"PPG install ok: $(rpm -q percona-postgresql17-server 2>/dev/null || rpm -qa 'percona-ppg-server*' | head -1)\"",
+      "[ -z \"$(sudo find /boot -maxdepth 1 -name 'initramfs-*kdump.img')\" ] || { echo 'kdump wrote a crash-dump initramfs on first boot'; exit 1; }",
+      "[ \"$(systemctl is-enabled kdump.service 2>/dev/null || true)\" != enabled ] || { echo 'kdump.service came back enabled on first boot'; exit 1; }",
     ]
   }
 }

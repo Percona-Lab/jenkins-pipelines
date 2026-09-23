@@ -4,6 +4,36 @@
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 
+// A cluster created as `foo` owns AWS resources tagged kubernetes.io/cluster/foo-xxxxx,
+// so a forced destroy by the bare name matches nothing and still reports success.
+// Look the real infraID up from the VPC tags before synthesizing metadata for it.
+def resolveInfraID(String infraID, String region) {
+    def keys = sh(
+        returnStdout: true,
+        script: """
+            aws resourcegroupstaggingapi get-resources \
+                --resource-type-filters ec2:vpc \
+                --region ${region} \
+                --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/${infraID}`)].Key' \
+                --output text 2>/dev/null || true
+        """
+    ).trim().split(/\s+/).findAll { it }.collect { it - 'kubernetes.io/cluster/' }.unique()
+
+    if (keys.contains(infraID)) {
+        return infraID
+    }
+    def matches = keys.findAll { it.startsWith("${infraID}-") }
+    if (matches.size() > 1) {
+        error "Several clusters match ${infraID}-*: ${matches.join(', ')}. Set INFRA_ID explicitly."
+    }
+    if (matches.size() == 1) {
+        echo "Resolved infraID ${matches[0]} for ${infraID} from its VPC tag"
+        return matches[0]
+    }
+    echo "No VPC tagged kubernetes.io/cluster/${infraID} or ${infraID}-* in ${region}; using ${infraID} as given"
+    return infraID
+}
+
 pipeline {
     agent {
         label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
@@ -154,6 +184,7 @@ pipeline {
                         ]
 
                         if (params.FORCE_MODE || env.AUTO_FORCE_MODE == 'true') {
+                            env.RESOLVED_INFRA_ID = resolveInfraID(env.RESOLVED_INFRA_ID, params.AWS_REGION)
                             destroyConfig.force = true
                             destroyConfig.infraID = env.RESOLVED_INFRA_ID
                             destroyConfig.openshiftVersion = params.OPENSHIFT_VERSION

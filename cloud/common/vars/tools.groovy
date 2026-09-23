@@ -12,32 +12,14 @@ void dockerBuildAndPush(Map cfg) {
         dockerBuildOperatorImage(
             cfg.operator,
             cfg.operatorImage,
-            cfg.branch
+            cfg.branch,
+            cfg.sourceDir ?: 'source'
         )
 
         dockerPushImage(
             cfg.operatorImage,
             cfg.branch
         )
-    }
-}
-
-void dockerBuildMultiarchImage(String dockerfile, String image) {
-    withEnv([
-        "DOCKERFILE=${dockerfile}",
-        "DOCKER_IMAGE=${image}"
-    ]) {
-        sh '''
-            set -eu
-            docker buildx use multiarch 2>/dev/null ||
-                docker buildx create --name multiarch --use
-            docker buildx inspect --bootstrap
-            docker buildx build --pull \
-                --platform linux/amd64,linux/arm64 \
-                --file "${DOCKERFILE}" \
-                --tag "${DOCKER_IMAGE}" \
-                --push .
-        '''
     }
 }
 
@@ -62,7 +44,7 @@ void dockerBuildOperatorImage(String operator, String image, String tag, String 
     echo "=========================[ Building ${image}:${tag} Docker image ]========================="
 
     sh """
-        cd ${sourceDir}
+        cd "${sourceDir}"
 
         sg docker -c '
             docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
@@ -111,11 +93,17 @@ void dockerTagImage(String sourceImage, String targetImage) {
     }
 }
 
-void gitCheckoutTag(String tagName) {
-    sh """
-        set -eu
-        git checkout --detach 'refs/tags/${tagName}'
-    """
+boolean gitBranchExists(String branchName) {
+    boolean exists = false
+
+    withEnv(["GIT_BRANCH_NAME=${branchName}"]) {
+        exists = sh(
+            script: 'git ls-remote --exit-code --heads origin "refs/heads/${GIT_BRANCH_NAME}" > /dev/null 2>&1',
+            returnStatus: true
+        ) == 0
+    }
+
+    return exists
 }
 
 void gitClone(Map cfg, String source = 'source') {
@@ -150,6 +138,13 @@ void gitClone(Map cfg, String source = 'source') {
     stash name: "${source}FILES", includes: "${source}/**", useDefaultExcludes: false
 }
 
+void gitCheckoutTag(String tagName) {
+    sh """
+        set -eu
+         git checkout --detach refs/tags/'${tagName}'
+    """
+}
+
 void gitCreateBranch(String branchName) {
     sh """
         set -eu
@@ -167,6 +162,33 @@ void gitCreateTag(String tagName, String message, boolean force = false) {
         } else {
             sh 'git tag -a "${GIT_TAG_NAME}" -m "${GIT_TAG_MESSAGE}"'
         }
+    }
+}
+
+void gitDeleteRemoteBranch(String branchName) {
+    withEnv(["GIT_BRANCH_NAME=${branchName}"]) {
+        sh 'git push origin --delete "${GIT_BRANCH_NAME}" || true'
+    }
+}
+
+void gitFetchBranch(String branchName) {
+    withEnv(["GIT_BRANCH_NAME=${branchName}"]) {
+        sh '''
+            git fetch origin \
+                "refs/heads/${GIT_BRANCH_NAME}:refs/remotes/origin/${GIT_BRANCH_NAME}"
+
+            git checkout --detach \
+                "refs/remotes/origin/${GIT_BRANCH_NAME}"
+        '''
+    }
+}
+
+void gitFetchTag(String tagName) {
+    withEnv(["GIT_TAG_NAME=${tagName}"]) {
+        sh '''
+            git fetch origin \
+                "refs/tags/${GIT_TAG_NAME}:refs/tags/${GIT_TAG_NAME}"
+        '''
     }
 }
 
@@ -237,45 +259,44 @@ String githubCreatePullRequest(String repository, String headNamespace, String h
     }
 }
 
-boolean githubMergeApprovedPullRequest(String repository, String pullRequestUrl) {
-    def ready
+String githubPullRequestStatus(String repository, String pullRequestUrl) {
+    def status
 
     withEnv([
         "GITHUB_PR_REPOSITORY=${repository}",
         "GITHUB_PR_URL=${pullRequestUrl}"
     ]) {
-        ready = sh(
+        status = sh(
             script: '''
                 set -eu
                 set +x
                 pr_number="${GITHUB_PR_URL##*/}"
                 api="https://api.github.com/repos/${GITHUB_PR_REPOSITORY}/pulls/${pr_number}"
 
-                pull_request=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                    -H "Accept: application/vnd.github+json" "${api}")
-
-                if printf '%s' "${pull_request}" | jq -e '.merged == true' >/dev/null; then
-                    exit 0
-                fi
-
-                reviews=$(curl -fsS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                    -H "Accept: application/vnd.github+json" "${api}/reviews")
-                printf '%s' "${reviews}" | jq -e \
-                    'any(.[]; .state == "APPROVED")' >/dev/null || exit 1
-
-                response=$(curl -fsS -X PUT \
+                response=$(curl -fsS \
                     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
                     -H "Accept: application/vnd.github+json" \
-                    -H "Content-Type: application/json" \
-                    -d '{"merge_method":"squash"}' "${api}/merge" || true)
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    "${api}") || {
+                        printf 'unknown'
+                        exit 0
+                    }
 
-                printf '%s' "${response}" | jq -e '.merged == true' >/dev/null
+                status=$(printf '%s' "${response}" | jq -r '
+                        if .merged == true then "merged"
+                        elif .state == "closed" then "closed"
+                        elif .state == "open" then "open"
+                        else "unknown"
+                        end
+                    ') || status=unknown
+
+                printf '%s' "${status}"
             ''',
-            returnStatus: true
-        ) == 0
+            returnStdout: true
+        ).trim()
     }
 
-    return ready
+    return status
 }
 
 void gitPushBranch(String branchName) {
@@ -316,7 +337,7 @@ boolean gitTagExists(String tagName) {
 
     withEnv(["GIT_TAG_NAME=${tagName}"]) {
         exists = sh(
-            script: 'git show-ref --verify --quiet "refs/tags/${GIT_TAG_NAME}"',
+            script: 'git ls-remote --exit-code --tags origin "refs/tags/${GIT_TAG_NAME}" > /dev/null 2>&1',
             returnStatus: true
         ) == 0
     }

@@ -238,16 +238,79 @@ def module_version(module: str, go_mod_directory: Path) -> str:
 
 def update_dockerfile(dockerfile: Path, version: str) -> None:
     contents = dockerfile.read_text(encoding="utf-8")
+    new_version = parse_version(version)
+
+    def replacement(match: re.Match) -> str:
+        _, _, patch = match.groups()
+        formatted_version = (
+            format_version(new_version)
+            if patch is not None
+            else f"{new_version[0]}.{new_version[1]}"
+        )
+        return f"golang:{formatted_version}"
+
     updated, replacements = re.subn(
-        r"(golang:)\d+(?:\.\d+){1,2}", rf"\g<1>{version}", contents
+        DOCKER_GO_PATTERN,
+        replacement,
+        contents,
     )
     if not replacements:
         raise RuntimeError(f"No golang image was found in {dockerfile}")
     dockerfile.write_text(updated, encoding="utf-8")
 
 
-def stage_go_files(go_mod: Path, dockerfile: Path) -> None:
-    files = [str(go_mod), str(dockerfile)]
+def update_go_version_references(
+    files: Iterable[Path], old_version: Version, new_version: Version
+) -> None:
+    old_line = rf"{old_version[0]}\.{old_version[1]}"
+    new_line = f"{new_version[0]}.{new_version[1]}"
+    full_version = format_version(new_version)
+    pattern = re.compile(
+        rf"(?<![\d.]){old_line}(?P<patch>\.(?:\d+|x))?(?![\d.])"
+    )
+
+    def replacement(match: re.Match) -> str:
+        patch = match.group("patch")
+        if patch == ".x":
+            return f"{new_line}.x"
+        return full_version if patch else new_line
+
+    for path in files:
+        if not path.is_file():
+            raise RuntimeError(f"Go version file was not found: {path}")
+
+        contents = path.read_text(encoding="utf-8")
+        updated, replacements = pattern.subn(replacement, contents)
+        if not replacements:
+            raise RuntimeError(
+                f"No Go {old_version[0]}.{old_version[1]} reference was found in {path}"
+            )
+
+        path.write_text(updated, encoding="utf-8")
+        print(f"Updated {replacements} Go version reference(s) in {path}")
+
+
+def synchronize_go_version_files(
+    old_version: str,
+    new_version: str,
+    dockerfile: Path,
+    go_version_files: Iterable[Path],
+) -> None:
+    if old_version == new_version:
+        return
+
+    old_version_tuple = parse_version(old_version)
+    new_version_tuple = parse_version(new_version)
+    update_dockerfile(dockerfile, new_version)
+    update_go_version_references(
+        go_version_files, old_version_tuple, new_version_tuple
+    )
+
+
+def stage_go_files(
+    go_mod: Path, dockerfile: Path, additional_files: Iterable[Path] = ()
+) -> None:
+    files = [str(go_mod), str(dockerfile), *(str(path) for path in additional_files)]
     go_sum = go_mod.with_name("go.sum")
     if go_sum.exists():
         files.append(str(go_sum))
@@ -280,6 +343,7 @@ def fix_stdlib(
     vulnerabilities: Iterable[str],
     go_mod: Path,
     dockerfile: Path,
+    go_version_files: Iterable[Path],
     tag: str,
 ) -> None:
     old_version = format_version(current_go_version(go_mod, dockerfile))
@@ -288,9 +352,11 @@ def fix_stdlib(
     print(f"Updating stdlib: {old_version} -> {formatted_version}")
 
     run("go", "mod", "edit", f"-go={formatted_version}", cwd=go_mod.parent)
-    update_dockerfile(dockerfile, formatted_version)
+    synchronize_go_version_files(
+        old_version, formatted_version, dockerfile, go_version_files
+    )
     run("go", "mod", "tidy", cwd=go_mod.parent)
-    stage_go_files(go_mod, dockerfile)
+    stage_go_files(go_mod, dockerfile, go_version_files)
     commit_update("stdlib", old_version, formatted_version, vulnerabilities, tag)
 
 
@@ -322,9 +388,11 @@ def fix_module(
     vulnerabilities: Iterable[str],
     go_mod: Path,
     dockerfile: Path,
+    go_version_files: Iterable[Path],
     tag: str,
     preferred_go_version: str,
 ) -> None:
+    go_version_before_update = go_mod_version(go_mod)
     old_version = module_version(module, go_mod.parent)
     target_version = latest_module_version(
         module, old_version, fixed_versions, go_mod.parent
@@ -333,8 +401,15 @@ def fix_module(
 
     run("go", "get", f"{module}@{target_version}", cwd=go_mod.parent)
     tidy_go_module(go_mod, preferred_go_version)
+    go_version_after_update = go_mod_version(go_mod)
+    synchronize_go_version_files(
+        go_version_before_update,
+        go_version_after_update,
+        dockerfile,
+        go_version_files,
+    )
     new_version = module_version(module, go_mod.parent)
-    stage_go_files(go_mod, dockerfile)
+    stage_go_files(go_mod, dockerfile, go_version_files)
     commit_update(module, old_version, new_version, vulnerabilities, tag)
 
 
@@ -356,6 +431,13 @@ def main() -> None:
     parser.add_argument("--trivy-report", required=True, type=Path)
     parser.add_argument("--go-mod", required=True, type=Path)
     parser.add_argument("--dockerfile", required=True, type=Path)
+    parser.add_argument(
+        "--go-version-file",
+        action="append",
+        default=[],
+        type=Path,
+        help="Additional file containing Go version references; may be repeated",
+    )
     parser.add_argument("--tag", required=True)
     args = parser.parse_args()
 
@@ -371,17 +453,21 @@ def main() -> None:
             vulnerabilities,
             args.go_mod,
             args.dockerfile,
+            args.go_version_file,
             args.tag,
             preferred_go_version,
         )
 
     if stdlib:
-        fix_stdlib(*stdlib, args.go_mod, args.dockerfile, args.tag)
+        fix_stdlib(
+            *stdlib,
+            args.go_mod,
+            args.dockerfile,
+            args.go_version_file,
+            args.tag,
+        )
     else:
         print("No fixable stdlib vulnerability found; keeping the Go version")
-
-    print("Testing the complete dependency update")
-    run("make", "test")
 
 
 if __name__ == "__main__":

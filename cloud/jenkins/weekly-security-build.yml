@@ -4,10 +4,9 @@
     concurrent: false
     description: |
         Do not edit this job through the web!
-    # Enable when the scheduled security builds are ready to run.
-    # triggers:
-    #   - parameterized-timer:
-    #       cron: '{schedule} % OPERATOR={repository}'
+    triggers:
+      - parameterized-timer:
+          cron: '{schedule} % OPERATOR={repository}'
     pipeline-scm:
       scm:
         - git:
@@ -23,4 +22,4 @@
       - 'weekly-security-build-{repository_id}':
           repository_id: pso
           repository: percona-server-mysql-operator
-          # schedule: '0 8 * * 0'
+          schedule: '0 12 * * 1'

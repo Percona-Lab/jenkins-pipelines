@@ -2,19 +2,20 @@ import groovy.transform.Field
 import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field String gitNamespace = 'percona'
-@Field String slackChannel = '#cloud-security-builds'
-@Field String securityBuildDate
+@Field String slackChannel = '#cloud-dev-ci'
 @Field Map libraries = [:]
 
 @Field List repositories = [
     [
+        operator        : 'ps-operator',
         name            : 'percona-server-mysql-operator',
         sourceBranch    : 'main',
         imageName       : 'percona-server-mysql-operator',
         imageRepo       : 'docker.io/perconalab',
         releaseImageRepo: 'docker.io/percona',
         testJob         : 'pso-gke-1',
-        pillarVersion    : '84'
+        pillarVersion    : '84',
+        goVersionFiles   : [] // List of files containing Go version references
     ]
 ]
 
@@ -22,34 +23,29 @@ void getLibraries() {
     libraries = load('cloud/common/libraries.groovy').loadLibraries()
 }
 
-void validateRepositories() {
-    def required = [
-        'name', 'sourceBranch', 'imageName',
-        'imageRepo', 'releaseImageRepo', 'testJob'
+List slackMessageAttachments(String text, String color, List<Map> buttons) {
+    def blocks = [
+        [
+            type: 'section',
+            text: [
+                type: 'mrkdwn',
+                text: text
+            ]
+        ]
     ]
-    repositories.each { repository ->
-        def missing = required.findAll { !repository[it] }
 
-        if (missing) {
-            error("${repository.name ?: 'Repository'} is missing: ${missing.join(', ')}")
-        }
+    if (buttons) {
+        blocks.add([
+            type: 'actions',
+            elements: buttons
+        ])
     }
 
-    def duplicates = repositories*.name.groupBy { it }.findAll { it.value.size() > 1 }.keySet()
-
-    if (duplicates) {
-        error("Repository names must be unique: ${duplicates.join(', ')}")
-    }
-}
-
-Map selectRepository(String name) {
-    def repository = repositories.find { it.name == name }
-
-    if (!repository) {
-        error("Unknown operator '${name}'. Available operators: ${repositories*.name.join(', ')}")
-    }
-
-    repository
+    return [[
+        color: color,
+        fallback: text,
+        blocks: blocks
+    ]]
 }
 
 String findDockerfile() {
@@ -62,9 +58,10 @@ String findDockerfile() {
     }
 
     def output = sh(
-        script: "find build -type f -name Dockerfile -print 2>/dev/null | sort || true",
+        script: 'find build -type f -name Dockerfile -print 2>/dev/null | sort || true',
         returnStdout: true
     ).trim()
+
     def dockerfiles = output ? output.split('\n') as List : []
 
     if (dockerfiles.size() > 1) {
@@ -75,10 +72,27 @@ String findDockerfile() {
         error('Dockerfile was not found in the repository root or under build/')
     }
 
-    dockerfiles.first()
+    return dockerfiles.first()
 }
 
-Map buildContext(Map repository, String date) {
+int nextSecurityBuildNumber(String version) {
+    def latest = withEnv(["VERSION=${version}"]) {
+        sh(
+            script: '''
+                git ls-remote --tags origin "refs/tags/security/${VERSION}-*" 2>/dev/null |
+                sed 's|.*-||; s|\\^{}||' |
+                grep -E '^[0-9]+$' |
+                sort -n |
+                tail -1
+            ''',
+            returnStdout: true
+        ).trim()
+    }
+
+    return latest ? latest.toInteger() + 1 : 1
+}
+
+Map buildContext(Map repository) {
     def versionTag = sh(
         script: "git tag --list --sort=-v:refname | grep -E '^v[0-9]+[.][0-9]+[.][0-9]+\$' | head -1",
         returnStdout: true
@@ -89,89 +103,106 @@ Map buildContext(Map repository, String date) {
     }
 
     def version = versionTag.substring(1)
-    def tag = "security/${version}-${date}"
-    def floatingTag = "security/${version}"
-    def checkoutTag = versionTag
-    def securityBaseBranch = "security/${version}"
-    def securityBranch = "${securityBaseBranch}-${date}"
-    def imageTag = "${version}-sec-${date}"
-    def floatingImageTag = "${version}-sec-latest"
+    def buildNumber = nextSecurityBuildNumber(version)
 
-    [
+    def securityBaseBranch = "security/${version}"
+    def securityBranch = "${securityBaseBranch}-${buildNumber}"
+
+    def buildImageTag = "${version}-${buildNumber}"
+    def floatingImageTag = "${version}-latest"
+
+    return [
         BUILD_URL             : env.BUILD_URL,
         REPO_PATH             : "${gitNamespace}/${repository.name}",
         GIT_NAMESPACE         : gitNamespace,
+        OPERATOR              : repository.operator,
         SOURCE_BRANCH         : repository.sourceBranch,
+
+        VERSION               : version,
         VERSION_TAG           : versionTag,
-        CHECKOUT_TAG          : checkoutTag,
+        SECURITY_BUILD_NUMBER : buildNumber,
+
+        // Example: security/1.2.3
         SECURITY_BASE_BRANCH  : securityBaseBranch,
+        FLOATING_TAG          : securityBaseBranch,
+
+        // Example: security/1.2.3-1
         SECURITY_BRANCH       : securityBranch,
-        TAG                   : tag,
-        FLOATING_TAG          : floatingTag,
-        SOURCE_IMAGE          : "${repository.releaseImageRepo}/${repository.imageName}:${version}",
-        IMAGE                 : "${repository.imageRepo}/${repository.imageName}:${imageTag}",
-        FLOATING_IMAGE        : "${repository.imageRepo}/${repository.imageName}:${floatingImageTag}",
-        RELEASE_IMAGE         : "${repository.releaseImageRepo}/${repository.imageName}:${imageTag}",
+        TAG                   : securityBranch,
+
+        BASE_RELEASED_IMAGE   : "${repository.releaseImageRepo}/${repository.imageName}:${version}",
+
+        BUILD_IMAGE_REPOSITORY: "${repository.imageRepo}/${repository.imageName}",
+        BUILD_IMAGE_TAG       : buildImageTag,
+        BUILD_IMAGE           : "${repository.imageRepo}/${repository.imageName}:${buildImageTag}",
+        FLOATING_BUILD_IMAGE  : "${repository.imageRepo}/${repository.imageName}:${floatingImageTag}",
+
+        RELEASE_IMAGE         : "${repository.releaseImageRepo}/${repository.imageName}:${buildImageTag}",
         FLOATING_RELEASE_IMAGE: "${repository.releaseImageRepo}/${repository.imageName}:${floatingImageTag}"
     ]
 }
 
-String pullProductionImage(Map context) {
-    def image = context.SECURITY_BASE_EXISTS ? context.FLOATING_RELEASE_IMAGE : context.SOURCE_IMAGE
+boolean ensureSecurityBaseBranch(Map context) {
+    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
+        libraries.credentials.withGitHubCredentials {
+            def tagExists = libraries.tools.gitTagExists(context.SECURITY_BASE_BRANCH)
+            def branchExists = libraries.tools.gitBranchExists(context.SECURITY_BASE_BRANCH)
 
-    withEnv(["PRODUCTION_IMAGE=${image}"]) {
+            if (tagExists && branchExists) {
+                echo "Using existing security tag and tag: ${context.SECURITY_BASE_BRANCH}"
+                libraries.tools.gitFetchTag(context.SECURITY_BASE_BRANCH)
+                libraries.tools.gitCheckoutTag(context.SECURITY_BASE_BRANCH)
+                return true
+            }
+
+            echo "Creating security branch ${context.SECURITY_BASE_BRANCH} from ${context.VERSION_TAG}"
+
+            libraries.tools.gitFetchTag(context.VERSION_TAG)
+            libraries.tools.gitCheckoutTag(context.VERSION_TAG)
+
+            libraries.tools.gitDeleteRemoteBranch(context.SECURITY_BASE_BRANCH)
+            libraries.tools.gitCreateBranch(context.SECURITY_BASE_BRANCH)
+            libraries.tools.gitPushBranch(context.SECURITY_BASE_BRANCH)
+
+            return false
+        }
+    }
+}
+
+String pullReleasedImage(Map context) {
+    def image = context.SECURITY_BASE_EXISTS ?
+        context.FLOATING_RELEASE_IMAGE :
+        context.BASE_RELEASED_IMAGE
+
+    withEnv(["RELEASED_IMAGE=${image}"]) {
         sh '''
             set -eu
-            echo "Pulling production image ${PRODUCTION_IMAGE}"
-            docker pull "${PRODUCTION_IMAGE}"
+
+            echo "Pulling RELEASED image ${RELEASED_IMAGE}"
+            docker pull "${RELEASED_IMAGE}"
         '''
     }
 
     return image
 }
 
-boolean ensureSecurityBaseBranch(Map context) {
-    def branchExists
-
-    withEnv([
-        "REPO_PATH=${context.REPO_PATH}",
-        "SECURITY_BASE_BRANCH=${context.SECURITY_BASE_BRANCH}"
-    ]) {
-        libraries.credentials.withGitHubCredentials {
-            branchExists = sh(
-                script: 'git ls-remote --exit-code --heads origin "refs/heads/${SECURITY_BASE_BRANCH}"',
-                returnStatus: true
-            ) == 0
-
-            if (branchExists) {
-                echo "Using existing security base branch ${context.SECURITY_BASE_BRANCH}"
-                sh '''
-                    git fetch origin \
-                        "refs/heads/${SECURITY_BASE_BRANCH}:refs/remotes/origin/${SECURITY_BASE_BRANCH}"
-                    git checkout --detach "refs/remotes/origin/${SECURITY_BASE_BRANCH}"
-                '''
-            } else {
-                echo "Using release tag ${context.VERSION_TAG} and creating ${context.SECURITY_BASE_BRANCH}"
-                sh 'git push origin "HEAD:refs/heads/${SECURITY_BASE_BRANCH}"'
-            }
-        }
-    }
-
-    return branchExists
-}
-
 void goSecurityFixScript(Map context) {
+    def goVersionFileArguments = context.GO_VERSION_FILES.collect {
+        "--go-version-file=${it}"
+    }.join(' ')
+
     withEnv([
         "DOCKERFILE=${context.DOCKERFILE}",
+        "GO_VERSION_FILE_ARGUMENTS=${goVersionFileArguments}",
         "REPO_PATH=${context.REPO_PATH}",
-        "TAG=${context.TAG}"
+        "TAG=${context.TAG}",
+        "SCRIPT=jenkins-security_build_fix_go_vulnerabilities.py"
     ]) {
         libraries.credentials.withGitHubCredentials {
-            def scriptFile = '.jenkins-security_build_fix_go_vulnerabilities.py'
-            writeFile file: scriptFile, text: readFile('../cloud/scripts/security_build_fix_go_vulnerabilities.py')
-
             try {
                 sh '''
+                    cp -f ../cloud/scripts/security_build_fix_go_vulnerabilities.py "${SCRIPT}"
+
                     docker run --rm \
                       -v "${PWD}:${PWD}" \
                       -e HOME=/tmp \
@@ -181,19 +212,25 @@ void goSecurityFixScript(Map context) {
                       -e HOST_GID="$(id -g)" \
                       -e GITHUB_TOKEN \
                       -e DOCKERFILE \
+                      -e "GO_VERSION_FILE_ARGUMENTS=${GO_VERSION_FILE_ARGUMENTS:-}" \
+                      -e SCRIPT \
                       -e TAG \
                       -w "${PWD}" \
                       golang:1.27-alpine \
-                      sh -ceu 'apk add --no-cache bash curl git jq make patch python3 su-exec yq; \
+                      sh -ceu '
+                        apk add --no-cache bash curl git jq make patch python3 su-exec yq
+
                         exec su-exec "${HOST_UID}:${HOST_GID}" \
-                          python3 -u .jenkins-security_build_fix_go_vulnerabilities.py \
+                          python3 -u "${SCRIPT}" \
                             --trivy-report trivy.json \
                             --go-mod go.mod \
                             --dockerfile "${DOCKERFILE}" \
-                            --tag "${TAG}"'
+                            ${GO_VERSION_FILE_ARGUMENTS:-} \
+                            --tag "${TAG}"
+                      '
                 '''
             } finally {
-                sh "rm -f '${scriptFile}'"
+                sh 'rm -f "${SCRIPT}"'
             }
         }
     }
@@ -225,26 +262,24 @@ String fixVulnerabilities(Map context) {
     }
 }
 
-void pushDevelopmentBuild(Map context) {
-    libraries.credentials.withDockerCredentials {
-        libraries.tools.dockerCopyImage(context.IMAGE, [context.FLOATING_IMAGE])
-    }
-}
-
-void addVulnerabilityBadge() {
+boolean addVulnerabilityBadge() {
     def counts = sh(
         script: '''
             critical=$(grep -Eo '"Severity"[[:space:]]*:[[:space:]]*"CRITICAL"' trivy.json | wc -l)
             high=$(grep -Eo '"Severity"[[:space:]]*:[[:space:]]*"HIGH"' trivy.json | wc -l)
             total=$((critical + high))
+
             printf '%s %s %s' "${critical}" "${high}" "${total}"
         ''',
         returnStdout: true
     ).trim().tokenize()
+
     def critical = counts[0]
     def high = counts[1]
     def total = counts[2]
-    def badgeStyle = 'padding: 4px 12px; border-radius: 8px; font-weight: 600;'
+
+    def badgeStyle =
+        'padding: 4px 12px; border-radius: 8px; font-weight: 600;'
 
     if (total != '0') {
         addBadge(
@@ -252,34 +287,34 @@ void addVulnerabilityBadge() {
             text: "${critical} CRITICAL",
             style: "${badgeStyle} color: #ff4d4f; background-color: #4a2328;"
         )
+
         addBadge(
             id: 'trivy-high',
             text: "${high} HIGH",
             style: "${badgeStyle} color: #f0a500; background-color: #493817;"
         )
-    } else {
-        addBadge(
-            id: 'trivy-clean',
-            text: 'NO VULNERABILITIES',
-            style: "${badgeStyle} color: #2ecc71; background-color: #183d2b;"
-        )
+
+        return true
     }
+
+    addBadge(
+        id: 'trivy-clean',
+        text: 'NO VULNERABILITIES',
+        style: "${badgeStyle} color: #2ecc71; background-color: #183d2b;"
+    )
+
+    return false
 }
 
-void runTests(Map repository, Map context) {
-    retry(2) {
-        build(
-            job: repository.testJob,
-            wait: true,
-            propagate: true,
-            parameters: [
-                string(name: 'TEST_SUITE', value: 'run-release.csv'),
-                string(name: 'GIT_BRANCH', value: context.SECURITY_BASE_BRANCH),
-                string(name: 'IMAGE_OPERATOR', value: context.RELEASE_IMAGE),
-                string(name: 'GKE_RELEASE_CHANNEL', value: 'stable'),
-                string(name: 'CLUSTER_WIDE', value: 'YES'),
-                string(name: 'PILLAR_VERSION', value: repository.pillarVersion)
-            ]
+void buildImage(Map context) {
+    echo "Building BUILD image: ${context.BUILD_IMAGE}"
+
+    libraries.credentials.withDockerCredentials {
+        libraries.tools.dockerBuildAndPush(
+            operator: context.OPERATOR,
+            operatorImage: context.BUILD_IMAGE_REPOSITORY,
+            branch: context.BUILD_IMAGE_TAG,
+            sourceDir: '.'
         )
     }
 }
@@ -303,107 +338,202 @@ String createPullRequest(Map context) {
     return prUrl
 }
 
-void waitForApprovalOrMerge(Map repository, Map context, String vulnerabilitySummary, String prUrl) {
+void waitForMerge(
+    Map context,
+    String vulnerabilitySummary,
+    String prUrl
+) {
+    def message = [
+        ':warning: *Security build awaiting PR merge*',
+        '',
+        "*Repository*: `${context.REPO_PATH}`",
+        "*Branch*: `${context.SECURITY_BRANCH}`",
+        "*Target branch*: `${context.SECURITY_BASE_BRANCH}`",
+        '',
+        "*RELEASED image*: `${context.RELEASED_IMAGE}`",
+        "*BUILD image*: `${context.BUILD_IMAGE}`",
+        "*RELEASE image*: `${context.RELEASE_IMAGE}`",
+        "*Latest RELEASE image*: `${context.FLOATING_RELEASE_IMAGE}`",
+        '',
+        '*Vulnerabilities and selected fixes:*',
+        vulnerabilitySummary
+    ].join('\n')
+
     slackSend(
         botUser: true,
         channel: slackChannel,
-        color: '#FFA500',
         failOnError: true,
-        message: [
-            ':warning: *Security build awaiting PR approval or merge*',
-            '',
-            "*Repository*: `${gitNamespace}/${repository.name}`",
-            "*Branch*: `${context.SECURITY_BRANCH}`",
-            "*Target branch*: `${context.SECURITY_BASE_BRANCH}`",
-            "*Test image*: `${context.IMAGE}`",
-            "*Build image*: `${context.RELEASE_IMAGE}`",
-            "*Latest build image*: `${context.FLOATING_RELEASE_IMAGE}`",
-            '',
-            '*Vulnerabilities and selected fixes:*',
-            vulnerabilitySummary,
-            '',
-            "<${prUrl}|Review security pull request>",
-            "<${context.BUILD_URL}|Open Jenkins build>"
-        ].join('\n')
+        attachments: slackMessageAttachments(
+            message,
+            '#FFA500',
+            [
+                [
+                    type: 'button',
+                    text: [
+                        type: 'plain_text',
+                        text: 'Review security pull request',
+                        emoji: true
+                    ],
+                    url: prUrl,
+                    style: 'primary',
+                    action_id: 'review_security_pull_request'
+                ],
+                [
+                    type: 'button',
+                    text: [
+                        type: 'plain_text',
+                        text: 'Open Jenkins build',
+                        emoji: true
+                    ],
+                    url: context.BUILD_URL,
+                    action_id: 'open_jenkins_build'
+                ]
+            ]
+        )
     )
 
     addSummary(
         id: 'security-build-approval',
         text: """
-            <b>Security build awaiting PR approval or merge</b><br>
-            <b>Repository:</b> ${gitNamespace}/${repository.name}<br>
+            <b>Security build awaiting PR merge</b><br>
+            <b>Repository:</b> ${context.REPO_PATH}<br>
             <b>Branch:</b> ${context.SECURITY_BRANCH}<br>
-            <b>Target branch:</b> ${context.SECURITY_BASE_BRANCH}<br>
-            <b>Test image:</b> ${context.IMAGE}<br>
-            <b>Build image:</b> ${context.RELEASE_IMAGE}<br>
-            <b>Latest build image:</b> ${context.FLOATING_RELEASE_IMAGE}<br><br>
+            <b>Target branch:</b> ${context.SECURITY_BASE_BRANCH}<br><br>
+
+            <b>RELEASED image:</b> ${context.RELEASED_IMAGE}<br>
+            <b>BUILD image:</b> ${context.BUILD_IMAGE}<br>
+            <b>RELEASE image:</b> ${context.RELEASE_IMAGE}<br>
+            <b>Latest RELEASE image:</b> ${context.FLOATING_RELEASE_IMAGE}<br><br>
+
             <b>Vulnerabilities and selected fixes:</b><br>
             <pre>${vulnerabilitySummary}</pre>
+
             <a href="${prUrl}" target="_blank"
-               style="display: inline-block; padding: 8px 14px; color: #fff; background-color: #238636; border-radius: 6px; text-decoration: none; font-weight: 600;">
+               style="display: inline-block;
+                      padding: 8px 14px;
+                      color: #fff;
+                      background-color: #238636;
+                      border-radius: 6px;
+                      text-decoration: none;
+                      font-weight: 600;">
                 Review security pull request
-            </a><br>
+            </a>
         """.stripIndent().trim()
     )
 
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
-            waitUntil(initialRecurrencePeriod: 30000, quiet: true) {
-                if (libraries.tools.githubMergeApprovedPullRequest(context.REPO_PATH, prUrl)) {
+            waitUntil(
+                initialRecurrencePeriod: 30000,
+                quiet: true
+            ) {
+                def prStatus = libraries.tools.githubPullRequestStatus(
+                    context.REPO_PATH,
+                    prUrl
+                )
+
+                if (prStatus == 'merged') {
                     echo 'Pull request is merged; continuing the security build'
                     return true
                 }
 
-                echo 'Pull request is waiting for approval, required checks, or merge'
+                if (prStatus == 'closed') {
+                    error("Pull request was closed without being merged: ${prUrl}")
+                }
+
+                if (prStatus == 'unknown') {
+                    echo 'Unable to determine pull request status; retrying'
+                    return false
+                }
+
+                echo 'Pull request is waiting to be merged'
                 return false
             }
         }
     }
 }
 
-void publishBuild(Map context) {
+void publishRelease(Map context) {
+    echo "Publishing RELEASE image: ${context.RELEASE_IMAGE}"
+    echo "Updating latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}"
+
     libraries.credentials.withDockerCredentials {
         libraries.tools.dockerCopyImage(
-            context.IMAGE,
-            [context.RELEASE_IMAGE, context.FLOATING_RELEASE_IMAGE]
+            context.BUILD_IMAGE,
+            [
+                context.RELEASE_IMAGE,
+                context.FLOATING_RELEASE_IMAGE
+            ]
         )
     }
 
     withEnv([
-        "REPO_PATH=${context.REPO_PATH}",
-        "SECURITY_BASE_BRANCH=${context.SECURITY_BASE_BRANCH}"
+        "REPO_PATH=${context.REPO_PATH}"
     ]) {
         libraries.credentials.withGitHubCredentials {
-            sh '''
-                set -eu
-                git fetch origin \
-                    "refs/heads/${SECURITY_BASE_BRANCH}:refs/remotes/origin/${SECURITY_BASE_BRANCH}"
-                git checkout --detach "refs/remotes/origin/${SECURITY_BASE_BRANCH}"
-            '''
-            def releaseCommit = libraries.tools.gitHead()
+            libraries.tools.gitFetchBranch(context.SECURITY_BASE_BRANCH)
 
             if (libraries.tools.gitTagExists(context.TAG)) {
-                def taggedCommit = libraries.tools.gitTagCommit(context.TAG)
-
-                if (taggedCommit != releaseCommit) {
-                    error(
-                        "Tag ${context.TAG} already points to ${taggedCommit}, " +
-                        "but the approved branch points to ${releaseCommit}"
-                    )
-                }
-
-                echo "Reusing ${context.TAG}, which already points to ${releaseCommit}"
+                error("Unable to recreate release tag ${context.TAG}")
             } else {
-                libraries.tools.gitCreateTag(context.TAG, "Security build ${context.TAG}")
+                echo "Creating release tag ${context.TAG}"
+
+                libraries.tools.gitCreateTag(
+                    context.TAG,
+                    "Security build ${context.TAG}"
+                )
                 libraries.tools.gitPushTag(context.TAG)
             }
+
+            echo "Updating floating release tag ${context.FLOATING_TAG}"
+
             libraries.tools.gitCreateTag(
                 context.FLOATING_TAG,
                 "Latest security build for ${context.FLOATING_TAG}",
                 true
             )
-            libraries.tools.gitPushTag(context.FLOATING_TAG, true)
+
+            libraries.tools.gitPushTag(
+                context.FLOATING_TAG,
+                true
+            )
         }
+    }
+}
+
+void runTests(Map repository, Map context) {
+    retry(2) {
+        build(
+            job: repository.testJob,
+            wait: true,
+            propagate: true,
+            parameters: [
+                string(
+                    name: 'TEST_SUITE',
+                    value: 'run-release.csv'
+                ),
+                string(
+                    name: 'GIT_BRANCH',
+                    value: context.SECURITY_BASE_BRANCH
+                ),
+                string(
+                    name: 'IMAGE_OPERATOR',
+                    value: context.RELEASE_IMAGE
+                ),
+                string(
+                    name: 'GKE_RELEASE_CHANNEL',
+                    value: 'stable'
+                ),
+                string(
+                    name: 'CLUSTER_WIDE',
+                    value: 'YES'
+                ),
+                string(
+                    name: 'PILLAR_VERSION',
+                    value: repository.pillarVersion
+                )
+            ]
+        )
     }
 }
 
@@ -416,10 +546,14 @@ void skipStages(List<String> stages, String reason) {
     }
 }
 
-void processRepository(Map repository, String date) {
+void processRepository(Map repository) {
     def context
 
-    stage("Clone, Prepare & Checkout") {
+    stage('Clone, Prepare & Checkout') {
+        dir(repository.name) {
+            deleteDir()
+        }
+
         libraries.tools.gitClone([
             branch: repository.sourceBranch,
             repo  : "https://github.com/${gitNamespace}/${repository.name}.git"
@@ -427,84 +561,149 @@ void processRepository(Map repository, String date) {
 
         dir(repository.name) {
             libraries.tools.gitFetchTags()
-            context = buildContext(repository, date)
-            def testJobPrefix = repository.testJob.tokenize('-_').first()
-            currentBuild.displayName = "${testJobPrefix} | ${context.VERSION_TAG} | ${date}"
+
+            context = buildContext(repository)
+
+            currentBuild.displayName =
+                "${repository.operator} | ${context.VERSION_TAG}-${context.SECURITY_BUILD_NUMBER}"
+
             echo """
-                Security build: ${gitNamespace}/${repository.name}
-                Base tag: ${context.VERSION_TAG}
-                Checkout tag: ${context.CHECKOUT_TAG}
-                Branch: ${context.SECURITY_BRANCH}
-                Target branch: ${context.SECURITY_BASE_BRANCH}
-                Image: ${context.IMAGE}
-                Floating image: ${context.FLOATING_IMAGE}
-                Release image: ${context.RELEASE_IMAGE}
-                Floating release image: ${context.FLOATING_RELEASE_IMAGE}
+                Security build: ${context.REPO_PATH}
+                Base release tag: ${context.VERSION_TAG}
+                Security build number: ${context.SECURITY_BUILD_NUMBER}
+
+                Security base branch: ${context.SECURITY_BASE_BRANCH}
+                Security build branch: ${context.SECURITY_BRANCH}
+
+                Base RELEASED image: ${context.BASE_RELEASED_IMAGE}
+                BUILD image: ${context.BUILD_IMAGE}
+                Latest BUILD image: ${context.FLOATING_BUILD_IMAGE}
+                RELEASE image: ${context.RELEASE_IMAGE}
+                Latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}
             """.stripIndent().trim()
 
-            libraries.tools.gitCheckoutTag(context.CHECKOUT_TAG)
-            context.SECURITY_BASE_EXISTS = ensureSecurityBaseBranch(context)
+            context.SECURITY_BASE_EXISTS =
+                ensureSecurityBaseBranch(context)
+
             context.DOCKERFILE = findDockerfile()
+            context.GO_VERSION_FILES = repository.goVersionFiles ?: []
+
             echo "Dockerfile: ${context.DOCKERFILE}"
+            echo "Additional Go version files: ${context.GO_VERSION_FILES.join(', ')}"
         }
     }
 
     dir(repository.name) {
+        def vulnerabilitiesFound
         def vulnerabilitySummary
         def prUrl
 
-        stage("Pull PROD Image") {
-            context.SCAN_IMAGE = pullProductionImage(context)
-            echo "Scanning production image: ${context.SCAN_IMAGE}"
-        }
-        stage("Trivy Scan") {
-            libraries.tools.trivyScanImage(context.SCAN_IMAGE)
-            addVulnerabilityBadge()
+        stage('Pull RELEASED Image') {
+            context.RELEASED_IMAGE =
+                pullReleasedImage(context)
+
+            echo "RELEASED image selected: ${context.RELEASED_IMAGE}"
         }
 
-        stage("Fix vulnerabilities") {
-            vulnerabilitySummary = fixVulnerabilities(context)
+        stage('Trivy Scan') {
+            echo "Scanning RELEASED image: ${context.RELEASED_IMAGE}"
+
+            libraries.tools.trivyScanImage(
+                context.RELEASED_IMAGE
+            )
+
+            vulnerabilitiesFound =
+                addVulnerabilityBadge()
+        }
+
+        if (!vulnerabilitiesFound) {
+            def reason =
+                "No critical or high vulnerabilities found for ${repository.name}"
+
+            skipStages([
+                'Fix Vulnerabilities',
+                'Build',
+                'Trivy Verify',
+                'Create Pull Request',
+                'Wait for Merge',
+                'Publish RELEASE',
+                'E2E Tests'
+            ], reason)
+
+            return
+        }
+
+        stage('Fix Vulnerabilities') {
+            vulnerabilitySummary =
+                fixVulnerabilities(context)
         }
 
         if (!vulnerabilitySummary) {
-            def reason = "No fixable Go vulnerabilities found for ${repository.name}"
+            def reason =
+                "No fixable Go vulnerabilities found for ${repository.name}"
+
             skipStages([
-                'Rebuild',
+                'Build',
                 'Trivy Verify',
-                'Push DEV Image',
                 'Create Pull Request',
-                'Approval or Merge',
-                'Publish',
+                'Wait for Merge',
+                'Publish RELEASE',
                 'E2E Tests'
             ], reason)
+
             return
         }
-        stage("Rebuild") {
-            libraries.credentials.withDockerCredentials {
-                libraries.tools.dockerBuildMultiarchImage(context.DOCKERFILE, context.IMAGE)
-            }
+
+        stage('Build') {
+            buildImage(context)
         }
-        stage("Trivy Verify") {
-            libraries.tools.trivyVerifyImage(context.IMAGE)
+
+        stage('Trivy Verify') {
+            echo "Verifying BUILD image: ${context.BUILD_IMAGE}"
+
+            libraries.tools.trivyVerifyImage(
+                context.BUILD_IMAGE
+            )
         }
-        stage("Push DEV Image") {
-            pushDevelopmentBuild(context)
-        }
-        stage("Create Pull Request") {
+
+        stage('Create Pull Request') {
             prUrl = createPullRequest(context)
+
             echo "Pull request: ${prUrl}"
         }
-        stage("Approval or Merge") {
-            timeout(time: 8, unit: 'HOURS') {
-                waitForApprovalOrMerge(repository, context, vulnerabilitySummary, prUrl)
+
+        stage('Wait for Merge') {
+            timeout(
+                time: 48,
+                unit: 'HOURS'
+            ) {
+                waitForMerge(
+                    context,
+                    vulnerabilitySummary,
+                    prUrl
+                )
             }
         }
-        stage("Publish") {
-            publishBuild(context)
+
+        stage('Publish RELEASE') {
+            publishRelease(context)
         }
-        stage("E2E Tests") {
-            timeout(time: 8, unit: 'HOURS') {
-                runTests(repository, context)
+
+        stage('E2E Tests') {
+            timeout(
+                time: 8,
+                unit: 'HOURS'
+            ) {
+                try {
+                    runTests(repository, context)
+                } catch (Exception error) {
+                    env.SECURITY_BUILD_FAILURE_KIND = 'e2e'
+                    env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
+                    env.SECURITY_BUILD_TEST_JOB = repository.testJob
+                    env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
+                    env.SECURITY_BUILD_RELEASE_IMAGE = context.RELEASE_IMAGE
+                    throw error
+                }
             }
         }
     }
@@ -519,25 +718,68 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    parameters {
-        choice(
-            name: 'OPERATOR',
-            choices: repositories*.name,
-            description: 'Operator repository to process in this security build'
-        )
-    }
-
     stages {
-        stage('Initialize & Build repository') {
+        stage('Initialize') {
             steps {
                 script {
+                    checkout scm
                     getLibraries()
-                    validateRepositories()
+                    libraries.dependencies.install()
                     libraries.dependencies.installTrivy()
-                    securityBuildDate = sh(script: 'date -u +%Y%m%d', returnStdout: true).trim()
-                    echo "Build date: ${securityBuildDate}; operator: ${params.OPERATOR}"
-                    processRepository(selectRepository(params.OPERATOR), securityBuildDate)
+
+                    repositories.each { repository ->
+                        echo "Repository: ${gitNamespace}/${repository.name}"
+                        echo "Slack channel: ${slackChannel}"
+
+                        processRepository(repository)
+                    }
                 }
+            }
+        }
+    }
+
+    post {
+        failure {
+            script {
+                def message = [
+                    env.SECURITY_BUILD_FAILURE_KIND == 'e2e' ?
+                        ':x: *Security build E2E tests failed*' :
+                        ':x: *Security build failed*',
+                    '',
+                    "*Job*: `${env.JOB_NAME}`",
+                    "*Build*: `#${env.BUILD_NUMBER}`"
+                ]
+
+                if (env.SECURITY_BUILD_FAILURE_KIND == 'e2e') {
+                    message.addAll([
+                        "*Repository*: `${env.SECURITY_BUILD_REPOSITORY}`",
+                        "*Test job*: `${env.SECURITY_BUILD_TEST_JOB}`",
+                        "*Branch*: `${env.SECURITY_BUILD_BRANCH}`",
+                        "*RELEASE image*: `${env.SECURITY_BUILD_RELEASE_IMAGE}`"
+                    ])
+                }
+
+                def messageText = message.join('\n')
+
+                slackSend(
+                    botUser: true,
+                    channel: slackChannel,
+                    failOnError: false,
+                    attachments: slackMessageAttachments(
+                        messageText,
+                        '#FF0000',
+                        [[
+                            type: 'button',
+                            text: [
+                                type: 'plain_text',
+                                text: 'Open Jenkins build',
+                                emoji: true
+                            ],
+                            url: env.BUILD_URL,
+                            action_id: 'open_failed_jenkins_build'
+                        ]]
+                    )
+                )
             }
         }
     }
