@@ -18,7 +18,7 @@ pipeline {
         choice(
             name: 'WORKER_NODE_COUNT',
             choices: ['3', '4', '5', '6'],
-            description: 'Target worker node count (baseline is 3, max 6)'
+            description: 'Target worker node count (baseline is 4, max 6)'
         )
     }
 
