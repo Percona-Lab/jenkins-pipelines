@@ -62,7 +62,7 @@ class ReportConverter(unittest.TestCase):
         result, installs = self.exercise()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "python3:./python:/usr/local/lib/python:")
-        self.assertEqual(installs, [], "AL2023 does not package the RHEL reporting RPMs")
+        self.assertEqual(installs, [], "AL2023 uses the product-bundled libraries, no RPM install")
 
     def test_rhel9_keeps_system_python3_packages(self):
         result, installs = self.exercise(rhel="9", dist=".el9")
