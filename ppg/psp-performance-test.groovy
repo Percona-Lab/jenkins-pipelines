@@ -104,6 +104,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group psp/performance_tests"
                 }
             }
         }

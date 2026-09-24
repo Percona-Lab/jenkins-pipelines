@@ -80,6 +80,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group ppg/pg-tarballs"
                 }
             }
         }
