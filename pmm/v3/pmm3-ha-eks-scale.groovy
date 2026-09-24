@@ -18,7 +18,7 @@ pipeline {
         choice(
             name: 'WORKER_NODE_COUNT',
             choices: ['6', '7', '8', '9', '10', '11', '12'],
-            description: 'Target worker node count, up or down. The baseline is the worker count pmm3-ha-eks created: WORKER_COUNT, or 12 with the chart RESOURCE_PROFILE. Scaling below what the deployed pods request leaves them Pending.'
+            description: 'Target worker node count (baseline is 7, max 12)'
         )
     }
 
