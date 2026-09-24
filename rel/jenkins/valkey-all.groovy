@@ -41,6 +41,7 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-ldap',            name: 'PKG_LDAP')
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-audit',           name: 'PKG_AUDIT')
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-bundle',          name: 'PKG_BUNDLE')
+        booleanParam(defaultValue: true, description: 'Package: percona-valkey-admin',          name: 'PKG_ADMIN')
         booleanParam(defaultValue: true, description: 'Docker image: valkey (server)',           name: 'IMG_VALKEY')
         booleanParam(defaultValue: true, description: 'Docker image: valkey-bundle',             name: 'IMG_BUNDLE')
         booleanParam(defaultValue: true, description: 'Docker image: valkey modules',            name: 'IMG_MODULE')
@@ -57,6 +58,7 @@ pipeline {
         string(defaultValue: '1.1.1', description: 'valkey-ldap version',   name: 'VALKEY_LDAP_VERSION')
         string(defaultValue: '0.2.2', description: 'valkey-audit version',  name: 'VALKEY_AUDIT_VERSION')
         string(defaultValue: '9.1.0', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
+        string(defaultValue: '1.1.1', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
     }
     options {
@@ -66,7 +68,7 @@ pipeline {
     }
     stages {
         stage('Build packages') {
-            when { expression { params.PKG_SERVER || params.PKG_JSON || params.PKG_BLOOM || params.PKG_SEARCH || params.PKG_LDAP || params.PKG_AUDIT || params.PKG_BUNDLE } }
+            when { expression { params.PKG_SERVER || params.PKG_JSON || params.PKG_BLOOM || params.PKG_SEARCH || params.PKG_LDAP || params.PKG_AUDIT || params.PKG_BUNDLE || params.PKG_ADMIN } }
             steps {
                 script {
                     String cloud = params.CLOUD
@@ -140,6 +142,19 @@ pipeline {
                             string(name: 'VALKEY_BUNDLE_RELEASE', value: rel),
                             string(name: 'VALKEY_BUNDLE_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',             value: ch),
+                        ])
+                    }
+                    if (params.PKG_ADMIN) {
+                        jobs['admin'] = trigger('hetzner-valkey-admin-RELEASE', [
+                            string(name: 'CLOUD',                value: cloud),
+                            string(name: 'PACKAGING_BRANCH',     value: pkgBr),
+                            // Upstream valkey-admin tags carry a leading "v", so the ref is
+                            // derived from the version rather than being a separate knob.
+                            string(name: 'GIT_BRANCH',           value: "v${params.VALKEY_ADMIN_VERSION}"),
+                            string(name: 'VALKEY_ADMIN_VERSION', value: params.VALKEY_ADMIN_VERSION),
+                            string(name: 'VALKEY_ADMIN_RELEASE', value: rel),
+                            string(name: 'VALKEY_ADMIN_REPO',    value: params.VALKEY_REPO),
+                            string(name: 'COMPONENT',            value: ch),
                         ])
                     }
                     echo "Building packages: ${jobs.keySet().join(', ')}"
