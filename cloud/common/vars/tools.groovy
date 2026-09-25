@@ -9,6 +9,12 @@ void dockerBuildAndPush(Map cfg) {
         passwordVariable: 'PASS',
         usernameVariable: 'USER'
     )]) {
+        sh '''
+            echo "$PASS" | docker login docker.io \
+                -u "$USER" \
+                --password-stdin
+        '''
+
         dockerBuildOperatorImage(
             cfg.operator,
             cfg.operatorImage,
@@ -20,6 +26,8 @@ void dockerBuildAndPush(Map cfg) {
             cfg.operatorImage,
             cfg.branch
         )
+
+        sh 'docker logout docker.io'
     }
 }
 
