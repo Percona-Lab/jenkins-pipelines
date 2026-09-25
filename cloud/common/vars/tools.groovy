@@ -78,12 +78,6 @@ void dockerPushImage(String image, String tag) {
     """
 }
 
-void dockerPushImage(String image) {
-    withEnv(["DOCKER_IMAGE=${image}"]) {
-        sh 'docker push "${DOCKER_IMAGE}"'
-    }
-}
-
 void dockerTagImage(String sourceImage, String targetImage) {
     withEnv([
         "DOCKER_SOURCE_IMAGE=${sourceImage}",
@@ -141,7 +135,7 @@ void gitClone(Map cfg, String source = 'source') {
 void gitCheckoutTag(String tagName) {
     sh """
         set -eu
-         git checkout --detach refs/tags/'${tagName}'
+        git checkout --detach refs/tags/'${tagName}'
     """
 }
 

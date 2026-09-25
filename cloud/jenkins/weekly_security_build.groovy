@@ -196,12 +196,12 @@ void goSecurityFixScript(Map context) {
         "GO_VERSION_FILE_ARGUMENTS=${goVersionFileArguments}",
         "REPO_PATH=${context.REPO_PATH}",
         "TAG=${context.TAG}",
-        "SCRIPT=jenkins-security_build_fix_go_vulnerabilities.py"
+        "SCRIPT=jenkins-fix_go_vulnerabilities.py"
     ]) {
         libraries.credentials.withGitHubCredentials {
             try {
                 sh '''
-                    cp -f ../cloud/scripts/security_build_fix_go_vulnerabilities.py "${SCRIPT}"
+                    cp -f ../cloud/scripts/security_build/fix_go_vulnerabilities.py "${SCRIPT}"
 
                     docker run --rm \
                       -v "${PWD}:${PWD}" \
@@ -236,6 +236,48 @@ void goSecurityFixScript(Map context) {
     }
 }
 
+void updateOperatorImageReferences(Map context) {
+    withEnv([
+        "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
+        "SCRIPT=jenkins-update_operator_images.py",
+        "TAG=${context.TAG}"
+    ]) {
+        try {
+            sh '''
+                set -eu
+
+                cp -f ../cloud/scripts/security_build/update_operator_images.py "${SCRIPT}"
+
+                docker run --rm \
+                  -v "${PWD}:${PWD}" \
+                  -e HOST_UID="$(id -u)" \
+                  -e HOST_GID="$(id -g)" \
+                  -e OPERATOR_RELEASE_IMAGE \
+                  -e SCRIPT \
+                  -w "${PWD}" \
+                  golang:1.27-alpine \
+                  sh -ceu '
+                    apk add --no-cache python3 su-exec
+
+                    exec su-exec "${HOST_UID}:${HOST_GID}" \
+                      python3 -u "${SCRIPT}" \
+                        --image "${OPERATOR_RELEASE_IMAGE}" \
+                        --deploy-dir deploy \
+                        --release-versions e2e-tests/release_versions
+                  '
+
+                git add -- deploy e2e-tests/release_versions
+
+                if ! git diff --cached --quiet; then
+                    git commit -m "Update operator image references for ${TAG}"
+                fi
+            '''
+        } finally {
+            sh 'rm -f "${SCRIPT}"'
+        }
+    }
+}
+
 String fixVulnerabilities(Map context) {
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
@@ -248,6 +290,8 @@ String fixVulnerabilities(Map context) {
         if (libraries.tools.gitHead() == baseCommit) {
             return ''
         }
+
+        updateOperatorImageReferences(context)
 
         def summary = sh(
             script: "git log --reverse --format='• %s%n↳ %b%n' '${baseCommit}..HEAD'",
@@ -453,7 +497,27 @@ void waitForMerge(
     }
 }
 
+void checkoutMergedCommit(Map context) {
+    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
+        libraries.credentials.withGitHubCredentials {
+            libraries.tools.gitFetchBranch(context.SECURITY_BASE_BRANCH)
+            context.RELEASE_COMMIT = libraries.tools.gitHead()
+        }
+    }
+
+    echo "Merged commit selected for release: ${context.RELEASE_COMMIT}"
+}
+
 void publishRelease(Map context) {
+    def currentCommit = libraries.tools.gitHead()
+
+    if (currentCommit != context.RELEASE_COMMIT) {
+        error(
+            "Workspace changed after rebuilding the merged commit: " +
+            "expected ${context.RELEASE_COMMIT}, found ${currentCommit}"
+        )
+    }
+
     echo "Publishing RELEASE image: ${context.RELEASE_IMAGE}"
     echo "Updating latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}"
 
@@ -471,8 +535,6 @@ void publishRelease(Map context) {
         "REPO_PATH=${context.REPO_PATH}"
     ]) {
         libraries.credentials.withGitHubCredentials {
-            libraries.tools.gitFetchBranch(context.SECURITY_BASE_BRANCH)
-
             if (libraries.tools.gitTagExists(context.TAG)) {
                 error("Unable to recreate release tag ${context.TAG}")
             } else {
@@ -518,7 +580,7 @@ void runTests(Map repository, Map context) {
                 ),
                 string(
                     name: 'IMAGE_OPERATOR',
-                    value: context.RELEASE_IMAGE
+                    value: context.BUILD_IMAGE
                 ),
                 string(
                     name: 'GKE_RELEASE_CHANNEL',
@@ -626,8 +688,11 @@ void processRepository(Map repository) {
                 'Trivy Verify',
                 'Create Pull Request',
                 'Wait for Merge',
-                'Publish RELEASE',
-                'E2E Tests'
+                'Checkout Merged Commit',
+                'Rebuild Merged Image',
+                'Trivy Verify Merged Image',
+                'E2E Tests',
+                'Publish RELEASE'
             ], reason)
 
             return
@@ -647,8 +712,11 @@ void processRepository(Map repository) {
                 'Trivy Verify',
                 'Create Pull Request',
                 'Wait for Merge',
-                'Publish RELEASE',
-                'E2E Tests'
+                'Checkout Merged Commit',
+                'Rebuild Merged Image',
+                'Trivy Verify Merged Image',
+                'E2E Tests',
+                'Publish RELEASE'
             ], reason)
 
             return
@@ -685,8 +753,21 @@ void processRepository(Map repository) {
             }
         }
 
-        stage('Publish RELEASE') {
-            publishRelease(context)
+        stage('Checkout Merged Commit') {
+            checkoutMergedCommit(context)
+        }
+
+        stage('Rebuild Merged Image') {
+            echo "Rebuilding ${context.BUILD_IMAGE} from merged commit ${context.RELEASE_COMMIT}"
+            buildImage(context)
+        }
+
+        stage('Trivy Verify Merged Image') {
+            echo "Verifying merged BUILD image: ${context.BUILD_IMAGE}"
+
+            libraries.tools.trivyVerifyImage(
+                context.BUILD_IMAGE
+            )
         }
 
         stage('E2E Tests') {
@@ -701,10 +782,14 @@ void processRepository(Map repository) {
                     env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
                     env.SECURITY_BUILD_TEST_JOB = repository.testJob
                     env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
-                    env.SECURITY_BUILD_RELEASE_IMAGE = context.RELEASE_IMAGE
+                    env.SECURITY_BUILD_TEST_IMAGE = context.BUILD_IMAGE
                     throw error
                 }
             }
+        }
+
+        stage('Publish RELEASE') {
+            publishRelease(context)
         }
     }
 }
@@ -755,7 +840,7 @@ pipeline {
                         "*Repository*: `${env.SECURITY_BUILD_REPOSITORY}`",
                         "*Test job*: `${env.SECURITY_BUILD_TEST_JOB}`",
                         "*Branch*: `${env.SECURITY_BUILD_BRANCH}`",
-                        "*RELEASE image*: `${env.SECURITY_BUILD_RELEASE_IMAGE}`"
+                        "*Test image*: `${env.SECURITY_BUILD_TEST_IMAGE}`"
                     ])
                 }
 
