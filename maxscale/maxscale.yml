@@ -1,0 +1,18 @@
+- job:
+    name: hetzner-percona-maxscale-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+
+        Builds percona-maxscale packages from the percona-23.08 branch of the
+        MaxScale fork. RPMs and DEBs are rebuilt from the source packages the
+        job publishes, so the sources reproduce the shipped binaries.
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: maxscale/maxscale.groovy
