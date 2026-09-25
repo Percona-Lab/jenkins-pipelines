@@ -137,7 +137,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
@@ -203,9 +203,12 @@ pipeline {
                     }
                 }
                 deleteDir()
-                git poll: false,
-                    branch: PMM_QA_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
 
                 sh '''
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
@@ -343,6 +346,24 @@ pipeline {
                 }
             }
         }
+        stage('Run Playwright UI Tests Tagged') {
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                sh '''
+                    docker rm -f webhookd || true
+                    docker-compose -f e2e_tests/docker-compose.yml up -d --no-deps webhookd
+                '''
+                dir('e2e_tests') {
+                    sh '''
+                        npm ci
+                        npx playwright install chromium
+                        CI=true npx playwright test --grep "${TAG}" --pass-with-no-tests
+                    '''
+                }
+            }
+        }
     }
     post {
         always {
@@ -365,7 +386,7 @@ pipeline {
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                env.PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/*.xml'
+                env.PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'

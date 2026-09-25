@@ -233,7 +233,7 @@ pipeline {
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             sudo rm -rf pmm-qa
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git
+                            sudo git clone --depth 1 --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git
                             cd pmm-qa/codeceptjs-e2e
                             docker compose up -d mysql
                             docker compose up -d mongo

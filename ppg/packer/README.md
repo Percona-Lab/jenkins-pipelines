@@ -85,13 +85,25 @@ is the newest `role=ppg-package-test` AMI by `CreationDate` (no SSM parameter).
 
 ## Housekeeping (all via `just`, fail-safe)
 
-Cleanup is recipes too. Every prune recipe **lists by default** and deregisters
-only on an explicit `1`; the guard **never deletes a promoted prod base** and
-fail-closes on an AMI it cannot positively classify.
+Superseded prod bases are pruned **automatically**: after each successful promote the
+workflow runs `scripts/prune-superseded.sh` for that combo. The floor is the combo's pin
+in `vars/moleculeEnvPPG.groovy` on master. The pin and every newer AMI survive, and so
+does any image pinned by another combo or named by an open refresh PR. Only images older
+than the pin go. `deprecate_at` only marks an AMI deprecated, it never deletes, so without
+this the inventory grows with every refresh. `just prune-superseded` applies the same
+rule to all combos for ad-hoc / backfill cleanup.
+
+Every prune recipe **lists by default** and deregisters only on an explicit `1`. The guard
+**never deletes a pinned base or anything newer** and fail-closes on an AMI it cannot classify.
+Demoted rollback AMIs (`role=*-superseded*`) are never touched by any recipe. The
+post-promote prune additionally refuses to act while the just-promoted AMI is not yet
+visible as the newest of its combo, and reports every skipped deregister, failed
+snapshot cleanup, or image older than the pin left behind as a workflow warning +
+step-summary line.
 
 ```bash
 just list                # current factory AMIs (prod|test)
-just prune-superseded    # older prod dups (keeps newest per combo); add 1 to delete
+just prune-superseded    # prod bases older than the master pin;     add 1 to delete
 just prune-test          # isolated env=test AMIs;                   add 1 to delete
 just prune-stale         # raw/candidate intermediates + orphans;    add 1 to delete
 just prune-all           # prune-test + prune-stale
@@ -124,6 +136,12 @@ so a broken/mislabeled image is never registered:
 4. `cloud-init` present.
 5. SELinux `enforcing` in `/etc/selinux/config` (fail-closed, stock OL and Rocky ship enforcing).
 6. `dnf makecache` succeeds (repos healthy).
+7. `dnf check-update` lists nothing still upgradable (a warning, not a failure, the refresh ran under `set -e`).
+8. `/boot` keeps at least 260MB free for the next kernel update (Rocky ships a fixed 936MB `/boot`).
+9. No crash-dump initramfs on `/boot` and `kdump.service` is disabled or masked. kdump wrote one
+   unowned `initramfs-<kernel>kdump.img` per newly booted kernel and retired kernels left theirs
+   behind, which is what filled `/boot` on Rocky 10. `provision.sh` turns kdump off and removes the
+   images, the smoke build re-checks both after a real first boot.
 
 De-instancing is native: Packer's `ssh_clear_authorized_keys` strips the temp key,
 cloud-init regenerates host keys on first boot, and `provision.sh` already reset
@@ -135,8 +153,9 @@ cloud-init + machine-id.
 *resulting* AMI boots. The native-Packer smoke (`smoke/smoke.pkr.hcl`, a
 `skip_create_ami` build) closes that gap: it launches the candidate, waits for
 2/2 status, connects over Session Manager (proving cloud-init re-injected access
-after the bake stripped keys), asserts the OS major/arch, and installs
-`percona-release` + a PPG server package. The smoke build ONLY validates; the
+after the bake stripped keys), asserts the OS major/arch, installs
+`percona-release` + a PPG server package, and re-checks that this first boot wrote
+no crash-dump initramfs and left `kdump.service` off. The smoke build ONLY validates; the
 caller (`justfile`/workflow) then promotes to `role=ppg-package-test` in a
 **separate retried step**, and deregisters the candidate + its snapshots ONLY on
 a real boot/install failure (never on a transient promote-tag failure).

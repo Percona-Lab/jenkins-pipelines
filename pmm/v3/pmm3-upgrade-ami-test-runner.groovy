@@ -72,7 +72,7 @@ def upgradeVersion = versions[versions.size() - 2]
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -136,14 +136,22 @@ pipeline {
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
+        choice(
+            choices: ['DOCKER', 'UI'],
+            description: 'DOCKER swaps the container image on the instance; UI drives the in-app update, which PMM 3.9 removed',
+            name: 'UPGRADE_TYPE')
         string(
             defaultValue: '',
             description: 'public ssh key for "admin" user, please set if you need ssh access',
             name: 'SSH_KEY')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 90, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -153,14 +161,17 @@ pipeline {
                     println versionsListParameter
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_QA_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_PRE_UPGRADE_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
 
                 sh '''
                     sudo rm -rf /srv/pmm-qa
-                    sudo mkdir -p /srv/pmm-qa
-                    sudo rsync -a "$WORKSPACE"/ /srv/pmm-qa/
+                    sudo git clone --single-branch --depth 1 --branch ${PMM_QA_GIT_BRANCH} \
+                        https://github.com/percona/pmm-qa.git /srv/pmm-qa
                     sudo chown -R ec2-user:ec2-user /srv/pmm-qa
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 '''
@@ -234,7 +245,7 @@ pipeline {
                                 export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
                                 echo \\${PMM_VERSION}
                                 echo "PMM Version is: \\${PMM_VERSION}"
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                                sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
                                 python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \\$PMM_VERSION -p pre
                                 '
                             "
@@ -248,33 +259,77 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
                             export ADMIN_PASSWORD="pmm3admin!"
                         '''
                     }
                 }
             }
         }
-        stage('Run UI upgrade') {
-            environment {
-                ADMIN_PASSWORD = "pmm3admin!"
+        stage('Run upgrade') {
+            parallel {
+                stage('Run UI upgrade') {
+                    when {
+                        expression { return params.UPGRADE_TYPE == 'UI' }
+                    }
+                    environment {
+                        ADMIN_PASSWORD = "pmm3admin!"
+                    }
+                    steps {
+                        withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                            dir('codeceptjs-e2e') {
+                                sh '''
+                                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                '''
+                            }
+                        }
+                    }
+                }
+                stage('Run container upgrade') {
+                    when {
+                        expression { return params.UPGRADE_TYPE == 'DOCKER' }
+                    }
+                    environment {
+                        ADMIN_PASSWORD = "pmm3admin!"
+                    }
+                    steps {
+                        withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                            sh '''
+                                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                                    sed -i \\"s|PMM_IMAGE=.*|PMM_IMAGE=docker.io/${DOCKER_TAG_UPGRADE}|g\\" /home/admin/.config/systemd/user/pmm-server.env
+                                    cat /home/admin/.config/systemd/user/pmm-server.env
+                                    source /home/admin/.config/systemd/user/pmm-server.env
+                                    podman pull \\${PMM_IMAGE}
+                                    systemctl --user restart pmm-server
+                                    for i in 1 2 3 4 5 6 7 8 9 10 11 12; do podman ps | grep pmm-server && break; sleep 5; done
+                                '
+                                "
+                            '''
+                        }
+                        // The UI path asserts the new version from the Updates page; do the same here.
+                        sh '''
+                            timeout 300 bash -c 'until [ "$(curl -k -s -o /dev/null -w %{http_code} ${PMM_UI_URL}v1/server/readyz)" = "200" ]; do sleep 5; done'
+                            version=$(curl -k -s --user admin:${ADMIN_PASSWORD} ${PMM_UI_URL}v1/server/version | jq -r .version)
+                            echo "PMM Server reports ${version}"
+                            case "${version}" in
+                                ${PMM_SERVER_LATEST}*) ;;
+                                *) echo "expected ${PMM_SERVER_LATEST}"; exit 1 ;;
+                            esac
+                        '''
+                    }
+                }
             }
+        }
+        stage('Switch to the post-upgrade suite') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    dir('codeceptjs-e2e') {
-                        sh '''
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-upgrade'
-                        '''
-                    }
-                    sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
-                    dir('codeceptjs-e2e') {
-                        sh '''
-                            npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        '''
-                    }
+                sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
+                dir('codeceptjs-e2e') {
+                    sh '''
+                        npm ci
+                        npx playwright install
+                        envsubst < env.list > env.generated.list
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    '''
                 }
             }
         }
@@ -293,10 +348,11 @@ pipeline {
                         "'
                     """
                 }
+                sh 'timeout 300 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
                         '''
                     }
                 }
@@ -305,40 +361,52 @@ pipeline {
         stage('Upgrade PMM client') {
             steps {
                 sh '''
+                   # repo.percona.com republishes pool/experimental continuously and a
+                   # reader can see a package mid-write; refresh the index and try again.
+                   install_client() {
+                       for attempt in 1 2 3 4 5; do
+                           docker exec "\$1" \$2 install -y pmm-client && return 0
+                           echo "pmm-client install failed in \$1 (attempt \$attempt of 5), retrying in 60s"
+                           sleep 60
+                           docker exec "\$1" percona-release enable pmm3-client $CLIENT_REPOSITORY
+                       done
+                       return 1
+                   }
+
                    containers=\$(docker ps --format "{{ .Names }}")
 
                    for i in \$containers; do
                        if [[ \$i == *"rs10"* ]]; then
                            docker exec rs101 percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec rs101 dnf install -y pmm-client
+                           install_client rs101 dnf
                            docker exec rs101 systemctl restart pmm-agent
                        elif [[ \$i == *"mysql_"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$mysql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"pdpgsql"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$pdpgsql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"pgsql"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$pgsql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"ps_"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$ps_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"external_pmm"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           install_client \$i apt
                            ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec \$i kill \$ps_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
@@ -355,7 +423,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
                         '''
                     }
                 }
@@ -374,7 +442,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/parallel_chunk*/*.png'
+            archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/**/*.png', allowEmptyArchive: true
         }
     }
 }

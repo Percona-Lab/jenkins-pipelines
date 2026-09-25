@@ -96,10 +96,6 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: "pmm-$oldestVersion",
-            description: 'Tag/Branch for UI Tests repository for pre upgrade',
-            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
-        string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
@@ -142,7 +138,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -151,14 +147,10 @@ pipeline {
                     env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - ${env.UPGRADE_TYPE} Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
-
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git clone --depth 1 --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
 
@@ -254,12 +246,6 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    npm ci
-                    npx playwright install chromium
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
                     ansible-galaxy collection install ansible.utils
                 '''
             }
@@ -275,6 +261,7 @@ pipeline {
                     mkdir -m 777 -p /tmp/backup_data
 
                     ./pmm-framework/pmm-framework --parallel \
+                        --setup-retries 1 \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
@@ -351,7 +338,15 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npm ci
+                            npx playwright install
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${PRE_UPGRADE_FLAG}
+                        popd
                     '''
                 }
             }
@@ -363,9 +358,18 @@ pipeline {
                         expression { return params.UPGRADE_TYPE == "UI" }
                     }
                     steps {
+                        sh '''
+                            for attempt in 1 2 3; do
+                                docker pull ${DOCKER_TAG_UPGRADE} && break
+                                [ "$attempt" = 3 ] && exit 1
+                                sleep 30
+                            done
+                        '''
                         withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh '''
-                                ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                pushd /srv/pmm-qa/codeceptjs-e2e
+                                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                popd
                             '''
                         }
                     }
@@ -434,6 +438,18 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
+                        ensure_percona_release() {
+                            if docker exec \$1 sh -c 'command -v percona-release >/dev/null 2>&1'; then
+                                return 0
+                            fi
+
+                            if docker exec \$1 sh -c 'command -v apt-get >/dev/null 2>&1'; then
+                                docker exec \$1 sh -c 'apt-get update && apt-get install -y wget && wget -qO /tmp/percona-release.deb https://repo.percona.com/apt/percona-release_latest.generic_all.deb && apt-get install -y /tmp/percona-release.deb'
+                            else
+                                docker exec \$1 sh -c 'dnf install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm'
+                            fi
+                        }
+
                         containers=\$(docker ps --format "{{ .Names }}")
 
                         for i in \$containers; do
@@ -449,6 +465,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i dnf install -y pmm-client
                                     docker exec \$i systemctl restart pmm-agent
@@ -464,6 +481,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -481,6 +499,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -498,6 +517,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -515,6 +535,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -532,6 +553,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
@@ -550,6 +572,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
+                                    ensure_percona_release \$i
                                     docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i dnf install -y pmm-client
                                     docker exec \$i systemctl restart pmm-agent
@@ -623,6 +646,9 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
+
+                docker logs watchtower > watchtower.log 2>&1 || true
+
                 docker cp pmm-server:/srv/logs srv-logs
                 tar -zcvf playwright-report.tar.gz /srv/pmm-qa/e2e_tests/playwright-report || true
                 tar -zcvf playwright-screenshots.tar.gz /srv/pmm-qa/e2e_tests/screenshots || true
@@ -632,6 +658,7 @@ pipeline {
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'pmm-update-perform.log', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'watchtower.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'pmm-agent.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'srv-logs.tar.gz', allowEmptyArchive: true
@@ -640,13 +667,6 @@ pipeline {
                 archiveArtifacts artifacts: 'playwright-logs.tar.gz', allowEmptyArchive: true
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
-                try {
-                    dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
-                        junit PATH_TO_REPORT_RESULTS
-                    }
-                } catch (err) {
-                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
-                }
                 try {
                     dir('/srv/pmm-qa/codeceptjs-e2e') {
                         junit PATH_TO_REPORT_RESULTS
@@ -657,9 +677,6 @@ pipeline {
             }
         }
         failure {
-            dir('/home/ec2-user/workspace/pmm3-upgrade-test-runner') {
-                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
-            }
             dir('/srv/pmm-qa/codeceptjs-e2e') {
                 archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
             }

@@ -108,6 +108,7 @@ pipeline {
     PXB_VERSION = "${params.PXB_VERSION}";
     PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
+    SERVER_QA_BRANCH = "${params.SERVER_QA_BRANCH}";
     SELECT_TEST_PYTEST = "${params.SELECT_TEST_PYTEST}";
   }
   parameters {
@@ -170,6 +171,11 @@ pipeline {
       defaultValue: 'master',
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
+    )
+    string(
+      defaultValue: 'main',
+      description: 'Branch for server-qa repository (checked out to /server-qa in the molecule prepare stage)',
+      name: 'SERVER_QA_BRANCH'
     )
     string(
       name: 'SELECT_TEST_PYTEST',

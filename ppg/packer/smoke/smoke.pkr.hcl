@@ -29,8 +29,20 @@ variable "os" {
     error_message = "Value of os must be oraclelinux or rocky."
   }
 }
-variable "os_major" { type = string }
-variable "arch" { type = string } # x86_64 | arm64
+variable "os_major" {
+  type = string
+  validation {
+    condition     = contains(["8", "9", "10"], var.os_major)
+    error_message = "Value of os_major must be 8, 9, or 10."
+  }
+}
+variable "arch" {
+  type = string # x86_64 | arm64
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.arch)
+    error_message = "Value of arch must be x86_64 or arm64."
+  }
+}
 variable "region" {
   type    = string
   default = "eu-central-1"
@@ -117,6 +129,8 @@ build {
       "sudo dnf -qy module disable postgresql 2>/dev/null || true",
       "sudo dnf -y install percona-postgresql17-server || sudo dnf -y install percona-ppg-server17",
       "echo \"PPG install ok: $(rpm -q percona-postgresql17-server 2>/dev/null || rpm -qa 'percona-ppg-server*' | head -1)\"",
+      "[ -z \"$(sudo find /boot -maxdepth 1 -name 'initramfs-*kdump.img')\" ] || { echo 'kdump wrote a crash-dump initramfs on first boot'; exit 1; }",
+      "[ \"$(systemctl is-enabled kdump.service 2>/dev/null || true)\" != enabled ] || { echo 'kdump.service came back enabled on first boot'; exit 1; }",
     ]
   }
 }
