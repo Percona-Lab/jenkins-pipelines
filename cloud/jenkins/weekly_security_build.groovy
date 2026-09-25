@@ -294,7 +294,8 @@ String fixVulnerabilities(Map context) {
         updateOperatorImageReferences(context)
 
         def summary = sh(
-            script: "git log --reverse --format='• %s%n↳ %b%n' '${baseCommit}..HEAD'",
+            script: """git log --reverse --format='%s%x09%b' '${baseCommit}..HEAD' | \
+                awk -F '\\t' '{printf "• %s\\n", \$1; if (\$2 != "") printf "↳ %s\\n", \$2}'""",
             returnStdout: true
         ).trim()
 
