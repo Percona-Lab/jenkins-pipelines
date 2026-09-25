@@ -821,8 +821,16 @@ EOF
 
                                 oc create namespace pmm --dry-run=client -o yaml | oc apply -f -
 
-                                # Grant anyuid SCC to all service accounts in pmm namespace
-                                oc adm policy add-scc-to-group anyuid system:serviceaccounts:pmm
+                                # Charts that ship an OpenShift overlay refuse to render here without it. It
+                                # drops the pinned uid/fsGroup so restricted-v2 assigns them. anyuid outranks
+                                # restricted-v2 and assigns no fsGroup, so it is granted to older charts only.
+                                OPENSHIFT_VALUES="helm-charts/charts/pmm-ha/examples/values-openshift.yaml"
+                                OPENSHIFT_ARGS=""
+                                if [ -f "${OPENSHIFT_VALUES}" ]; then
+                                    OPENSHIFT_ARGS="-f ${OPENSHIFT_VALUES}"
+                                else
+                                    oc adm policy add-scc-to-group anyuid system:serviceaccounts:pmm
+                                fi
 
                                 # OpenShift uses dns-default.openshift-dns instead of kube-dns.kube-system
                                 sed -i 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' helm-charts/charts/pmm-ha/templates/haproxy-configmap.yaml
@@ -945,6 +953,7 @@ EOF
 
                                 # Install pmm-ha chart (creates component service accounts)
                                 helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                                    ${OPENSHIFT_ARGS} \
                                     ${RESOURCE_ARGS} \
                                     --timeout 20m \
                                     --set secret.create=false \
