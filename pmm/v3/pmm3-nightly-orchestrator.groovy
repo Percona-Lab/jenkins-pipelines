@@ -569,8 +569,16 @@ timestamps {
                             git clone --depth 1 --single-branch --branch "${PMM_QA_GIT_BRANCH}" \
                                 https://github.com/percona/pmm-qa.git pmm-qa
                             pmm-qa/nightly/ci/build_report.sh results.json > report.json
-                            PAGES_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/percona/pmm-qa.git" \
-                                pmm-qa/nightly/ci/publish_report.sh report.json
+                            export PAGES_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/percona/pmm-qa.git"
+                            pmm-qa/nightly/ci/publish_report.sh report.json
+                            # The Investigator is fired below for every red group; claim them so
+                            # nobody starts a second investigation on the same group.
+                            jq --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{run_id, claims: [
+                                .jobs | map(select(.result == "failure" or .result == "cancelled") | .group) | unique[]
+                                | {by: "Investigator routine", at: $at, suites: [.]}]}' report.json > claims.json
+                            if [ "$(jq '.claims | length' claims.json)" -gt 0 ]; then
+                                pmm-qa/nightly/ci/publish_report.sh claims.json
+                            fi
                         '''
                     }
                 }
@@ -599,7 +607,12 @@ timestamps {
                         text: "Nightly orchestrator #${currentBuild.number} finished with " +
                               "${totalBad} failed suites of ${results.size()}. " +
                               "Build: ${env.BUILD_URL}\n" +
-                              "Nightly report: ${reportUrl} (run_id ${reportId})\n\n" + failed.join('\n'),
+                              "Nightly report: ${reportUrl} (run_id ${reportId})\n\n" + failed.join('\n') +
+                              "\n\nWhen you finish, publish each root cause to the nightly report, one call per cause, " +
+                              "from a percona/pmm-qa checkout:\n" +
+                              "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<not reproduced|not a bug|test fix|product bug>\" " +
+                              "\"<one-sentence summary>\" <fix PR or Jira URL, or -> \"<group>\" [\"<group>\" ...]\n" +
+                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json.",
                     ]).toString()
                     withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
                         sh '''
