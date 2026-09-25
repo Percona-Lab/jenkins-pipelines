@@ -116,6 +116,7 @@ Map buildContext(Map repository) {
         REPO_PATH             : "${gitNamespace}/${repository.name}",
         GIT_NAMESPACE         : gitNamespace,
         OPERATOR              : repository.operator,
+        OPERATOR_NAME         : repository.name,
         SOURCE_BRANCH         : repository.sourceBranch,
 
         VERSION               : version,
@@ -238,6 +239,7 @@ void goSecurityFixScript(Map context) {
 
 void updateOperatorImageReferences(Map context) {
     withEnv([
+        "OPERATOR=${context.OPERATOR_NAME}",
         "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
         "SCRIPT=jenkins-update_operator_images.py",
         "TAG=${context.TAG}"
@@ -252,6 +254,7 @@ void updateOperatorImageReferences(Map context) {
                   -v "${PWD}:${PWD}" \
                   -e HOST_UID="$(id -u)" \
                   -e HOST_GID="$(id -g)" \
+                  -e OPERATOR \
                   -e OPERATOR_RELEASE_IMAGE \
                   -e SCRIPT \
                   -w "${PWD}" \
@@ -261,6 +264,7 @@ void updateOperatorImageReferences(Map context) {
 
                     exec su-exec "${HOST_UID}:${HOST_GID}" \
                       python3 -u "${SCRIPT}" \
+                        --operator "${OPERATOR}" \
                         --image "${OPERATOR_RELEASE_IMAGE}" \
                         --deploy-dir deploy \
                         --release-versions e2e-tests/release_versions
