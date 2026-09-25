@@ -12,7 +12,7 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for DOKS: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {
@@ -23,7 +23,7 @@ void createCluster(Map clusterCfg) {
             sh """
                 set -euo pipefail
 
-                export KUBECONFIG=/tmp/${clusterFullName}
+                export KUBECONFIG=${clusterCfg.kubeconfig}
                 cluster="${clusterFullName}"
                 cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "${clusterCfg.platformVersion}" '.[] | select(.kubernetes_version==\$v) | .slug')
 
