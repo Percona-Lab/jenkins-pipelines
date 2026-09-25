@@ -508,9 +508,20 @@ void checkoutMergedCommit(Map context) {
     echo "Merged commit selected for release: ${context.RELEASE_COMMIT}"
 }
 
+void pushReleaseImage(Map context) {
+    echo "Pushing RELEASE image: ${context.RELEASE_IMAGE}"
+    libraries.credentials.withDockerCredentials {
+        libraries.tools.dockerCopyImage(
+            context.BUILD_IMAGE,
+            [
+                context.RELEASE_IMAGE
+            ]
+        )
+    }
+}
+
 void publishRelease(Map context) {
     def currentCommit = libraries.tools.gitHead()
-
     if (currentCommit != context.RELEASE_COMMIT) {
         error(
             "Workspace changed after rebuilding the merged commit: " +
@@ -518,14 +529,11 @@ void publishRelease(Map context) {
         )
     }
 
-    echo "Publishing RELEASE image: ${context.RELEASE_IMAGE}"
     echo "Updating latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}"
-
     libraries.credentials.withDockerCredentials {
         libraries.tools.dockerCopyImage(
-            context.BUILD_IMAGE,
+            context.RELEASE_IMAGE,
             [
-                context.RELEASE_IMAGE,
                 context.FLOATING_RELEASE_IMAGE
             ]
         )
@@ -770,6 +778,10 @@ void processRepository(Map repository) {
             )
         }
 
+        stage('Push RELEASE Image') {
+            publishRelease(context)
+        }
+
         stage('E2E Tests') {
             timeout(
                 time: 8,
@@ -782,7 +794,7 @@ void processRepository(Map repository) {
                     env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
                     env.SECURITY_BUILD_TEST_JOB = repository.testJob
                     env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
-                    env.SECURITY_BUILD_TEST_IMAGE = context.BUILD_IMAGE
+                    env.SECURITY_BUILD_TEST_IMAGE = context.RELEASE_IMAGE
                     throw error
                 }
             }
