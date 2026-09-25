@@ -85,13 +85,25 @@ is the newest `role=ppg-package-test` AMI by `CreationDate` (no SSM parameter).
 
 ## Housekeeping (all via `just`, fail-safe)
 
-Cleanup is recipes too. Every prune recipe **lists by default** and deregisters
-only on an explicit `1`; the guard **never deletes a promoted prod base** and
-fail-closes on an AMI it cannot positively classify.
+Superseded prod bases are pruned **automatically**: after each successful promote the
+workflow runs `scripts/prune-superseded.sh` for that combo. The floor is the combo's pin
+in `vars/moleculeEnvPPG.groovy` on master. The pin and every newer AMI survive, and so
+does any image pinned by another combo or named by an open refresh PR. Only images older
+than the pin go. `deprecate_at` only marks an AMI deprecated, it never deletes, so without
+this the inventory grows with every refresh. `just prune-superseded` applies the same
+rule to all combos for ad-hoc / backfill cleanup.
+
+Every prune recipe **lists by default** and deregisters only on an explicit `1`. The guard
+**never deletes a pinned base or anything newer** and fail-closes on an AMI it cannot classify.
+Demoted rollback AMIs (`role=*-superseded*`) are never touched by any recipe. The
+post-promote prune additionally refuses to act while the just-promoted AMI is not yet
+visible as the newest of its combo, and reports every skipped deregister, failed
+snapshot cleanup, or image older than the pin left behind as a workflow warning +
+step-summary line.
 
 ```bash
 just list                # current factory AMIs (prod|test)
-just prune-superseded    # older prod dups (keeps newest per combo); add 1 to delete
+just prune-superseded    # prod bases older than the master pin;     add 1 to delete
 just prune-test          # isolated env=test AMIs;                   add 1 to delete
 just prune-stale         # raw/candidate intermediates + orphans;    add 1 to delete
 just prune-all           # prune-test + prune-stale
