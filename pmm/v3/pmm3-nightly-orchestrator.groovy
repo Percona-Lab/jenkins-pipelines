@@ -555,6 +555,35 @@ timestamps {
             currentBuild.result = 'UNSTABLE'
         }
 
+        // The nightly report page (pmm-qa gh-pages): every lane of every night,
+        // which the Investigator then annotates with its verdicts.
+        def reportId = "jenkins-${currentBuild.number}"
+        def reportUrl = "https://percona.github.io/pmm-qa/nightly/#run=${reportId}"
+        node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
+            try {
+                writeFile file: 'results.json', text: new JsonBuilder(results).toString()
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
+                    withEnv(["IMAGE_TAG=${imageTag}"]) {
+                        sh '''
+                            set -euo pipefail
+                            git clone --depth 1 --single-branch --branch "${PMM_QA_GIT_BRANCH}" \
+                                https://github.com/percona/pmm-qa.git pmm-qa
+                            pmm-qa/nightly/ci/build_report.sh results.json > report.json
+                            PAGES_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/percona/pmm-qa.git" \
+                                pmm-qa/nightly/ci/publish_report.sh report.json
+                        '''
+                    }
+                }
+                echo "Nightly report: ${reportUrl}"
+            } catch (ignored) {
+                // Same rule as the notification below: the report is a view of
+                // the night, never a reason to change its result.
+                echo 'Could not publish the nightly report.'
+            } finally {
+                deleteDir()
+            }
+        }
+
         // One notification for the whole night: most lanes never reach GitHub
         // Actions, and this is the only place that sees all of them.
         if (totalBad > 0) {
@@ -569,7 +598,8 @@ timestamps {
                     writeFile file: 'investigator.json', text: new JsonBuilder([
                         text: "Nightly orchestrator #${currentBuild.number} finished with " +
                               "${totalBad} failed suites of ${results.size()}. " +
-                              "Build: ${env.BUILD_URL}\n\n" + failed.join('\n'),
+                              "Build: ${env.BUILD_URL}\n" +
+                              "Nightly report: ${reportUrl} (run_id ${reportId})\n\n" + failed.join('\n'),
                     ]).toString()
                     withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
                         sh '''
