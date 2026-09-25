@@ -346,6 +346,24 @@ pipeline {
                 }
             }
         }
+        stage('Run Playwright UI Tests Tagged') {
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                sh '''
+                    docker rm -f webhookd || true
+                    docker-compose -f e2e_tests/docker-compose.yml up -d --no-deps webhookd
+                '''
+                dir('e2e_tests') {
+                    sh '''
+                        npm ci
+                        npx playwright install chromium
+                        CI=true npx playwright test --grep "${TAG}" --pass-with-no-tests
+                    '''
+                }
+            }
+        }
     }
     post {
         always {
@@ -368,7 +386,7 @@ pipeline {
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                env.PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/*.xml'
+                env.PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'

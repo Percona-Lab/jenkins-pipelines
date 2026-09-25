@@ -107,8 +107,8 @@ pipeline {
         )
         choice(
             name: 'WORKER_COUNT',
-            choices: ['6', '7', '8', '9', '10', '11', '12'],
-            description: 'Worker nodes in the spot nodegroup. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
+            choices: ['7', '8', '9', '10', '11', '12', '6'],
+            description: 'Worker nodes in the spot nodegroup. 7 fits the minimal RESOURCE_PROFILE; raise it when overriding replicas via HELM_VALUES. Ignored with the chart profile, which always uses 12.'
         )
         booleanParam(
             name: 'DEPLOY_PMM',
@@ -117,8 +117,13 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'main',
-            description: 'Branch of percona-helm-charts repo'
+            defaultValue: 'PMM-HA-GA',
+            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. PMM-HA-GA or a branch based on it.'
+        )
+        choice(
+            name: 'RESOURCE_PROFILE',
+            choices: ['minimal', 'chart'],
+            description: 'PMM HA resources: "minimal" fits the default 7 workers, "chart" keeps the pmm-ha chart values and always creates 12 workers.'
         )
         string(
             name: 'PMM_IMAGE_REPOSITORY',
@@ -187,6 +192,9 @@ pipeline {
                     // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
                     // via buildVariables to any caller using build job: 'pmm3-ha-eks'.
                     env.CLUSTER_NAME = env.CLUSTER_NAME
+
+                    // The chart profile does not fit on fewer workers, so it overrides WORKER_COUNT.
+                    env.NODE_COUNT = params.RESOURCE_PROFILE == 'chart' ? '12' : params.WORKER_COUNT
                 }
                 sh '''
                     cat > cluster-config.yaml <<EOF
@@ -227,9 +235,9 @@ managedNodeGroups:
       - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: ${WORKER_COUNT}
+    minSize: ${NODE_COUNT}
     maxSize: 12
-    desiredCapacity: ${WORKER_COUNT}
+    desiredCapacity: ${NODE_COUNT}
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -417,8 +425,8 @@ EOF
                             --from-literal=GF_PASSWORD="${GF_PW}" \
                             --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
                             --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
+                            --from-literal=PMM_HA_VM_USERNAME="victoriametrics_pmm" \
+                            --from-literal=PMM_HA_VM_PASSWORD="${VM_PW}" \
                             --dry-run=client -o yaml | kubectl apply -f -
 
                         helm dependency update helm-charts/charts/pmm-ha
@@ -433,9 +441,69 @@ EOF
                             esac
                         done
 
+                        # Smaller resources that fit PMM HA on the default 7 workers. helm applies -f
+                        # before --set, so HELM_VALUES can still override any of these.
+                        RESOURCE_ARGS=""
+                        if [ "${RESOURCE_PROFILE}" = "minimal" ]; then
+                            RESOURCE_ARGS="-f minimal-resources.yaml"
+                            cat > minimal-resources.yaml <<'EOF'
+pmmResources:
+  requests:
+    cpu: "2"
+    memory: "3Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+clickhouse:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  keeper:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+  storage:
+    size: 20Gi
+victoriaMetrics:
+  vmselect:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+  vmagent:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+  vmstorage:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+EOF
+                        fi
+
                         set +e
 
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                            ${RESOURCE_ARGS} \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             --wait --timeout 15m \
@@ -472,6 +540,13 @@ EOF
 
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=600s
+                        kubectl wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=600s
                         kubectl get pods -n pmm
                     '''
                 }
@@ -558,7 +633,7 @@ EOF
                         echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
                         echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
                         echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
-                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
+                        echo "VictoriaMetrics: $(get_secret PMM_HA_VM_USERNAME) / $(get_secret PMM_HA_VM_PASSWORD)"
                         echo ""
 
                         echo "PMM access:"
