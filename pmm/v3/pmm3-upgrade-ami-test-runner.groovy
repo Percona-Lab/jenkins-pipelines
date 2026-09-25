@@ -36,6 +36,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH, SSH_KEY) {
         string(name: 'AMI_ID', value: AMI_ID),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'SSH_KEY', value: SSH_KEY),
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
   ]
   env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
   env.SERVER_IP = amiStagingJob.buildVariables.PUBLIC_IP
