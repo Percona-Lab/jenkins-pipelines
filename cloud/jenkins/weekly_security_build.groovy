@@ -11,8 +11,8 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
         name            : 'percona-server-mysql-operator',
         sourceBranch    : 'main',
         imageName       : 'percona-server-mysql-operator',
-        imageRepo       : 'docker.io/perconalab',
-        releaseImageRepo: 'docker.io/percona',
+        imageRepo       : 'perconalab',
+        releaseImageRepo: 'percona',
         testJob         : 'pso-gke-1',
         pillarVersion    : '84',
         goVersionFiles   : [] // List of files containing Go version references
