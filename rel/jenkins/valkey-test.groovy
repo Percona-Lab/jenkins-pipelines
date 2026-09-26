@@ -130,7 +130,7 @@ pipeline {
             name: 'PACKAGING_BRANCH')
         string(
             defaultValue: 'ALL',
-            description: 'Comma-separated list of platforms to test, or ALL. Available: Oracle Linux 8, Oracle Linux 9, Oracle Linux 10, Amazon Linux 2023, Ubuntu Jammy(22.04), Ubuntu Noble(24.04), Ubuntu Resolute(26.04), Debian Bullseye(11), Debian Bookworm(12), Debian Trixie(13). Append " ARM" for ARM-only (e.g. "Oracle Linux 8 ARM").',
+            description: 'Comma-separated list of platforms to test, or ALL. Available: Oracle Linux 8, Oracle Linux 9, Oracle Linux 10, Amazon Linux 2023, Ubuntu Jammy(22.04), Ubuntu Noble(24.04), Ubuntu Resolute(26.04), Debian Bookworm(12), Debian Trixie(13). Append " ARM" for ARM-only (e.g. "Oracle Linux 8 ARM").',
             name: 'PLATFORMS')
     }
     options {
@@ -280,26 +280,6 @@ pipeline {
                     steps {
                         cleanUpWS()
                         testStage("ubuntu:resolute-20260627")
-                    }
-                }
-                stage('Debian Bullseye(11)') {
-                    when { expression { shouldRun('Debian Bullseye(11)') } }
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        testStage("debian:bullseye")
-                    }
-                }
-                stage('Debian Bullseye(11) ARM') {
-                    when { expression { shouldRun('Debian Bullseye(11) ARM') } }
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        testStage("debian:bullseye")
                     }
                 }
                 stage('Debian Bookworm(12)') {
