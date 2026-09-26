@@ -1,0 +1,18 @@
+- job:
+    name: hetzner-percona-maxscale-package-testing
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+
+        Verifies the packages of one hetzner-percona-maxscale-RELEASE build: installs them on
+        every supported platform and checks that MaxScale routes queries through two real
+        MariaDB servers. Give it the package path the build job printed as AWS_STASH_PATH.
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: maxscale/maxscale-package-testing.groovy
