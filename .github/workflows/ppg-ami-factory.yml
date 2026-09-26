@@ -58,7 +58,7 @@ jobs:
   # the factory role.
   check:
     name: Validate templates (no AWS)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -80,7 +80,7 @@ jobs:
     name: ${{ matrix.os || 'oraclelinux' }} ${{ matrix.os_major }} ${{ matrix.arch }}
     needs: check # no EC2 launches until templates validate
     if: github.event_name != 'pull_request' # PRs run the no-AWS check only
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     permissions:
       contents: read
@@ -255,7 +255,7 @@ jobs:
       (github.event_name == 'schedule' || github.event_name == 'push' ||
        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.env || 'prod') == 'prod'))
       && !cancelled() && needs.bake.result != 'skipped'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: write
@@ -366,7 +366,7 @@ jobs:
     # failure() is true when ANY ancestor failed, including a check failure on a
     # pull_request run where bake was skipped. Never ping the webhook for PR lint.
     if: failure() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Job-level so the step `if` below reads it reliably; a step-scoped env can be
     # unavailable to its own step's `if`, which would skip the alert silently.
     env:
