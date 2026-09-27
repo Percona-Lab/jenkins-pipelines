@@ -205,7 +205,7 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
         CLIENT_VERSION    : params.CLIENT_VERSION,
         SERVER_ARCH       : 'amd64',
         ADMIN_PASSWORD    : 'pmm3admin!',
-        HELM_CHART_BRANCH : 'main',
+        HELM_CHART_BRANCH : 'PMM-HA-GA',
         OPENSHIFT_VERSION : 'latest',
         K8S_VERSION       : '1.34',
         PTS_CONFIDENCE    : '100',
