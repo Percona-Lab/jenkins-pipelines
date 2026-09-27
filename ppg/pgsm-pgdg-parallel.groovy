@@ -34,6 +34,15 @@ pipeline {
             description: 'PGDG Server PG version for test, including major and minor version, e.g pg-16.2, pg-15.5',
             name: 'VERSION'
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            description: "Install Percona packages from the OBS (openSUSE Build Service) repo instead of repo.percona.com."
+        )
+        string(
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',

@@ -51,6 +51,15 @@ pipeline {
                 'release'
             ]
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            description: "Install packages from the OBS (openSUSE Build Service) repo instead of repo.percona.com. ONLY applicable with INSTALL_FROM_PACKAGES enabled. REPO above still selects the channel (testing/release/experimental -> staging/releases/devel)."
+        )
+        string(
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. ONLY applicable with INSTALL_FROM_PACKAGES enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
+        )
         string(
             defaultValue: 'https://github.com/percona/postgres',
             description: 'PSP repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
