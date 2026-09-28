@@ -127,8 +127,10 @@ def ps57PackageTesting() {
         "amazon-linux-2",
         "ubuntu-jammy",
         "oracle-9",
+        "debian-11",
         "debian-12",
-        "rocky-8"
+        "rocky-8",
+        "rocky-9"
     ]
 }
 
