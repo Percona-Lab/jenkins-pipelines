@@ -1,7 +1,7 @@
 
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@add-os-57", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
@@ -127,8 +127,10 @@ def ps57PackageTesting() {
         "amazon-linux-2",
         "ubuntu-jammy",
         "oracle-9",
+        "debian-11",
         "debian-12",
-        "rocky-8"
+        "rocky-8",
+        "rocky-9"
     ]
 }
 
