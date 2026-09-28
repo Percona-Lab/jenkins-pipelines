@@ -7,7 +7,6 @@ List all_nodes = [
     'ubuntu-resolute',
     'ubuntu-noble',
     'ubuntu-jammy',
-    'debian-11',
     'debian-12',
     'debian-13',
     'oracle-8',
@@ -20,7 +19,6 @@ List all_nodes = [
     'rhel-9-arm',
     'rhel-10-arm',
     'al-2023-arm',
-    'debian-11-arm',
     'debian-12-arm',
     'debian-13-arm',
     'ubuntu-jammy-arm',
@@ -68,7 +66,6 @@ pipeline {
                 'ubuntu-resolute',
                 'ubuntu-noble',
                 'ubuntu-jammy',
-                'debian-11',
                 'debian-12',
                 'debian-13',
                 'oracle-8',
@@ -81,7 +78,6 @@ pipeline {
                 'rhel-9-arm',
                 'rhel-10-arm',
                 'al-2023-arm',
-                'debian-11-arm',
                 'debian-12-arm',
                 'debian-13-arm',
                 'ubuntu-jammy-arm',
@@ -248,30 +244,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("ubuntu-jammy-arm")
-                    }
-                }
-
-                stage("Debian Bullseye") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("debian-11")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("debian-11")
-                    }
-                }
-
-                stage("Debian Bullseye ARM") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("debian-11-arm")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("debian-11-arm")
                     }
                 }
 

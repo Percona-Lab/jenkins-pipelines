@@ -8,9 +8,9 @@ def extractMajorVersion(version) {
     return parts[0] + parts[1]
 }
 
-def pdps_80_operating_systems() {
+def pdps_97_operating_systems() {
     return [
-        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble'
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute'
     ]
 }
 
@@ -20,7 +20,7 @@ def pdps_84_operating_systems() {
     ]
 }
 
-List allOS = pdps_80_operating_systems() + pdps_84_operating_systems()
+List allOS = pdps_97_operating_systems() + pdps_84_operating_systems()
 
 def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
     def tests = [:]
@@ -176,7 +176,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdps_84_operating_systems() : pdps_80_operating_systems()
+                    def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdps_84_operating_systems() : pdps_97_operating_systems()
                     echo "selectedOSList: ${selectedOSList}"
                     moleculeParallelTestALL(allOS, selectedOSList, env.MOLECULE_DIR)
                 }
@@ -225,7 +225,7 @@ pipeline {
         always {
             script {
                 echo "Post destroy"
-                def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdps_84_operating_systems() : pdps_80_operating_systems()
+                def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdps_84_operating_systems() : pdps_97_operating_systems()
                 moleculeParallelPostDestroyALL(allOS, selectedOSList, env.MOLECULE_DIR)
             }
         }

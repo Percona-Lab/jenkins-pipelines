@@ -171,8 +171,8 @@ pipeline {
         )
         choice(
             name: 'WORKER_COUNT',
-            choices: ['3', '4', '5', '6'],
-            description: 'Worker nodes in the machinepool. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
+            choices: ['4', '5', '6', '3'],
+            description: 'Worker nodes in the machinepool. 4 fits the minimal RESOURCE_PROFILE; raise it when overriding replicas via HELM_VALUES. Ignored with the chart profile, which always uses 6.'
         )
         booleanParam(
             name: 'DEPLOY_PMM',
@@ -181,8 +181,13 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'main',
-            description: 'Branch of percona-helm-charts repo'
+            defaultValue: 'PMM-HA-GA',
+            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. PMM-HA-GA or a branch based on it.'
+        )
+        choice(
+            name: 'RESOURCE_PROFILE',
+            choices: ['minimal', 'chart'],
+            description: 'PMM HA resources: "minimal" fits the default 4 workers, "chart" keeps the pmm-ha chart values and always creates 6 workers.'
         )
         string(
             name: 'PMM_IMAGE_REPOSITORY',
@@ -254,6 +259,9 @@ pipeline {
                     // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
                     // via buildVariables to any caller using build job: 'pmm3-ha-rosa'.
                     env.CLUSTER_NAME = env.CLUSTER_NAME
+
+                    // The chart profile does not fit on fewer workers, so it overrides WORKER_COUNT.
+                    env.NODE_COUNT = params.RESOURCE_PROFILE == 'chart' ? '6' : params.WORKER_COUNT
                 }
                 withCredentials([usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
                                                  usernameVariable: 'ROSA_CLIENT_ID',
@@ -485,7 +493,7 @@ pipeline {
                         echo "Creating ROSA HCP cluster: ${CLUSTER_NAME}"
                         echo "  OpenShift version: ${OCP_VERSION}"
                         echo "  Instance type:     ${WORKER_INSTANCE_TYPE}"
-                        echo "  Workers:           ${WORKER_COUNT}"
+                        echo "  Workers:           ${NODE_COUNT}"
                         echo "  Subnets:           ${ALL_SUBNETS}"
 
                         # Create operator roles
@@ -525,7 +533,7 @@ pipeline {
                             --oidc-config-id "${OIDC_ID}" \
                             --subnet-ids "${ALL_SUBNETS}" \
                             --compute-machine-type "${WORKER_INSTANCE_TYPE}" \
-                            --replicas "${WORKER_COUNT}" \
+                            --replicas "${NODE_COUNT}" \
                             --tags "iit-billing-tag pmm,created-by jenkins,build-number ${BUILD_NUMBER},retention-days ${RETENTION_DAYS},creation-time $(date -u +%s),delete-cluster-after-hours $((RETENTION_DAYS * 24)),purpose pmm-ha-rosa-testing" \
                             --yes
 
@@ -587,13 +595,13 @@ pipeline {
                         echo "Waiting for all worker nodes to be ready (timeout: 20m)..."
                         for i in $(seq 1 40); do
                             READY_COUNT=$(oc get nodes --no-headers | grep -c " Ready " || true)
-                            echo "Ready nodes: ${READY_COUNT}/${WORKER_COUNT}"
-                            if [ "${READY_COUNT}" -ge "${WORKER_COUNT}" ]; then
+                            echo "Ready nodes: ${READY_COUNT}/${NODE_COUNT}"
+                            if [ "${READY_COUNT}" -ge "${NODE_COUNT}" ]; then
                                 echo "All worker nodes are ready."
                                 break
                             fi
                             if [ "$i" -eq 40 ]; then
-                                echo "ERROR: Timed out waiting for ${WORKER_COUNT} nodes to be ready after 20 minutes."
+                                echo "ERROR: Timed out waiting for ${NODE_COUNT} nodes to be ready after 20 minutes."
                                 oc get nodes
                                 exit 1
                             fi
@@ -787,8 +795,8 @@ EOF
                             --from-literal=GF_PASSWORD="${GF_PW}" \
                             --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
                             --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
+                            --from-literal=PMM_HA_VM_USERNAME="victoriametrics_pmm" \
+                            --from-literal=PMM_HA_VM_PASSWORD="${VM_PW}" \
                             --dry-run=client -o yaml | oc apply -f -
 
                         helm dependency update helm-charts/charts/pmm-ha
@@ -803,11 +811,70 @@ EOF
                             esac
                         done
 
+                        # Smaller resources that fit PMM HA on the default 4 workers. helm applies -f
+                        # before --set, so HELM_VALUES can still override any of these.
+                        RESOURCE_ARGS=""
+                        if [ "${RESOURCE_PROFILE}" = "minimal" ]; then
+                            RESOURCE_ARGS="-f minimal-resources.yaml"
+                            cat > minimal-resources.yaml <<'EOF'
+pmmResources:
+  requests:
+    cpu: "2"
+    memory: "3Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+clickhouse:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  keeper:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+  storage:
+    size: 20Gi
+victoriaMetrics:
+  vmselect:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+  vmagent:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+  vmstorage:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+EOF
+                        fi
+
                         set +e
 
                         # Install pmm-ha chart (creates component service accounts)
-                        # Resources stay at the chart defaults; raise WORKER_COUNT when pods do not fit
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                            ${RESOURCE_ARGS} \
                             --timeout 20m \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
@@ -976,7 +1043,7 @@ EOF
                         echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
                         echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
                         echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
-                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
+                        echo "VictoriaMetrics: $(get_secret PMM_HA_VM_USERNAME) / $(get_secret PMM_HA_VM_PASSWORD)"
                         echo ""
 
                         echo "PMM access:"
