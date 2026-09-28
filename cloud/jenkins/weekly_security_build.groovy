@@ -15,7 +15,10 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
         releaseImageRepo: 'percona',
         testJob         : 'pso-gke-1',
         pillarVersion    : '84',
-        goVersionFiles   : [] // List of files containing Go version references
+        goVersionFiles   : [], // List of files containing Go version references to be updated
+        operatorVersionFiles: [
+            'pkg/controller/ps/suite_test.go'
+        ] // List of files containing operator version references to be updated
     ]
 ]
 
@@ -118,6 +121,8 @@ Map buildContext(Map repository) {
         OPERATOR              : repository.operator,
         OPERATOR_NAME         : repository.name,
         SOURCE_BRANCH         : repository.sourceBranch,
+        GO_VERSION_FILES        : repository.goVersionFiles,
+        OPERATOR_VERSION_FILES  : repository.operatorVersionFiles,
 
         VERSION               : version,
         VERSION_TAG           : versionTag,
@@ -132,6 +137,9 @@ Map buildContext(Map repository) {
         TAG                   : securityBranch,
 
         BASE_RELEASED_IMAGE   : "${repository.releaseImageRepo}/${repository.imageName}:${version}",
+
+        DEV_REPOSITORY        : repository.imageRepo,
+        RELEASE_REPOSITORY      : repository.releaseImageRepo,
 
         BUILD_IMAGE_REPOSITORY: "${repository.imageRepo}/${repository.imageName}",
         BUILD_IMAGE_TAG       : buildImageTag,
@@ -238,29 +246,50 @@ void goSecurityFixScript(Map context) {
 }
 
 void updateOperatorImageReferences(Map context) {
+    def operatorVersionFiles = context.OPERATOR_VERSION_FILES.join(' ')
+
     withEnv([
         "OPERATOR=${context.OPERATOR_NAME}",
+        "IMAGE_REPO=${context.DEV_REPOSITORY}",
+        "RELEASE_IMAGE_REPO=${context.RELEASE_REPOSITORY}",
         "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
-        "TAG=${context.TAG}"
+        "TAG=${context.TAG}",
+        "OPERATOR_VERSION_FILES=${operatorVersionFiles}"
     ]) {
         sh '''
             set -eu
 
-            IMAGE_PATTERN="(docker\\.io/)?(percona|perconalab)/${OPERATOR}:[^[:space:]#]+"
+            BASE_VERSION="$(cat pkg/version/version.txt)"
+
+            IMAGE_PATTERN="(docker\\.io/)?(${IMAGE_REPO}|${RELEASE_IMAGE_REPO})/${OPERATOR}:${BASE_VERSION}(-[0-9]+)?"
+            IMAGE_BOUNDARY="([^[:alnum:]_.-]|$)"
+            OPERATOR_RELEASE_TAG="${OPERATOR_RELEASE_IMAGE##*:}"
 
             sed -Ei \
-              "s#${IMAGE_PATTERN}#${OPERATOR_RELEASE_IMAGE}#g" \
+              "s#${IMAGE_PATTERN}${IMAGE_BOUNDARY}#${OPERATOR_RELEASE_IMAGE}\\4#g" \
+              config/manager/manager.yaml \
+              config/manager/cluster/manager.yaml \
               deploy/bundle.yaml \
               deploy/cw-bundle.yaml \
               deploy/operator.yaml \
               deploy/cw-operator.yaml \
-              deploy/cr.yaml
+              deploy/cr.yaml \
+              e2e-tests/release_versions \
+              ${OPERATOR_VERSION_FILES}
 
             sed -Ei \
-              "s#^IMAGE_OPERATOR=${IMAGE_PATTERN}#IMAGE_OPERATOR=${OPERATOR_RELEASE_IMAGE}#" \
-              e2e-tests/release_versions
+              "/name: ${IMAGE_REPO}\\/${OPERATOR}/,/newTag:/ { \
+                s#newName: .*#newName: ${RELEASE_IMAGE_REPO}/${OPERATOR}#; \
+                s#newTag: .*#newTag: ${OPERATOR_RELEASE_TAG}#; \
+              }" \
+              config/manager/kustomization.yaml \
+              config/manager/cluster/kustomization.yaml
 
-            git add -- deploy e2e-tests/release_versions
+            git add -- \
+              config/manager \
+              deploy \
+              e2e-tests/release_versions \
+              ${OPERATOR_VERSION_FILES}
 
             if ! git diff --cached --quiet; then
                 git commit -m "Update operator image references for ${TAG}"
@@ -648,7 +677,6 @@ void processRepository(Map repository) {
                 ensureSecurityBaseBranch(context)
 
             context.DOCKERFILE = findDockerfile()
-            context.GO_VERSION_FILES = repository.goVersionFiles ?: []
 
             echo "Dockerfile: ${context.DOCKERFILE}"
             echo "Additional Go version files: ${context.GO_VERSION_FILES.join(', ')}"
