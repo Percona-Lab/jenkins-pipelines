@@ -224,6 +224,22 @@ pipeline {
                         buildPackages("oraclelinux:10", "rpm", AWS_STASH_PATH)
                     }
                 }
+                stage('Amazon Linux 2023') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        buildPackages("amazonlinux:2023", "rpm", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        buildPackages("amazonlinux:2023", "rpm", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
