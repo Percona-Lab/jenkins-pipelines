@@ -1,0 +1,39 @@
+- job:
+    name: ppg-release-qa
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Automated PPG package QA: see ppg-testing release_watch/README.md
+    # Declared here as well as in the pipeline: Jenkins drops parameters a job
+    # does not know yet, and the watcher starts this job before it has ever
+    # run by hand.
+    parameters:
+      - string:
+          name: STREAM
+          default: ''
+          description: 'Set by ppg-release-watcher'
+      - string:
+          name: ATTEMPT_ID
+          default: ''
+          description: 'Set by ppg-release-watcher'
+      - text:
+          name: LAUNCH_JSON
+          default: ''
+          description: 'Set by ppg-release-watcher'
+      - string:
+          name: TESTING_BRANCH
+          default: 'main'
+          description: 'ppg-testing branch with the tool'
+      - string:
+          name: STATE_BRANCH
+          default: 'release-watch-state'
+          description: 'ppg-testing branch with VERSIONS.yml'
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/ppg-release-qa.groovy
