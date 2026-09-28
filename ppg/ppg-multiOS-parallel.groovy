@@ -28,6 +28,11 @@ pipeline {
                 'experimental'
             ]
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            defaultValue: false,
+            description: 'Install from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. REPO maps to the OBS channel: testing-&gt;staging, release-&gt;release, experimental-&gt;devel; the major version is taken from VERSION.'
+        )
         string(
             defaultValue: 'ppg-18.4',
             description: 'PG version for test',
