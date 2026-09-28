@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@PSMDB-2214", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -85,12 +85,12 @@ pipeline {
         }
     }
     post {
-//        success {
-//            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} finished successfully - [${BUILD_URL}]")
-//        }
-//        failure {
-//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} failed - [${BUILD_URL}]")
-//        }
+        success {
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} finished successfully - [${BUILD_URL}]")
+        }
+        failure {
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} failed - [${BUILD_URL}]")
+        }
         always {
             script {
                 moleculeParallelPostDestroy(fipsOS(), moleculeDir)
