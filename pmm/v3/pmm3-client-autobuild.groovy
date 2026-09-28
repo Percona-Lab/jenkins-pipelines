@@ -49,6 +49,7 @@ pipeline {
                     } else {
                         env.DOCKER_LATEST_TAG = "3-dev-latest"
                     }
+                    env.RELEASE_TIMESTAMP = sh(returnStdout: true, script: 'date +%s').trim()
                 }
             }
         }
@@ -60,7 +61,8 @@ pipeline {
                             pmmClientAmd64 = build job: 'pmm3-client-autobuild-amd', parameters: [
                                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                                 string(name: 'DESTINATION', value: params.DESTINATION),
-                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
+                                string(name: 'RELEASE_TIMESTAMP', value: env.RELEASE_TIMESTAMP)
                             ]
                             env.TARBALL_AMD64_URL = pmmClientAmd64.buildVariables.TARBALL_URL
                             env.TARBALL_AMD64_DYNAMIC_OL8_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL8_URL
@@ -74,7 +76,8 @@ pipeline {
                             pmmClientArm64 = build job: 'pmm3-client-autobuild-arm', parameters: [
                                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                                 string(name: 'DESTINATION', value: params.DESTINATION),
-                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
+                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
+                                string(name: 'RELEASE_TIMESTAMP', value: env.RELEASE_TIMESTAMP)
                             ]
                             env.TARBALL_ARM64_URL = pmmClientArm64.buildVariables.TARBALL_URL
                         }
