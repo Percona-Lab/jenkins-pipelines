@@ -59,6 +59,54 @@ void buildPackages(String DOCKER_OS, String KIND, String STASH_PATH) {
     }
 }
 
+// Builds one image variant for amd64 and scans it with Trivy before anything is published.
+// SUFFIX is empty for the UBI9 image and "-debian" for the hardened Debian image.
+void buildAndScanImage(String DOCKERFILE, String SUFFIX) {
+    String localTag = "percona-maxscale:scan${SUFFIX}"
+    sh """
+        set -o xtrace
+        sudo docker buildx build --provenance=false --no-cache --pull --load \
+            --platform linux/amd64 -f maxscale-src/BUILD/percona/docker/${DOCKERFILE} \
+            --build-arg MAXSCALE_VERSION=${params.VERSION} \
+            --build-arg MAXSCALE_RELEASE=${params.RPM_RELEASE} \
+            --build-arg REPO_COMPONENT=${params.COMPONENT} \
+            -t ${localTag} maxscale-src/BUILD/percona/docker
+    """
+
+    installTrivy(method: 'binary', junitTpl: true)
+    String report = "trivy-high-junit${SUFFIX}.xml"
+    sh """
+        set -o xtrace
+        sudo /usr/local/bin/trivy -q image --format template --template @junit.tpl \
+            -o ${report} --timeout 10m0s --ignore-unfixed --scanners vuln \
+            --exit-code ${params.FAIL_ON_CVE ? 1 : 0} --severity HIGH,CRITICAL ${localTag}
+        sudo chown \$(id -u):\$(id -g) ${report}
+    """
+    junit testResults: report, keepLongStdio: true, allowEmptyResults: true,
+        skipPublishingChecks: true
+}
+
+// Builds the same variant for both architectures and pushes it as one manifest.
+void pushImage(String DOCKERFILE, String SUFFIX) {
+    sh """
+        set -o xtrace
+        MAJOR_MINOR=\$(echo ${params.VERSION} | cut -d. -f1,2)
+
+        sudo docker buildx build --provenance=false --pull \
+            --platform linux/amd64,linux/arm64 \
+            -f maxscale-src/BUILD/percona/docker/${DOCKERFILE} \
+            --build-arg MAXSCALE_VERSION=${params.VERSION} \
+            --build-arg MAXSCALE_RELEASE=${params.RPM_RELEASE} \
+            --build-arg REPO_COMPONENT=${params.COMPONENT} \
+            -t ${params.DOCKER_REPOSITORY}:${params.VERSION}-${params.RPM_RELEASE}${SUFFIX} \
+            -t ${params.DOCKER_REPOSITORY}:${params.VERSION}${SUFFIX} \
+            -t ${params.DOCKER_REPOSITORY}:\${MAJOR_MINOR}${SUFFIX} \
+            --push maxscale-src/BUILD/percona/docker
+
+        sudo docker buildx imagetools inspect ${params.DOCKER_REPOSITORY}:${params.VERSION}-${params.RPM_RELEASE}${SUFFIX}
+    """
+}
+
 void cleanUpWS() {
     sh """
         sudo rm -rf ./*
@@ -122,8 +170,12 @@ pipeline {
             name: 'BUILD_DOCKER')
         string(
             defaultValue: 'perconalab/percona-maxscale',
-            description: 'Where to push the container images',
+            description: 'Where to push the container images. The hardened Debian variant gets the same tags with a -debian suffix',
             name: 'DOCKER_REPOSITORY')
+        booleanParam(
+            defaultValue: true,
+            description: 'Fail the build when Trivy reports a fixable HIGH or CRITICAL vulnerability in an image',
+            name: 'FAIL_ON_CVE')
     }
     options {
         skipDefaultCheckout()
@@ -374,27 +426,18 @@ pipeline {
                     sudo docker buildx rm maxscale-builder || true
                     sudo docker buildx create --name maxscale-builder --use --bootstrap
                 """
+                // Both variants are scanned as amd64 images before anything is pushed.
+                buildAndScanImage('Dockerfile', '')
+                buildAndScanImage('Dockerfile-debian', '-debian')
+
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com',
                                                   passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
                         set -o xtrace
                         echo "\${PASS}" | sudo docker login -u "\${USER}" --password-stdin
-
-                        MAJOR_MINOR=\$(echo ${params.VERSION} | cut -d. -f1,2)
-
-                        # One manifest with both architectures, built and pushed in one go.
-                        sudo docker buildx build --provenance=false --no-cache --pull \
-                            --platform linux/amd64,linux/arm64 \
-                            --build-arg MAXSCALE_VERSION=${params.VERSION} \
-                            --build-arg MAXSCALE_RELEASE=${params.RPM_RELEASE} \
-                            --build-arg REPO_COMPONENT=${params.COMPONENT} \
-                            -t ${params.DOCKER_REPOSITORY}:${params.VERSION}-${params.RPM_RELEASE} \
-                            -t ${params.DOCKER_REPOSITORY}:${params.VERSION} \
-                            -t ${params.DOCKER_REPOSITORY}:\${MAJOR_MINOR} \
-                            --push maxscale-src/BUILD/percona/docker
-
-                        sudo docker buildx imagetools inspect ${params.DOCKER_REPOSITORY}:${params.VERSION}-${params.RPM_RELEASE}
                     """
+                    pushImage('Dockerfile', '')
+                    pushImage('Dockerfile-debian', '-debian')
                 }
             }
             post {
