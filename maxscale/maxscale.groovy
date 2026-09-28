@@ -116,6 +116,14 @@ pipeline {
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
+        booleanParam(
+            defaultValue: false,
+            description: 'Build the amd64 and arm64 container images and push them to DOCKER_REPOSITORY. Needs PUSH_TO_REPO, because the image installs the packages from the repository',
+            name: 'BUILD_DOCKER')
+        string(
+            defaultValue: 'perconalab/percona-maxscale',
+            description: 'Where to push the container images',
+            name: 'DOCKER_REPOSITORY')
     }
     options {
         skipDefaultCheckout()
@@ -134,6 +142,14 @@ pipeline {
                     }
                     if (params.PUSH_TO_REPO && !params.MAXSCALE_DEST_REPO?.trim()) {
                         error('PUSH_TO_REPO is set but MAXSCALE_DEST_REPO is empty')
+                    }
+                    if (params.BUILD_DOCKER) {
+                        if (!(params.DOCKER_REPOSITORY ==~ /[A-Za-z0-9._\/:-]+/)) {
+                            error('Parameter DOCKER_REPOSITORY contains characters that are not allowed')
+                        }
+                        if (!params.PUSH_TO_REPO) {
+                            error('BUILD_DOCKER needs PUSH_TO_REPO: the image installs the packages from the repository')
+                        }
                     }
                 }
                 cleanUpWS()
@@ -334,6 +350,57 @@ pipeline {
             }
             steps {
                 sync2ProdAutoBuild(params.CLOUD, params.MAXSCALE_DEST_REPO, params.COMPONENT)
+            }
+        }
+        stage('Build docker images') {
+            when {
+                expression { params.BUILD_DOCKER }
+            }
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            steps {
+                cleanUpWS()
+                // The image installs the packages from the repository, which the previous stage
+                // only started syncing.
+                echo "Waiting 10 minutes for the packages to appear in the ${params.COMPONENT} repository"
+                sh 'sleep 600'
+                sh """
+                    set -o xtrace
+                    git clone --depth 1 --branch ${params.BRANCH} ${params.GIT_REPO} maxscale-src
+
+                    # buildx and qemu are what make the arm64 image buildable here.
+                    sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                    sudo docker buildx rm maxscale-builder || true
+                    sudo docker buildx create --name maxscale-builder --use --bootstrap
+                """
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com',
+                                                  passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        set -o xtrace
+                        echo "\${PASS}" | sudo docker login -u "\${USER}" --password-stdin
+
+                        MAJOR_MINOR=\$(echo ${params.VERSION} | cut -d. -f1,2)
+
+                        # One manifest with both architectures, built and pushed in one go.
+                        sudo docker buildx build --provenance=false --no-cache --pull \
+                            --platform linux/amd64,linux/arm64 \
+                            --build-arg MAXSCALE_VERSION=${params.VERSION} \
+                            --build-arg MAXSCALE_RELEASE=${params.RPM_RELEASE} \
+                            --build-arg REPO_COMPONENT=${params.COMPONENT} \
+                            -t ${params.DOCKER_REPOSITORY}:${params.VERSION}-${params.RPM_RELEASE} \
+                            -t ${params.DOCKER_REPOSITORY}:${params.VERSION} \
+                            -t ${params.DOCKER_REPOSITORY}:\${MAJOR_MINOR} \
+                            --push maxscale-src/BUILD/percona/docker
+
+                        sudo docker buildx imagetools inspect ${params.DOCKER_REPOSITORY}:${params.VERSION}-${params.RPM_RELEASE}
+                    """
+                }
+            }
+            post {
+                always {
+                    sh 'sudo docker buildx rm maxscale-builder || true'
+                }
             }
         }
     }
