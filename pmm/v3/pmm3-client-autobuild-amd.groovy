@@ -28,11 +28,6 @@ pipeline {
             description: 'Use on-demand instances instead of spot (for RC/Release builds)',
             name: 'USE_ONDEMAND'
         )
-        string(
-            defaultValue: '',
-            description: 'Unix timestamp appended to the experimental package release (default: now)',
-            name: 'RELEASE_TIMESTAMP'
-        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -173,7 +168,7 @@ pipeline {
                         expression { params.DESTINATION == 'experimental' }
                     }
                     steps {
-                        sh 'echo "$(cat VERSION)-${RELEASE_TIMESTAMP:-$(date +%s)}" > VERSION.new && mv VERSION.new VERSION'
+                        sh 'echo "$(cat VERSION)-$(date +%s)" > VERSION.new && mv VERSION.new VERSION'
                     }
                 }
                 stage('Build client source rpm') {
