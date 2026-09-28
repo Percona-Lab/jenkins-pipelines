@@ -202,7 +202,7 @@ void goSecurityFixScript(Map context) {
         libraries.credentials.withGitHubCredentials {
             try {
                 sh '''
-                    cp -f ../cloud/scripts/security_build/fix_go_vulnerabilities.py "${SCRIPT}"
+                    cp -f ../cloud/scripts/security_fix_go_vulnerabilities.py "${SCRIPT}"
 
                     docker run --rm \
                       -v "${PWD}:${PWD}" \
@@ -241,44 +241,31 @@ void updateOperatorImageReferences(Map context) {
     withEnv([
         "OPERATOR=${context.OPERATOR_NAME}",
         "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
-        "SCRIPT=jenkins-update_operator_images.py",
         "TAG=${context.TAG}"
     ]) {
-        try {
-            sh '''
-                set -eu
+        sh '''
+            set -eu
 
-                cp -f ../cloud/scripts/security_build/update_operator_images.py "${SCRIPT}"
+            IMAGE_PATTERN="(docker\\.io/)?(percona|perconalab)/${OPERATOR}:[^[:space:]#]+"
 
-                docker run --rm \
-                  -v "${PWD}:${PWD}" \
-                  -e HOST_UID="$(id -u)" \
-                  -e HOST_GID="$(id -g)" \
-                  -e OPERATOR \
-                  -e OPERATOR_RELEASE_IMAGE \
-                  -e SCRIPT \
-                  -w "${PWD}" \
-                  golang:1.27-alpine \
-                  sh -ceu '
-                    apk add --no-cache python3 su-exec
+            sed -Ei \
+              "s#${IMAGE_PATTERN}#${OPERATOR_RELEASE_IMAGE}#g" \
+              deploy/bundle.yaml \
+              deploy/cw-bundle.yaml \
+              deploy/operator.yaml \
+              deploy/cw-operator.yaml \
+              deploy/cr.yaml
 
-                    exec su-exec "${HOST_UID}:${HOST_GID}" \
-                      python3 -u "${SCRIPT}" \
-                        --operator "${OPERATOR}" \
-                        --image "${OPERATOR_RELEASE_IMAGE}" \
-                        --deploy-dir deploy \
-                        --release-versions e2e-tests/release_versions
-                  '
+            sed -Ei \
+              "s#^IMAGE_OPERATOR=${IMAGE_PATTERN}#IMAGE_OPERATOR=${OPERATOR_RELEASE_IMAGE}#" \
+              e2e-tests/release_versions
 
-                git add -- deploy e2e-tests/release_versions
+            git add -- deploy e2e-tests/release_versions
 
-                if ! git diff --cached --quiet; then
-                    git commit -m "Update operator image references for ${TAG}"
-                fi
-            '''
-        } finally {
-            sh 'rm -f "${SCRIPT}"'
-        }
+            if ! git diff --cached --quiet; then
+                git commit -m "Update operator image references for ${TAG}"
+            fi
+        '''
     }
 }
 
