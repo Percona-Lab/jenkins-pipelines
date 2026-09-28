@@ -4,9 +4,9 @@
     description: |
         Do not edit this job through the web!
 
-        Verifies the packages of one hetzner-percona-maxscale-RELEASE build: installs them on
-        every supported platform and checks that MaxScale routes queries through two real
-        MariaDB servers. Give it the package path the build job printed as AWS_STASH_PATH.
+        Verifies published percona-maxscale packages: installs them from a repo.percona.com
+        component with percona-release, on every supported platform, and checks that MaxScale
+        routes queries through two real MariaDB servers.
     pipeline-scm:
       scm:
         - git:

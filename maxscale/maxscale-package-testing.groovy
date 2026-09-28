@@ -4,16 +4,17 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 ]) _
 
 // Runs BUILD/percona/verify_packages.sh (from the MaxScale branch being tested) against the
-// packages of one build. The script installs the packages of each platform in a container of
-// that distribution and checks that MaxScale routes queries through two real MariaDB servers.
-void verifyPlatforms(String PLATFORMS, String PORT_BASE, String FOLDER, String STASH_PATH) {
+// packages in a repo.percona.com component. The script installs percona-maxscale the way a
+// user would, with "percona-release enable maxscale <component>", in a container of each
+// platform, and checks that MaxScale routes queries through two real MariaDB servers.
+void verifyPlatforms(String PLATFORMS, String PORT_BASE) {
     cleanUpWS()
-    popArtifactFolder(params.CLOUD, "${FOLDER}/", STASH_PATH)
     sh """
         set -o xtrace
         wget \$(echo ${params.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${params.BRANCH}/BUILD/percona/verify_packages.sh -O verify_packages.sh
         chmod +x verify_packages.sh
-        ./verify_packages.sh --packages=\$(pwd -P) --platforms="${PLATFORMS}" --port-base=${PORT_BASE}
+        ./verify_packages.sh --repo-component=${params.COMPONENT} --version=${params.VERSION} \
+            --platforms="${PLATFORMS}" --port-base=${PORT_BASE}
     """
 }
 
@@ -32,6 +33,14 @@ pipeline {
             choices: [ 'Hetzner','AWS' ],
             description: 'Cloud infra for the test run',
             name: 'CLOUD')
+        choice(
+            choices: 'experimental\ntesting\nlaboratory\nrelease',
+            description: 'Repository component to install the packages from',
+            name: 'COMPONENT')
+        string(
+            defaultValue: '23.08.12',
+            description: 'Version the installed packages must report',
+            name: 'VERSION')
         string(
             defaultValue: 'https://github.com/EvgeniyPatlan/MaxScale.git',
             description: 'URL for MaxScale repository (provides BUILD/percona/verify_packages.sh)',
@@ -41,16 +50,12 @@ pipeline {
             description: 'Tag/Branch for MaxScale repository',
             name: 'BRANCH')
         string(
-            defaultValue: '',
-            description: 'Path of the packages to test, as printed by the build job, e.g. BUILDS/percona-maxscale/percona-maxscale-23.08.12/percona-23.08/<revision>/<build number>',
-            name: 'AWS_STASH_PATH')
-        string(
             defaultValue: 'el8 el9 el10 amzn2023',
             description: 'RPM platforms to verify',
             name: 'RPM_PLATFORMS')
         string(
-            defaultValue: 'jammy noble bookworm trixie',
-            description: 'DEB platforms to verify',
+            defaultValue: 'bookworm trixie',
+            description: 'DEB platforms to verify. Ubuntu (jammy, noble) once the repository carries them',
             name: 'DEB_PLATFORMS')
     }
     options {
@@ -62,13 +67,10 @@ pipeline {
         stage('Check parameters') {
             steps {
                 script {
-                    ['GIT_REPO', 'BRANCH', 'AWS_STASH_PATH', 'RPM_PLATFORMS', 'DEB_PLATFORMS'].each { name ->
+                    ['GIT_REPO', 'BRANCH', 'VERSION', 'RPM_PLATFORMS', 'DEB_PLATFORMS'].each { name ->
                         if (!(params[name] ==~ /[A-Za-z0-9._\/:@+ -]*/)) {
                             error("Parameter ${name} contains characters that are not allowed")
                         }
-                    }
-                    if (!params.AWS_STASH_PATH?.trim()) {
-                        error('AWS_STASH_PATH is empty; give the path the build job printed')
                     }
                 }
             }
@@ -79,17 +81,23 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
+                    when {
+                        expression { params.RPM_PLATFORMS?.trim() }
+                    }
                     steps {
                         // The port base keeps the two stages apart if they share a machine.
-                        verifyPlatforms(params.RPM_PLATFORMS, '3000', 'rpm', params.AWS_STASH_PATH)
+                        verifyPlatforms(params.RPM_PLATFORMS, '3000')
                     }
                 }
                 stage('DEB platforms') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
+                    when {
+                        expression { params.DEB_PLATFORMS?.trim() }
+                    }
                     steps {
-                        verifyPlatforms(params.DEB_PLATFORMS, '3100', 'deb', params.AWS_STASH_PATH)
+                        verifyPlatforms(params.DEB_PLATFORMS, '3100')
                     }
                 }
             }  //parallel
@@ -98,7 +106,7 @@ pipeline {
     post {
         success {
             script {
-                currentBuild.description = "Verified ${params.RPM_PLATFORMS} ${params.DEB_PLATFORMS} - [${BUILD_URL}]"
+                currentBuild.description = "${params.COMPONENT} ${params.VERSION}: ${params.RPM_PLATFORMS} ${params.DEB_PLATFORMS} - [${BUILD_URL}]"
             }
             deleteDir()
         }
