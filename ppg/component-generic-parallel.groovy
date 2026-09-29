@@ -3,6 +3,20 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def defaultComponentRepo = [
+    pg_audit          : 'https://github.com/pgaudit/pgaudit.git',
+    pg_repack         : 'https://github.com/reorg/pg_repack.git',
+    patroni           : 'https://github.com/zalando/patroni.git',
+    pgbackrest        : 'https://github.com/pgbackrest/pgbackrest.git',
+    pgpool            : 'https://github.com/pgpool/pgpool2.git',
+    postgis           : 'https://github.com/postgis/postgis.git',
+    pgaudit13_set_user: 'https://github.com/pgaudit/set_user.git',
+    pgbadger          : 'https://github.com/darold/pgbadger.git',
+    pgbouncer         : 'https://github.com/pgbouncer/pgbouncer.git',
+    pgvector          : 'https://github.com/pgvector/pgvector.git',
+    wal2json          : 'https://github.com/eulerto/wal2json.git',
+]
+
 def sendSlackNotification(componentName, ppgVersion, componentVersion) {
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
@@ -28,14 +42,24 @@ pipeline {
                 'release'
             ]
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            defaultValue: false,
+            description: 'Install PPG packages from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel; the major version is taken from VERSION.'
+        )
+        string(
+            name: 'OBS_HOST',
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).'
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for tests',
             name: 'TEST_BRANCH'
         )
         string(
-            defaultValue: 'https://github.com/pgaudit/pgaudit.git',
-            description: 'Component repo for test',
+            defaultValue: '',
+            description: 'Component repo for test. Leave empty to auto-select based on PRODUCT.',
             name: 'COMPONENT_REPO'
         )
         string(
@@ -52,7 +76,6 @@ pipeline {
             name: 'PRODUCT',
             description: 'Product to test',
             choices: [
-                'pg_contrib',
                 'pg_audit',
                 'pg_repack',
                 'patroni',
@@ -90,6 +113,9 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-${env.COMPONENT_VERSION}-parallel"
+                    if (!params.COMPONENT_REPO?.trim()) {
+                        env.COMPONENT_REPO = defaultComponentRepo[params.PRODUCT]
+                    }
                 }
             }
         }
