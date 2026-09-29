@@ -1,0 +1,19 @@
+- job:
+    name: hetzner-percona-proxy-mariadb-RELEASE
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+
+        Builds percona-proxy-mariadb packages for Percona Proxy for MariaDB. RPMs and DEBs are
+        rebuilt from the source packages the job publishes, so the sources reproduce the shipped
+        binaries. The source repository is private, so the job needs a GitHub token in the
+        credential named by GIT_TOKEN_ID.
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: percona-proxy-mariadb/percona-proxy-mariadb.groovy
