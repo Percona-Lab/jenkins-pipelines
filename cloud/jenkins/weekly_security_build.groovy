@@ -4,6 +4,22 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 @Field String gitNamespace = 'percona'
 @Field String slackChannel = '#cloud-dev-ci'
 @Field Map libraries = [:]
+@Field List securityBuildStages = [
+    'Clone, Prepare & Checkout',
+    'Pull RELEASED Image',
+    'Trivy Scan',
+    'Fix Vulnerabilities',
+    'Build',
+    'Trivy Verify',
+    'Create Pull Request',
+    'Wait for Merge',
+    'Checkout Merged Commit',
+    'Rebuild Merged Image',
+    'Trivy Verify Merged Image',
+    'Push RELEASE Image',
+    'E2E Tests',
+    'Publish RELEASE'
+]
 
 @Field List repositories = [
     [
@@ -717,10 +733,27 @@ void skipStages(List<String> stages, String reason) {
     }
 }
 
-void processRepository(Map repository) {
+void securityBuildStage(Map stageState, String stageName, Closure body) {
+    stageState.remaining.remove(stageName)
+    stageState.current = stageName
+
+    stage(stageName) {
+        body()
+    }
+
+    stageState.current = null
+}
+
+void skipRemainingStages(Map stageState, String reason) {
+    def remainingStages = stageState.remaining as List
+    stageState.remaining = []
+    skipStages(remainingStages, reason)
+}
+
+void processRepositoryStages(Map repository, Map stageState) {
     def context
 
-    stage('Clone, Prepare & Checkout') {
+    securityBuildStage(stageState, 'Clone, Prepare & Checkout') {
         dir(repository.name) {
             deleteDir()
         }
@@ -770,14 +803,14 @@ void processRepository(Map repository) {
         def vulnerabilitySummary
         def prUrl
 
-        stage('Pull RELEASED Image') {
+        securityBuildStage(stageState, 'Pull RELEASED Image') {
             context.RELEASED_IMAGE =
                 pullReleasedImage(context)
 
             echo "RELEASED image selected: ${context.RELEASED_IMAGE}"
         }
 
-        stage('Trivy Scan') {
+        securityBuildStage(stageState, 'Trivy Scan') {
             echo "Scanning RELEASED image: ${context.RELEASED_IMAGE}"
 
             libraries.tools.trivyScanImage(
@@ -792,23 +825,12 @@ void processRepository(Map repository) {
             def reason =
                 "No critical or high vulnerabilities found for ${repository.name}"
 
-            skipStages([
-                'Fix Vulnerabilities',
-                'Build',
-                'Trivy Verify',
-                'Create Pull Request',
-                'Wait for Merge',
-                'Checkout Merged Commit',
-                'Rebuild Merged Image',
-                'Trivy Verify Merged Image',
-                'E2E Tests',
-                'Publish RELEASE'
-            ], reason)
+            skipRemainingStages(stageState, reason)
 
             return
         }
 
-        stage('Fix Vulnerabilities') {
+        securityBuildStage(stageState, 'Fix Vulnerabilities') {
             vulnerabilitySummary =
                 fixVulnerabilities(context)
         }
@@ -817,26 +839,16 @@ void processRepository(Map repository) {
             def reason =
                 "No fixable Go vulnerabilities found for ${repository.name}"
 
-            skipStages([
-                'Build',
-                'Trivy Verify',
-                'Create Pull Request',
-                'Wait for Merge',
-                'Checkout Merged Commit',
-                'Rebuild Merged Image',
-                'Trivy Verify Merged Image',
-                'E2E Tests',
-                'Publish RELEASE'
-            ], reason)
+            skipRemainingStages(stageState, reason)
 
             return
         }
 
-        stage('Build') {
+        securityBuildStage(stageState, 'Build') {
             buildImage(context)
         }
 
-        stage('Trivy Verify') {
+        securityBuildStage(stageState, 'Trivy Verify') {
             echo "Verifying BUILD image: ${context.BUILD_IMAGE}"
 
             libraries.tools.trivyVerifyImage(
@@ -844,13 +856,13 @@ void processRepository(Map repository) {
             )
         }
 
-        stage('Create Pull Request') {
+        securityBuildStage(stageState, 'Create Pull Request') {
             prUrl = createPullRequest(context)
 
             echo "Pull request: ${prUrl}"
         }
 
-        stage('Wait for Merge') {
+        securityBuildStage(stageState, 'Wait for Merge') {
             timeout(
                 time: 48,
                 unit: 'HOURS'
@@ -863,16 +875,16 @@ void processRepository(Map repository) {
             }
         }
 
-        stage('Checkout Merged Commit') {
+        securityBuildStage(stageState, 'Checkout Merged Commit') {
             checkoutMergedCommit(context)
         }
 
-        stage('Rebuild Merged Image') {
+        securityBuildStage(stageState, 'Rebuild Merged Image') {
             echo "Rebuilding ${context.BUILD_IMAGE} from merged commit ${context.RELEASE_COMMIT}"
             buildImage(context)
         }
 
-        stage('Trivy Verify Merged Image') {
+        securityBuildStage(stageState, 'Trivy Verify Merged Image') {
             echo "Verifying merged BUILD image: ${context.BUILD_IMAGE}"
 
             libraries.tools.trivyVerifyImage(
@@ -880,11 +892,11 @@ void processRepository(Map repository) {
             )
         }
 
-        stage('Push RELEASE Image') {
-            publishRelease(context)
+        securityBuildStage(stageState, 'Push RELEASE Image') {
+            pushReleaseImage(context)
         }
 
-        stage('E2E Tests') {
+        securityBuildStage(stageState, 'E2E Tests') {
             timeout(
                 time: 8,
                 unit: 'HOURS'
@@ -902,9 +914,27 @@ void processRepository(Map repository) {
             }
         }
 
-        stage('Publish RELEASE') {
+        securityBuildStage(stageState, 'Publish RELEASE') {
             publishRelease(context)
         }
+    }
+}
+
+void processRepository(Map repository) {
+    def stageState = [
+        current  : null,
+        remaining: securityBuildStages.collect()
+    ]
+
+    try {
+        processRepositoryStages(repository, stageState)
+    } catch (Exception failure) {
+        def failedStage = stageState.current ?: 'pipeline initialization'
+        skipRemainingStages(
+            stageState,
+            "Skipped because ${failedStage} failed"
+        )
+        throw failure
     }
 }
 
@@ -921,16 +951,29 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
-                    checkout scm
-                    getLibraries()
-                    libraries.dependencies.install()
-                    libraries.dependencies.installTrivy()
+                    def repositoryStarted = false
 
-                    repositories.each { repository ->
-                        echo "Repository: ${gitNamespace}/${repository.name}"
-                        echo "Slack channel: ${slackChannel}"
+                    try {
+                        checkout scm
+                        getLibraries()
+                        libraries.dependencies.install()
+                        libraries.dependencies.installTrivy()
 
-                        processRepository(repository)
+                        repositories.each { repository ->
+                            repositoryStarted = true
+                            echo "Repository: ${gitNamespace}/${repository.name}"
+                            echo "Slack channel: ${slackChannel}"
+
+                            processRepository(repository)
+                        }
+                    } catch (Exception failure) {
+                        if (!repositoryStarted) {
+                            skipStages(
+                                securityBuildStages,
+                                'Skipped because Initialize failed'
+                            )
+                        }
+                        throw failure
                     }
                 }
             }
