@@ -78,21 +78,35 @@ String findDockerfile() {
     return dockerfiles.first()
 }
 
-int nextSecurityBuildNumber(String version) {
-    def latest = withEnv(["VERSION=${version}"]) {
+int nextSecurityBuildNumber(String version, String releaseImageRepository) {
+    def nextBuild = withEnv([
+        "VERSION=${version}",
+        "RELEASE_IMAGE_REPOSITORY=${releaseImageRepository}"
+    ]) {
         sh(
             script: '''
-                git ls-remote --tags origin "refs/tags/security/${VERSION}-*" 2>/dev/null |
-                sed 's|.*-||; s|\\^{}||' |
-                grep -E '^[0-9]+$' |
-                sort -n |
-                tail -1
+                set -eu
+
+                latest_git_build=$(git ls-remote --tags origin "refs/tags/security/${VERSION}-*" 2>/dev/null |
+                    sed 's|.*-||; s|\\^{}||' |
+                    grep -E '^[0-9]+$' |
+                    sort -n |
+                    tail -1 || true)
+
+                candidate=$((${latest_git_build:-0} + 1))
+
+                while docker manifest inspect \
+                    "${RELEASE_IMAGE_REPOSITORY}:${VERSION}-${candidate}" >/dev/null 2>&1; do
+                    candidate=$((candidate + 1))
+                done
+
+                echo "${candidate}"
             ''',
             returnStdout: true
         ).trim()
     }
 
-    return latest ? latest.toInteger() + 1 : 1
+    return nextBuild.toInteger()
 }
 
 Map buildContext(Map repository) {
@@ -106,11 +120,15 @@ Map buildContext(Map repository) {
     }
 
     def version = versionTag.substring(1)
-    def buildNumber = nextSecurityBuildNumber(version)
+    def releaseImageRepository =
+        "${repository.releaseImageRepo}/${repository.imageName}"
+    def buildNumber = nextSecurityBuildNumber(version, releaseImageRepository)
+    def previousBuildNumber = buildNumber - 1
 
     def securityBaseBranch = "security/${version}"
     def securityBranch = "${securityBaseBranch}-${buildNumber}"
 
+    def baseReleasedImageTag = "${version}-${previousBuildNumber}"
     def buildImageTag = "${version}-${buildNumber}"
     def floatingImageTag = "${version}-latest"
 
@@ -124,29 +142,45 @@ Map buildContext(Map repository) {
         GO_VERSION_FILES        : repository.goVersionFiles,
         OPERATOR_VERSION_FILES  : repository.operatorVersionFiles,
 
+        // Example: 1.2.0
         VERSION               : version,
+        // Example: v1.2.0
         VERSION_TAG           : versionTag,
+        // Example: 1
+        PREVIOUS_BUILD_NUMBER : previousBuildNumber,
+        // Example: 2
         SECURITY_BUILD_NUMBER : buildNumber,
 
-        // Example: security/1.2.3
+        // Example: security/1.2.0
         SECURITY_BASE_BRANCH  : securityBaseBranch,
+        // Example: security/1.2.0
         FLOATING_TAG          : securityBaseBranch,
 
-        // Example: security/1.2.3-1
+        // Example: security/1.2.0-2
         SECURITY_BRANCH       : securityBranch,
+        // Example: security/1.2.0-2
         TAG                   : securityBranch,
 
-        BASE_RELEASED_IMAGE   : "${repository.releaseImageRepo}/${repository.imageName}:${version}",
+        // Example: percona/percona-server-mysql-operator:1.2.0-1
+        BASE_RELEASED_IMAGE   : "${repository.releaseImageRepo}/${repository.imageName}:${baseReleasedImageTag}",
 
+        // Example: perconalab
         DEV_REPOSITORY        : repository.imageRepo,
+        // Example: percona
         RELEASE_REPOSITORY      : repository.releaseImageRepo,
 
+        // Example: perconalab/percona-server-mysql-operator
         BUILD_IMAGE_REPOSITORY: "${repository.imageRepo}/${repository.imageName}",
+        // Example: 1.2.0-2
         BUILD_IMAGE_TAG       : buildImageTag,
+        // Example: perconalab/percona-server-mysql-operator:1.2.0-2
         BUILD_IMAGE           : "${repository.imageRepo}/${repository.imageName}:${buildImageTag}",
+        // Example: perconalab/percona-server-mysql-operator:1.2.0-latest
         FLOATING_BUILD_IMAGE  : "${repository.imageRepo}/${repository.imageName}:${floatingImageTag}",
 
+        // Example: percona/percona-server-mysql-operator:1.2.0-2
         RELEASE_IMAGE         : "${repository.releaseImageRepo}/${repository.imageName}:${buildImageTag}",
+        // Example: percona/percona-server-mysql-operator:1.2.0-latest
         FLOATING_RELEASE_IMAGE: "${repository.releaseImageRepo}/${repository.imageName}:${floatingImageTag}"
     ]
 }
