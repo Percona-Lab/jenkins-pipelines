@@ -14,7 +14,8 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
         imageRepo       : 'perconalab',
         releaseImageRepo: 'percona',
         testJob         : 'pso-gke-1',
-        pillarVersion    : '84',
+        pillarImagePath : '.spec.mysql.image', // yq path to the database image in the default CR
+        pillarVersionStrategy: 'majorMinor', // Converts 8.4 to 84
         goVersionFiles   : [], // List of files containing Go version references to be updated
         operatorVersionFiles: [
             'pkg/controller/ps/suite_test.go'
@@ -76,6 +77,51 @@ String findDockerfile() {
     }
 
     return dockerfiles.first()
+}
+
+String getPillarVersionFromDefaultCR(Map repository) {
+    if (!repository.pillarImagePath) {
+        error("pillarImagePath is not configured for ${repository.name}")
+    }
+
+    def strategy = repository.pillarVersionStrategy ?: 'majorMinor'
+
+    return withEnv([
+        "PILLAR_IMAGE_PATH=${repository.pillarImagePath}",
+        "PILLAR_VERSION_STRATEGY=${strategy}"
+    ]) {
+        sh(
+            script: '''
+                set -eu
+
+                pillar_image=$(yq eval -r "${PILLAR_IMAGE_PATH} // \"\"" deploy/cr.yaml)
+                pillar_image_tag="${pillar_image##*:}"
+
+                case "${PILLAR_VERSION_STRATEGY}" in
+                    majorMinor)
+                        pillar_version=$(printf '%s\n' "${pillar_image_tag}" |
+                            sed -nE 's/^[^0-9]*([0-9]+)\.([0-9]+).*/\1\2/p')
+                        ;;
+                    major)
+                        pillar_version=$(printf '%s\n' "${pillar_image_tag}" |
+                            sed -nE 's/^[^0-9]*([0-9]+).*/\1/p')
+                        ;;
+                    *)
+                        echo "Unsupported pillar version strategy: ${PILLAR_VERSION_STRATEGY}" >&2
+                        exit 1
+                        ;;
+                esac
+
+                if [ -z "${pillar_version}" ]; then
+                    echo "Unable to derive PILLAR_VERSION from ${PILLAR_IMAGE_PATH}: ${pillar_image}" >&2
+                    exit 1
+                fi
+
+                printf '%s' "${pillar_version}"
+            ''',
+            returnStdout: true
+        ).trim()
+    }
 }
 
 int nextSecurityBuildNumber(String version, String releaseImageRepository) {
@@ -655,7 +701,7 @@ void runTests(Map repository, Map context) {
                 ),
                 string(
                     name: 'PILLAR_VERSION',
-                    value: repository.pillarVersion
+                    value: context.PILLAR_VERSION
                 )
             ]
         )
@@ -711,8 +757,10 @@ void processRepository(Map repository) {
                 ensureSecurityBaseBranch(context)
 
             context.DOCKERFILE = findDockerfile()
+            context.PILLAR_VERSION = getPillarVersionFromDefaultCR(repository)
 
             echo "Dockerfile: ${context.DOCKERFILE}"
+            echo "Pillar version: ${context.PILLAR_VERSION}"
             echo "Additional Go version files: ${context.GO_VERSION_FILES.join(', ')}"
         }
     }
