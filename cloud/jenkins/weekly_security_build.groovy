@@ -4,6 +4,7 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 @Field String gitNamespace = 'percona'
 @Field String slackChannel = '#cloud-dev-ci'
 @Field Map libraries = [:]
+
 @Field List securityBuildStages = [
     'Clone, Prepare & Checkout',
     'Pull RELEASED Image',
@@ -23,17 +24,17 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field List repositories = [
     [
-        operator        : 'ps-operator',
-        name            : 'percona-server-mysql-operator',
-        sourceBranch    : 'main',
-        imageName       : 'percona-server-mysql-operator',
-        imageRepo       : 'perconalab',
-        releaseImageRepo: 'percona',
-        testJob         : 'pso-gke-1',
-        pillarImagePath : '.spec.mysql.image', // yq path to the database image in the default CR
-        pillarVersionStrategy: 'majorMinor', // Converts 8.4 to 84
-        goVersionFiles   : [], // List of files containing Go version references to be updated
-        operatorVersionFiles: [
+        operator              : 'ps-operator',
+        name                  : 'percona-server-mysql-operator',
+        sourceBranch          : 'main',
+        imageName             : 'percona-server-mysql-operator',
+        imageRepo             : 'perconalab',
+        releaseImageRepo      : 'percona',
+        testJob               : 'pso-gke-1',
+        pillarImagePath       : '.spec.mysql.image', // yq path to the database image in the default CR
+        pillarVersionStrategy : 'majorMinor', // Converts 8.4 to 84
+        goVersionFiles        : [], // List of files containing Go version references to be updated
+        operatorVersionFiles  : [
             'pkg/controller/ps/suite_test.go'
         ] // List of files containing operator version references to be updated
     ]
@@ -43,22 +44,106 @@ void getLibraries() {
     libraries = load('cloud/common/libraries.groovy').loadLibraries()
 }
 
-List slackMessageAttachments(String text, String color, List<Map> buttons) {
-    def blocks = [
-        [
-            type: 'section',
-            text: [
-                type: 'mrkdwn',
-                text: text
-            ]
-        ]
+Map buildContext(Map repository) {
+    def versionTag = sh(
+        script: "git tag --list --sort=-v:refname | grep -E '^v[0-9]+[.][0-9]+[.][0-9]+\$' | head -1",
+        returnStdout: true
+    ).trim()
+
+    if (!versionTag) {
+        error("${repository.name} has no version tag matching vMAJOR.MINOR.PATCH")
+    }
+
+    def version = versionTag.substring(1)
+
+    def buildImageRepository =
+        "${repository.imageRepo}/${repository.imageName}"
+
+    def releaseImageRepository =
+        "${repository.releaseImageRepo}/${repository.imageName}"
+
+    def buildNumber =
+        nextSecurityBuildNumber(version, releaseImageRepository)
+
+    def previousBuildNumber = buildNumber - 1
+
+    def securityBaseBranch = "security/${version}"
+    def securityBranch = "${securityBaseBranch}-${buildNumber}"
+
+    def buildImageTag = "${version}-${buildNumber}"
+    def floatingImageTag = "${version}-latest"
+
+    return [
+        BUILD_URL             : env.BUILD_URL,
+        REPO_PATH             : "${gitNamespace}/${repository.name}",
+        GIT_NAMESPACE         : gitNamespace,
+        OPERATOR              : repository.operator,
+        OPERATOR_NAME         : repository.name,
+        SOURCE_BRANCH         : repository.sourceBranch,
+        GO_VERSION_FILES      : repository.goVersionFiles,
+        OPERATOR_VERSION_FILES: repository.operatorVersionFiles,
+
+        // Example: 1.2.0
+        VERSION               : version,
+        // Example: v1.2.0
+        VERSION_TAG           : versionTag,
+        // Example: 1
+        PREVIOUS_BUILD_NUMBER : previousBuildNumber,
+        // Example: 2
+        SECURITY_BUILD_NUMBER : buildNumber,
+
+        // Example: security/1.2.0
+        SECURITY_BASE_BRANCH  : securityBaseBranch,
+        // Example: security/1.2.0
+        FLOATING_TAG          : securityBaseBranch,
+
+        // Example: security/1.2.0-2
+        SECURITY_BRANCH       : securityBranch,
+        // Example: security/1.2.0-2
+        TAG                   : securityBranch,
+
+        // Example: percona/percona-server-mysql-operator:1.2.0-1
+        BASE_RELEASED_IMAGE   : "${releaseImageRepository}:${version}-${previousBuildNumber}",
+
+        // Example: perconalab
+        DEV_REPOSITORY        : repository.imageRepo,
+        // Example: percona
+        RELEASE_REPOSITORY    : repository.releaseImageRepo,
+
+        // Example: perconalab/percona-server-mysql-operator
+        BUILD_IMAGE_REPOSITORY: buildImageRepository,
+        // Example: 1.2.0-2
+        BUILD_IMAGE_TAG       : buildImageTag,
+        // Example: perconalab/percona-server-mysql-operator:1.2.0-2
+        BUILD_IMAGE           : "${buildImageRepository}:${buildImageTag}",
+        // Example: perconalab/percona-server-mysql-operator:1.2.0-latest
+        FLOATING_BUILD_IMAGE  : "${buildImageRepository}:${floatingImageTag}",
+
+        // Example: percona/percona-server-mysql-operator:1.2.0-2
+        RELEASE_IMAGE         : "${releaseImageRepository}:${buildImageTag}",
+        // Example: percona/percona-server-mysql-operator:1.2.0-latest
+        FLOATING_RELEASE_IMAGE: "${releaseImageRepository}:${floatingImageTag}"
     ]
+}
+
+List slackMessageAttachments(
+    String text,
+    String color,
+    List<Map> buttons = []
+) {
+    def blocks = [[
+        type: 'section',
+        text: [
+            type: 'mrkdwn',
+            text: text
+        ]
+    ]]
 
     if (buttons) {
-        blocks.add([
+        blocks << [
             type: 'actions',
             elements: buttons
-        ])
+        ]
     }
 
     return [[
@@ -77,12 +162,10 @@ String findDockerfile() {
         return 'build/Dockerfile'
     }
 
-    def output = sh(
+    def dockerfiles = sh(
         script: 'find build -type f -name Dockerfile -print 2>/dev/null | sort || true',
         returnStdout: true
-    ).trim()
-
-    def dockerfiles = output ? output.split('\n') as List : []
+    ).trim().readLines()
 
     if (dockerfiles.size() > 1) {
         error("Multiple Dockerfiles found under build/: ${dockerfiles.join(', ')}")
@@ -100,17 +183,15 @@ String getPillarVersionFromDefaultCR(Map repository) {
         error("pillarImagePath is not configured for ${repository.name}")
     }
 
-    def strategy = repository.pillarVersionStrategy ?: 'majorMinor'
-
     return withEnv([
         "PILLAR_IMAGE_PATH=${repository.pillarImagePath}",
-        "PILLAR_VERSION_STRATEGY=${strategy}"
+        "PILLAR_VERSION_STRATEGY=${repository.pillarVersionStrategy ?: 'majorMinor'}"
     ]) {
         sh(
             script: '''
                 set -eu
 
-                pillar_image=$(yq eval -r "${PILLAR_IMAGE_PATH} // \"\"" deploy/cr.yaml)
+                pillar_image=$(yq eval -r "${PILLAR_IMAGE_PATH} // \\"\\"" deploy/cr.yaml)
                 pillar_image_tag="${pillar_image##*:}"
 
                 case "${PILLAR_VERSION_STRATEGY}" in
@@ -140,8 +221,11 @@ String getPillarVersionFromDefaultCR(Map repository) {
     }
 }
 
-int nextSecurityBuildNumber(String version, String releaseImageRepository) {
-    def nextBuild = withEnv([
+int nextSecurityBuildNumber(
+    String version,
+    String releaseImageRepository
+) {
+    return withEnv([
         "VERSION=${version}",
         "RELEASE_IMAGE_REPOSITORY=${releaseImageRepository}"
     ]) {
@@ -149,11 +233,13 @@ int nextSecurityBuildNumber(String version, String releaseImageRepository) {
             script: '''
                 set -eu
 
-                latest_git_build=$(git ls-remote --tags origin "refs/tags/security/${VERSION}-*" 2>/dev/null |
+                latest_git_build=$(
+                    git ls-remote --tags origin "refs/tags/security/${VERSION}-*" 2>/dev/null |
                     sed 's|.*-||; s|\\^{}||' |
                     grep -E '^[0-9]+$' |
                     sort -n |
-                    tail -1 || true)
+                    tail -1 || true
+                )
 
                 candidate=$((${latest_git_build:-0} + 1))
 
@@ -165,98 +251,23 @@ int nextSecurityBuildNumber(String version, String releaseImageRepository) {
                 echo "${candidate}"
             ''',
             returnStdout: true
-        ).trim()
+        ).trim().toInteger()
     }
-
-    return nextBuild.toInteger()
-}
-
-Map buildContext(Map repository) {
-    def versionTag = sh(
-        script: "git tag --list --sort=-v:refname | grep -E '^v[0-9]+[.][0-9]+[.][0-9]+\$' | head -1",
-        returnStdout: true
-    ).trim()
-
-    if (!versionTag) {
-        error("${repository.name} has no version tag matching vMAJOR.MINOR.PATCH")
-    }
-
-    def version = versionTag.substring(1)
-    def releaseImageRepository =
-        "${repository.releaseImageRepo}/${repository.imageName}"
-    def buildNumber = nextSecurityBuildNumber(version, releaseImageRepository)
-    def previousBuildNumber = buildNumber - 1
-
-    def securityBaseBranch = "security/${version}"
-    def securityBranch = "${securityBaseBranch}-${buildNumber}"
-
-    def baseReleasedImageTag = "${version}-${previousBuildNumber}"
-    def buildImageTag = "${version}-${buildNumber}"
-    def floatingImageTag = "${version}-latest"
-
-    return [
-        BUILD_URL             : env.BUILD_URL,
-        REPO_PATH             : "${gitNamespace}/${repository.name}",
-        GIT_NAMESPACE         : gitNamespace,
-        OPERATOR              : repository.operator,
-        OPERATOR_NAME         : repository.name,
-        SOURCE_BRANCH         : repository.sourceBranch,
-        GO_VERSION_FILES        : repository.goVersionFiles,
-        OPERATOR_VERSION_FILES  : repository.operatorVersionFiles,
-
-        // Example: 1.2.0
-        VERSION               : version,
-        // Example: v1.2.0
-        VERSION_TAG           : versionTag,
-        // Example: 1
-        PREVIOUS_BUILD_NUMBER : previousBuildNumber,
-        // Example: 2
-        SECURITY_BUILD_NUMBER : buildNumber,
-
-        // Example: security/1.2.0
-        SECURITY_BASE_BRANCH  : securityBaseBranch,
-        // Example: security/1.2.0
-        FLOATING_TAG          : securityBaseBranch,
-
-        // Example: security/1.2.0-2
-        SECURITY_BRANCH       : securityBranch,
-        // Example: security/1.2.0-2
-        TAG                   : securityBranch,
-
-        // Example: percona/percona-server-mysql-operator:1.2.0-1
-        BASE_RELEASED_IMAGE   : "${repository.releaseImageRepo}/${repository.imageName}:${baseReleasedImageTag}",
-
-        // Example: perconalab
-        DEV_REPOSITORY        : repository.imageRepo,
-        // Example: percona
-        RELEASE_REPOSITORY      : repository.releaseImageRepo,
-
-        // Example: perconalab/percona-server-mysql-operator
-        BUILD_IMAGE_REPOSITORY: "${repository.imageRepo}/${repository.imageName}",
-        // Example: 1.2.0-2
-        BUILD_IMAGE_TAG       : buildImageTag,
-        // Example: perconalab/percona-server-mysql-operator:1.2.0-2
-        BUILD_IMAGE           : "${repository.imageRepo}/${repository.imageName}:${buildImageTag}",
-        // Example: perconalab/percona-server-mysql-operator:1.2.0-latest
-        FLOATING_BUILD_IMAGE  : "${repository.imageRepo}/${repository.imageName}:${floatingImageTag}",
-
-        // Example: percona/percona-server-mysql-operator:1.2.0-2
-        RELEASE_IMAGE         : "${repository.releaseImageRepo}/${repository.imageName}:${buildImageTag}",
-        // Example: percona/percona-server-mysql-operator:1.2.0-latest
-        FLOATING_RELEASE_IMAGE: "${repository.releaseImageRepo}/${repository.imageName}:${floatingImageTag}"
-    ]
 }
 
 boolean ensureSecurityBaseBranch(Map context) {
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
-            def tagExists = libraries.tools.gitTagExists(context.SECURITY_BASE_BRANCH)
-            def branchExists = libraries.tools.gitBranchExists(context.SECURITY_BASE_BRANCH)
+            def exists =
+                libraries.tools.gitTagExists(context.SECURITY_BASE_BRANCH) &&
+                libraries.tools.gitBranchExists(context.SECURITY_BASE_BRANCH)
 
-            if (tagExists && branchExists) {
-                echo "Using existing security tag and tag: ${context.SECURITY_BASE_BRANCH}"
+            if (exists) {
+                echo "Using existing security branch and tag: ${context.SECURITY_BASE_BRANCH}"
+
                 libraries.tools.gitFetchTag(context.SECURITY_BASE_BRANCH)
                 libraries.tools.gitCheckoutTag(context.SECURITY_BASE_BRANCH)
+
                 return true
             }
 
@@ -301,7 +312,7 @@ void goSecurityFixScript(Map context) {
         "GO_VERSION_FILE_ARGUMENTS=${goVersionFileArguments}",
         "REPO_PATH=${context.REPO_PATH}",
         "TAG=${context.TAG}",
-        "SCRIPT=jenkins-fix_go_vulnerabilities.py"
+        'SCRIPT=jenkins-fix_go_vulnerabilities.py'
     ]) {
         libraries.credentials.withGitHubCredentials {
             try {
@@ -342,24 +353,22 @@ void goSecurityFixScript(Map context) {
 }
 
 void updateOperatorImageReferences(Map context) {
-    def operatorVersionFiles = context.OPERATOR_VERSION_FILES.join(' ')
-
     withEnv([
         "OPERATOR=${context.OPERATOR_NAME}",
         "IMAGE_REPO=${context.DEV_REPOSITORY}",
         "RELEASE_IMAGE_REPO=${context.RELEASE_REPOSITORY}",
         "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
         "TAG=${context.TAG}",
-        "OPERATOR_VERSION_FILES=${operatorVersionFiles}"
+        "OPERATOR_VERSION_FILES=${context.OPERATOR_VERSION_FILES.join(' ')}"
     ]) {
         sh '''
             set -eu
 
             BASE_VERSION="$(cat pkg/version/version.txt)"
+            OPERATOR_RELEASE_TAG="${OPERATOR_RELEASE_IMAGE##*:}"
 
             IMAGE_PATTERN="(docker\\.io/)?(${IMAGE_REPO}|${RELEASE_IMAGE_REPO})/${OPERATOR}:${BASE_VERSION}(-[0-9]+)?"
             IMAGE_BOUNDARY="([^[:alnum:]_.-]|$)"
-            OPERATOR_RELEASE_TAG="${OPERATOR_RELEASE_IMAGE##*:}"
 
             sed -Ei \
               "s#${IMAGE_PATTERN}${IMAGE_BOUNDARY}#${OPERATOR_RELEASE_IMAGE}\\4#g" \
@@ -401,6 +410,7 @@ String fixVulnerabilities(Map context) {
         }
 
         def baseCommit = libraries.tools.gitHead()
+
         goSecurityFixScript(context)
 
         if (libraries.tools.gitHead() == baseCommit) {
@@ -410,8 +420,13 @@ String fixVulnerabilities(Map context) {
         updateOperatorImageReferences(context)
 
         def summary = sh(
-            script: """git log --reverse --format='%s%x09%b' '${baseCommit}..HEAD' | \
-                awk -F '\\t' '{printf "• %s\\n", \$1; if (\$2 != "") printf "↳ %s\\n", \$2}'""",
+            script: """
+                git log --reverse --format='%s%x09%b' '${baseCommit}..HEAD' |
+                awk -F '\\t' '{
+                    printf "• %s\\n", \$1;
+                    if (\$2 != "") printf "↳ %s\\n", \$2
+                }'
+            """,
             returnStdout: true
         ).trim()
 
@@ -442,29 +457,29 @@ boolean addVulnerabilityBadge() {
     def badgeStyle =
         'padding: 4px 12px; border-radius: 8px; font-weight: 600;'
 
-    if (total != '0') {
+    if (total == '0') {
         addBadge(
-            id: 'trivy-critical',
-            text: "${critical} CRITICAL",
-            style: "${badgeStyle} color: #ff4d4f; background-color: #4a2328;"
+            id: 'trivy-clean',
+            text: 'NO VULNERABILITIES',
+            style: "${badgeStyle} color: #2ecc71; background-color: #183d2b;"
         )
 
-        addBadge(
-            id: 'trivy-high',
-            text: "${high} HIGH",
-            style: "${badgeStyle} color: #f0a500; background-color: #493817;"
-        )
-
-        return true
+        return false
     }
 
     addBadge(
-        id: 'trivy-clean',
-        text: 'NO VULNERABILITIES',
-        style: "${badgeStyle} color: #2ecc71; background-color: #183d2b;"
+        id: 'trivy-critical',
+        text: "${critical} CRITICAL",
+        style: "${badgeStyle} color: #ff4d4f; background-color: #4a2328;"
     )
 
-    return false
+    addBadge(
+        id: 'trivy-high',
+        text: "${high} HIGH",
+        style: "${badgeStyle} color: #f0a500; background-color: #493817;"
+    )
+
+    return true
 }
 
 void buildImage(Map context) {
@@ -481,11 +496,9 @@ void buildImage(Map context) {
 }
 
 String createPullRequest(Map context) {
-    def prUrl
-
-    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
+    return withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
-            prUrl = libraries.tools.githubCreatePullRequest(
+            libraries.tools.githubCreatePullRequest(
                 context.REPO_PATH,
                 context.GIT_NAMESPACE,
                 context.SECURITY_BRANCH,
@@ -495,8 +508,6 @@ String createPullRequest(Map context) {
             )
         }
     }
-
-    return prUrl
 }
 
 void waitForMerge(
@@ -588,27 +599,27 @@ void waitForMerge(
                 initialRecurrencePeriod: 30000,
                 quiet: true
             ) {
-                def prStatus = libraries.tools.githubPullRequestStatus(
+                def status = libraries.tools.githubPullRequestStatus(
                     context.REPO_PATH,
                     prUrl
                 )
 
-                if (prStatus == 'merged') {
-                    echo 'Pull request is merged; continuing the security build'
-                    return true
-                }
+                switch (status) {
+                    case 'merged':
+                        echo 'Pull request is merged; continuing the security build'
+                        return true
 
-                if (prStatus == 'closed') {
-                    error("Pull request was closed without being merged: ${prUrl}")
-                }
+                    case 'closed':
+                        error("Pull request was closed without being merged: ${prUrl}")
 
-                if (prStatus == 'unknown') {
-                    echo 'Unable to determine pull request status; retrying'
-                    return false
-                }
+                    case 'unknown':
+                        echo 'Unable to determine pull request status; retrying'
+                        return false
 
-                echo 'Pull request is waiting to be merged'
-                return false
+                    default:
+                        echo 'Pull request is waiting to be merged'
+                        return false
+                }
             }
         }
     }
@@ -627,18 +638,18 @@ void checkoutMergedCommit(Map context) {
 
 void pushReleaseImage(Map context) {
     echo "Pushing RELEASE image: ${context.RELEASE_IMAGE}"
+
     libraries.credentials.withDockerCredentials {
         libraries.tools.dockerCopyImage(
             context.BUILD_IMAGE,
-            [
-                context.RELEASE_IMAGE
-            ]
+            [context.RELEASE_IMAGE]
         )
     }
 }
 
 void publishRelease(Map context) {
     def currentCommit = libraries.tools.gitHead()
+
     if (currentCommit != context.RELEASE_COMMIT) {
         error(
             "Workspace changed after rebuilding the merged commit: " +
@@ -647,30 +658,28 @@ void publishRelease(Map context) {
     }
 
     echo "Updating latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}"
+
     libraries.credentials.withDockerCredentials {
         libraries.tools.dockerCopyImage(
             context.RELEASE_IMAGE,
-            [
-                context.FLOATING_RELEASE_IMAGE
-            ]
+            [context.FLOATING_RELEASE_IMAGE]
         )
     }
 
-    withEnv([
-        "REPO_PATH=${context.REPO_PATH}"
-    ]) {
+    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
             if (libraries.tools.gitTagExists(context.TAG)) {
                 error("Unable to recreate release tag ${context.TAG}")
-            } else {
-                echo "Creating release tag ${context.TAG}"
-
-                libraries.tools.gitCreateTag(
-                    context.TAG,
-                    "Security build ${context.TAG}"
-                )
-                libraries.tools.gitPushTag(context.TAG)
             }
+
+            echo "Creating release tag ${context.TAG}"
+
+            libraries.tools.gitCreateTag(
+                context.TAG,
+                "Security build ${context.TAG}"
+            )
+
+            libraries.tools.gitPushTag(context.TAG)
 
             echo "Updating floating release tag ${context.FLOATING_TAG}"
 
@@ -733,34 +742,48 @@ void skipStages(List<String> stages, String reason) {
     }
 }
 
-void securityBuildStage(Map stageState, String stageName, Closure body) {
-    stageState.remaining.remove(stageName)
-    stageState.current = stageName
+void trackedStage(
+    Map execution,
+    String stageName,
+    Closure body
+) {
+    execution.currentStage = stageName
 
     stage(stageName) {
         body()
     }
-
-    stageState.current = null
 }
 
-void skipRemainingStages(Map stageState, String reason) {
-    def remainingStages = stageState.remaining as List
-    stageState.remaining = []
-    skipStages(remainingStages, reason)
+void skipRemainingStages(
+    String currentStage,
+    String reason
+) {
+    def currentIndex =
+        securityBuildStages.indexOf(currentStage)
+
+    skipStages(
+        securityBuildStages.drop(currentIndex + 1),
+        reason
+    )
 }
 
-void processRepositoryStages(Map repository, Map stageState) {
+void runRepositoryPipeline(
+    Map repository,
+    Map execution
+) {
     def context
+    def vulnerabilitiesFound
+    def vulnerabilitySummary
+    def prUrl
 
-    securityBuildStage(stageState, 'Clone, Prepare & Checkout') {
+    trackedStage(execution, 'Clone, Prepare & Checkout') {
         dir(repository.name) {
             deleteDir()
         }
 
         libraries.tools.gitClone([
             branch: repository.sourceBranch,
-            repo  : "https://github.com/${gitNamespace}/${repository.name}.git"
+            repo: "https://github.com/${gitNamespace}/${repository.name}.git"
         ], repository.name)
 
         dir(repository.name) {
@@ -790,7 +813,9 @@ void processRepositoryStages(Map repository, Map stageState) {
                 ensureSecurityBaseBranch(context)
 
             context.DOCKERFILE = findDockerfile()
-            context.PILLAR_VERSION = getPillarVersionFromDefaultCR(repository)
+
+            context.PILLAR_VERSION =
+                getPillarVersionFromDefaultCR(repository)
 
             echo "Dockerfile: ${context.DOCKERFILE}"
             echo "Pillar version: ${context.PILLAR_VERSION}"
@@ -799,18 +824,14 @@ void processRepositoryStages(Map repository, Map stageState) {
     }
 
     dir(repository.name) {
-        def vulnerabilitiesFound
-        def vulnerabilitySummary
-        def prUrl
-
-        securityBuildStage(stageState, 'Pull RELEASED Image') {
+        trackedStage(execution, 'Pull RELEASED Image') {
             context.RELEASED_IMAGE =
                 pullReleasedImage(context)
 
             echo "RELEASED image selected: ${context.RELEASED_IMAGE}"
         }
 
-        securityBuildStage(stageState, 'Trivy Scan') {
+        trackedStage(execution, 'Trivy Scan') {
             echo "Scanning RELEASED image: ${context.RELEASED_IMAGE}"
 
             libraries.tools.trivyScanImage(
@@ -822,33 +843,33 @@ void processRepositoryStages(Map repository, Map stageState) {
         }
 
         if (!vulnerabilitiesFound) {
-            def reason =
+            skipRemainingStages(
+                execution.currentStage,
                 "No critical or high vulnerabilities found for ${repository.name}"
-
-            skipRemainingStages(stageState, reason)
+            )
 
             return
         }
 
-        securityBuildStage(stageState, 'Fix Vulnerabilities') {
+        trackedStage(execution, 'Fix Vulnerabilities') {
             vulnerabilitySummary =
                 fixVulnerabilities(context)
         }
 
         if (!vulnerabilitySummary) {
-            def reason =
+            skipRemainingStages(
+                execution.currentStage,
                 "No fixable Go vulnerabilities found for ${repository.name}"
-
-            skipRemainingStages(stageState, reason)
+            )
 
             return
         }
 
-        securityBuildStage(stageState, 'Build') {
+        trackedStage(execution, 'Build') {
             buildImage(context)
         }
 
-        securityBuildStage(stageState, 'Trivy Verify') {
+        trackedStage(execution, 'Trivy Verify') {
             echo "Verifying BUILD image: ${context.BUILD_IMAGE}"
 
             libraries.tools.trivyVerifyImage(
@@ -856,13 +877,13 @@ void processRepositoryStages(Map repository, Map stageState) {
             )
         }
 
-        securityBuildStage(stageState, 'Create Pull Request') {
+        trackedStage(execution, 'Create Pull Request') {
             prUrl = createPullRequest(context)
 
             echo "Pull request: ${prUrl}"
         }
 
-        securityBuildStage(stageState, 'Wait for Merge') {
+        trackedStage(execution, 'Wait for Merge') {
             timeout(
                 time: 48,
                 unit: 'HOURS'
@@ -875,16 +896,17 @@ void processRepositoryStages(Map repository, Map stageState) {
             }
         }
 
-        securityBuildStage(stageState, 'Checkout Merged Commit') {
+        trackedStage(execution, 'Checkout Merged Commit') {
             checkoutMergedCommit(context)
         }
 
-        securityBuildStage(stageState, 'Rebuild Merged Image') {
+        trackedStage(execution, 'Rebuild Merged Image') {
             echo "Rebuilding ${context.BUILD_IMAGE} from merged commit ${context.RELEASE_COMMIT}"
+
             buildImage(context)
         }
 
-        securityBuildStage(stageState, 'Trivy Verify Merged Image') {
+        trackedStage(execution, 'Trivy Verify Merged Image') {
             echo "Verifying merged BUILD image: ${context.BUILD_IMAGE}"
 
             libraries.tools.trivyVerifyImage(
@@ -892,11 +914,11 @@ void processRepositoryStages(Map repository, Map stageState) {
             )
         }
 
-        securityBuildStage(stageState, 'Push RELEASE Image') {
+        trackedStage(execution, 'Push RELEASE Image') {
             pushReleaseImage(context)
         }
 
-        securityBuildStage(stageState, 'E2E Tests') {
+        trackedStage(execution, 'E2E Tests') {
             timeout(
                 time: 8,
                 unit: 'HOURS'
@@ -909,31 +931,37 @@ void processRepositoryStages(Map repository, Map stageState) {
                     env.SECURITY_BUILD_TEST_JOB = repository.testJob
                     env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
                     env.SECURITY_BUILD_TEST_IMAGE = context.RELEASE_IMAGE
+
                     throw error
                 }
             }
         }
 
-        securityBuildStage(stageState, 'Publish RELEASE') {
+        trackedStage(execution, 'Publish RELEASE') {
             publishRelease(context)
         }
     }
 }
 
 void processRepository(Map repository) {
-    def stageState = [
-        current  : null,
-        remaining: securityBuildStages.collect()
+    def execution = [
+        currentStage: null
     ]
 
     try {
-        processRepositoryStages(repository, stageState)
+        runRepositoryPipeline(
+            repository,
+            execution
+        )
     } catch (Exception failure) {
-        def failedStage = stageState.current ?: 'pipeline initialization'
+        def failedStage =
+            execution.currentStage ?: 'pipeline initialization'
+
         skipRemainingStages(
-            stageState,
+            execution.currentStage,
             "Skipped because ${failedStage} failed"
         )
+
         throw failure
     }
 }
@@ -955,12 +983,15 @@ pipeline {
 
                     try {
                         checkout scm
+
                         getLibraries()
+
                         libraries.dependencies.install()
                         libraries.dependencies.installTrivy()
 
                         repositories.each { repository ->
                             repositoryStarted = true
+
                             echo "Repository: ${gitNamespace}/${repository.name}"
                             echo "Slack channel: ${slackChannel}"
 
@@ -973,6 +1004,7 @@ pipeline {
                                 'Skipped because Initialize failed'
                             )
                         }
+
                         throw failure
                     }
                 }
@@ -983,8 +1015,11 @@ pipeline {
     post {
         failure {
             script {
+                def isE2EFailure =
+                    env.SECURITY_BUILD_FAILURE_KIND == 'e2e'
+
                 def message = [
-                    env.SECURITY_BUILD_FAILURE_KIND == 'e2e' ?
+                    isE2EFailure ?
                         ':x: *Security build E2E tests failed*' :
                         ':x: *Security build failed*',
                     '',
@@ -992,7 +1027,7 @@ pipeline {
                     "*Build*: `#${env.BUILD_NUMBER}`"
                 ]
 
-                if (env.SECURITY_BUILD_FAILURE_KIND == 'e2e') {
+                if (isE2EFailure) {
                     message.addAll([
                         "*Repository*: `${env.SECURITY_BUILD_REPOSITORY}`",
                         "*Test job*: `${env.SECURITY_BUILD_TEST_JOB}`",
@@ -1001,14 +1036,12 @@ pipeline {
                     ])
                 }
 
-                def messageText = message.join('\n')
-
                 slackSend(
                     botUser: true,
                     channel: slackChannel,
                     failOnError: false,
                     attachments: slackMessageAttachments(
-                        messageText,
+                        message.join('\n'),
                         '#FF0000',
                         [[
                             type: 'button',
