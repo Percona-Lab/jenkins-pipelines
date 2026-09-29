@@ -35,7 +35,7 @@ pipeline {
     parameters {
         choice(
             name: 'REPO',
-            description: 'PPG repo for testing',
+            description: 'Package repo channel, passed to percona-release enable-only &lt;VERSION&gt; &lt;REPO&gt;. With USE_OBS_REPO it selects the OBS channel instead.',
             choices: [
                 'testing',
                 'experimental',
@@ -54,27 +54,27 @@ pipeline {
         )
         string(
             defaultValue: 'main',
-            description: 'Branch for tests',
+            description: 'Branch of the ppg-testing repo to run the tests from',
             name: 'TEST_BRANCH'
         )
         string(
             defaultValue: '',
-            description: 'Component repo for test. Leave empty to auto-select based on PRODUCT.',
+            description: 'Git URL of the upstream PRODUCT source whose test suite runs against the installed package. Leave empty to auto-select from PRODUCT.',
             name: 'COMPONENT_REPO'
         )
         string(
             defaultValue: 'master',
-            description: 'Component version for test',
+            description: 'Tag of COMPONENT_REPO to check out for the test suite; should match the packaged version.',
             name: 'COMPONENT_VERSION'
         )
         string(
             defaultValue: 'ppg-18.3',
-            description: 'PPG version for test',
+            description: 'PPG version to install, as ppg-&lt;major&gt;.&lt;minor&gt; (e.g. ppg-18.3). Selects the percona-release repo and the PG major.',
             name: 'VERSION'
         )
         choice(
             name: 'PRODUCT',
-            description: 'Product to test',
+            description: 'Component to test: runs the &lt;PRODUCT&gt;/setup scenario and picks the default COMPONENT_REPO.',
             choices: [
                 'pg_audit',
                 'pg_repack',
