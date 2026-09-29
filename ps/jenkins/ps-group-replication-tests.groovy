@@ -53,10 +53,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for server-qa repository',
             name: 'TESTING_BRANCH')
-        string(
-            defaultValue: 'Percona-QA',
-            description: 'Git account for server-qa repository',
-            name: 'TESTING_GIT_ACCOUNT')
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '100'))
@@ -68,14 +64,14 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "#${BUILD_NUMBER}-${params.SERVER_IMAGE}-${params.TEST}"
-                    currentBuild.description = "${params.TESTING_GIT_ACCOUNT}/server-qa@${params.TESTING_BRANCH}"
+                    currentBuild.description = "server-qa@${params.TESTING_BRANCH}"
                 }
             }
         }
         stage('Checkout') {
             steps {
                 deleteDir()
-                git poll: false, branch: params.TESTING_BRANCH, url: "https://github.com/${params.TESTING_GIT_ACCOUNT}/server-qa.git"
+                git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/server-qa.git'
             }
         }
         stage('Prepare') {
