@@ -67,7 +67,7 @@ Map buildContext(Map repository) {
 
     def previousBuildNumber = buildNumber - 1
 
-    def securityBaseBranch = "security/${version}"
+    def securityBaseBranch = "security/v${version}"
     def securityBranch = "${securityBaseBranch}-${buildNumber}"
 
     def numberedImageTag = "${version}-${buildNumber}"
@@ -95,13 +95,13 @@ Map buildContext(Map repository) {
         // Base release
         VERSION               : version, // Example: 1.0.0
         BASE_RELEASE_GIT_TAG  : baseReleaseGitTag, // Git tag example: v1.0.0
-        SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/1.0.0
+        SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/v1.0.0
         PREVIOUS_BUILD_NUMBER : previousBuildNumber, // Example: 1
         PREVIOUS_RELEASE_IMAGE: previousReleaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-1
 
         // Security build
         SECURITY_BUILD_NUMBER : buildNumber, // Example: 2
-        SECURITY_BRANCH       : securityBranch, // Example: security/1.0.0-2
+        SECURITY_BRANCH       : securityBranch, // Example: security/v1.0.0-2
         NUMBERED_IMAGE_TAG    : numberedImageTag, // Example: 1.0.0-2
         FLOATING_IMAGE_TAG    : floatingImageTag, // Example: 1.0.0-latest
 
