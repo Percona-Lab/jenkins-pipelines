@@ -348,7 +348,9 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                     //sh "mkdir ARTIFACTS && cp *.zip ARTIFACTS/"
                                     //sh "ls -la ARTIFACTS/"
                                     //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
-                                    archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
+                                    // The SBOM collections are stored unpacked, per platform,
+                                    // by archiveSbomFiles() below -- not as raw zips.
+                                    archiveArtifacts artifacts: '*.zip', excludes: '*_sbom.zip', allowEmptyArchive: true
 
                                     // The SBOM checks run HERE, once per platform, over the
                                     // collections the targets fetched back (*_sbom.zip, from
@@ -357,6 +359,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                     // stop the others from being checked.
                                     if (scenario_to_test == 'install') {
                                         runSbomChecks()
+                                        archiveSbomFiles()
                                     }
 
                                     // allowEmptyResults: true because only install runs
@@ -433,6 +436,19 @@ def runSbomChecks() {
             export TRIVY_BIN="\$(command -v trivy || echo trivy)"
             python -m pytest -v -p no:cacheprovider pytest-tests/test_pxb_sbom.py --junitxml=sbom-junit.xml
         """
+    }
+}
+
+def archiveSbomFiles() {
+    // Every platform's collected SBOM files, as sbom/<platform>/..., so they open
+    // straight from the build page. Storing them is diagnostics: a failure here
+    // marks the stage unstable but must not fail a build whose checks passed.
+    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+        sh '''
+            . virtenv/bin/activate
+            python -m sbom_checks.export --fetched '*_sbom.zip' --out sbom
+        '''
+        archiveArtifacts artifacts: 'sbom/**', allowEmptyArchive: true
     }
 }
 
