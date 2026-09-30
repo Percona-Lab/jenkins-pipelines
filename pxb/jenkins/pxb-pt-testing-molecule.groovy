@@ -385,13 +385,25 @@ def runSbomChecks() {
     // needed per-AMI workarounds and a 1.4 GB trivy database each. A failed
     // install is caught so the checks below still run and report the missing
     // tool per platform, instead of aborting before any junit exists.
+    //
+    // One catchError per tool: with a shared one, a failed trivy install skipped
+    // the cyclonedx download too, and every platform then failed for both.
     if (params.SBOM_EXTERNAL_TOOLS.toString() == 'true') {
-        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-            if (params.SBOM_VULN_MODE != 'off') {
-                installTrivy()
+        if (params.SBOM_VULN_MODE != 'off') {
+            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                // 'binary', not the default auto-detect: on this Debian agent
+                // that picks the APT path, which sets up a package repo via
+                // lsb_release and fails on a minimal image. The pinned tarball
+                // with its checksum is what the pxc and ppg jobs use.
+                installTrivy(method: 'binary')
+                sh 'trivy --version'
             }
+        }
+        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
             // rm first, and no "|| true": curl -f does not truncate on an HTTP
             // error, so a failed download must not leave an older binary behind.
+            // --version proves it starts; the agent may lack ICU, hence the
+            // invariant-globalization flag the python wrapper also sets.
             sh '''
                 set -e
                 ARCH=$(uname -m)
@@ -405,6 +417,7 @@ def runSbomChecks() {
                 curl -fsSL -o sbom-tools/cyclonedx \
                     https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/${CDX_ASSET}
                 chmod +x sbom-tools/cyclonedx
+                DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 sbom-tools/cyclonedx --version
             '''
         }
     }
@@ -417,6 +430,7 @@ def runSbomChecks() {
             export SBOM_FETCHED='*_sbom.zip'
             export SBOM_EXPECTED_PLATFORMS='${env.SBOM_EXPECTED_PLATFORMS ?: ''}'
             export CYCLONEDX_BIN="\$PWD/sbom-tools/cyclonedx"
+            export TRIVY_BIN="\$(command -v trivy || echo trivy)"
             python -m pytest -v -p no:cacheprovider pytest-tests/test_pxb_sbom.py --junitxml=sbom-junit.xml
         """
     }
