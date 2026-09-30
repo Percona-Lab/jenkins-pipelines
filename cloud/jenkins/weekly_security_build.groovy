@@ -7,7 +7,7 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field List securityBuildStages = [
     'Clone, Prepare & Checkout',
-    'Pull RELEASED Image',
+    'Pull Previous RELEASE Image',
     'Trivy Scan',
     'Fix Vulnerabilities',
     'Build',
@@ -73,7 +73,7 @@ Map buildContext(Map repository) {
     def numberedImageTag = "${version}-${buildNumber}"
     def floatingImageTag = "${version}-latest"
 
-    def baseReleasedImage = "${releaseImageRepository}:${version}-${previousBuildNumber}"
+    def previousReleaseImage = "${releaseImageRepository}:${version}-${previousBuildNumber}"
 
     def buildImage = "${buildImageRepository}:${numberedImageTag}"
     def floatingBuildImage = "${buildImageRepository}:${floatingImageTag}"
@@ -97,7 +97,7 @@ Map buildContext(Map repository) {
         BASE_RELEASE_GIT_TAG  : baseReleaseGitTag, // Git tag example: v1.0.0
         SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/1.0.0
         PREVIOUS_BUILD_NUMBER : previousBuildNumber, // Example: 1
-        BASE_RELEASED_IMAGE   : baseReleasedImage, // Example: percona/percona-server-mysql-operator:1.0.0-1
+        PREVIOUS_RELEASE_IMAGE: previousReleaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-1
 
         // Security build
         SECURITY_BUILD_NUMBER : buildNumber, // Example: 2
@@ -235,6 +235,11 @@ int nextSecurityBuildNumber(
                     candidate=$((candidate + 1))
                 done
 
+                if [ "${candidate}" -eq 1 ]; then
+                    echo "No numbered release image found. Expected ${RELEASE_IMAGE_REPOSITORY}:${VERSION}-1" >&2
+                    exit 1
+                fi
+
                 echo "${candidate}"
             ''',
             returnStdout: true
@@ -242,7 +247,7 @@ int nextSecurityBuildNumber(
     }
 }
 
-boolean ensureSecurityBaseBranch(Map context) {
+void ensureSecurityBaseBranch(Map context) {
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
             def exists =
@@ -256,7 +261,7 @@ boolean ensureSecurityBaseBranch(Map context) {
                 libraries.tools.gitFetchTag(context.FLOATING_GIT_TAG)
                 libraries.tools.gitCheckoutTag(context.FLOATING_GIT_TAG)
 
-                return true
+                return
             }
 
             echo "Creating security branch ${context.SECURITY_BASE_BRANCH} " +
@@ -268,27 +273,19 @@ boolean ensureSecurityBaseBranch(Map context) {
             libraries.tools.gitDeleteRemoteBranch(context.SECURITY_BASE_BRANCH)
             libraries.tools.gitCreateBranch(context.SECURITY_BASE_BRANCH)
             libraries.tools.gitPushBranch(context.SECURITY_BASE_BRANCH)
-
-            return false
         }
     }
 }
 
-String pullReleasedImage(Map context) {
-    def image = context.SECURITY_BASE_EXISTS ?
-        context.FLOATING_RELEASE_IMAGE :
-        context.BASE_RELEASED_IMAGE
-
-    withEnv(["RELEASED_IMAGE=${image}"]) {
+void pullPreviousReleaseImage(Map context) {
+    withEnv(["PREVIOUS_RELEASE_IMAGE=${context.PREVIOUS_RELEASE_IMAGE}"]) {
         sh '''
             set -eu
 
-            echo "Pulling RELEASED image ${RELEASED_IMAGE}"
-            docker pull "${RELEASED_IMAGE}"
+            echo "Pulling previous RELEASE image ${PREVIOUS_RELEASE_IMAGE}"
+            docker pull "${PREVIOUS_RELEASE_IMAGE}"
         '''
     }
-
-    return image
 }
 
 void goSecurityFixScript(Map context) {
@@ -511,7 +508,7 @@ void waitForMerge(
         "*Branch*: `${context.SECURITY_BRANCH}`",
         "*Target branch*: `${context.SECURITY_BASE_BRANCH}`",
         '',
-        "*RELEASED image*: `${context.RELEASED_IMAGE}`",
+        "*Previous RELEASE image*: `${context.PREVIOUS_RELEASE_IMAGE}`",
         "*BUILD image*: `${context.BUILD_IMAGE}`",
         "*RELEASE image*: `${context.RELEASE_IMAGE}`",
         "*Latest RELEASE image*: `${context.FLOATING_RELEASE_IMAGE}`",
@@ -561,7 +558,7 @@ void waitForMerge(
             <b>Branch:</b> ${context.SECURITY_BRANCH}<br>
             <b>Target branch:</b> ${context.SECURITY_BASE_BRANCH}<br><br>
 
-            <b>RELEASED image:</b> ${context.RELEASED_IMAGE}<br>
+            <b>Previous RELEASE image:</b> ${context.PREVIOUS_RELEASE_IMAGE}<br>
             <b>BUILD image:</b> ${context.BUILD_IMAGE}<br>
             <b>RELEASE image:</b> ${context.RELEASE_IMAGE}<br>
             <b>Latest RELEASE image:</b> ${context.FLOATING_RELEASE_IMAGE}<br><br>
@@ -781,15 +778,14 @@ void runRepositoryPipeline(
 
                 Numbered image tag: ${context.NUMBERED_IMAGE_TAG}
                 Floating image tag: ${context.FLOATING_IMAGE_TAG}
-                Base RELEASED image: ${context.BASE_RELEASED_IMAGE}
+                Previous RELEASE image: ${context.PREVIOUS_RELEASE_IMAGE}
                 BUILD image: ${context.BUILD_IMAGE}
                 Latest BUILD image: ${context.FLOATING_BUILD_IMAGE}
                 RELEASE image: ${context.RELEASE_IMAGE}
                 Latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}
             """.stripIndent().trim()
 
-            context.SECURITY_BASE_EXISTS =
-                ensureSecurityBaseBranch(context)
+            ensureSecurityBaseBranch(context)
 
             context.DOCKERFILE = findDockerfile()
 
@@ -803,18 +799,15 @@ void runRepositoryPipeline(
     }
 
     dir(repository.name) {
-        trackedStage(execution, 'Pull RELEASED Image') {
-            context.RELEASED_IMAGE =
-                pullReleasedImage(context)
-
-            echo "RELEASED image selected: ${context.RELEASED_IMAGE}"
+        trackedStage(execution, 'Pull Previous RELEASE Image') {
+            pullPreviousReleaseImage(context)
         }
 
         trackedStage(execution, 'Trivy Scan') {
-            echo "Scanning RELEASED image: ${context.RELEASED_IMAGE}"
+            echo "Scanning previous RELEASE image: ${context.PREVIOUS_RELEASE_IMAGE}"
 
             libraries.tools.trivyScanImage(
-                context.RELEASED_IMAGE
+                context.PREVIOUS_RELEASE_IMAGE
             )
 
             vulnerabilitiesFound =
