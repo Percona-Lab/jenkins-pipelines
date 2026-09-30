@@ -73,7 +73,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'gcloud'
                     )
                 }
@@ -97,7 +97,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
+                        operator              : 'ps',
                         platform              : 'gke',
                         platform_provider     : 'gcloud',
                         platform_channel      : GKE_RELEASE_CHANNEL,

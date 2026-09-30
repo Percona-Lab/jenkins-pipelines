@@ -2,7 +2,7 @@ void gitClone(Map cfg) {
     def branch = cfg.branch
     def repo = cfg.repo
 
-    echo "=========================[ Cloning sources ]========================="
+    echo '=========================[ Cloning sources ]========================='
     echo "Using branch: ${branch}"
 
     withEnv([
@@ -118,7 +118,7 @@ void dockerBuildAndPush(Map cfg) {
                     docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     export IMAGE=${cfg.operatorImage}:${cfg.branch}
-                    if [[ "$cfg.operator" == "pg-operator" ]]; then
+                    if [[ "$cfg.operator" == "pg" ]]; then
                         DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 make build
                     else
                         DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
@@ -133,9 +133,9 @@ void dockerBuildAndPush(Map cfg) {
 }
 
 void dockerCleanupVolumes() {
-    sh """
+    sh '''
         sudo docker system prune --volumes -af
-    """
+    '''
 }
 
 String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerLabel = 'docker-x64-min') {

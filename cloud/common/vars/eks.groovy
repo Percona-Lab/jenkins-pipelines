@@ -12,7 +12,7 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for EKS: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {
@@ -62,10 +62,10 @@ EOF
 
         withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh """
-                export KUBECONFIG=/tmp/${clusterFullName}
+                export KUBECONFIG=${clusterCfg.kubeconfig}
 
                 eksctl create cluster -f cluster-${clusterSuffix}.yaml
-                
+
                 # Use GP3 storage class as default, recommended by the provider
                 kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
 
@@ -83,13 +83,13 @@ EOF
         }
     }
 
-    verifyVolumeSnapshotResources(clusterFullName)
+    verifyVolumeSnapshotResources(clusterCfg.kubeconfig)
 }
 
-void verifyVolumeSnapshotResources(String clusterFullName) {
+void verifyVolumeSnapshotResources(String kubeconfig) {
     withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
-            export KUBECONFIG=/tmp/${clusterFullName}
+            export KUBECONFIG=${kubeconfig}
             export PATH=/home/ec2-user/.local/bin:\$PATH
 
             wait_for_deployment() {

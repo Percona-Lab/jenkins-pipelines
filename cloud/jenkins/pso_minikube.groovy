@@ -71,7 +71,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'minikube'
                     )
                 }
@@ -95,7 +95,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
+                        operator              : 'ps',
                         platform              : 'minikube',
                         platform_provider     : 'minikube',
                         platform_version      : PLATFORM_VER,
