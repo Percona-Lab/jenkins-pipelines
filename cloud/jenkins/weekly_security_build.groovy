@@ -336,6 +336,7 @@ void goSecurityFixScript(Map context) {
             }
         }
     }
+
 }
 
 void updateOperatorImageReferences(Map context) {
@@ -409,6 +410,7 @@ String fixVulnerabilities(Map context) {
             script: """
                 git log --reverse --format='%s%x09%b' '${baseCommit}..HEAD' |
                 awk -F '\\t' '{
+                    if (\$1 == "") next;
                     printf "• %s\\n", \$1;
                     if (\$2 != "") printf "↳ %s\\n", \$2
                 }'
@@ -551,7 +553,7 @@ void waitForMerge(
     )
 
     addSummary(
-        id: 'security-build-approval',
+        id: 'security-build',
         text: """
             <b>Security build awaiting PR merge</b><br>
             <b>Repository:</b> ${context.REPO_PATH}<br>
@@ -566,15 +568,15 @@ void waitForMerge(
             <b>Vulnerabilities and selected fixes:</b><br>
             <pre>${vulnerabilitySummary}</pre>
 
-            <a href="${prUrl}" target="_blank"
+             <a href="${prUrl}" target="_blank"
                style="display: inline-block;
                       padding: 8px 14px;
                       color: #fff;
-                      background-color: #238636;
+                      background-color: #0b66de;
                       border-radius: 6px;
                       text-decoration: none;
                       font-weight: 600;">
-                Review security pull request
+                Security pull request
             </a>
         """.stripIndent().trim()
     )
@@ -670,40 +672,169 @@ void publishRelease(Map context) {
     }
 }
 
-void runTests(Map repository, Map context) {
-    retry(2) {
-        build(
+Map runTests(Map repository, Map context) {
+    def lastBuildUrl
+    def testParameters = [
+        TEST_SUITE        : 'run-release.csv',
+        GIT_BRANCH       : context.SECURITY_BASE_BRANCH,
+        IMAGE_OPERATOR   : context.BUILD_IMAGE,
+        GKE_RELEASE_CHANNEL: 'stable',
+        CLUSTER_WIDE     : 'YES',
+        PILLAR_VERSION   : context.PILLAR_VERSION
+    ]
+
+    for (int attempt = 1; attempt <= 2; attempt++) {
+        def testBuild = build(
             job: repository.testJob,
             wait: true,
-            propagate: true,
-            parameters: [
+            propagate: false,
+            parameters: testParameters.collect { parameterName, parameterValue ->
                 string(
-                    name: 'TEST_SUITE',
-                    value: 'run-release.csv'
-                ),
-                string(
-                    name: 'GIT_BRANCH',
-                    value: context.SECURITY_BASE_BRANCH
-                ),
-                string(
-                    name: 'IMAGE_OPERATOR',
-                    value: context.BUILD_IMAGE
-                ),
-                string(
-                    name: 'GKE_RELEASE_CHANNEL',
-                    value: 'stable'
-                ),
-                string(
-                    name: 'CLUSTER_WIDE',
-                    value: 'YES'
-                ),
-                string(
-                    name: 'PILLAR_VERSION',
-                    value: context.PILLAR_VERSION
+                    name: parameterName,
+                    value: parameterValue
                 )
+            }
+        )
+
+        if (testBuild.result == 'SUCCESS') {
+            return [
+                passed    : true,
+                buildUrl  : testBuild.absoluteUrl,
+                parameters: testParameters
+            ]
+        }
+
+        lastBuildUrl = testBuild.absoluteUrl
+
+        echo "E2E test attempt ${attempt}/2 finished with status ${testBuild.result}"
+    }
+
+    return [
+        passed    : false,
+        buildUrl  : lastBuildUrl,
+        parameters: testParameters
+    ]
+}
+
+void waitForE2EFailureApproval(
+    Map repository,
+    Map context,
+    String failedTestUrl,
+    Map testParameters
+) {
+    def message = [
+        ':warning: *Security build E2E tests failed; approval required*',
+        '',
+        "*Repository*: `${context.REPO_PATH}`",
+        "*Test job*: `${repository.testJob}`",
+        "*Branch*: `${context.SECURITY_BASE_BRANCH}`",
+        "*RELEASE image*: `${context.RELEASE_IMAGE}`",
+        '',
+        '*Action required*: Select *Approve* or *Deny* in Jenkins within 48 hours.'
+    ].join('\n')
+
+    slackSend(
+        botUser: true,
+        channel: slackChannel,
+        failOnError: false,
+        attachments: slackMessageAttachments(
+            message,
+            '#FFA500',
+            [
+                [
+                    type: 'button',
+                    text: [
+                        type: 'plain_text',
+                        text: 'Approve or deny',
+                        emoji: true
+                    ],
+                    style: 'primary',
+                    url: "${context.BUILD_URL}input/",
+                    action_id: 'review_e2e_approval'
+                ],
+                [
+                    type: 'button',
+                    text: [
+                        type: 'plain_text',
+                    text: 'Failed e2e tests pipeline run',
+                        emoji: true
+                    ],
+                    url: failedTestUrl,
+                    action_id: 'open_failed_e2e_tests'
+                ]
             ]
         )
+    )
+
+    def parameterRows = testParameters.collect { parameterName, parameterValue ->
+        """
+            <tr>
+                <td style="padding: 3px 18px 3px 0; color: #aeb6c2;">
+                    ${parameterName}
+                </td>
+                <td style="padding: 3px 0;">
+                    <code>${parameterValue}</code>
+                </td>
+            </tr>
+        """.stripIndent().trim()
+    }.join('\n')
+
+    addSummary(
+        id: 'e2e-release-approval',
+        text: """
+            <br><br>
+            <b>E2E tests failed. Please review the failures before approving the release.</b><br><br>
+
+            <a href="${failedTestUrl}" target="_blank"
+            style="display: inline-block;
+                    padding: 8px 14px;
+                    margin-right: 12px;
+                    color: #fff;
+                    background-color: #d94a2b;
+                    border-radius: 6px;
+                    text-decoration: none;
+                    font-weight: 600;">
+                Review E2E test results
+            </a>
+
+            <a href="${context.BUILD_URL}input/" target="_blank"
+            style="display: inline-block;
+                    padding: 8px 14px;
+                    color: #fff;
+                    background-color: #3fa34d;
+                    border-radius: 6px;
+                    text-decoration: none;
+                    font-weight: 600;">
+                Approve or deny
+            </a>
+        """.stripIndent().trim()
+    )
+
+    try {
+        timeout(
+            time: 48,
+            unit: 'HOURS'
+        ) {
+            input(
+                id: 'e2e-release-approval-input',
+                message: "Approve release ${context.RELEASE_IMAGE} after failed E2E tests?",
+                ok: 'Approve',
+                cancel: 'Deny'
+            )
+        }
+    } catch (Exception approvalError) {
+        env.SECURITY_BUILD_FAILURE_KIND = 'e2e'
+        env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
+        env.SECURITY_BUILD_TEST_JOB = repository.testJob
+        env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
+        env.SECURITY_BUILD_TEST_IMAGE = context.RELEASE_IMAGE
+
+        throw approvalError
+    } finally {
+        removeSummaries(id: 'e2e-release-approval')
     }
+
+    echo 'Proceed approved after E2E test failure; continuing release publication'
 }
 
 void skipStages(List<String> stages, String reason) {
@@ -890,21 +1021,22 @@ void runRepositoryPipeline(
         }
 
         trackedStage(execution, 'E2E Tests') {
+            def testResult
+
             timeout(
                 time: 8,
                 unit: 'HOURS'
             ) {
-                try {
-                    runTests(repository, context)
-                } catch (Exception error) {
-                    env.SECURITY_BUILD_FAILURE_KIND = 'e2e'
-                    env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
-                    env.SECURITY_BUILD_TEST_JOB = repository.testJob
-                    env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
-                    env.SECURITY_BUILD_TEST_IMAGE = context.RELEASE_IMAGE
+                testResult = runTests(repository, context)
+            }
 
-                    throw error
-                }
+            if (!testResult.passed) {
+                waitForE2EFailureApproval(
+                    repository,
+                    context,
+                    testResult.buildUrl,
+                    testResult.parameters
+                )
             }
         }
 
