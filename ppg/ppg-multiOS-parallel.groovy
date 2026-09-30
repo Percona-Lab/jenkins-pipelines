@@ -31,7 +31,12 @@ pipeline {
         booleanParam(
             name: 'USE_OBS_REPO',
             defaultValue: false,
-            description: 'Install from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. REPO maps to the OBS channel: testing-&gt;staging, release-&gt;release, experimental-&gt;devel; the major version is taken from VERSION.'
+            description: 'Install from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel; the major version is taken from VERSION.'
+        )
+        string(
+            name: 'OBS_HOST',
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).'
         )
         string(
             defaultValue: 'ppg-18.4',

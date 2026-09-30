@@ -340,7 +340,8 @@ pipeline {
                                export PATH="`pwd`/pmm-client/bin:$PATH"
                             fi
                             export CHROMIUM_PATH=/usr/bin/chromium
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                            # A tag fully migrated to Playwright has no CodeceptJS tests left; the next stage runs it.
+                            DONT_FAIL_ON_EMPTY_RUN=true ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                         """
                     }
                 }
