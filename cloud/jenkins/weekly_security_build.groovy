@@ -984,6 +984,37 @@ pipeline {
     }
 
     post {
+        success {
+            script {
+                def message = [
+                    ':white_check_mark: *Security build completed successfully*',
+                    '',
+                    "*Job*: `${env.JOB_NAME}`",
+                    "*Build*: `#${env.BUILD_NUMBER}`"
+                ]
+
+                slackSend(
+                    botUser: true,
+                    channel: slackChannel,
+                    failOnError: false,
+                    attachments: slackMessageAttachments(
+                        message.join('\n'),
+                        '#2EB886',
+                        [[
+                            type: 'button',
+                            text: [
+                                type: 'plain_text',
+                                text: 'Open Jenkins build',
+                                emoji: true
+                            ],
+                            url: env.BUILD_URL,
+                            action_id: 'open_successful_jenkins_build'
+                        ]]
+                    )
+                )
+            }
+        }
+
         failure {
             script {
                 def isE2EFailure =
