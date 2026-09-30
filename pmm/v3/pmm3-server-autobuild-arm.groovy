@@ -78,20 +78,6 @@ pipeline {
                 uploadTarball('binary')
             }
         }
-        stage('Build client source rpm') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm"
-                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-rpm"
-                stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
         stage('Build server binaries') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
