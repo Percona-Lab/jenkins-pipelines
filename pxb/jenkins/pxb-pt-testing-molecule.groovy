@@ -226,7 +226,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
             ),
             booleanParam(
                 defaultValue: true,
-                description: 'Install trivy and cyclonedx-cli on the target and run the SBOM schema validation and vulnerability scan there. Untick to skip them; the checks then report as skipped rather than failing.',
+                description: 'Install trivy and cyclonedx-cli once, on this Jenkins agent, and run the SBOM schema validation and vulnerability scan there over the files every target collected. Untick to skip them; the checks then report as skipped rather than failing.',
                 name: 'SBOM_EXTERNAL_TOOLS'
             )
         ])
@@ -318,6 +318,12 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         osList = osList.findAll { !it.endsWith('-arm') }
                                     }
 
+                                    // Every launched platform must send back an SBOM
+                                    // collection (runSbomChecks). Scenario names equal
+                                    // these entries, and each target labels its
+                                    // collection with MOLECULE_SCENARIO_NAME.
+                                    env.SBOM_EXPECTED_PLATFORMS = osList.join(',')
+
                                     if (REPO_TYPE == 'PRO') {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             script {
@@ -344,12 +350,21 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                     //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
                                     archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
 
-                                    // Per-host SBOM results, fetched to the workspace
-                                    // root by tasks/check_pxb_sbom.yml. allowEmptyResults
-                                    // because SBOM_CHECK_MODE=off produces none.
-                                    junit testResults: '*_sbom-junit.xml',
+                                    // The SBOM checks run HERE, once per platform, over the
+                                    // collections the targets fetched back (*_sbom.zip, from
+                                    // tasks/check_pxb_sbom.yml). Only the install playbooks
+                                    // collect. In post/always so a failed platform does not
+                                    // stop the others from being checked.
+                                    if (scenario_to_test == 'install') {
+                                        runSbomChecks()
+                                    }
+
+                                    // allowEmptyResults: true because only install runs
+                                    // produce this file -- upgrade, major_upgrade, kms and
+                                    // kmip runs must not fail for lacking it.
+                                    junit testResults: 'sbom-junit.xml',
                                           keepLongStdio: true,
-                                          allowEmptyResults: false
+                                          allowEmptyResults: true
 
                                 }
                             }
@@ -364,6 +379,48 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
     }
     }
 
+
+def runSbomChecks() {
+    // Tools are installed once, on this agent -- not on every target, where they
+    // needed per-AMI workarounds and a 1.4 GB trivy database each. A failed
+    // install is caught so the checks below still run and report the missing
+    // tool per platform, instead of aborting before any junit exists.
+    if (params.SBOM_EXTERNAL_TOOLS.toString() == 'true') {
+        catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+            if (params.SBOM_VULN_MODE != 'off') {
+                installTrivy()
+            }
+            // rm first, and no "|| true": curl -f does not truncate on an HTTP
+            // error, so a failed download must not leave an older binary behind.
+            sh '''
+                set -e
+                ARCH=$(uname -m)
+                if [ "$ARCH" = "aarch64" ]; then
+                    CDX_ASSET=cyclonedx-linux-arm64
+                else
+                    CDX_ASSET=cyclonedx-linux-x64
+                fi
+                rm -rf sbom-tools
+                mkdir sbom-tools
+                curl -fsSL -o sbom-tools/cyclonedx \
+                    https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/${CDX_ASSET}
+                chmod +x sbom-tools/cyclonedx
+            '''
+        }
+    }
+    // A failing check fails the build, but the junit step after this still
+    // publishes. SBOM_CHECK_MODE, SBOM_VULN_MODE, SBOM_EXTERNAL_TOOLS and
+    // SBOM_LICENSE_STRICT come from the pipeline environment.
+    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+        sh """
+            . virtenv/bin/activate
+            export SBOM_FETCHED='*_sbom.zip'
+            export SBOM_EXPECTED_PLATFORMS='${env.SBOM_EXPECTED_PLATFORMS ?: ''}'
+            export CYCLONEDX_BIN="\$PWD/sbom-tools/cyclonedx"
+            python -m pytest -v -p no:cacheprovider pytest-tests/test_pxb_sbom.py --junitxml=sbom-junit.xml
+        """
+    }
+}
 
 def deleteBuildInstances(){
     script {
