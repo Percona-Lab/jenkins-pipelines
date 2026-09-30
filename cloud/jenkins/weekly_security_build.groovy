@@ -366,7 +366,7 @@ void updateOperatorImageReferences(Map context) {
               deploy/cw-operator.yaml \
               deploy/cr.yaml \
               e2e-tests/release_versions \
-              ${OPERATOR_VERSION_FILES}
+              ${OPERATOR_VERSION_FILES:-}
 
             sed -Ei \
               "/name: ${IMAGE_REPO}\\/${OPERATOR}/,/newTag:/ { \
@@ -380,7 +380,7 @@ void updateOperatorImageReferences(Map context) {
               config/manager \
               deploy \
               e2e-tests/release_versions \
-              ${OPERATOR_VERSION_FILES}
+              ${OPERATOR_VERSION_FILES:-}
 
             if ! git diff --cached --quiet; then
                 git commit -m "Update operator image references for ${SECURITY_BUILD_REF}"
