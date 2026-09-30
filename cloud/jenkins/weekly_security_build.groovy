@@ -191,12 +191,12 @@ String getPillarVersionFromDefaultCR(Map repository) {
 
                 case "${PILLAR_VERSION_STRATEGY}" in
                     majorMinor)
-                        pillar_version=$(printf '%s\n' "${pillar_image_tag}" |
-                            sed -nE 's/^[^0-9]*([0-9]+)\.([0-9]+).*/\1\2/p')
+                        pillar_version=$(printf '%s\\n' "${pillar_image_tag}" |
+                            sed -nE 's/^[^0-9]*([0-9]+)\\.([0-9]+).*/\\1\\2/p')
                         ;;
                     major)
-                        pillar_version=$(printf '%s\n' "${pillar_image_tag}" |
-                            sed -nE 's/^[^0-9]*([0-9]+).*/\1/p')
+                        pillar_version=$(printf '%s\\n' "${pillar_image_tag}" |
+                            sed -nE 's/^[^0-9]*([0-9]+).*/\\1/p')
                         ;;
                     *)
                         echo "Unsupported pillar version strategy: ${PILLAR_VERSION_STRATEGY}" >&2
