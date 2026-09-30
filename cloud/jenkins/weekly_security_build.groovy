@@ -31,8 +31,8 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
         imageRepo             : 'perconalab',
         releaseImageRepo      : 'percona',
         testJob               : 'pso-gke-1',
-        pillarImagePath       : '.spec.mysql.image', // yq path to the database image in the default CR
-        pillarVersionStrategy : 'majorMinor', // Converts 8.4 to 84
+        // Reads the image from the default CR and converts 8.4 to 84
+        pillarVersion         : [imagePath: '.spec.mysql.image', strategy: 'majorMinor'],
         goVersionFiles        : [], // List of files containing Go version references to be updated
         operatorVersionFiles  : [
             'pkg/controller/ps/suite_test.go'
@@ -45,16 +45,16 @@ void getLibraries() {
 }
 
 Map buildContext(Map repository) {
-    def versionTag = sh(
+    def baseReleaseGitTag = sh(
         script: "git tag --list --sort=-v:refname | grep -E '^v[0-9]+[.][0-9]+[.][0-9]+\$' | head -1",
         returnStdout: true
     ).trim()
 
-    if (!versionTag) {
+    if (!baseReleaseGitTag) {
         error("${repository.name} has no version tag matching vMAJOR.MINOR.PATCH")
     }
 
-    def version = versionTag.substring(1)
+    def version = baseReleaseGitTag.substring(1)
 
     def buildImageRepository =
         "${repository.imageRepo}/${repository.imageName}"
@@ -70,11 +70,19 @@ Map buildContext(Map repository) {
     def securityBaseBranch = "security/${version}"
     def securityBranch = "${securityBaseBranch}-${buildNumber}"
 
-    def buildImageTag = "${version}-${buildNumber}"
+    def numberedImageTag = "${version}-${buildNumber}"
     def floatingImageTag = "${version}-latest"
 
+    def baseReleasedImage = "${releaseImageRepository}:${version}-${previousBuildNumber}"
+
+    def buildImage = "${buildImageRepository}:${numberedImageTag}"
+    def floatingBuildImage = "${buildImageRepository}:${floatingImageTag}"
+
+    def releaseImage = "${releaseImageRepository}:${numberedImageTag}"
+    def floatingReleaseImage = "${releaseImageRepository}:${floatingImageTag}"
+
     return [
-        BUILD_URL             : env.BUILD_URL,
+        // Repository configuration
         REPO_PATH             : "${gitNamespace}/${repository.name}",
         GIT_NAMESPACE         : gitNamespace,
         OPERATOR              : repository.operator,
@@ -82,47 +90,32 @@ Map buildContext(Map repository) {
         SOURCE_BRANCH         : repository.sourceBranch,
         GO_VERSION_FILES      : repository.goVersionFiles,
         OPERATOR_VERSION_FILES: repository.operatorVersionFiles,
+        BUILD_URL             : env.BUILD_URL,
 
-        // Example: 1.2.0
-        VERSION               : version,
-        // Example: v1.2.0
-        VERSION_TAG           : versionTag,
-        // Example: 1
-        PREVIOUS_BUILD_NUMBER : previousBuildNumber,
-        // Example: 2
-        SECURITY_BUILD_NUMBER : buildNumber,
+        // Base release
+        VERSION               : version, // Example: 1.0.0
+        BASE_RELEASE_GIT_TAG  : baseReleaseGitTag, // Git tag example: v1.0.0
+        SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/1.0.0
+        PREVIOUS_BUILD_NUMBER : previousBuildNumber, // Example: 1
+        BASE_RELEASED_IMAGE   : baseReleasedImage, // Example: percona/percona-server-mysql-operator:1.0.0-1
 
-        // Example: security/1.2.0
-        SECURITY_BASE_BRANCH  : securityBaseBranch,
-        // Example: security/1.2.0
-        FLOATING_TAG          : securityBaseBranch,
+        // Security build
+        SECURITY_BUILD_NUMBER : buildNumber, // Example: 2
+        SECURITY_BRANCH       : securityBranch, // Example: security/1.0.0-2
+        NUMBERED_IMAGE_TAG    : numberedImageTag, // Example: 1.0.0-2
+        FLOATING_IMAGE_TAG    : floatingImageTag, // Example: 1.0.0-latest
 
-        // Example: security/1.2.0-2
-        SECURITY_BRANCH       : securityBranch,
-        // Example: security/1.2.0-2
-        TAG                   : securityBranch,
+        // Build images
+        BUILD_REPOSITORY      : repository.imageRepo, // Example: perconalab
+        BUILD_IMAGE_REPOSITORY: buildImageRepository, // Example: perconalab/percona-server-mysql-operator
+        BUILD_IMAGE           : buildImage, // Example: perconalab/percona-server-mysql-operator:1.0.0-2
+        FLOATING_BUILD_IMAGE  : floatingBuildImage, // Example: perconalab/percona-server-mysql-operator:1.0.0-latest
 
-        // Example: percona/percona-server-mysql-operator:1.2.0-1
-        BASE_RELEASED_IMAGE   : "${releaseImageRepository}:${version}-${previousBuildNumber}",
-
-        // Example: perconalab
-        DEV_REPOSITORY        : repository.imageRepo,
-        // Example: percona
-        RELEASE_REPOSITORY    : repository.releaseImageRepo,
-
-        // Example: perconalab/percona-server-mysql-operator
-        BUILD_IMAGE_REPOSITORY: buildImageRepository,
-        // Example: 1.2.0-2
-        BUILD_IMAGE_TAG       : buildImageTag,
-        // Example: perconalab/percona-server-mysql-operator:1.2.0-2
-        BUILD_IMAGE           : "${buildImageRepository}:${buildImageTag}",
-        // Example: perconalab/percona-server-mysql-operator:1.2.0-latest
-        FLOATING_BUILD_IMAGE  : "${buildImageRepository}:${floatingImageTag}",
-
-        // Example: percona/percona-server-mysql-operator:1.2.0-2
-        RELEASE_IMAGE         : "${releaseImageRepository}:${buildImageTag}",
-        // Example: percona/percona-server-mysql-operator:1.2.0-latest
-        FLOATING_RELEASE_IMAGE: "${releaseImageRepository}:${floatingImageTag}"
+        // Release publication
+        RELEASE_REPOSITORY    : repository.releaseImageRepo, // Example: percona
+        RELEASE_IMAGE         : releaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-2
+        FLOATING_RELEASE_IMAGE: floatingReleaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-latest
+        FLOATING_GIT_TAG      : "security/v${version}" // Git tag example: security/v1.0.0
     ]
 }
 
@@ -179,13 +172,15 @@ String findDockerfile() {
 }
 
 String getPillarVersionFromDefaultCR(Map repository) {
-    if (!repository.pillarImagePath) {
-        error("pillarImagePath is not configured for ${repository.name}")
+    def config = repository.pillarVersion
+
+    if (!config?.imagePath) {
+        error("pillarVersion.imagePath is not configured for ${repository.name}")
     }
 
     return withEnv([
-        "PILLAR_IMAGE_PATH=${repository.pillarImagePath}",
-        "PILLAR_VERSION_STRATEGY=${repository.pillarVersionStrategy ?: 'majorMinor'}"
+        "PILLAR_IMAGE_PATH=${config.imagePath}",
+        "PILLAR_VERSION_STRATEGY=${config.strategy ?: 'majorMinor'}"
     ]) {
         sh(
             script: '''
@@ -233,15 +228,7 @@ int nextSecurityBuildNumber(
             script: '''
                 set -eu
 
-                latest_git_build=$(
-                    git ls-remote --tags origin "refs/tags/security/${VERSION}-*" 2>/dev/null |
-                    sed 's|.*-||; s|\\^{}||' |
-                    grep -E '^[0-9]+$' |
-                    sort -n |
-                    tail -1 || true
-                )
-
-                candidate=$((${latest_git_build:-0} + 1))
+                candidate=1
 
                 while docker manifest inspect \
                     "${RELEASE_IMAGE_REPOSITORY}:${VERSION}-${candidate}" >/dev/null 2>&1; do
@@ -259,22 +246,24 @@ boolean ensureSecurityBaseBranch(Map context) {
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
             def exists =
-                libraries.tools.gitTagExists(context.SECURITY_BASE_BRANCH) &&
+                libraries.tools.gitTagExists(context.FLOATING_GIT_TAG) &&
                 libraries.tools.gitBranchExists(context.SECURITY_BASE_BRANCH)
 
             if (exists) {
-                echo "Using existing security branch and tag: ${context.SECURITY_BASE_BRANCH}"
+                echo "Using security branch ${context.SECURITY_BASE_BRANCH} " +
+                    "and Git tag ${context.FLOATING_GIT_TAG}"
 
-                libraries.tools.gitFetchTag(context.SECURITY_BASE_BRANCH)
-                libraries.tools.gitCheckoutTag(context.SECURITY_BASE_BRANCH)
+                libraries.tools.gitFetchTag(context.FLOATING_GIT_TAG)
+                libraries.tools.gitCheckoutTag(context.FLOATING_GIT_TAG)
 
                 return true
             }
 
-            echo "Creating security branch ${context.SECURITY_BASE_BRANCH} from ${context.VERSION_TAG}"
+            echo "Creating security branch ${context.SECURITY_BASE_BRANCH} " +
+                "from Git tag ${context.BASE_RELEASE_GIT_TAG}"
 
-            libraries.tools.gitFetchTag(context.VERSION_TAG)
-            libraries.tools.gitCheckoutTag(context.VERSION_TAG)
+            libraries.tools.gitFetchTag(context.BASE_RELEASE_GIT_TAG)
+            libraries.tools.gitCheckoutTag(context.BASE_RELEASE_GIT_TAG)
 
             libraries.tools.gitDeleteRemoteBranch(context.SECURITY_BASE_BRANCH)
             libraries.tools.gitCreateBranch(context.SECURITY_BASE_BRANCH)
@@ -311,7 +300,7 @@ void goSecurityFixScript(Map context) {
         "DOCKERFILE=${context.DOCKERFILE}",
         "GO_VERSION_FILE_ARGUMENTS=${goVersionFileArguments}",
         "REPO_PATH=${context.REPO_PATH}",
-        "TAG=${context.TAG}",
+        "SECURITY_BUILD_REF=${context.SECURITY_BRANCH}",
         'SCRIPT=jenkins-fix_go_vulnerabilities.py'
     ]) {
         libraries.credentials.withGitHubCredentials {
@@ -330,7 +319,7 @@ void goSecurityFixScript(Map context) {
                       -e DOCKERFILE \
                       -e "GO_VERSION_FILE_ARGUMENTS=${GO_VERSION_FILE_ARGUMENTS:-}" \
                       -e SCRIPT \
-                      -e TAG \
+                      -e SECURITY_BUILD_REF \
                       -w "${PWD}" \
                       golang:1.27-alpine \
                       sh -ceu '
@@ -342,7 +331,7 @@ void goSecurityFixScript(Map context) {
                             --go-mod go.mod \
                             --dockerfile "${DOCKERFILE}" \
                             ${GO_VERSION_FILE_ARGUMENTS:-} \
-                            --tag "${TAG}"
+                            --tag "${SECURITY_BUILD_REF}"
                       '
                 '''
             } finally {
@@ -355,10 +344,10 @@ void goSecurityFixScript(Map context) {
 void updateOperatorImageReferences(Map context) {
     withEnv([
         "OPERATOR=${context.OPERATOR_NAME}",
-        "IMAGE_REPO=${context.DEV_REPOSITORY}",
+        "IMAGE_REPO=${context.BUILD_REPOSITORY}",
         "RELEASE_IMAGE_REPO=${context.RELEASE_REPOSITORY}",
         "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
-        "TAG=${context.TAG}",
+        "SECURITY_BUILD_REF=${context.SECURITY_BRANCH}",
         "OPERATOR_VERSION_FILES=${context.OPERATOR_VERSION_FILES.join(' ')}"
     ]) {
         sh '''
@@ -397,7 +386,7 @@ void updateOperatorImageReferences(Map context) {
               ${OPERATOR_VERSION_FILES}
 
             if ! git diff --cached --quiet; then
-                git commit -m "Update operator image references for ${TAG}"
+                git commit -m "Update operator image references for ${SECURITY_BUILD_REF}"
             fi
         '''
     }
@@ -489,7 +478,7 @@ void buildImage(Map context) {
         libraries.tools.dockerBuildAndPush(
             operator: context.OPERATOR,
             operatorImage: context.BUILD_IMAGE_REPOSITORY,
-            branch: context.BUILD_IMAGE_TAG,
+            branch: context.NUMBERED_IMAGE_TAG,
             sourceDir: '.'
         )
     }
@@ -503,8 +492,8 @@ String createPullRequest(Map context) {
                 context.GIT_NAMESPACE,
                 context.SECURITY_BRANCH,
                 context.SECURITY_BASE_BRANCH,
-                "Security build ${context.TAG}",
-                "Automated security update for ${context.TAG}."
+                "Security build ${context.SECURITY_BRANCH}",
+                "Automated security update for ${context.SECURITY_BRANCH}."
             )
         }
     }
@@ -668,29 +657,16 @@ void publishRelease(Map context) {
 
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
-            if (libraries.tools.gitTagExists(context.TAG)) {
-                error("Unable to recreate release tag ${context.TAG}")
-            }
-
-            echo "Creating release tag ${context.TAG}"
+            echo "Updating floating Git tag ${context.FLOATING_GIT_TAG}"
 
             libraries.tools.gitCreateTag(
-                context.TAG,
-                "Security build ${context.TAG}"
-            )
-
-            libraries.tools.gitPushTag(context.TAG)
-
-            echo "Updating floating release tag ${context.FLOATING_TAG}"
-
-            libraries.tools.gitCreateTag(
-                context.FLOATING_TAG,
-                "Latest security build for ${context.FLOATING_TAG}",
+                context.FLOATING_GIT_TAG,
+                "Latest security build for ${context.FLOATING_GIT_TAG}",
                 true
             )
 
             libraries.tools.gitPushTag(
-                context.FLOATING_TAG,
+                context.FLOATING_GIT_TAG,
                 true
             )
         }
@@ -792,16 +768,19 @@ void runRepositoryPipeline(
             context = buildContext(repository)
 
             currentBuild.displayName =
-                "${repository.operator} | ${context.VERSION_TAG}-${context.SECURITY_BUILD_NUMBER}"
+                "${repository.operator} | ${context.BASE_RELEASE_GIT_TAG}-${context.SECURITY_BUILD_NUMBER}"
 
             echo """
                 Security build: ${context.REPO_PATH}
-                Base release tag: ${context.VERSION_TAG}
+                Base release Git tag: ${context.BASE_RELEASE_GIT_TAG}
+                Floating security Git tag: ${context.FLOATING_GIT_TAG}
                 Security build number: ${context.SECURITY_BUILD_NUMBER}
 
                 Security base branch: ${context.SECURITY_BASE_BRANCH}
                 Security build branch: ${context.SECURITY_BRANCH}
 
+                Numbered image tag: ${context.NUMBERED_IMAGE_TAG}
+                Floating image tag: ${context.FLOATING_IMAGE_TAG}
                 Base RELEASED image: ${context.BASE_RELEASED_IMAGE}
                 BUILD image: ${context.BUILD_IMAGE}
                 Latest BUILD image: ${context.FLOATING_BUILD_IMAGE}
@@ -852,8 +831,7 @@ void runRepositoryPipeline(
         }
 
         trackedStage(execution, 'Fix Vulnerabilities') {
-            vulnerabilitySummary =
-                fixVulnerabilities(context)
+            vulnerabilitySummary = fixVulnerabilities(context)
         }
 
         if (!vulnerabilitySummary) {
