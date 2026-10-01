@@ -30,7 +30,7 @@ metadata:
   region: ${clusterCfg.region}
   version: "${clusterCfg.platformVersion}"
   tags:
-    'delete-cluster-after-hours': '6'
+    'delete-cluster-after-hours': '8'
     'creation-time': '\$timestamp'
     'team': 'cloud'
 iam:
@@ -54,7 +54,7 @@ nodeGroups:
     instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
   tags:
     'iit-billing-tag': 'jenkins-eks'
-    'delete-cluster-after-hours': '6'
+    'delete-cluster-after-hours': '8'
     'team': 'cloud'
     'product': '${clusterCfg.product}'
 EOF
