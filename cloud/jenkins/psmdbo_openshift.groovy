@@ -69,7 +69,7 @@ void prepareNode() {
     IMAGE_SEARCH = testVariables.images.IMAGE_SEARCH
     DB_TAG = testVariables.db_tag
     GIT_SHORT_COMMIT = testVariables.git_short_commit
-    CLUSTER_NAME = "psmdbo-${GIT_SHORT_COMMIT.take(6)}".toLowerCase()
+    CLUSTER_NAME = "${env.JOB_BASE_NAME}-${GIT_SHORT_COMMIT.take(6)}".toLowerCase()
     env.CLUSTER_NAME = CLUSTER_NAME
     testVariables.cluster_name = CLUSTER_NAME
     PARAMS_HASH = testVariables.params_hash

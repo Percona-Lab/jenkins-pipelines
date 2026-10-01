@@ -58,7 +58,7 @@ platform:
     region: ${clusterCfg.region}
     userTags:
       iit-billing-tag: openshift
-      delete-cluster-after-hours: 7
+      delete-cluster-after-hours: 8
       team: cloud
       product: ${clusterCfg.product}
       creation-time: \$timestamp
