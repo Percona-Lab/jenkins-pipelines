@@ -70,7 +70,7 @@ pipeline {
             description: 'Package release number. Bump this for a rebuild of the same tools tag, e.g. a CVE fix via go-deps.env',
             name: 'TOOLS_RELEASE')
         string(
-            defaultValue: 'https://github.com/percona/percona-mongodb-tools-packaging.git',
+            defaultValue: 'https://github.com/Percona-Lab/percona-mongodb-tools-packaging.git',
             description: 'URL for the tools packaging repository',
             name: 'BUILD_GIT_REPO')
         string(
