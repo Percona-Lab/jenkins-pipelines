@@ -18,8 +18,7 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
     'Rebuild Merged Image',
     'Trivy Verify Merged Image',
     'Push RELEASE Image',
-    'E2E Tests',
-    'Publish RELEASE'
+    'E2E Tests'
 ]
 
 @Field List repositories = [
@@ -54,30 +53,22 @@ Map buildContext(Map repository) {
         error("${repository.name} has no version tag matching vMAJOR.MINOR.PATCH")
     }
 
+    // Version and image repositories
     def version = baseReleaseGitTag.substring(1)
+    def buildImageRepository = "${repository.imageRepo}/${repository.imageName}"
+    def releaseImageRepository = "${repository.releaseImageRepo}/${repository.imageName}"
 
-    def buildImageRepository =
-        "${repository.imageRepo}/${repository.imageName}"
-
-    def releaseImageRepository =
-        "${repository.releaseImageRepo}/${repository.imageName}"
-
-    def buildNumber =
-        nextSecurityBuildNumber(version, releaseImageRepository)
-
+    // Security build identifiers
+    def buildNumber = nextSecurityBuildNumber(version, releaseImageRepository)
     def previousBuildNumber = buildNumber - 1
-
-    def securityBaseBranch = "security/v${version}"
+    def securityBaseBranch = "security/${version}"
     def securityBranch = "${securityBaseBranch}-${buildNumber}"
-
     def numberedImageTag = "${version}-${buildNumber}"
     def floatingImageTag = "${version}-latest"
 
+    // Fully qualified images
     def previousReleaseImage = "${releaseImageRepository}:${version}-${previousBuildNumber}"
-
     def buildImage = "${buildImageRepository}:${numberedImageTag}"
-    def floatingBuildImage = "${buildImageRepository}:${floatingImageTag}"
-
     def releaseImage = "${releaseImageRepository}:${numberedImageTag}"
     def floatingReleaseImage = "${releaseImageRepository}:${floatingImageTag}"
 
@@ -87,7 +78,6 @@ Map buildContext(Map repository) {
         GIT_NAMESPACE         : gitNamespace,
         OPERATOR              : repository.operator,
         OPERATOR_NAME         : repository.name,
-        SOURCE_BRANCH         : repository.sourceBranch,
         GO_VERSION_FILES      : repository.goVersionFiles,
         OPERATOR_VERSION_FILES: repository.operatorVersionFiles,
         BUILD_URL             : env.BUILD_URL,
@@ -95,13 +85,13 @@ Map buildContext(Map repository) {
         // Base release
         VERSION               : version, // Example: 1.0.0
         BASE_RELEASE_GIT_TAG  : baseReleaseGitTag, // Git tag example: v1.0.0
-        SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/v1.0.0
+        SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/1.0.0
         PREVIOUS_BUILD_NUMBER : previousBuildNumber, // Example: 1
         PREVIOUS_RELEASE_IMAGE: previousReleaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-1
 
         // Security build
         SECURITY_BUILD_NUMBER : buildNumber, // Example: 2
-        SECURITY_BRANCH       : securityBranch, // Example: security/v1.0.0-2
+        SECURITY_BRANCH       : securityBranch, // Example: security/1.0.0-2
         NUMBERED_IMAGE_TAG    : numberedImageTag, // Example: 1.0.0-2
         FLOATING_IMAGE_TAG    : floatingImageTag, // Example: 1.0.0-latest
 
@@ -109,13 +99,11 @@ Map buildContext(Map repository) {
         BUILD_REPOSITORY      : repository.imageRepo, // Example: perconalab
         BUILD_IMAGE_REPOSITORY: buildImageRepository, // Example: perconalab/percona-server-mysql-operator
         BUILD_IMAGE           : buildImage, // Example: perconalab/percona-server-mysql-operator:1.0.0-2
-        FLOATING_BUILD_IMAGE  : floatingBuildImage, // Example: perconalab/percona-server-mysql-operator:1.0.0-latest
 
         // Release publication
         RELEASE_REPOSITORY    : repository.releaseImageRepo, // Example: percona
         RELEASE_IMAGE         : releaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-2
-        FLOATING_RELEASE_IMAGE: floatingReleaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-latest
-        FLOATING_GIT_TAG      : "security/v${version}" // Git tag example: security/v1.0.0
+        FLOATING_RELEASE_IMAGE: floatingReleaseImage // Example: percona/percona-server-mysql-operator:1.0.0-latest
     ]
 }
 
@@ -250,16 +238,10 @@ int nextSecurityBuildNumber(
 void ensureSecurityBaseBranch(Map context) {
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
-            def exists =
-                libraries.tools.gitTagExists(context.FLOATING_GIT_TAG) &&
-                libraries.tools.gitBranchExists(context.SECURITY_BASE_BRANCH)
+            if (libraries.tools.gitBranchExists(context.SECURITY_BASE_BRANCH)) {
+                echo "Using security branch ${context.SECURITY_BASE_BRANCH}"
 
-            if (exists) {
-                echo "Using security branch ${context.SECURITY_BASE_BRANCH} " +
-                    "and Git tag ${context.FLOATING_GIT_TAG}"
-
-                libraries.tools.gitFetchTag(context.FLOATING_GIT_TAG)
-                libraries.tools.gitCheckoutTag(context.FLOATING_GIT_TAG)
+                libraries.tools.gitFetchBranch(context.SECURITY_BASE_BRANCH)
 
                 return
             }
@@ -270,9 +252,16 @@ void ensureSecurityBaseBranch(Map context) {
             libraries.tools.gitFetchTag(context.BASE_RELEASE_GIT_TAG)
             libraries.tools.gitCheckoutTag(context.BASE_RELEASE_GIT_TAG)
 
-            libraries.tools.gitDeleteRemoteBranch(context.SECURITY_BASE_BRANCH)
             libraries.tools.gitCreateBranch(context.SECURITY_BASE_BRANCH)
-            libraries.tools.gitPushBranch(context.SECURITY_BASE_BRANCH)
+
+            withEnv(["SECURITY_BASE_BRANCH=${context.SECURITY_BASE_BRANCH}"]) {
+                sh '''
+                    set -eu
+
+                    git push -u origin \
+                        "refs/heads/${SECURITY_BASE_BRANCH}:refs/heads/${SECURITY_BASE_BRANCH}"
+                '''
+            }
         }
     }
 }
@@ -625,17 +614,6 @@ void checkoutMergedCommit(Map context) {
 }
 
 void pushReleaseImage(Map context) {
-    echo "Pushing RELEASE image: ${context.RELEASE_IMAGE}"
-
-    libraries.credentials.withDockerCredentials {
-        libraries.tools.dockerCopyImage(
-            context.BUILD_IMAGE,
-            [context.RELEASE_IMAGE]
-        )
-    }
-}
-
-void publishRelease(Map context) {
     def currentCommit = libraries.tools.gitHead()
 
     if (currentCommit != context.RELEASE_COMMIT) {
@@ -645,30 +623,16 @@ void publishRelease(Map context) {
         )
     }
 
-    echo "Updating latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}"
+    echo "Pushing RELEASE images: ${context.RELEASE_IMAGE}, ${context.FLOATING_RELEASE_IMAGE}"
 
     libraries.credentials.withDockerCredentials {
         libraries.tools.dockerCopyImage(
-            context.RELEASE_IMAGE,
-            [context.FLOATING_RELEASE_IMAGE]
+            context.BUILD_IMAGE,
+            [
+                context.RELEASE_IMAGE,
+                context.FLOATING_RELEASE_IMAGE
+            ]
         )
-    }
-
-    withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
-        libraries.credentials.withGitHubCredentials {
-            echo "Updating floating Git tag ${context.FLOATING_GIT_TAG}"
-
-            libraries.tools.gitCreateTag(
-                context.FLOATING_GIT_TAG,
-                "Latest security build for ${context.FLOATING_GIT_TAG}",
-                true
-            )
-
-            libraries.tools.gitPushTag(
-                context.FLOATING_GIT_TAG,
-                true
-            )
-        }
     }
 }
 
@@ -698,9 +662,8 @@ Map runTests(Map repository, Map context) {
 
         if (testBuild.result == 'SUCCESS') {
             return [
-                passed    : true,
-                buildUrl  : testBuild.absoluteUrl,
-                parameters: testParameters
+                passed  : true,
+                buildUrl: testBuild.absoluteUrl
             ]
         }
 
@@ -710,131 +673,9 @@ Map runTests(Map repository, Map context) {
     }
 
     return [
-        passed    : false,
-        buildUrl  : lastBuildUrl,
-        parameters: testParameters
+        passed  : false,
+        buildUrl: lastBuildUrl
     ]
-}
-
-void waitForE2EFailureApproval(
-    Map repository,
-    Map context,
-    String failedTestUrl,
-    Map testParameters
-) {
-    def message = [
-        ':warning: *Security build E2E tests failed; approval required*',
-        '',
-        "*Repository*: `${context.REPO_PATH}`",
-        "*Test job*: `${repository.testJob}`",
-        "*Branch*: `${context.SECURITY_BASE_BRANCH}`",
-        "*RELEASE image*: `${context.RELEASE_IMAGE}`",
-        '',
-        '*Action required*: Select *Approve* or *Deny* in Jenkins within 48 hours.'
-    ].join('\n')
-
-    slackSend(
-        botUser: true,
-        channel: slackChannel,
-        failOnError: false,
-        attachments: slackMessageAttachments(
-            message,
-            '#FFA500',
-            [
-                [
-                    type: 'button',
-                    text: [
-                        type: 'plain_text',
-                        text: 'Approve or deny',
-                        emoji: true
-                    ],
-                    style: 'primary',
-                    url: "${context.BUILD_URL}input/",
-                    action_id: 'review_e2e_approval'
-                ],
-                [
-                    type: 'button',
-                    text: [
-                        type: 'plain_text',
-                    text: 'Failed e2e tests pipeline run',
-                        emoji: true
-                    ],
-                    url: failedTestUrl,
-                    action_id: 'open_failed_e2e_tests'
-                ]
-            ]
-        )
-    )
-
-    def parameterRows = testParameters.collect { parameterName, parameterValue ->
-        """
-            <tr>
-                <td style="padding: 3px 18px 3px 0; color: #aeb6c2;">
-                    ${parameterName}
-                </td>
-                <td style="padding: 3px 0;">
-                    <code>${parameterValue}</code>
-                </td>
-            </tr>
-        """.stripIndent().trim()
-    }.join('\n')
-
-    addSummary(
-        id: 'e2e-release-approval',
-        text: """
-            <br><br>
-            <b>E2E tests failed. Please review the failures before approving the release.</b><br><br>
-
-            <a href="${failedTestUrl}" target="_blank"
-            style="display: inline-block;
-                    padding: 8px 14px;
-                    margin-right: 12px;
-                    color: #fff;
-                    background-color: #d94a2b;
-                    border-radius: 6px;
-                    text-decoration: none;
-                    font-weight: 600;">
-                Review E2E test results
-            </a>
-
-            <a href="${context.BUILD_URL}input/" target="_blank"
-            style="display: inline-block;
-                    padding: 8px 14px;
-                    color: #fff;
-                    background-color: #3fa34d;
-                    border-radius: 6px;
-                    text-decoration: none;
-                    font-weight: 600;">
-                Approve or deny
-            </a>
-        """.stripIndent().trim()
-    )
-
-    try {
-        timeout(
-            time: 48,
-            unit: 'HOURS'
-        ) {
-            input(
-                id: 'e2e-release-approval-input',
-                message: "Approve release ${context.RELEASE_IMAGE} after failed E2E tests?",
-                ok: 'Approve',
-                cancel: 'Deny'
-            )
-        }
-    } catch (Exception approvalError) {
-        env.SECURITY_BUILD_FAILURE_KIND = 'e2e'
-        env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
-        env.SECURITY_BUILD_TEST_JOB = repository.testJob
-        env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
-        env.SECURITY_BUILD_TEST_IMAGE = context.RELEASE_IMAGE
-
-        throw approvalError
-    } finally {
-        removeSummaries(id: 'e2e-release-approval')
-    }
-
-    echo 'Proceed approved after E2E test failure; continuing release publication'
 }
 
 void skipStages(List<String> stages, String reason) {
@@ -901,7 +742,6 @@ void runRepositoryPipeline(
             echo """
                 Security build: ${context.REPO_PATH}
                 Base release Git tag: ${context.BASE_RELEASE_GIT_TAG}
-                Floating security Git tag: ${context.FLOATING_GIT_TAG}
                 Security build number: ${context.SECURITY_BUILD_NUMBER}
 
                 Security base branch: ${context.SECURITY_BASE_BRANCH}
@@ -911,7 +751,6 @@ void runRepositoryPipeline(
                 Floating image tag: ${context.FLOATING_IMAGE_TAG}
                 Previous RELEASE image: ${context.PREVIOUS_RELEASE_IMAGE}
                 BUILD image: ${context.BUILD_IMAGE}
-                Latest BUILD image: ${context.FLOATING_BUILD_IMAGE}
                 RELEASE image: ${context.RELEASE_IMAGE}
                 Latest RELEASE image: ${context.FLOATING_RELEASE_IMAGE}
             """.stripIndent().trim()
@@ -1023,25 +862,28 @@ void runRepositoryPipeline(
         trackedStage(execution, 'E2E Tests') {
             def testResult
 
-            timeout(
-                time: 8,
-                unit: 'HOURS'
-            ) {
-                testResult = runTests(repository, context)
-            }
+            try {
+                timeout(
+                    time: 8,
+                    unit: 'HOURS'
+                ) {
+                    testResult = runTests(repository, context)
+                }
 
-            if (!testResult.passed) {
-                waitForE2EFailureApproval(
-                    repository,
-                    context,
-                    testResult.buildUrl,
-                    testResult.parameters
-                )
-            }
-        }
+                if (!testResult.passed) {
+                    error(
+                        "E2E tests failed after 2 attempts: ${testResult.buildUrl}"
+                    )
+                }
+            } catch (Exception failure) {
+                env.SECURITY_BUILD_FAILURE_KIND = 'e2e'
+                env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
+                env.SECURITY_BUILD_TEST_JOB = repository.testJob
+                env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
+                env.SECURITY_BUILD_TEST_IMAGE = context.BUILD_IMAGE
 
-        trackedStage(execution, 'Publish RELEASE') {
-            publishRelease(context)
+                throw failure
+            }
         }
     }
 }
