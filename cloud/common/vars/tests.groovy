@@ -284,6 +284,15 @@ List loadCsvTestSuite(String testSuite) {
     return readCSV(file: suiteFileName).collect { record -> record[0] }.findAll { it?.trim() }
 }
 
+String selectTestsPlatform(Map testVariables) {
+    def platform = testVariables.platform ?: ''
+    if (testVariables.platform_arch?.toLowerCase() == 'arm64' && platform) {
+        return "${platform}-arm64"
+    }
+
+    return platform
+}
+
 List loadSelectedTests(String testSuite, Map opts) {
     def operatorMode = opts.operatorMode ?: ((opts.clusterWide == 'YES') ? 'cluster-wide' : 'namespaced')
     def platformArg = opts.platform ? "--platform ${opts.platform}" : ''
@@ -336,7 +345,12 @@ List loadTestList(String testList, String testSuite, Map opts = [:]) {
 }
 
 void initTestRun(Map testVariables, Map config) {
-    testVariables.tests = loadTestList(config.testList, config.testSuite)
+    testVariables.tests = loadTestList(config.testList, config.testSuite, [
+        platform      : selectTestsPlatform(testVariables),
+        clusterWide   : testVariables.cluster_wide,
+        pillarVersion : testVariables.pillar_version,
+        imageMongod   : testVariables.images?.IMAGE_MONGOD
+    ])
 
     if (config.ignorePreviousRun == 'NO') {
         updateListWithLastExecutionStatus(testVariables)
@@ -1099,6 +1113,8 @@ void publishPytestReports(Map config) {
     }
 
     try {
+        normalizeReports(tests, sourceDir)
+
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
@@ -1110,6 +1126,7 @@ void publishPytestReports(Map config) {
             formatReportDuration(reportHtml)
         }
 
+        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
         archiveArtifacts artifacts: "${reportXml}, ${reportHtml}", allowEmptyArchive: true
 
         if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
@@ -1213,6 +1230,9 @@ void finalizeJob(Map testVariables) {
 
     if (testVariables.tests) {
         makeReportJUnit(testVariables.tests, testVariables)
+        if (testVariables.test_executor_type == 'make') {
+            makeReport(testVariables.tests, testVariables)
+        }
     }
 
     try {
@@ -1224,7 +1244,7 @@ void finalizeJob(Map testVariables) {
             platformChannel: testVariables.platform_channel,
             platformArch   : testVariables.platform_arch,
             clusterWide    : testVariables.cluster_wide,
-            image          : testVariables.images?.IMAGE_MYSQL,
+            image          : testVariables.images?.IMAGE_MYSQL ?: testVariables.images?.IMAGE_MONGOD ?: testVariables.images?.IMAGE_PXC ?: testVariables.images?.IMAGE_POSTGRESQL,
             operatorImage  : testVariables.images?.IMAGE_OPERATOR
         )
     } catch (err) {
