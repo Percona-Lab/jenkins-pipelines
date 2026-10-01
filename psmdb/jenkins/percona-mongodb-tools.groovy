@@ -78,8 +78,8 @@ pipeline {
             description: 'Tag/Branch for the packaging repository',
             name: 'BUILD_GIT_BRANCH')
         string(
-            defaultValue: 'psmdb-83',
-            description: 'PSMDB repo name to push into. The same build can be pushed to psmdb-70/80/83 in turn',
+            defaultValue: 'psmdb-70 psmdb-80 psmdb-83',
+            description: 'Space-separated PSMDB repos to push into. Each one is gated on its own server packages',
             name: 'PSMDB_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
@@ -429,10 +429,26 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 script {
-                    // Gated push: only OS/arch combinations that already carry the
-                    // percona-server-mongodb metapackage in this repo+component are published,
-                    // so the server has to be pushed first. Nothing is ever removed.
-                    sync2ProdAutoBuildPSMDB(params.CLOUD, PSMDB_REPO, COMPONENT)
+                    // Gated push, per repo: only OS/arch combinations whose server in that
+                    // repo+component no longer pins the tools version get the packages.
+                    // Anything held back makes the build unstable; nothing pushed anywhere fails it.
+                    def repos = PSMDB_REPO.tokenize(' ,')
+                    def held = []
+                    def empty = []
+                    for (String repo : repos) {
+                        def r = sync2ProdAutoBuildPSMDB(params.CLOUD, repo, COMPONENT)
+                        if (r == 'partial') {
+                            held << repo
+                        } else if (r == 'none') {
+                            empty << repo
+                        }
+                    }
+                    if (empty.size() == repos.size()) {
+                        error("nothing pushed to ${repos.join(', ')}: publish the PSMDB builds first")
+                    }
+                    if (held || empty) {
+                        unstable("the gate held packages back in ${(held + empty).join(', ')}, see the SKIP lines")
+                    }
                 }
             }
         }
@@ -471,6 +487,10 @@ pipeline {
             script {
                 currentBuild.description = "Built mongo-tools ${TOOLS_TAG}-${TOOLS_RELEASE}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
+            deleteDir()
+        }
+        unstable {
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: mongo-tools ${TOOLS_TAG}-${TOOLS_RELEASE} built, but the push gate held some packages back - [${BUILD_URL}]")
             deleteDir()
         }
         failure {

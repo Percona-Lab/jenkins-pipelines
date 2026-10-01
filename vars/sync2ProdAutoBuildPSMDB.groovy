@@ -8,8 +8,16 @@
 //
 // Consequence: the operator pushes the server first and the rest second. Wrong order just
 // skips everything, and re-running the push is cheap.
+//
+// Returns 'full', 'partial' (the gate held something back) or 'none' (nothing pushed).
+// An OS/arch with no metapackage at all is not something this repo ships, so it is
+// logged as n/a and does not make the push partial.
 def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
     String REFERENCE_PACKAGE = 'percona-server-mongodb'
+    // exit codes the remote script uses to report back; anything else is a real failure
+    int RC_PARTIAL = 42
+    int RC_NONE = 43
+    def result = null
     def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
     node(nodeLabel) {
         unstash 'uploadPath'
@@ -17,7 +25,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
 
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                sh """
+                def rc = sh(returnStatus: true, script: """
                     cat /etc/hosts > ./hosts
                     echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
                     sudo cp ./hosts /etc || true
@@ -32,6 +40,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                             # PSMDB build, and that must not look like success.
                             gate_pushed=0
                             gate_skipped=0
+                            gate_na=0
                             if [ "x${REPO_NAME}" == "xpsmdb-50" -o "x${REPO_NAME}" == "xpsmdb-60" ]; then
                                 createrepo_opts=" --no-database "
                             fi
@@ -39,6 +48,11 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                             for rhel in `ls -1 redhat`; do
                                 export rpm_dest_path=/srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/\${rhel}
                                 rhel_pushed=0
+                                if [ ! -d \${rpm_dest_path}/RPMS ]; then
+                                    echo "n/a \${rhel}: ${REPO_NAME}/${DESTINATION} does not ship it"
+                                    gate_na=\$((gate_na+\$(ls -1 redhat/\${rhel} | wc -l)))
+                                    continue
+                                fi
 
                                 # RPMS
                                 mkdir -p \${rpm_dest_path}/RPMS
@@ -46,8 +60,8 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                     # gate 1: the metapackage must already be here
                                     meta_rpm=\$(ls -1 \${rpm_dest_path}/RPMS/\${arch}/${REFERENCE_PACKAGE}-[0-9]*.rpm 2>/dev/null | sort -V | tail -1)
                                     if [ -z "\${meta_rpm}" ]; then
-                                        echo "SKIP \${rhel}/\${arch}: no ${REFERENCE_PACKAGE} in ${REPO_NAME}/${DESTINATION}"
-                                        gate_skipped=\$((gate_skipped+1))
+                                        echo "n/a \${rhel}/\${arch}: no ${REFERENCE_PACKAGE} in ${REPO_NAME}/${DESTINATION}"
+                                        gate_na=\$((gate_na+1))
                                         continue
                                     fi
                                     # gate 2: and it must no longer pin the tools version. pushing into a
@@ -100,8 +114,8 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                  # gate: arch comes from the filename (_amd64.deb / _arm64.deb)
                                  deb_arch=\$(echo \${pkg_fname} | sed -E '"'"'s/.*_([a-z0-9]+)\\.deb\$/\\1/'"'"')
                                  if ! /usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | grep -q "^${REFERENCE_PACKAGE}_.*_\${deb_arch}\\.deb"; then
-                                     echo "SKIP \${pkg_fname}: no ${REFERENCE_PACKAGE} for \${dist}/\${deb_arch} in ${REPO_NAME}/${DESTINATION}"
-                                     gate_skipped=\$((gate_skipped+1))
+                                     echo "n/a \${pkg_fname}: no ${REFERENCE_PACKAGE} for \${dist}/\${deb_arch} in ${REPO_NAME}/${DESTINATION}"
+                                     gate_na=\$((gate_na+1))
                                      continue
                                  fi
                                  # gate 2: the metapackage in this component must no longer pin the tools
@@ -129,12 +143,11 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                  env PATH=/usr/local/reprepro5/bin:${PATH} repopush \${REPOPUSH_ARGS} --gpg-pass ${SIGN_PASSWORD} --package \${deb} --verbose --component ${DESTINATION} --codename \${dist} --repo-path /srv/repo-copy/${REPO_NAME}/apt
                                 done
                             done
-                            echo "GATE: pushed=\${gate_pushed} skipped=\${gate_skipped}"
+                            echo "GATE ${REPO_NAME}/${DESTINATION}: pushed=\${gate_pushed} skipped=\${gate_skipped} n/a=\${gate_na}"
+                            # nothing changed, so there is nothing to sync either
                             if [ \${gate_pushed} -eq 0 ]; then
-                                echo "ERROR: the gate rejected every artifact for ${REPO_NAME}/${DESTINATION}."
-                                echo "       Publish the PSMDB build that carries the unversioned tools"
-                                echo "       dependency into this repo and component first, then re-run."
-                                exit 1
+                                echo "nothing pushed to ${REPO_NAME}/${DESTINATION}: publish the PSMDB build with the unversioned tools dependency first"
+                                exit ${RC_NONE}
                             fi
                         popd
 
@@ -154,9 +167,24 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                         rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
                             10.30.9.32:/www/repo.percona.com/htdocs/
+
+                        # after the sync: what did get through has to reach the mirror
+                        if [ \${gate_skipped} -gt 0 ]; then
+                            exit ${RC_PARTIAL}
+                        fi
                     '
-                """
+                """)
+                if (rc == 0) {
+                    result = 'full'
+                } else if (rc == RC_PARTIAL) {
+                    result = 'partial'
+                } else if (rc == RC_NONE) {
+                    result = 'none'
+                } else {
+                    error("push to ${REPO_NAME}/${DESTINATION} failed, rc=${rc}")
+                }
             }
         }
     }
+    return result
 }
