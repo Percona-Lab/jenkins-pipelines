@@ -57,7 +57,7 @@ void createCluster(Map clusterCfg) {
                             --network=jenkins-vpc \
                             --subnetwork=jenkins-$CLUSTER_SUFFIX \
                             --cluster-ipv4-cidr=/21 \
-                            --labels delete-cluster-after-hours=6 \
+                            --labels delete-cluster-after-hours=8 \
                             --enable-ip-alias \
                             --monitoring=NONE \
                             --logging=NONE \
