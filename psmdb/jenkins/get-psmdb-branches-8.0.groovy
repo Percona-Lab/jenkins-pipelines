@@ -34,8 +34,7 @@ pipeline {
                         set -euo pipefail
 
                         # PSMDB-2057: detect latest release-8.0.x branch first; abort if none
-                        # found -- an empty BRANCH_NAME used to propagate into the properties
-                        # file and poison the downstream build.
+                        # found (an empty BRANCH_NAME used to end up in the properties file)
                         LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.0\\* | tail -1)
                         if [ -z "\${LATEST_RELEASE_BRANCH}" ]; then
                             echo "WARN: no release-8.0.* branch found on ${GIT_REPO}; skipping build trigger"

@@ -1,17 +1,6 @@
-// Same as sync2ProdAutoBuild, plus a gate: an artifact is published only for the OS/arch
-// combinations that already carry the PSMDB metapackage in the same repo and component.
-// Used by the PSMDB family that shares the psmdb-* repos -- server, mongosh and the
-// database tools -- whose versions no longer track each other (PSMDB-1944).
-//
-// It only ever declines to push. Nothing is removed, overwritten or otherwise changed in
-// an existing repository.
-//
-// Consequence: the operator pushes the server first and the rest second. Wrong order just
-// skips everything, and re-running the push is cheap.
-//
-// Returns 'full', 'partial' (the gate held something back) or 'none' (nothing pushed).
-// An OS/arch with no metapackage at all is not something this repo ships, so it is
-// logged as n/a and does not make the push partial.
+// sync2ProdAutoBuild with a gate: push only where the same repo/component already has
+// a percona-server-mongodb metapackage that doesn't pin the tools version. Nothing is removed.
+// Returns 'full', 'partial' or 'none'; an OS/arch without a metapackage is n/a, not counted.
 def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
     String REFERENCE_PACKAGE = 'percona-server-mongodb'
     // exit codes the remote script uses to report back; anything else is a real failure
@@ -35,9 +24,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                         set -o xtrace
 
                         pushd ${path_to_build}/binary
-                            # the gate skips rather than fails, so count what actually moved:
-                            # a run that pushes nothing means the operator got ahead of the
-                            # PSMDB build, and that must not look like success.
+                            # nothing pushed means the server is not there yet, fail on that
                             gate_pushed=0
                             gate_skipped=0
                             gate_na=0
@@ -64,10 +51,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                         gate_na=\$((gate_na+1))
                                         continue
                                     fi
-                                    # gate 2: and it must no longer pin the tools version. pushing into a
-                                    # component whose newest metapackage still says
-                                    # "Requires: ...-tools = <psmdb ver>" breaks `yum update` outright for
-                                    # everyone who has PSMDB installed -- the whole transaction aborts.
+                                    # gate 2: no tools pin, or yum update fails for every PSMDB install
                                     if rpm -qp --requires "\${meta_rpm}" 2>/dev/null | grep -qE "^${REFERENCE_PACKAGE}-tools[[:space:]]*="; then
                                         echo "SKIP \${rhel}/\${arch}: \$(basename \${meta_rpm}) still pins the tools version -- publish the PSMDB build with the unversioned Requires first"
                                         gate_skipped=\$((gate_skipped+1))
@@ -86,9 +70,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                     gpg --detach-sign --armor --passphrase ${SIGN_PASSWORD} \${repo_path}/repodata/repomd.xml 
                                 done
 
-                                # SRPMS follow the binaries: publishing a source rpm into a
-                                # component that rejected every binary leaves the repo in a
-                                # state no build produced.
+                                # no binaries pushed for this rhel -> no SRPM either
                                 if [ \${rhel_pushed} -eq 0 ]; then
                                     echo "SKIP \${rhel}/SRPMS: nothing binary was published for this rhel"
                                     continue
@@ -118,9 +100,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                      gate_na=\$((gate_na+1))
                                      continue
                                  fi
-                                 # gate 2: the metapackage in this component must no longer pin the tools
-                                 # version. apt only holds the package back rather than erroring, so the
-                                 # symptom here is silent: the fix never reaches anyone.
+                                 # gate 2: no tools pin; apt would just hold the package back silently
                                  meta_ver=\$(/usr/local/reprepro5/bin/reprepro --list-format '"'"'\${package}_\${version}_\${architecture}.deb\\n'"'"' -Vb /srv/repo-copy/${REPO_NAME}/apt -C ${DESTINATION} list \${dist} | grep "^${REFERENCE_PACKAGE}_" | grep "_\${deb_arch}\\.deb" | sed -E '"'"'s/^[^_]+_([^_]+)_.*/\\1/'"'"' | sort -V | tail -1)
                                  meta_deb=\$(find /srv/repo-copy/${REPO_NAME}/apt/pool -name "${REFERENCE_PACKAGE}_\${meta_ver}_\${deb_arch}.deb" 2>/dev/null | head -1)
                                  if [ -z "\${meta_deb}" ] || ! command -v dpkg-deb >/dev/null 2>&1; then
@@ -168,7 +148,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                             /srv/repo-copy/version \
                             10.30.9.32:/www/repo.percona.com/htdocs/
 
-                        # after the sync: what did get through has to reach the mirror
+                        # exit after the sync so whatever got through reaches the mirror
                         if [ \${gate_skipped} -gt 0 ]; then
                             exit ${RC_PARTIAL}
                         fi

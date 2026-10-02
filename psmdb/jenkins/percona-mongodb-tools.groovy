@@ -3,15 +3,9 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-// Builds percona-server-mongodb-tools (the MongoDB Database Tools) independently of the
-// PSMDB server build -- see PSMDB-1944. Structure mirrors percona-server-for-mongodb-8.3
-// minus everything bazel/RBE related: these are 8 Go binaries, so plain distro images and
-// ordinary agents are enough.
-//
-// Unlike the PSMDB job, the builder does not live in the product repo: it comes from
-// percona-mongodb-tools-packaging, and it needs the whole repo (spec template, debian/,
-// manpages/, docs/, go-deps.env), not just the script. Hence the tarball fetch below
-// rather than the single-file wget the PSMDB and mongosh jobs use.
+// Builds percona-server-mongodb-tools separately from the server.
+// Same layout as the PSMDB 8.3 job without bazel/RBE.
+// The builder needs the whole packaging repo, so it is fetched as a tarball.
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
@@ -62,7 +56,7 @@ pipeline {
             description: 'URL for the mongo-tools repository to build from',
             name: 'TOOLS_REPO')
         string(
-            defaultValue: '100.18.0',
+            defaultValue: '100.19.1',
             description: 'Tag/Branch of mongo-tools to build. https://github.com/mongodb/mongo-tools/tags',
             name: 'TOOLS_TAG')
         string(
@@ -305,7 +299,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                // Binary tarballs are x86_64 only, as in the PSMDB job (PSMDB-1944, OQ-1)
+                // x86_64 tarballs only, as in the PSMDB job
                 stage('Oracle Linux 8 binary tarball') {
                     agent { label params.CLOUD == 'AWS' ? 'docker-32gb' : 'docker-x64' }
                     steps {
@@ -409,9 +403,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 script {
-                    // Gated push, per repo: only OS/arch combinations whose server in that
-                    // repo+component no longer pins the tools version get the packages.
-                    // Anything held back makes the build unstable; nothing pushed anywhere fails it.
+                    // each repo is gated separately: held back -> UNSTABLE, nothing pushed anywhere -> FAILURE
                     def repos = PSMDB_REPO.tokenize(' ,')
                     def held = []
                     def empty = []

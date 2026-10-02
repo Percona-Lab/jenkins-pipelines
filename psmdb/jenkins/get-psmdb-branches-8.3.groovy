@@ -33,8 +33,7 @@ pipeline {
                     sh """
                         set -euo pipefail
 
-                        # pick the newest release-8.3.x branch; stop if there's none --
-                        # an empty branch name would otherwise propagate into .properties
+                        # pick the newest release-8.3.x branch; stop if there is none
                         LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.3\\* | tail -1)
                         if [ -z "\${LATEST_RELEASE_BRANCH}" ]; then
                             echo "WARN: no release-8.3.* branch found on ${GIT_REPO}; skipping build trigger"
