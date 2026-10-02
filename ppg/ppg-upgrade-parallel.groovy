@@ -42,9 +42,14 @@ pipeline {
             description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. OBS only ever carries the latest minor of each major, so the FROM version always installs from repo.percona.com regardless of this setting.'
         )
         string(
-            name: 'OBS_HOST',
             defaultValue: '',
-            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).'
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
+        )
+        string(
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
         )
         string(
             defaultValue: 'ppg-18.3',
