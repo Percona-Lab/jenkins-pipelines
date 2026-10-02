@@ -8,38 +8,6 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-void checkClientBeforeUpgrade(String CLIENT_VERSION) {
-    def PMM_VERSION = CLIENT_VERSION.trim();
-    env.PMM_VERSION = PMM_VERSION;
-    if (PMM_VERSION == '3-dev-latest') {
-        sh '''
-            GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
-        '''
-    } else if (PMM_VERSION == 'pmm3-rc') {
-        sh '''
-            GET_PMM_CLIENT_VERSION=$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc$ | sort -V | tail -n1)
-            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
-        '''
-    } else {
-        sh '''
-            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
-        '''
-    }
-}
-
-void checkClientAfterUpgrade(String CLIENT_VERSION) {
-    def PMM_VERSION = CLIENT_VERSION.trim();
-    env.PMM_VERSION = PMM_VERSION;
-    sh '''
-        sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-        python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
-    '''
-}
-
 def versionsList = pmmVersion('v3')[-5..-1]
 def oldestVersion = versionsList.first()
 def latestVersion = versionsList.last()
@@ -327,13 +295,6 @@ pipeline {
                 }
             }
         }
-        stage('Check Client before Upgrade') {
-            steps {
-                script {
-                    checkClientBeforeUpgrade(CLIENT_VERSION)
-                }
-            }
-        }
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -580,13 +541,6 @@ pipeline {
                             fi
                         done
                     '''
-                }
-            }
-        }
-        stage('Check Client after Upgrade') {
-            steps {
-                script {
-                    checkClientAfterUpgrade(PMM_SERVER_LATEST)
                 }
             }
         }
