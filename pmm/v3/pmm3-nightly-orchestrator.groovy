@@ -618,7 +618,7 @@ timestamps {
                         sh '''
                             set -euo pipefail
                             curl -fsS --connect-timeout 10 --max-time 60 -X POST \
-                                "https://api.anthropic.com/v1/claude_code/routines/trig_01FhHBdz2yBibyVEfnG5gbQz/fire" \
+                                "https://api.anthropic.com/v1/claude_code/routines/trig_01P2LXxvVmuqKJG1eaJb7j5m/fire" \
                                 -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
                                 -H "anthropic-version: 2023-06-01" \
                                 -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
