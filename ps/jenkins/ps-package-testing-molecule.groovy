@@ -1,5 +1,5 @@
 
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@check-pxb-sbom", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -154,6 +154,23 @@ def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
         }
     }
     parallel tests
+}
+
+// The install playbooks that collect SBOM files (package-testing
+// playbooks/ps_{80,84,97,innovation}.yml include tasks/check_sbom.yml).
+def sbomCollected() {
+    return env.action_to_test == 'install' &&
+        ['ps_80', 'ps_84', 'ps_97', 'ps_innovation'].contains(env.product_to_test)
+}
+
+def sbomOsList(product) {
+    switch (product) {
+        case 'ps_innovation': return ps90PackageTesting()
+        case 'ps_80': return ps80PackageTesting()
+        case 'ps_84': return ps84PackageTesting()
+        case 'ps_97': return ps97PackageTesting()
+        default: return []
+    }
 }
 
 def deleteBuildInstances(){
@@ -446,6 +463,21 @@ properties([
             choices: ['yes', 'no'],
             description: 'Install MySQL Shell',
             name: 'install_mysql_shell'
+        ),
+        choice(
+            choices: ['warn', 'enforce', 'off'],
+            description: 'PS SBOM verification (install runs of ps_80, ps_84, ps_97 and ps_innovation). warn: validate the SBOM files when the package ships them, skip when it does not. enforce: require them. off: skip entirely.',
+            name: 'SBOM_CHECK_MODE'
+        ),
+        choice(
+            choices: ['warn', 'enforce', 'off'],
+            description: 'Vulnerability scanning of the SBOM. Gated separately from SBOM_CHECK_MODE so a new upstream CVE in a vendored library does not fail package testing.',
+            name: 'SBOM_VULN_MODE'
+        ),
+        booleanParam(
+            defaultValue: true,
+            description: 'Install trivy and cyclonedx-cli once, on this Jenkins agent, and run the SBOM schema validation and vulnerability scan there over the files every target collected. Untick to skip them; the checks then report as skipped rather than failing.',
+            name: 'SBOM_EXTERNAL_TOOLS'
         )
     ])
 ])
@@ -468,6 +500,10 @@ pipeline {
         major_upgrade_to_repo = "${params.major_upgrade_to_repo}"
         TESTING_BRANCH = "${params.git_branch}"
         TESTING_GIT_ACCOUNT = "${params.git_account}"
+        SBOM_CHECK_MODE = "${params.SBOM_CHECK_MODE}"
+        SBOM_VULN_MODE = "${params.SBOM_VULN_MODE}"
+        SBOM_EXTERNAL_TOOLS = "${params.SBOM_EXTERNAL_TOOLS}"
+        SBOM_LICENSE_STRICT = "1"
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
@@ -520,7 +556,17 @@ pipeline {
                                 
                                 sh """
                                     echo IIT_BILLING_TAG="${product_to_test}_package_testing" >> .env.ENV_VARS
+                                    echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
                                 """
+
+                                // Every launched platform must send back an SBOM
+                                // collection (runSbomChecks). Scenario names equal
+                                // these entries, and each target labels its
+                                // collection with MOLECULE_SCENARIO_NAME. unique():
+                                // ps97PackageTesting() lists some platforms twice.
+                                if (sbomCollected()) {
+                                    env.SBOM_EXPECTED_PLATFORMS = sbomOsList(product_to_test).unique().join(',')
+                                }
 
                                 def envMap = loadEnvFile('.env.ENV_VARS')
 
@@ -547,6 +593,25 @@ pipeline {
                                     else {
                                         error("Unsupported product_to_test: ${product_to_test}")
                                     }
+                                }
+                            }
+                        }
+                        post {
+                            always {
+                                script {
+                                    // The SBOM checks run HERE, once per platform, over the
+                                    // collections the targets fetched back (*_sbom.zip, from
+                                    // package-testing tasks/check_sbom.yml). In post/always so a
+                                    // failed platform does not stop the others from being checked.
+                                    if (sbomCollected()) {
+                                        runSbomChecks(product: 'ps')
+                                        archiveSbomFiles()
+                                    }
+                                    // allowEmptyResults: true because only the install runs
+                                    // of the products below produce this file.
+                                    junit testResults: 'sbom-junit.xml',
+                                          keepLongStdio: true,
+                                          allowEmptyResults: true
                                 }
                             }
                         }
