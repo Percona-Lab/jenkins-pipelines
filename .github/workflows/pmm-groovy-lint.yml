@@ -1,0 +1,39 @@
+# Lints the pmm/ Jenkins pipelines a pull request changed. PMM-scoped twice: the
+# paths filter keeps this off other products' PRs, and the file list is filtered
+# to pmm/ again, so a PR spanning several directories is still only judged on
+# ours. Changed files only, never all of pmm/ -- the 62 files here predate any
+# linting and a gate over all of them would be red on every PR.
+
+name: pmm-groovy-lint
+
+on:
+  pull_request:
+    paths:
+      - 'pmm/**.groovy'
+      - 'pmm/.groovylintrc.json'
+      - '.github/workflows/pmm-groovy-lint.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # the file list is a diff against the PR base
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22' # npm-groovy-lint 18 declares engines.node >= 22
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        # --noserver: one-shot, no CodeNarc daemon and no 120s client timeout.
+        run: |
+          set -euo pipefail
+          files=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- 'pmm/**.groovy')
+          echo "$files"
+          if [ -n "$files" ]; then
+            npx --yes npm-groovy-lint@18.0.0 --noserver --config ./pmm --failon error $files
+          fi
