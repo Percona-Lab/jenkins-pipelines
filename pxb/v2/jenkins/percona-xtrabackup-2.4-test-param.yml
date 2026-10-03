@@ -64,6 +64,11 @@
         - debian:buster
         - asan
     - axis:
+        type: user-defined
+        name: ARCH
+        values:
+        - x86_64
+    - axis:
         name: XTRABACKUP_TARGET
         type: user-defined
         values:
@@ -78,9 +83,10 @@
       - project: percona-xtrabackup-2.4-test-pipeline
         current-parameters: true
         predefined-parameters: |
-          DOCKER_OS=${DOCKER_OS}
-          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-          XTRABACKUP_TARGET=${XTRABACKUP_TARGET}
+          DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
+          CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
+          XTRABACKUP_TARGET=${{XTRABACKUP_TARGET}}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
@@ -91,10 +97,10 @@
     - copyartifact:
         project: percona-xtrabackup-2.4-test-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_test_pipeline}"
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_test_pipeline}}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_test_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_2_4_test_pipeline}}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/junit.xml"
