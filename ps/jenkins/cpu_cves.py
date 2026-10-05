@@ -1021,8 +1021,12 @@ def _write_run_body(
                     if delivery_error.startswith("WARNING cpu ")
                     else delivery_error
                 ),
-                fallback="threads in the unreadable file are not kept",
-                impact="a new thread may be started for an advisory that already had one",
+                fallback="threads and pending notifications in the unreadable file are not kept",
+                impact=(
+                    "pending Slack notifications are lost and cannot be rebuilt "
+                    "from the CVE baseline; a new thread may be started for an "
+                    "advisory that already had one"
+                ),
                 exception=delivery_exc,
             )
         )
