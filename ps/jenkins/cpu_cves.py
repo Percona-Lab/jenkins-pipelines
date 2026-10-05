@@ -24,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 log = logging.getLogger("ps_notify")
 
@@ -384,17 +384,33 @@ def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
     }
 
 
+class Collection(NamedTuple):
+    """One Oracle poll. notes is the same list the caller passed in."""
+
+    events: list[dict[str, Any]]
+    index_ok: bool
+    notes: list[dict[str, Any]]
+    stats: dict[str, Any]
+
+
 def fetch(count: int) -> list[dict[str, Any]]:
-    """Newest advisory first. A page that still fails after retries is omitted."""
-    events, _ok, _notes, _stats = collect(count)
-    return events
+    """Newest advisory first. A page that still fails after retries is omitted.
+
+    Desktop callers do not build the Jenkins summary, so collection
+    warnings are logged here. The events list still omits failed pages.
+    """
+    collected = collect(count)
+    for note in collected.notes:
+        if note.get("level") in ("warning", "error"):
+            log.warning("WARNING cpu %s", note.get("message"))
+    return collected.events
 
 
 def collect(
     count: int,
     notes: list[dict[str, Any]] | None = None,
-) -> tuple[list[dict[str, Any]], bool, list[dict[str, Any]], dict[str, Any]]:
-    """Return events, index ok, issue notes, and counts.
+) -> Collection:
+    """Return events, index status, notes, and fetch counts.
 
     A failed advisory page is not an event. The caller keeps that slug's
     previous state. bug_cves is None when the CSAF file could not be used.
@@ -425,7 +441,7 @@ def collect(
                 exception="\n".join(failed) if failed else exception_text(exc),
             )
         )
-        return [], False, notes, stats
+        return Collection([], False, notes, stats)
     if failed:
         notes.append(
             issue(
@@ -455,7 +471,7 @@ def collect(
                 message=message,
             )
         )
-        return [], False, notes, stats
+        return Collection([], False, notes, stats)
     slugs.sort(key=lambda s: (_parse_slug(s)[2], _parse_slug(s)[1]), reverse=True)
     picked = slugs[: max(0, count)]
     stats["picked"] = len(picked)
@@ -536,7 +552,7 @@ def collect(
                 message=message,
             )
         )
-    return events, True, notes, stats
+    return Collection(events, True, notes, stats)
 
 
 def stored_advisory(row: Any) -> dict[str, Any] | None:
@@ -922,7 +938,8 @@ def _write_run_body(
     notify_mode: str = "none",
     notes: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    events, index_ok, notes, stats = collect(count, notes)
+    collected = collect(count, notes)
+    events, index_ok, notes, stats = collected
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
