@@ -205,7 +205,7 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
         CLIENT_VERSION    : params.CLIENT_VERSION,
         SERVER_ARCH       : 'amd64',
         ADMIN_PASSWORD    : 'pmm3admin!',
-        HELM_CHART_BRANCH : 'main',
+        HELM_CHART_BRANCH : 'PMM-HA-GA',
         OPENSHIFT_VERSION : 'latest',
         K8S_VERSION       : '1.34',
         PTS_CONFIDENCE    : '100',
@@ -555,6 +555,43 @@ timestamps {
             currentBuild.result = 'UNSTABLE'
         }
 
+        // The nightly report page (pmm-qa gh-pages): every lane of every night,
+        // which the Investigator then annotates with its verdicts.
+        def reportId = "jenkins-${currentBuild.number}"
+        def reportUrl = "https://percona.github.io/pmm-qa/nightly/#run=${reportId}"
+        node(params.USE_ONDEMAND ? 'cli-ondemand' : 'cli') {
+            try {
+                writeFile file: 'results.json', text: new JsonBuilder(results).toString()
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
+                    withEnv(["IMAGE_TAG=${imageTag}"]) {
+                        sh '''
+                            set -euo pipefail
+                            git clone --depth 1 --single-branch --branch "${PMM_QA_GIT_BRANCH}" \
+                                https://github.com/percona/pmm-qa.git pmm-qa
+                            pmm-qa/nightly/ci/build_report.sh results.json > report.json
+                            export PAGES_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/percona/pmm-qa.git"
+                            pmm-qa/nightly/ci/publish_report.sh report.json
+                            # The Investigator is fired below for every red group; claim them so
+                            # nobody starts a second investigation on the same group.
+                            jq --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{run_id, claims: [
+                                .jobs | map(select(.result == "failure" or .result == "cancelled") | .group) | unique[]
+                                | {by: "Investigator routine", at: $at, suites: [.]}]}' report.json > claims.json
+                            if [ "$(jq '.claims | length' claims.json)" -gt 0 ]; then
+                                pmm-qa/nightly/ci/publish_report.sh claims.json
+                            fi
+                        '''
+                    }
+                }
+                echo "Nightly report: ${reportUrl}"
+            } catch (ignored) {
+                // Same rule as the notification below: the report is a view of
+                // the night, never a reason to change its result.
+                echo 'Could not publish the nightly report.'
+            } finally {
+                deleteDir()
+            }
+        }
+
         // One notification for the whole night: most lanes never reach GitHub
         // Actions, and this is the only place that sees all of them.
         if (totalBad > 0) {
@@ -569,13 +606,19 @@ timestamps {
                     writeFile file: 'investigator.json', text: new JsonBuilder([
                         text: "Nightly orchestrator #${currentBuild.number} finished with " +
                               "${totalBad} failed suites of ${results.size()}. " +
-                              "Build: ${env.BUILD_URL}\n\n" + failed.join('\n'),
+                              "Build: ${env.BUILD_URL}\n" +
+                              "Nightly report: ${reportUrl} (run_id ${reportId})\n\n" + failed.join('\n') +
+                              "\n\nWhen you finish, publish each root cause to the nightly report, one call per cause, " +
+                              "from a percona/pmm-qa checkout:\n" +
+                              "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<not reproduced|not a bug|test fix|product bug>\" " +
+                              "\"<one-sentence summary>\" <fix PR or Jira URL, or -> \"<group>\" [\"<group>\" ...]\n" +
+                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json.",
                     ]).toString()
                     withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
                         sh '''
                             set -euo pipefail
                             curl -fsS --connect-timeout 10 --max-time 60 -X POST \
-                                "https://api.anthropic.com/v1/claude_code/routines/trig_01FhHBdz2yBibyVEfnG5gbQz/fire" \
+                                "https://api.anthropic.com/v1/claude_code/routines/trig_01P2LXxvVmuqKJG1eaJb7j5m/fire" \
                                 -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
                                 -H "anthropic-version: 2023-06-01" \
                                 -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
