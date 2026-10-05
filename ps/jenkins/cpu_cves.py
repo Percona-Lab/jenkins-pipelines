@@ -116,10 +116,20 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
 
     CSAF stores these on each vulnerability as ids[].system_name
     "Oracle Bug ID of ..." and ids[].text the bug number. Entries
-    without a bug id are omitted.
+    without a bug id are omitted. A non-object document raises
+    ValueError so the caller can skip that advisory only.
     """
+    if not isinstance(data, dict):
+        raise ValueError("CSAF document is not a JSON object")
+    vulns = data.get("vulnerabilities")
+    if vulns is None:
+        vulns = []
+    if not isinstance(vulns, list):
+        raise ValueError("CSAF vulnerabilities is not a list")
     bugs: dict[str, list[str]] = {}
-    for vuln in data.get("vulnerabilities") or []:
+    for vuln in vulns:
+        if not isinstance(vuln, dict):
+            continue
         cve = str(vuln.get("cve") or "").upper()
         if not cve.startswith("CVE-"):
             continue
@@ -151,10 +161,10 @@ def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]]:
         return {}
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        log.warning("cpu CSAF JSON failed url=%s err=%s", csaf_url, exc)
+        bug_map = bug_map_from_csaf(data)
+    except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
+        log.warning("WARNING cpu CSAF unusable url=%s err=%s", csaf_url, exc)
         return {}
-    bug_map = bug_map_from_csaf(data)
     log.info("cpu CSAF url=%s bugs=%d", csaf_url, len(bug_map))
     return bug_map
 
