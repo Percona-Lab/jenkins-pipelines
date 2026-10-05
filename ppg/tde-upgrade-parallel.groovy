@@ -111,6 +111,20 @@ pipeline {
                 'release'
             ]
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            description: "Install the TO version from the OBS (openSUSE Build Service) repo instead of repo.percona.com. OBS only carries the latest minor, so the FROM version always comes from percona-release. TO_REPO still selects the channel (testing/release/experimental -> staging/releases/devel)."
+        )
+        string(
+            name: 'OBS_HOST',
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).'
+        )
+        string(
+            name: 'OBS_PROJECT',
+            defaultValue: '',
+            description: 'Full OBS project for the TO version when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from TO_REPO and TO_VERSION.'
+        )
         string(
             name: 'TESTING_BRANCH',
             defaultValue: 'main',
@@ -169,6 +183,11 @@ pipeline {
             defaultValue: '',
             description: 'Optional expected Percona Server patch version for the TO cluster (e.g. "18.4.2"). ' +
                          'When set, the test asserts SELECT version() reports it after the upgrade and fails otherwise.'
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
 

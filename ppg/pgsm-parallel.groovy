@@ -70,6 +70,11 @@ pipeline {
             name: 'MAJOR_REPO',
             description: "Enable to use major (ppg-16) repo instead of ppg-16.2"
         )
+        string(
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.',
+            name: 'RUN_LABELS'
+        )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
