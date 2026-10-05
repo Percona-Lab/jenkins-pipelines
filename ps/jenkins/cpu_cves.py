@@ -149,11 +149,11 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     """
     if not isinstance(data, dict):
         raise ValueError("CSAF document is not a JSON object")
-    vulns = data.get("vulnerabilities")
-    if vulns is None:
-        vulns = []
-    if not isinstance(vulns, list):
-        raise ValueError("CSAF vulnerabilities is not a list")
+    # A JSON object without a vulnerabilities list is not a CSAF document.
+    # Treating it as an empty map would erase the cached bug ids.
+    if "vulnerabilities" not in data or not isinstance(data.get("vulnerabilities"), list):
+        raise ValueError("CSAF document has no vulnerabilities list")
+    vulns = data["vulnerabilities"]
     bugs: dict[str, list[str]] = {}
     for vuln in vulns:
         if not isinstance(vuln, dict):
@@ -179,13 +179,13 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
 def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]] | None:
     """Return the bug map, or None when the CSAF file could not be used.
 
-    An advisory page with no CSAF link returns an empty map. That is not
-    a failure. None tells the caller to keep the previous bug map.
+    None tells the caller to keep the previous bug map. A missing link
+    and a document that is not CSAF are both unavailable, not an empty map.
     """
     match = CSAF_RE.search(html)
     if not match:
-        log.warning("cpu no CSAF link url=%s", page_url)
-        return {}
+        log.warning("WARNING cpu no CSAF link url=%s", page_url)
+        return None
     csaf_url = urllib.parse.urljoin(page_url, match.group(1))
     try:
         raw = _fetch(csaf_url)
