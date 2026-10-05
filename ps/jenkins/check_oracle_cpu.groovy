@@ -73,6 +73,7 @@ pipeline {
                         --seed-marker ${SEED} \\
                         --bugs ${BUGS} \\
                         --notify-dir ${NOTIFY_DIR} \\
+                        --slack-state ${SLACK_STATE} \\
                         --notify ${env.CPU_NOTIFY_MODE} \\
                         ${params.IGNORE_STATE ? '--ignore-state' : ''} \\
                         --count ${ADVISORY_COUNT}
@@ -86,7 +87,7 @@ pipeline {
                         echo readFile(DEGRADED)
                         unstable('Oracle CPU collection degraded. Previous state kept for failed advisories.')
                         env.CPU_DEGRADED = '1'
-                        def remembered = [STATE, BUGS].findAll { fileExists(it) }
+                        def remembered = [STATE, BUGS, SLACK_STATE].findAll { fileExists(it) }
                         if (remembered) {
                             archiveArtifacts artifacts: remembered.join(','), allowEmptyArchive: true
                         }
@@ -100,23 +101,38 @@ pipeline {
             }
             steps {
                 script {
-                    if (env.CPU_DIFF == '1') {
-                        archiveArtifacts artifacts: "${DIFF},${STATE},${BUGS}", allowEmptyArchive: false
+                    // Fetched CVE state and still-pending messages go out
+                    // together, before any send. A later failure must not
+                    // leave the new baseline without the undelivered text.
+                    def prepared = [STATE, BUGS, SLACK_STATE, DIFF].findAll { fileExists(it) }
+                    if (prepared) {
+                        archiveArtifacts artifacts: prepared.join(','), allowEmptyArchive: true
                     }
                     def order = readFile("${NOTIFY_DIR}/order.txt").trim().split('\n')
                     def changed = readFile("${NOTIFY_DIR}/changed.txt").trim()
-                    def changedSlugs = changed ? changed.split('\n') : []
-                    for (def slug : order) {
-                        if (!slug) {
+                    def changedKeys = changed ? changed.split('\n') : []
+                    for (def key : order) {
+                        if (!key) {
                             continue
                         }
+                        def slug = key
+                        def pendingId = ''
+                        def splitAt = key.indexOf('--')
+                        if (splitAt > 0) {
+                            slug = key.substring(0, splitAt)
+                            pendingId = slug + ':' + key.substring(splitAt + 2)
+                        }
                         try {
-                        def text = readFile("${NOTIFY_DIR}/${slug}.txt").trim()
-                        def links = """Full list and diff: ${BUILD_URL}artifact/${DIFF}
-Bug to CVE map: ${BUILD_URL}artifact/${BUGS}
-State: ${BUILD_URL}artifact/${STATE}"""
+                        def text = readFile("${NOTIFY_DIR}/${key}.txt").trim()
+                        def linkLines = []
+                        if (fileExists(DIFF)) {
+                            linkLines << "Full list and diff: ${BUILD_URL}artifact/${DIFF}"
+                        }
+                        linkLines << "Bug to CVE map: ${BUILD_URL}artifact/${BUGS}"
+                        linkLines << "State: ${BUILD_URL}artifact/${STATE}"
+                        def links = linkLines.join('\n')
                         def message = "[${JOB_NAME}]: Oracle CPU/CSPU CVE change\n${text}"
-                        if (changedSlugs.contains(slug)) {
+                        if (changedKeys.contains(key)) {
                             message = "${message}\n\n${links}"
                         }
                         def threadId = ''
@@ -127,27 +143,52 @@ State: ${BUILD_URL}artifact/${STATE}"""
                             ).trim()
                         }
                         def target = threadId ? threadId : SLACK_CHANNEL
-                        def response = slackSend(
-                            botUser: true,
-                            channel: target,
-                            color: '#00FF00',
-                            message: message
-                        )
-                        if (!threadId) {
-                            if (!response?.threadId) {
-                                error("slackSend did not return a thread id for ${slug}")
+                        // failOnError true sets the build to FAILURE before
+                        // throwing. This job ignores FAILURE when restoring
+                        // state, so a caught failure would drop the pending
+                        // message. A failed send returns null and does not
+                        // throw when failOnError is left false.
+                        def response = null
+                        def delivered = false
+                        for (attempt in [1, 2, 3]) {
+                            response = slackSend(
+                                botUser: true,
+                                channel: target,
+                                color: '#00FF00',
+                                message: message,
+                                failOnError: false
+                            )
+                            if (response != null && (threadId || response.threadId)) {
+                                delivered = true
+                                break
                             }
+                            echo "WARNING cpu Slack attempt ${attempt}/3 failed for ${slug}: empty response"
+                            response = null
+                        }
+                        if (!delivered) {
+                            if (pendingId) {
+                                echo "WARNING cpu Slack not confirmed for ${slug}. Message stays pending."
+                                unstable("Slack delivery failed for ${slug}. Message stays pending.")
+                            } else {
+                                echo "WARNING cpu Slack not confirmed for ${slug}."
+                                unstable("Slack delivery failed for ${slug}.")
+                            }
+                        } else {
+                        if (!threadId) {
                             threadId = response.threadId
                             sh """python3 -c 'import json; from pathlib import Path; p=Path("${SLACK_STATE}"); data=json.loads(p.read_text()) if p.is_file() and p.stat().st_size else {}; threads=data.get("threads") or {}; threads["${slug}"]={"channelId":"${response.channelId}","ts":"${response.ts}","threadId":"${response.threadId}"}; data["threads"]=threads; p.write_text(json.dumps(data, indent=2)+"\\n")'"""
                             env.CPU_SLACK_SAVE = '1'
-                            // Archive now. A later advisory must not be able to
-                            // drop a thread id that Slack already accepted.
                             archiveArtifacts artifacts: SLACK_STATE, allowEmptyArchive: false
                         }
-                        if (changedSlugs.contains(slug)) {
+                        if (pendingId) {
+                            sh "python3 ps/jenkins/cpu_cves.py ack ${SLACK_STATE} '${pendingId}'"
+                            archiveArtifacts artifacts: SLACK_STATE, allowEmptyArchive: false
+                        }
+                        if (changedKeys.contains(key)) {
                             // failOnError is false by default, so a failed upload
                             // returns and the step does not throw. Retry only
-                            // sees a failure when the step throws.
+                            // sees a failure when the step throws. The text was
+                            // already confirmed, so this does not stay pending.
                             try {
                                 retry(3) {
                                     slackUploadFile(
@@ -162,9 +203,10 @@ State: ${BUILD_URL}artifact/${STATE}"""
                                 unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
                             }
                         }
+                        }
                         } catch (Exception err) {
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
-                            unstable("Slack delivery failed for ${slug}. Successful thread ids are kept.")
+                            unstable("Slack delivery failed for ${slug}. Message stays pending.")
                         }
                     }
                     def remembered = [STATE, BUGS, SLACK_STATE, DIFF].findAll { fileExists(it) }

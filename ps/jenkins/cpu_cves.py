@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import sys
 import json
 import logging
 import re
@@ -418,16 +419,115 @@ def apply_state(
     return changes, advisories
 
 
+def change_pending(change: dict[str, Any]) -> dict[str, str]:
+    """One undelivered Slack message. id is stable for the same new CVE set."""
+    slug = str(change["slug"])
+    sha = str(change["sha"])
+    return {
+        "id": f"{slug}:{sha}",
+        "slug": slug,
+        "sha": sha,
+        "slack": f"{change['title']}\n{change['url']}\n{change['slack']}",
+    }
+
+
+def merge_pending(
+    existing: list[Any],
+    changes: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    """Keep undelivered messages, then append changes not already pending.
+
+    The fetched CVE baseline can move forward while a message is still
+    pending. A later poll must not drop that message just because the
+    baseline already contains the new CVE set.
+    """
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in existing:
+        if not isinstance(item, dict):
+            continue
+        ident = str(item.get("id") or "")
+        slug = str(item.get("slug") or "")
+        text = str(item.get("slack") or "")
+        if not ident or not slug or not text or ident in seen:
+            continue
+        seen.add(ident)
+        out.append(
+            {
+                "id": ident,
+                "slug": slug,
+                "sha": str(item.get("sha") or ""),
+                "slack": text,
+            }
+        )
+    for change in changes:
+        item = change_pending(change)
+        if item["id"] in seen:
+            continue
+        seen.add(item["id"])
+        out.append(item)
+    return out
+
+
+def load_delivery(path: Path) -> tuple[dict[str, Any], str | None]:
+    """Return threads plus pending messages.
+
+    A missing file is an empty delivery state. A corrupt file is a
+    warning and is not treated as an empty successful delivery.
+    """
+    empty: dict[str, Any] = {"threads": {}, "pending": []}
+    if not path.is_file() or path.stat().st_size == 0:
+        return empty, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return empty, f"WARNING cpu slack state {path} is not JSON: {exc}"
+    if not isinstance(data, dict):
+        return empty, f"WARNING cpu slack state {path} is not a JSON object"
+    threads = data.get("threads") if isinstance(data.get("threads"), dict) else {}
+    pending = data.get("pending") if isinstance(data.get("pending"), list) else []
+    return {"threads": threads, "pending": pending}, None
+
+
+def save_delivery(path: Path, delivery: dict[str, Any]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "threads": delivery.get("threads") or {},
+                "pending": delivery.get("pending") or [],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def ack_pending(path: Path, pending_id: str) -> None:
+    """Drop one pending message after Slack has confirmed that send."""
+    delivery, error = load_delivery(path)
+    if error:
+        raise SystemExit(error)
+    delivery["pending"] = [
+        item
+        for item in delivery["pending"]
+        if isinstance(item, dict) and item.get("id") != pending_id
+    ]
+    save_delivery(path, delivery)
+
+
 def notification_items(
     events: list[dict[str, Any]],
     changes: list[dict[str, Any]],
     mode: str,
+    pending: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Slack posts, newest advisory first.
+    """Slack posts.
 
-    mode none posts only real CVE-set changes. latest also posts the
-    newest advisory when it did not change. all does that for every
-    watched advisory. Unchanged posts say "+0 -0 CVEs".
+    Pending messages come first, including ones whose CVE set is already
+    in the fetched baseline. mode none posts only real changes. latest
+    also posts the newest advisory when it did not change. all does that
+    for every watched advisory. Unchanged posts say "+0 -0 CVEs".
     """
     by_slug = {change["slug"]: change for change in changes}
     newest = None
@@ -437,6 +537,24 @@ def notification_items(
             newest = payload["slug"]
             break
     items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for entry in pending or []:
+        if not isinstance(entry, dict):
+            continue
+        ident = str(entry.get("id") or "")
+        slug = str(entry.get("slug") or "")
+        text = str(entry.get("slack") or "")
+        if not ident or not slug or not text or ident in seen:
+            continue
+        seen.add(ident)
+        items.append(
+            {
+                "id": ident,
+                "slug": slug,
+                "slack": text,
+                "changed": True,
+            }
+        )
     for ev in events:
         payload = ev.get("payload") or {}
         slug = payload.get("slug")
@@ -444,8 +562,12 @@ def notification_items(
             continue
         if slug in by_slug:
             change = by_slug[slug]
+            ident = f"{slug}:{change['sha']}"
+            if ident in seen:
+                continue
             items.append(
                 {
+                    "id": ident,
                     "slug": slug,
                     "slack": f"{change['title']}\n{change['url']}\n{change['slack']}",
                     "changed": True,
@@ -475,11 +597,13 @@ def write_notify_dir(path: Path, items: list[dict[str, Any]]) -> None:
     order = []
     changed = []
     for item in items:
-        slug = item["slug"]
-        order.append(slug)
-        (path / f"{slug}.txt").write_text(item["slack"].rstrip() + "\n", encoding="utf-8")
+        # Pending ids are "slug:sha". The file name uses "--" so the
+        # pipeline can recover both parts.
+        key = str(item.get("id") or item["slug"]).replace(":", "--")
+        order.append(key)
+        (path / f"{key}.txt").write_text(item["slack"].rstrip() + "\n", encoding="utf-8")
         if item["changed"]:
-            changed.append(slug)
+            changed.append(key)
     (path / "order.txt").write_text("\n".join(order) + ("\n" if order else ""), encoding="utf-8")
     (path / "changed.txt").write_text(
         "\n".join(changed) + ("\n" if changed else ""),
@@ -521,6 +645,7 @@ def write_run(
     seed_path: Path,
     bugs_path: Path,
     notify_dir: Path,
+    slack_state_path: Path,
     *,
     count: int,
     ignore_state: bool = False,
@@ -563,7 +688,17 @@ def write_run(
         json.dumps({"bugs": bug_map_from_advisories(advisories)}, indent=2) + "\n",
         encoding="utf-8",
     )
-    write_notify_dir(notify_dir, notification_items(events, changes, notify_mode))
+    delivery, delivery_error = load_delivery(slack_state_path)
+    if delivery_error:
+        warnings.append(delivery_error)
+        log.warning(delivery_error)
+        degraded.write_text("\n".join(warnings) + "\n", encoding="utf-8")
+    delivery["pending"] = merge_pending(delivery["pending"], changes)
+    save_delivery(slack_state_path, delivery)
+    write_notify_dir(
+        notify_dir,
+        notification_items(events, changes, notify_mode, delivery["pending"]),
+    )
     if previous is None:
         seed_path.write_text("1\n", encoding="utf-8")
     else:
@@ -580,6 +715,14 @@ def write_run(
 
 
 def main(argv: list[str] | None = None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == "ack":
+        if len(argv) != 3:
+            raise SystemExit("usage: cpu_cves.py ack SLACK_STATE PENDING_ID")
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+        ack_pending(Path(argv[1]), argv[2])
+        return
     parser = argparse.ArgumentParser(description="Diff Oracle CPU/CSPU CVE sets")
     parser.add_argument("--state", required=True, help="cpu-cves.json path")
     parser.add_argument("--diff", required=True, help="diff JSON path")
@@ -612,6 +755,11 @@ def main(argv: list[str] | None = None) -> None:
         required=True,
         help="Directory of per-advisory Slack texts",
     )
+    parser.add_argument(
+        "--slack-state",
+        required=True,
+        help="cpu-slack.json: thread ids and messages not yet confirmed",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     write_run(
@@ -621,6 +769,7 @@ def main(argv: list[str] | None = None) -> None:
         Path(args.seed_marker),
         Path(args.bugs),
         Path(args.notify_dir),
+        Path(args.slack_state),
         count=args.count,
         ignore_state=args.ignore_state,
         notify_mode=args.notify,
