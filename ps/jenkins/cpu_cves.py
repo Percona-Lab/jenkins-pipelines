@@ -82,7 +82,28 @@ def _parse_slug(slug: str) -> tuple[str, int, int]:
     return kind, MONTH[mon], year
 
 
+def strip_modification_history(html: str) -> str:
+    """Drop the Modification History section before CVE scanning.
+
+    A CVE removed from the risk matrix can still be named in that history.
+    The following risk-matrix headings stay. Other prose matches are kept.
+    """
+    match = re.search(
+        r"<h[1-6][^>]*>\s*Modification History\s*</h[1-6]>",
+        html,
+        re.I,
+    )
+    if not match:
+        return html
+    rest = html[match.end() :]
+    nxt = re.search(r"<h[1-6]\b", rest, re.I)
+    if not nxt:
+        return html[: match.start()]
+    return html[: match.start()] + rest[nxt.start() :]
+
+
 def parse_cves(html: str) -> list[str]:
+    html = strip_modification_history(html)
     return sorted({m.group(0).upper() for m in CVE_RE.finditer(html)})
 
 
