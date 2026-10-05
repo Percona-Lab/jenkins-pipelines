@@ -299,7 +299,7 @@ def fetch_bug_map(
                 outcome="recovered",
                 area="csaf",
                 slug=slug,
-                attempts=len(failed),
+                attempts=len(failed) + 1,
                 message=(
                     f"{slug} CSAF download failed {len(failed)} time(s), then succeeded."
                 ),
@@ -406,7 +406,6 @@ def collect(
     notes is filled as advisories are handled, so a later failure can
     still flush what was already recorded.
     """
-    warnings: list[str] = []
     if notes is None:
         notes = []
     stats: dict[str, Any] = {
@@ -414,7 +413,6 @@ def collect(
         "refreshed": 0,
         "page_cached": 0,
         "csaf_cached": 0,
-        "index_ok": False,
     }
     failed: list[str] = []
     try:
@@ -424,7 +422,6 @@ def collect(
             f"Index download failed after {len(failed) or 3} attempts: "
             f"{type(exc).__name__}. Previous advisory state is kept."
         )
-        warnings.append("WARNING cpu " + message)
         notes.append(
             issue(
                 level="warning",
@@ -437,14 +434,14 @@ def collect(
                 exception="\n".join(failed) if failed else exception_text(exc),
             )
         )
-        return [], warnings, False, notes, stats
+        return [], warning_lines(notes), False, notes, stats
     if failed:
         notes.append(
             issue(
                 level="info",
                 outcome="recovered",
                 area="index",
-                attempts=len(failed),
+                attempts=len(failed) + 1,
                 message=f"Index download failed {len(failed)} time(s), then succeeded.",
                 exception="\n".join(failed),
             )
@@ -459,7 +456,6 @@ def collect(
         slugs.append(slug)
     if not slugs:
         message = "Index has no CPU or CSPU advisory links. Previous advisory state is kept."
-        warnings.append("WARNING cpu " + message)
         notes.append(
             issue(
                 level="warning",
@@ -470,11 +466,10 @@ def collect(
                 impact="this poll does not replace the saved advisories",
             )
         )
-        return [], warnings, False, notes, stats
+        return [], warning_lines(notes), False, notes, stats
     slugs.sort(key=lambda s: (_parse_slug(s)[2], _parse_slug(s)[1]), reverse=True)
     picked = slugs[: max(0, count)]
     stats["picked"] = len(picked)
-    stats["index_ok"] = True
     log.info("cpu index slugs=%d picked=%d", len(slugs), len(picked))
     events = []
     for slug in picked:
@@ -489,7 +484,6 @@ def collect(
                 f"{slug} download failed after {len(failed) or 3} attempts: "
                 f"{type(exc).__name__}. Previous state for this advisory is kept."
             )
-            warnings.append("WARNING cpu " + message)
             notes.append(
                 issue(
                     level="warning",
@@ -512,7 +506,7 @@ def collect(
                     outcome="recovered",
                     area="page",
                     slug=slug,
-                    attempts=len(failed),
+                    attempts=len(failed) + 1,
                     message=(
                         f"{slug} download failed {len(failed)} time(s), then succeeded."
                     ),
@@ -525,7 +519,6 @@ def collect(
                 f"{slug} page has no CVE ids. "
                 "Previous state for this advisory is kept."
             )
-            warnings.append("WARNING cpu " + message)
             notes.append(
                 issue(
                     level="warning",
@@ -543,10 +536,6 @@ def collect(
         sha = cve_sha(cves)
         bug_cves = fetch_bug_map(url, page, notes, slug)
         if bug_cves is None:
-            warnings.append(
-                f"WARNING cpu CSAF for {slug} failed. "
-                "Previous bug map for this advisory is kept."
-            )
             stats["csaf_cached"] += 1
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
@@ -561,7 +550,6 @@ def collect(
         )
     if picked and not events:
         message = "Every advisory download failed. Previous state is kept."
-        warnings.append("WARNING cpu " + message)
         notes.append(
             issue(
                 level="warning",
@@ -572,7 +560,7 @@ def collect(
                 impact="no advisory was refreshed",
             )
         )
-    return events, warnings, True, notes, stats
+    return events, warning_lines(notes), True, notes, stats
 
 
 def stored_advisory(row: Any) -> dict[str, Any] | None:
@@ -946,7 +934,7 @@ def _write_run_body(
     notify_mode: str = "none",
     notes: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    events, warnings, index_ok, notes, stats = collect(count, notes)
+    events, _warnings, index_ok, notes, stats = collect(count, notes)
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
@@ -954,7 +942,6 @@ def _write_run_body(
     else:
         previous, baseline_error, baseline_exc = load_advisories(state_path)
     if baseline_error:
-        warnings.append(baseline_error)
         detail = baseline_error[12:] if baseline_error.startswith("WARNING cpu ") else baseline_error
         if previous is None:
             fallback = "this run treats the baseline as missing"
@@ -979,10 +966,6 @@ def _write_run_body(
                 exception=baseline_exc,
             )
         )
-    for line in warnings:
-        log.warning(line)
-    if warnings:
-        degraded.write_text("\n".join(warnings) + "\n", encoding="utf-8")
     if not index_ok:
         changes, advisories = [], {}
         for slug, row in (previous or {}).items():
@@ -1008,9 +991,6 @@ def _write_run_body(
     )
     delivery, delivery_error, delivery_exc = load_delivery(slack_state_path)
     if delivery_error:
-        warnings.append(delivery_error)
-        log.warning(delivery_error)
-        degraded.write_text("\n".join(warnings) + "\n", encoding="utf-8")
         notes.append(
             issue(
                 level="warning",
@@ -1052,6 +1032,7 @@ def _write_run_body(
     added = sum(len(change.get("added") or []) for change in changes)
     removed = sum(len(change.get("removed") or []) for change in changes)
     kept = reconcile_fallbacks(notes, previous)
+    publish_warnings(notes, degraded)
     run = {
         "picked": stats.get("picked", 0),
         "refreshed": stats.get("refreshed", 0),
@@ -1131,6 +1112,34 @@ def _drop_kept_claim(text: str, kept_sentence: str, absent_sentence: str) -> str
     if kept_sentence in text:
         return text.replace(kept_sentence, absent_sentence)
     return text
+
+
+def warning_lines(notes: list[dict[str, Any]]) -> list[str]:
+    """Console and degraded-file lines, taken only from structured notes."""
+    lines: list[str] = []
+    seen: set[str] = set()
+    for note in notes:
+        if note.get("level") not in ("warning", "error"):
+            continue
+        text = str(note.get("message") or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        if text.startswith("WARNING "):
+            lines.append(text)
+        else:
+            lines.append("WARNING cpu " + text)
+    return lines
+
+
+def publish_warnings(notes: list[dict[str, Any]], degraded: Path) -> None:
+    lines = warning_lines(notes)
+    for line in lines:
+        log.warning(line)
+    if lines:
+        degraded.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    else:
+        degraded.unlink(missing_ok=True)
 
 
 def reconcile_fallbacks(
