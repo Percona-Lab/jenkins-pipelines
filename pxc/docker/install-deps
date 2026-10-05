@@ -133,6 +133,13 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-libatomic-devel" 
     fi
 
+    if [[ ${RHVER} -eq 9 ]]; then
+        # Next packages are required by 9.7
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-gcc gcc-toolset-14-gcc-c++ gcc-toolset-14-binutils"
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-annobin-annocheck gcc-toolset-14-annobin-plugin-gcc"
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-libatomic-devel"
+    fi
+
     # KH: why?
     if [[ ${RHVER} -ne 8 ]]; then
         PKGLIST+=" asio-devel"
@@ -179,7 +186,7 @@ if [ -f /usr/bin/yum ]; then
     done
 
     if [[ ${RHVER} -eq 9 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}; do
             echo "waiting"
             sleep 1
         done           
