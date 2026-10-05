@@ -1342,6 +1342,10 @@ def render_status(
         description_lines.extend(headlines)
     full = list(lines)
     full.append("")
+    full.append(
+        "Warnings below are the Oracle poll and Slack delivery. "
+        "Other Jenkins log lines are not listed."
+    )
     full.append("Warnings:" if problems else "Warnings: none")
     for event in problems:
         full.append(_format_issue(event))

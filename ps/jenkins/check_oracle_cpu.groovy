@@ -76,6 +76,10 @@ pipeline {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps()
+        // Production mode rejects copyArtifacts unless the source job names
+        // the reader. This job copies its own last build. '*' also covers a
+        // later job that reads the bug map.
+        copyArtifactPermission('*')
     }
     stages {
         stage('Check advisories') {
