@@ -111,6 +111,7 @@ pipeline {
                     def order = readFile("${NOTIFY_DIR}/order.txt").trim().split('\n')
                     def changed = readFile("${NOTIFY_DIR}/changed.txt").trim()
                     def changedKeys = changed ? changed.split('\n') : []
+                    def blockedSlugs = []
                     for (def key : order) {
                         if (!key) {
                             continue
@@ -121,6 +122,10 @@ pipeline {
                         if (splitAt > 0) {
                             slug = key.substring(0, splitAt)
                             pendingId = slug + ':' + key.substring(splitAt + 2)
+                        }
+                        if (blockedSlugs.contains(slug)) {
+                            echo "WARNING cpu Slack skipped ${slug}; an older message for this advisory was not delivered."
+                            continue
                         }
                         try {
                         def text = readFile("${NOTIFY_DIR}/${key}.txt").trim()
@@ -166,6 +171,7 @@ pipeline {
                             response = null
                         }
                         if (!delivered) {
+                            blockedSlugs.add(slug)
                             if (pendingId) {
                                 echo "WARNING cpu Slack not confirmed for ${slug}. Message stays pending."
                                 unstable("Slack delivery failed for ${slug}. Message stays pending.")
@@ -205,6 +211,7 @@ pipeline {
                         }
                         }
                         } catch (Exception err) {
+                            blockedSlugs.add(slug)
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
                             unstable("Slack delivery failed for ${slug}. Message stays pending.")
                         }
