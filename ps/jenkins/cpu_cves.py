@@ -259,6 +259,23 @@ def fetch(count: int) -> list[dict[str, Any]]:
     return events
 
 
+def stored_advisory(row: Any) -> dict[str, Any] | None:
+    """Return a usable advisory row, or None when the saved value is the wrong type.
+
+    A string or number in cves used to raise or be treated as a CVE list and
+    abort the bug-map write.
+    """
+    if not isinstance(row, dict):
+        return None
+    raw_cves = row.get("cves", [])
+    if not isinstance(raw_cves, list) or not all(isinstance(item, str) for item in raw_cves):
+        return None
+    sha = row.get("sha") or ""
+    if not isinstance(sha, str):
+        return None
+    return {"sha": sha, "cves": list(raw_cves)}
+
+
 def apply_state(
     events: list[dict[str, Any]],
     state: dict[str, Any] | None,
@@ -278,10 +295,11 @@ def apply_state(
     advisories: dict[str, Any] = {}
     if state is not None:
         for slug, row in state.items():
-            advisories[slug] = {
-                "sha": row.get("sha") or "",
-                "cves": list(row.get("cves") or []),
-            }
+            stored = stored_advisory(row)
+            if stored is None:
+                log.warning("WARNING cpu baseline row %s is malformed and was skipped", slug)
+                continue
+            advisories[slug] = stored
     newest = None
     if events:
         newest = (events[0].get("payload") or {}).get("slug")
@@ -411,7 +429,22 @@ def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     advisories = data.get("advisories", data)
     if not isinstance(advisories, dict):
         return None, f"WARNING cpu baseline {path} has no advisories object"
-    return advisories, None
+    kept: dict[str, Any] = {}
+    bad: list[str] = []
+    for slug, row in advisories.items():
+        stored = stored_advisory(row)
+        if stored is None:
+            bad.append(str(slug))
+            continue
+        kept[slug] = stored
+    if not bad:
+        return kept, None
+    warning = (
+        f"WARNING cpu baseline {path} skipped malformed advisories: {', '.join(bad)}"
+    )
+    if not kept:
+        return None, warning
+    return kept, warning
 
 
 def write_run(
