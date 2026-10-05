@@ -16,36 +16,12 @@ def RUN = 'cpu-run.json'
 def STATUS = 'cpu-status.txt'
 
 def cpuThrowableText(err) {
-    def lines = []
-    def current = err
-    def guard = 0
-    while (current != null && guard < 15) {
-        lines << current.toString()
-        try {
-            def frames = current.stackTrace
-            def shown = 0
-            if (frames != null) {
-                for (frame in frames) {
-                    lines << "    at ${frame}"
-                    shown++
-                    if (shown >= 40) {
-                        lines << "    ..."
-                        break
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-            lines << "    (stack trace unavailable: ${ignored})"
-        }
-        try {
-            current = current.cause
-        } catch (Exception ignored) {
-            lines << "    (cause unavailable: ${ignored})"
-            break
-        }
-        guard++
-    }
-    return lines.join('\n')
+    // printStackTrace walks causes, suppressed exceptions, and cycles.
+    def sw = new StringWriter()
+    def pw = new PrintWriter(sw)
+    err.printStackTrace(pw)
+    pw.flush()
+    return sw.toString()
 }
 
 def cpuEvent(String eventsPath, String level, String outcome, String area, String slug, int attempts, String message, String fallback, String impact, String exceptionText) {
