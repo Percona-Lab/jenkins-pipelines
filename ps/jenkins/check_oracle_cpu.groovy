@@ -112,7 +112,13 @@ pipeline {
                         }
                         try {
                         def text = readFile("${NOTIFY_DIR}/${slug}.txt").trim()
+                        def links = """Full list and diff: ${BUILD_URL}artifact/${DIFF}
+Bug to CVE map: ${BUILD_URL}artifact/${BUGS}
+State: ${BUILD_URL}artifact/${STATE}"""
                         def message = "[${JOB_NAME}]: Oracle CPU/CSPU CVE change\n${text}"
+                        if (changedSlugs.contains(slug)) {
+                            message = "${message}\n\n${links}"
+                        }
                         def threadId = ''
                         if (fileExists(SLACK_STATE)) {
                             threadId = sh(
@@ -139,34 +145,21 @@ pipeline {
                             archiveArtifacts artifacts: SLACK_STATE, allowEmptyArchive: false
                         }
                         if (changedSlugs.contains(slug)) {
-                            // slackUploadFile sometimes throws IllegalStateException:
-                            // Response content has been already consumed, in
-                            // SlackUploadFileRunner.uploadFile, after a non-200
-                            // file POST. No open jenkinsci/slack-plugin issue
-                            // describes that. Nearest: issue 1074. A later ps3
-                            // build did attach the file, so retry, then fall
-                            // back to the artifact links with no file.
-                            def links = """Full list and diff: ${BUILD_URL}artifact/${DIFF}
-Bug to CVE map: ${BUILD_URL}artifact/${BUGS}
-State: ${BUILD_URL}artifact/${STATE}"""
-                            def uploaded = false
-                            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            // failOnError is false by default, so a failed upload
+                            // returns and the step does not throw. Retry only
+                            // sees a failure when the step throws.
+                            try {
                                 retry(3) {
                                     slackUploadFile(
                                         channel: threadId,
                                         filePath: BUGS,
-                                        initialComment: links
+                                        initialComment: 'Bug to CVE map',
+                                        failOnError: true
                                     )
                                 }
-                                uploaded = true
-                            }
-                            if (!uploaded) {
-                                slackSend(
-                                    botUser: true,
-                                    channel: threadId,
-                                    color: '#00FF00',
-                                    message: links
-                                )
+                            } catch (Exception uploadErr) {
+                                echo "WARNING cpu Slack file upload failed for ${slug}: ${uploadErr}"
+                                unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
                             }
                         }
                         } catch (Exception err) {
