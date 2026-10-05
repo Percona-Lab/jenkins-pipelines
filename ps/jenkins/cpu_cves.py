@@ -315,17 +315,20 @@ def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
             )
             continue
         cves = parse_cves(page)
+        if not cves:
+            warnings.append(
+                "WARNING cpu advisory "
+                f"{slug} page has no CVE ids. "
+                "Previous state for this advisory is kept."
+            )
+            continue
         sha = cve_sha(cves)
-        bug_cves: dict[str, list[str]] | None
-        if cves:
-            bug_cves = fetch_bug_map(url, page)
-            if bug_cves is None:
-                warnings.append(
-                    f"WARNING cpu CSAF for {slug} failed. "
-                    "Previous bug map for this advisory is kept."
-                )
-        else:
-            bug_cves = {}
+        bug_cves = fetch_bug_map(url, page)
+        if bug_cves is None:
+            warnings.append(
+                f"WARNING cpu CSAF for {slug} failed. "
+                "Previous bug map for this advisory is kept."
+            )
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
         events.append(
