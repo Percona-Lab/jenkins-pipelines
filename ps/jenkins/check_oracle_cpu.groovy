@@ -110,6 +110,7 @@ pipeline {
                         if (!slug) {
                             continue
                         }
+                        try {
                         def text = readFile("${NOTIFY_DIR}/${slug}.txt").trim()
                         def message = "[${JOB_NAME}]: Oracle CPU/CSPU CVE change\n${text}"
                         def threadId = ''
@@ -133,6 +134,9 @@ pipeline {
                             threadId = response.threadId
                             sh """python3 -c 'import json; from pathlib import Path; p=Path("${SLACK_STATE}"); data=json.loads(p.read_text()) if p.is_file() and p.stat().st_size else {}; threads=data.get("threads") or {}; threads["${slug}"]={"channelId":"${response.channelId}","ts":"${response.ts}","threadId":"${response.threadId}"}; data["threads"]=threads; p.write_text(json.dumps(data, indent=2)+"\\n")'"""
                             env.CPU_SLACK_SAVE = '1'
+                            // Archive now. A later advisory must not be able to
+                            // drop a thread id that Slack already accepted.
+                            archiveArtifacts artifacts: SLACK_STATE, allowEmptyArchive: false
                         }
                         if (changedSlugs.contains(slug)) {
                             // slackUploadFile sometimes throws IllegalStateException:
@@ -164,6 +168,10 @@ State: ${BUILD_URL}artifact/${STATE}"""
                                     message: links
                                 )
                             }
+                        }
+                        } catch (Exception err) {
+                            echo "WARNING cpu Slack failed for ${slug}: ${err}"
+                            unstable("Slack delivery failed for ${slug}. Successful thread ids are kept.")
                         }
                     }
                     def remembered = [STATE, BUGS, SLACK_STATE, DIFF].findAll { fileExists(it) }
