@@ -248,7 +248,6 @@ def ack_pending(path: Path, pending_id: str) -> None:
 
 def notification_items(
     events: list[dict[str, Any]],
-    changes: list[dict[str, Any]],
     mode: str,
     pending: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
@@ -505,7 +504,7 @@ def _write_run_body(
     try:
         write_notify_dir(
             notify_dir,
-            notification_items(events, changes, notify_mode, delivery["pending"]),
+            notification_items(events, notify_mode, delivery["pending"]),
         )
         if changes:
             diff_path.write_text(
