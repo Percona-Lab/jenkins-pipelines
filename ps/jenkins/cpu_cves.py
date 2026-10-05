@@ -391,15 +391,15 @@ def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
 
 def fetch(count: int) -> list[dict[str, Any]]:
     """Newest advisory first. A page that still fails after retries is omitted."""
-    events, _warnings, _ok, _notes, _stats = collect(count)
+    events, _ok, _notes, _stats = collect(count)
     return events
 
 
 def collect(
     count: int,
     notes: list[dict[str, Any]] | None = None,
-) -> tuple[list[dict[str, Any]], list[str], bool, list[dict[str, Any]], dict[str, Any]]:
-    """Return events, warning lines, index ok, issue notes, and counts.
+) -> tuple[list[dict[str, Any]], bool, list[dict[str, Any]], dict[str, Any]]:
+    """Return events, index ok, issue notes, and counts.
 
     A failed advisory page is not an event. The caller keeps that slug's
     previous state. bug_cves is None when the CSAF file could not be used.
@@ -411,8 +411,6 @@ def collect(
     stats: dict[str, Any] = {
         "picked": 0,
         "refreshed": 0,
-        "page_cached": 0,
-        "csaf_cached": 0,
     }
     failed: list[str] = []
     try:
@@ -434,7 +432,7 @@ def collect(
                 exception="\n".join(failed) if failed else exception_text(exc),
             )
         )
-        return [], warning_lines(notes), False, notes, stats
+        return [], False, notes, stats
     if failed:
         notes.append(
             issue(
@@ -466,7 +464,7 @@ def collect(
                 impact="this poll does not replace the saved advisories",
             )
         )
-        return [], warning_lines(notes), False, notes, stats
+        return [], False, notes, stats
     slugs.sort(key=lambda s: (_parse_slug(s)[2], _parse_slug(s)[1]), reverse=True)
     picked = slugs[: max(0, count)]
     stats["picked"] = len(picked)
@@ -497,7 +495,6 @@ def collect(
                     exception="\n".join(failed) if failed else exception_text(exc),
                 )
             )
-            stats["page_cached"] += 1
             continue
         if failed:
             notes.append(
@@ -530,13 +527,10 @@ def collect(
                     impact="this advisory is not refreshed",
                 )
             )
-            stats["page_cached"] += 1
             continue
         stats["refreshed"] += 1
         sha = cve_sha(cves)
         bug_cves = fetch_bug_map(url, page, notes, slug)
-        if bug_cves is None:
-            stats["csaf_cached"] += 1
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
         events.append(
@@ -560,7 +554,7 @@ def collect(
                 impact="no advisory was refreshed",
             )
         )
-    return events, warning_lines(notes), True, notes, stats
+    return events, True, notes, stats
 
 
 def stored_advisory(row: Any) -> dict[str, Any] | None:
@@ -927,7 +921,7 @@ def _write_run_body(
     notify_mode: str = "none",
     notes: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    events, _warnings, index_ok, notes, stats = collect(count, notes)
+    events, index_ok, notes, stats = collect(count, notes)
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
