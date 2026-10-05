@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import logging
 import re
@@ -27,6 +28,14 @@ log = logging.getLogger("ps_notify")
 
 INDEX = "https://www.oracle.com/security-alerts/"
 UA = "Mozilla/5.0 (compatible; ps-notify-cpu/1.0)"
+# IncompleteRead is an HTTPException, not a URLError or OSError. A truncated
+# body must retry like a connection failure, then fall back per advisory.
+FETCH_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    OSError,
+    http.client.HTTPException,
+)
 HREF_RE = re.compile(
     r'href="[^"]*?((?:cpu|cspu)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{4}))\.html"',
     re.I,
@@ -72,7 +81,7 @@ def _fetch(url: str) -> str:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, context=ctx, timeout=120) as resp:
                 body = resp.read().decode("utf-8", "replace")
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except FETCH_ERRORS as exc:
             last = exc
             log.warning(
                 "WARNING cpu fetch attempt %s/3 failed url=%s err=%s",
@@ -180,7 +189,7 @@ def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]] | None:
     csaf_url = urllib.parse.urljoin(page_url, match.group(1))
     try:
         raw = _fetch(csaf_url)
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except FETCH_ERRORS as exc:
         log.warning(
             "WARNING cpu CSAF fetch failed url=%s err=%s",
             csaf_url,
@@ -272,7 +281,7 @@ def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
     warnings: list[str] = []
     try:
         html = _fetch(INDEX)
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except FETCH_ERRORS as exc:
         warnings.append(
             f"WARNING cpu index download failed after 3 tries: {type(exc).__name__}"
         )
@@ -298,7 +307,7 @@ def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
         url = f"https://www.oracle.com/security-alerts/{slug}.html"
         try:
             page = _fetch(url)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except FETCH_ERRORS as exc:
             warnings.append(
                 "WARNING cpu advisory "
                 f"{slug} download failed after 3 tries: {type(exc).__name__}. "
