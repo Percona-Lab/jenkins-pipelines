@@ -84,7 +84,6 @@ pipeline {
     stages {
         stage('Check advisories') {
             steps {
-                checkout scm
                 sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED} ${PUBLISH} ${EVENTS} ${RUN} ${STATUS} cpu-description.txt"
                 script {
                     // SUCCESS or UNSTABLE, not NOT_BUILT or FAILURE. A degraded
