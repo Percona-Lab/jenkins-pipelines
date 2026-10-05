@@ -556,6 +556,37 @@ def collect(
     return events, warnings, True, notes, stats
 
 
+def stored_advisory(row: Any) -> dict[str, Any] | None:
+    """Return a usable advisory row, or None when the saved value is the wrong type.
+
+    A string or number in cves used to raise or be treated as a CVE list and
+    abort the bug-map write.
+    """
+    if not isinstance(row, dict):
+        return None
+    raw_cves = row.get("cves", [])
+    if not isinstance(raw_cves, list) or not all(isinstance(item, str) for item in raw_cves):
+        return None
+    sha = row.get("sha") or ""
+    if not isinstance(sha, str):
+        return None
+    raw_bugs = row.get("bug_cves", {})
+    if raw_bugs is None:
+        raw_bugs = {}
+    if not isinstance(raw_bugs, dict):
+        return None
+    bugs: dict[str, list[str]] = {}
+    for key, cves in raw_bugs.items():
+        if not isinstance(cves, list) or not all(isinstance(item, str) for item in cves):
+            return None
+        bugs[str(key)] = list(cves)
+    return {
+        "sha": sha or cve_sha(list(raw_cves)),
+        "cves": list(raw_cves),
+        "bug_cves": bugs,
+    }
+
+
 def apply_state(
     events: list[dict[str, Any]],
     state: dict[str, Any] | None,
@@ -575,15 +606,11 @@ def apply_state(
     advisories: dict[str, Any] = {}
     if state is not None:
         for slug, row in state.items():
-            if not isinstance(row, dict):
+            stored = stored_advisory(row)
+            if stored is None:
+                log.warning("WARNING cpu baseline row %s is malformed and was skipped", slug)
                 continue
-            cves = list(row.get("cves") or [])
-            raw_bugs = row.get("bug_cves") if isinstance(row.get("bug_cves"), dict) else {}
-            advisories[slug] = {
-                "sha": row.get("sha") or cve_sha(cves),
-                "cves": cves,
-                "bug_cves": {str(k): list(v) for k, v in raw_bugs.items()},
-            }
+            advisories[slug] = stored
     newest = None
     if events:
         newest = (events[0].get("payload") or {}).get("slug")
@@ -856,7 +883,22 @@ def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str]
     advisories = data.get("advisories", data)
     if not isinstance(advisories, dict):
         return None, f"WARNING cpu baseline {path} has no advisories object", ""
-    return advisories, None, ""
+    kept: dict[str, Any] = {}
+    bad: list[str] = []
+    for slug, row in advisories.items():
+        stored = stored_advisory(row)
+        if stored is None:
+            bad.append(str(slug))
+            continue
+        kept[slug] = stored
+    if not bad:
+        return kept, None, ""
+    warning = (
+        f"WARNING cpu baseline {path} skipped malformed advisories: {', '.join(bad)}"
+    )
+    if not kept:
+        return None, warning, ""
+    return kept, warning, ""
 
 
 def write_run(
@@ -882,17 +924,26 @@ def write_run(
     if baseline_error:
         warnings.append(baseline_error)
         detail = baseline_error[12:] if baseline_error.startswith("WARNING cpu ") else baseline_error
+        if previous is None:
+            fallback = "this run treats the baseline as missing"
+            impact = (
+                "the newest advisory can be notified again; "
+                "the bug map from this run is still written"
+            )
+        else:
+            fallback = "malformed rows were skipped"
+            impact = (
+                "the other advisories stay the baseline; "
+                "the bug map from this run is still written"
+            )
         notes.append(
             issue(
                 level="warning",
                 outcome="failed",
                 area="baseline",
                 message=detail,
-                fallback="this run treats the baseline as missing",
-                impact=(
-                    "the newest advisory can be notified again; "
-                    "the bug map from this run is still written"
-                ),
+                fallback=fallback,
+                impact=impact,
                 exception=baseline_exc,
             )
         )
@@ -901,15 +952,13 @@ def write_run(
     if warnings:
         degraded.write_text("\n".join(warnings) + "\n", encoding="utf-8")
     if not index_ok:
-        changes, advisories = [], {
-            slug: {
-                "sha": row.get("sha") or "",
-                "cves": list(row.get("cves") or []),
-                "bug_cves": dict(row.get("bug_cves") or {}),
-            }
-            for slug, row in (previous or {}).items()
-            if isinstance(row, dict)
-        }
+        changes, advisories = [], {}
+        for slug, row in (previous or {}).items():
+            stored = stored_advisory(row)
+            if stored is None:
+                log.warning("WARNING cpu baseline row %s is malformed and was skipped", slug)
+                continue
+            advisories[slug] = stored
     else:
         changes, advisories = apply_state(
             events,
