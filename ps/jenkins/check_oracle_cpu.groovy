@@ -10,6 +10,7 @@ def SLACK = 'cpu-cves-slack.txt'
 def SLACK_STATE = 'cpu-slack.json'
 def SEED = 'cpu-cves-seed'
 def NOTIFY_DIR = 'cpu-notify'
+def DEGRADED = 'cpu-degraded.txt'
 // Ten advisories, not five. A fix can land in a later tag for a CVE
 // published in an older CPU or CSPU, and the stored JSON stays small.
 def ADVISORY_COUNT = '10'
@@ -41,13 +42,15 @@ pipeline {
         stage('Check advisories') {
             steps {
                 checkout scm
-                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR}"
+                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED}"
                 script {
-                    // Previous SUCCESS build, not NOT_BUILT. IGNORE_STATE skips the CVE baseline only.
+                    // SUCCESS or UNSTABLE, not NOT_BUILT or FAILURE. A degraded
+                    // poll is UNSTABLE and still holds the advisory state.
+                    // IGNORE_STATE skips the CVE baseline only.
                     def filter = params.IGNORE_STATE ? SLACK_STATE : "${STATE},${SLACK_STATE}"
                     copyArtifacts(
                         projectName: env.JOB_NAME,
-                        selector: lastSuccessful(),
+                        selector: [$class: 'StatusBuildSelector', stable: false],
                         filter: filter,
                         optional: true,
                         flatten: true,
@@ -78,6 +81,16 @@ pipeline {
                     def order = fileExists("${NOTIFY_DIR}/order.txt") ? readFile("${NOTIFY_DIR}/order.txt").trim() : ''
                     env.CPU_DIFF = fileExists(DIFF) ? '1' : '0'
                     env.CPU_NOTIFY = order ? '1' : '0'
+                    env.CPU_DEGRADED = '0'
+                    if (fileExists(DEGRADED)) {
+                        echo readFile(DEGRADED)
+                        unstable('Oracle CPU collection degraded. Previous state kept for failed advisories.')
+                        env.CPU_DEGRADED = '1'
+                        def remembered = [STATE, BUGS].findAll { fileExists(it) }
+                        if (remembered) {
+                            archiveArtifacts artifacts: remembered.join(','), allowEmptyArchive: true
+                        }
+                    }
                 }
             }
         }
@@ -162,7 +175,10 @@ State: ${BUILD_URL}artifact/${STATE}"""
         }
         stage('Mark unchanged') {
             when {
-                environment name: 'CPU_NOTIFY', value: '0'
+                allOf {
+                    environment name: 'CPU_NOTIFY', value: '0'
+                    environment name: 'CPU_DEGRADED', value: '0'
+                }
             }
             steps {
                 script {

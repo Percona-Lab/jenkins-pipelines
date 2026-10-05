@@ -16,6 +16,7 @@ import json
 import logging
 import re
 import ssl
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -63,10 +64,28 @@ MONTH_NAME = {
 
 
 def _fetch(url: str) -> str:
+    """GET url, pause one second, and try again up to 3 times."""
     ctx = ssl.create_default_context()
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, context=ctx, timeout=120) as resp:
-        return resp.read().decode("utf-8", "replace")
+    last: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, context=ctx, timeout=120) as resp:
+                body = resp.read().decode("utf-8", "replace")
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last = exc
+            log.warning(
+                "WARNING cpu fetch attempt %s/3 failed url=%s err=%s",
+                attempt,
+                url,
+                type(exc).__name__,
+            )
+            time.sleep(1)
+            continue
+        time.sleep(1)
+        return body
+    assert last is not None
+    raise last
 
 
 def _parse_slug(slug: str) -> tuple[str, int, int]:
@@ -148,7 +167,12 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     return bugs
 
 
-def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]]:
+def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]] | None:
+    """Return the bug map, or None when the CSAF file could not be used.
+
+    An advisory page with no CSAF link returns an empty map. That is not
+    a failure. None tells the caller to keep the previous bug map.
+    """
     match = CSAF_RE.search(html)
     if not match:
         log.warning("cpu no CSAF link url=%s", page_url)
@@ -157,16 +181,30 @@ def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]]:
     try:
         raw = _fetch(csaf_url)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        log.warning("cpu CSAF fetch failed url=%s err=%s", csaf_url, type(exc).__name__)
-        return {}
+        log.warning(
+            "WARNING cpu CSAF fetch failed url=%s err=%s",
+            csaf_url,
+            type(exc).__name__,
+        )
+        return None
     try:
         data = json.loads(raw)
         bug_map = bug_map_from_csaf(data)
     except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
         log.warning("WARNING cpu CSAF unusable url=%s err=%s", csaf_url, exc)
-        return {}
+        return None
     log.info("cpu CSAF url=%s bugs=%d", csaf_url, len(bug_map))
     return bug_map
+
+
+def bug_map_from_advisories(advisories: dict[str, Any]) -> dict[str, list[str]]:
+    """Flatten per-advisory bug maps, including ones kept from older state."""
+    fake = [
+        {"payload": {"bug_cves": (row or {}).get("bug_cves") or {}}}
+        for row in advisories.values()
+        if isinstance(row, dict)
+    ]
+    return merge_bug_maps(fake)
 
 
 def merge_bug_maps(events: list[dict[str, Any]]) -> dict[str, list[str]]:
@@ -220,8 +258,25 @@ def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
 
 
 def fetch(count: int) -> list[dict[str, Any]]:
-    """Newest advisory first. Pages that fail to download are skipped."""
-    html = _fetch(INDEX)
+    """Newest advisory first. A page that still fails after retries is omitted."""
+    events, _warnings, _ok = collect(count)
+    return events
+
+
+def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
+    """Return events, warning lines, and whether the index was usable.
+
+    A failed advisory page is not an event. The caller keeps that slug's
+    previous state. bug_cves is None when the CSAF file could not be used.
+    """
+    warnings: list[str] = []
+    try:
+        html = _fetch(INDEX)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        warnings.append(
+            f"WARNING cpu index download failed after 3 tries: {type(exc).__name__}"
+        )
+        return [], warnings, False
     seen: set[str] = set()
     slugs: list[str] = []
     for match in HREF_RE.finditer(html):
@@ -230,6 +285,9 @@ def fetch(count: int) -> list[dict[str, Any]]:
             continue
         seen.add(slug)
         slugs.append(slug)
+    if not slugs:
+        warnings.append("WARNING cpu index has no CPU or CSPU advisory links")
+        return [], warnings, False
     slugs.sort(key=lambda s: (_parse_slug(s)[2], _parse_slug(s)[1]), reverse=True)
     picked = slugs[: max(0, count)]
     log.info("cpu index slugs=%d picked=%d", len(slugs), len(picked))
@@ -241,12 +299,26 @@ def fetch(count: int) -> list[dict[str, Any]]:
         try:
             page = _fetch(url)
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            log.warning("cpu advisory fetch failed slug=%s err=%s", slug, type(exc).__name__)
+            warnings.append(
+                "WARNING cpu advisory "
+                f"{slug} download failed after 3 tries: {type(exc).__name__}. "
+                "Previous state for this advisory is kept."
+            )
             continue
         cves = parse_cves(page)
         sha = cve_sha(cves)
-        bug_cves = fetch_bug_map(url, page) if cves else {}
-        log.info("cpu slug=%s cves=%d sha=%s bugs=%d", slug, len(cves), sha, len(bug_cves))
+        bug_cves: dict[str, list[str]] | None
+        if cves:
+            bug_cves = fetch_bug_map(url, page)
+            if bug_cves is None:
+                warnings.append(
+                    f"WARNING cpu CSAF for {slug} failed. "
+                    "Previous bug map for this advisory is kept."
+                )
+        else:
+            bug_cves = {}
+        logged = -1 if bug_cves is None else len(bug_cves)
+        log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
         events.append(
             {
                 "id": f"cpu:{slug}:{sha}",
@@ -256,7 +328,11 @@ def fetch(count: int) -> list[dict[str, Any]]:
                 "payload": {"slug": slug, "cves": cves, "bug_cves": bug_cves},
             }
         )
-    return events
+    if picked and not events:
+        warnings.append(
+            "WARNING cpu every advisory download failed. Previous state is kept."
+        )
+    return events, warnings, True
 
 
 def apply_state(
@@ -278,9 +354,14 @@ def apply_state(
     advisories: dict[str, Any] = {}
     if state is not None:
         for slug, row in state.items():
+            if not isinstance(row, dict):
+                continue
+            cves = list(row.get("cves") or [])
+            raw_bugs = row.get("bug_cves") if isinstance(row.get("bug_cves"), dict) else {}
             advisories[slug] = {
-                "sha": row.get("sha") or "",
-                "cves": list(row.get("cves") or []),
+                "sha": row.get("sha") or cve_sha(cves),
+                "cves": cves,
+                "bug_cves": {str(k): list(v) for k, v in raw_bugs.items()},
             }
     newest = None
     if events:
@@ -295,20 +376,39 @@ def apply_state(
         if not new:
             log.info("cpu skip empty slug=%s", slug)
             continue
+        fresh_bugs = payload.get("bug_cves")
+        if fresh_bugs is None:
+            bug_cves = dict((advisories.get(slug) or {}).get("bug_cves") or {})
+        else:
+            bug_cves = fresh_bugs
         if seeding and slug != newest and not report_seeded:
-            advisories[slug] = {"sha": cve_sha(new), "cves": new}
+            advisories[slug] = {
+                "sha": cve_sha(new),
+                "cves": new,
+                "bug_cves": bug_cves,
+            }
             log.info("cpu seed slug=%s cves=%d", slug, len(new))
             continue
         old = list((advisories.get(slug) or {}).get("cves") or [])
         change = describe_change(old, new)
         if change is None:
+            kept = advisories.get(slug) or {}
+            advisories[slug] = {
+                "sha": kept.get("sha") or cve_sha(new),
+                "cves": new,
+                "bug_cves": bug_cves,
+            }
             log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
             continue
         change["slug"] = slug
         change["title"] = ev.get("title") or slug
         change["url"] = ev.get("url") or ""
         changes.append(change)
-        advisories[slug] = {"sha": change["sha"], "cves": list(new)}
+        advisories[slug] = {
+            "sha": change["sha"],
+            "cves": list(new),
+            "bug_cves": bug_cves,
+        }
         log.info(
             "cpu diff slug=%s +%d -%d",
             slug,
@@ -426,7 +526,7 @@ def write_run(
     ignore_state: bool = False,
     notify_mode: str = "none",
 ) -> None:
-    events = fetch(count)
+    events, warnings, index_ok = collect(count)
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
@@ -434,19 +534,33 @@ def write_run(
     else:
         previous, baseline_error = load_advisories(state_path)
     if baseline_error:
-        log.warning(baseline_error)
-        degraded.write_text(baseline_error + "\n", encoding="utf-8")
-    changes, advisories = apply_state(
-        events,
-        previous,
-        report_seeded=(previous is None and notify_mode == "all"),
-    )
+        warnings.append(baseline_error)
+    for line in warnings:
+        log.warning(line)
+    if warnings:
+        degraded.write_text("\n".join(warnings) + "\n", encoding="utf-8")
+    if not index_ok:
+        changes, advisories = [], {
+            slug: {
+                "sha": row.get("sha") or "",
+                "cves": list(row.get("cves") or []),
+                "bug_cves": dict(row.get("bug_cves") or {}),
+            }
+            for slug, row in (previous or {}).items()
+            if isinstance(row, dict)
+        }
+    else:
+        changes, advisories = apply_state(
+            events,
+            previous,
+            report_seeded=(previous is None and notify_mode == "all"),
+        )
     state_path.write_text(
         json.dumps({"advisories": advisories}, indent=2) + "\n",
         encoding="utf-8",
     )
     bugs_path.write_text(
-        json.dumps({"bugs": merge_bug_maps(events)}, indent=2) + "\n",
+        json.dumps({"bugs": bug_map_from_advisories(advisories)}, indent=2) + "\n",
         encoding="utf-8",
     )
     write_notify_dir(notify_dir, notification_items(events, changes, notify_mode))
