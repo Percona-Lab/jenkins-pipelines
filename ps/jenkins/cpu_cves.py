@@ -891,13 +891,6 @@ def write_notify_dir(path: Path, items: list[dict[str, Any]]) -> None:
     )
 
 
-def slack_text(changes: list[dict[str, Any]]) -> str:
-    blocks = []
-    for change in changes:
-        blocks.append(f"{change['title']}\n{change['url']}\n{change['slack']}")
-    return "\n\n".join(blocks) + ("\n" if blocks else "")
-
-
 def _saved_parser(data: dict[str, Any]) -> int:
     value = data.get("parser", 0)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -947,8 +940,6 @@ def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str,
 def _write_run_body(
     state_path: Path,
     diff_path: Path,
-    slack_path: Path,
-    seed_path: Path,
     bugs_path: Path,
     notify_dir: Path,
     slack_state_path: Path,
@@ -1068,23 +1059,32 @@ def _write_run_body(
         )
     delivery["pending"] = merge_pending(delivery["pending"], changes)
     save_delivery(slack_state_path, delivery)
-    write_notify_dir(
-        notify_dir,
-        notification_items(events, changes, notify_mode, delivery["pending"]),
-    )
-    if previous is None:
-        seed_path.write_text("1\n", encoding="utf-8")
-    else:
-        seed_path.unlink(missing_ok=True)
-    if changes:
-        diff_path.write_text(
-            json.dumps({"changes": changes}, indent=2) + "\n",
-            encoding="utf-8",
+    try:
+        write_notify_dir(
+            notify_dir,
+            notification_items(events, changes, notify_mode, delivery["pending"]),
         )
-        slack_path.write_text(slack_text(changes), encoding="utf-8")
-    else:
-        diff_path.unlink(missing_ok=True)
-        slack_path.unlink(missing_ok=True)
+        if changes:
+            diff_path.write_text(
+                json.dumps({"changes": changes}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        else:
+            diff_path.unlink(missing_ok=True)
+    except OSError as exc:
+        # State and the pending queue are already saved together. A failure
+        # here must not stop Jenkins from archiving the bug map.
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="notify",
+                message=f"Notification files were not written: {exc}",
+                fallback="bug map, advisory state, and pending queue stay paired",
+                impact="this poll may not post Slack",
+                exception=exception_text(exc),
+            )
+        )
     added = sum(len(change.get("added") or []) for change in changes)
     removed = sum(len(change.get("removed") or []) for change in changes)
     kept = reconcile_fallbacks(notes, previous)
@@ -1109,8 +1109,6 @@ def _write_run_body(
 def write_run(
     state_path: Path,
     diff_path: Path,
-    slack_path: Path,
-    seed_path: Path,
     bugs_path: Path,
     notify_dir: Path,
     slack_state_path: Path,
@@ -1130,8 +1128,6 @@ def write_run(
         run = _write_run_body(
             state_path,
             diff_path,
-            slack_path,
-            seed_path,
             bugs_path,
             notify_dir,
             slack_state_path,
@@ -1561,8 +1557,6 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Diff Oracle CPU/CSPU CVE sets")
     parser.add_argument("--state", required=True, help="cpu-cves.json path")
     parser.add_argument("--diff", required=True, help="diff JSON path")
-    parser.add_argument("--slack", required=True, help="short Slack text path")
-    parser.add_argument("--seed-marker", required=True, help="written when --state was missing")
     parser.add_argument(
         "--bugs",
         required=True,
@@ -1600,8 +1594,6 @@ def main(argv: list[str] | None = None) -> None:
     write_run(
         Path(args.state),
         Path(args.diff),
-        Path(args.slack),
-        Path(args.seed_marker),
         Path(args.bugs),
         Path(args.notify_dir),
         Path(args.slack_state),

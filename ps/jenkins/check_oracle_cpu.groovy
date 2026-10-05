@@ -6,9 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def STATE = 'cpu-cves.json'
 def DIFF = 'cpu-cves-diff.json'
 def BUGS = 'cpu-bug-cve.json'
-def SLACK = 'cpu-cves-slack.txt'
 def SLACK_STATE = 'cpu-slack.json'
-def SEED = 'cpu-cves-seed'
 def NOTIFY_DIR = 'cpu-notify'
 def DEGRADED = 'cpu-degraded.txt'
 def PUBLISH = 'cpu-publish'
@@ -84,7 +82,7 @@ pipeline {
     stages {
         stage('Check advisories') {
             steps {
-                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED} ${PUBLISH} ${EVENTS} ${RUN} ${STATUS} cpu-description.txt"
+                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK_STATE} ${NOTIFY_DIR} ${DEGRADED} ${PUBLISH} ${EVENTS} ${RUN} ${STATUS} cpu-description.txt"
                 script {
                     // SUCCESS or UNSTABLE, not NOT_BUILT or FAILURE. A degraded
                     // poll is UNSTABLE and still holds the advisory state.
@@ -111,8 +109,6 @@ pipeline {
                     python3 ps/jenkins/cpu_cves.py \\
                         --state ${STATE} \\
                         --diff ${DIFF} \\
-                        --slack ${SLACK} \\
-                        --seed-marker ${SEED} \\
                         --bugs ${BUGS} \\
                         --notify-dir ${NOTIFY_DIR} \\
                         --slack-state ${SLACK_STATE} \\
