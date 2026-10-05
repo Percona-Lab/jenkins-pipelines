@@ -262,8 +262,6 @@ def fetch_bug_map(
                 area="csaf",
                 slug=slug,
                 message=f"{slug} page has no CSAF link.",
-                fallback="previous bug map kept",
-                impact="bug-to-CVE entries from the previous poll stay in the map",
             )
         )
         return None
@@ -287,8 +285,6 @@ def fetch_bug_map(
                 message=(
                     f"{slug} CSAF download failed after {len(failed) or 3} attempts."
                 ),
-                fallback="previous bug map kept",
-                impact="bug-to-CVE entries from the previous poll stay in the map",
                 exception="\n".join(failed) if failed else exception_text(exc),
             )
         )
@@ -320,8 +316,6 @@ def fetch_bug_map(
                 slug=slug,
                 attempts=1,
                 message=f"{slug} CSAF document is unusable: {exc}.",
-                fallback="previous bug map kept",
-                impact="bug-to-CVE entries from the previous poll stay in the map",
                 exception=exception_text(exc),
             )
         )
@@ -428,8 +422,6 @@ def collect(
                 area="index",
                 attempts=len(failed) or 3,
                 message=message,
-                fallback="previous advisory state kept",
-                impact="this poll does not replace the saved advisories",
                 exception="\n".join(failed) if failed else exception_text(exc),
             )
         )
@@ -461,8 +453,6 @@ def collect(
                 outcome="failed",
                 area="index",
                 message=message,
-                fallback="previous advisory state kept",
-                impact="this poll does not replace the saved advisories",
             )
         )
         return [], False, notes, stats
@@ -491,8 +481,6 @@ def collect(
                     slug=slug,
                     attempts=len(failed) or 3,
                     message=message,
-                    fallback="previous CVE list and bug map kept",
-                    impact="this advisory is not refreshed",
                     exception="\n".join(failed) if failed else exception_text(exc),
                 )
             )
@@ -521,8 +509,6 @@ def collect(
                     area="page",
                     slug=slug,
                     message=message,
-                    fallback="previous CVE list and bug map kept",
-                    impact="this advisory is not refreshed",
                 )
             )
             continue
@@ -548,8 +534,6 @@ def collect(
                 outcome="failed",
                 area="page",
                 message=message,
-                fallback="previous advisory state kept",
-                impact="no advisory was refreshed",
             )
         )
     return events, True, notes, stats
@@ -1215,7 +1199,7 @@ def reconcile_fallbacks(
     notes: list[dict[str, Any]],
     previous: dict[str, Any] | None,
 ) -> dict[str, int]:
-    """Stop saying cached data was kept when this advisory has no saved row."""
+    """Set fallback and impact from the saved baseline, and return the counts."""
     page_cached = 0
     page_unavailable = 0
     csaf_cached = 0
@@ -1227,22 +1211,34 @@ def reconcile_fallbacks(
         if area == "page" and slug:
             if _row_has(previous, slug, "cves"):
                 page_cached += 1
-                continue
-            page_unavailable += 1
-            note["fallback"] = "no previous advisory state"
-            note["impact"] = "this advisory is absent from the baseline"
+                note["fallback"] = "previous CVE list and bug map kept"
+                note["impact"] = "this advisory is not refreshed"
+            else:
+                page_unavailable += 1
+                note["fallback"] = "no previous advisory state"
+                note["impact"] = "this advisory is absent from the baseline"
         elif area == "csaf" and slug:
             if _row_has(previous, slug, "bug_cves"):
                 csaf_cached += 1
-                continue
-            note["fallback"] = "no previous bug map"
-            note["impact"] = "this advisory contributes no bug-to-CVE entries"
-        elif area == "page" and not slug and not previous:
-            note["fallback"] = "no previous advisory state"
-            note["impact"] = "this poll has no advisory baseline"
-        elif area == "index" and not previous:
-            note["fallback"] = "no previous advisory state"
-            note["impact"] = "this poll has no advisory baseline"
+                note["fallback"] = "previous bug map kept"
+                note["impact"] = "bug-to-CVE entries from the previous poll stay in the map"
+            else:
+                note["fallback"] = "no previous bug map"
+                note["impact"] = "this advisory contributes no bug-to-CVE entries"
+        elif area == "page" and not slug:
+            if previous:
+                note["fallback"] = "previous advisory state kept"
+                note["impact"] = "no advisory was refreshed"
+            else:
+                note["fallback"] = "no previous advisory state"
+                note["impact"] = "this poll has no advisory baseline"
+        elif area == "index":
+            if previous:
+                note["fallback"] = "previous advisory state kept"
+                note["impact"] = "this poll does not replace the saved advisories"
+            else:
+                note["fallback"] = "no previous advisory state"
+                note["impact"] = "this poll has no advisory baseline"
     return {
         "page_cached": page_cached,
         "page_unavailable": page_unavailable,
