@@ -153,6 +153,7 @@ pipeline {
                     def order = readFile("${NOTIFY_DIR}/order.txt").trim().split('\n')
                     def changed = readFile("${NOTIFY_DIR}/changed.txt").trim()
                     def changedKeys = changed ? changed.split('\n') : []
+                    def blockedSlugs = []
                     for (def key : order) {
                         if (!key) {
                             continue
@@ -163,6 +164,11 @@ pipeline {
                         if (splitAt > 0) {
                             slug = key.substring(0, splitAt)
                             pendingId = slug + ':' + key.substring(splitAt + 2)
+                        }
+                        if (blockedSlugs.contains(slug)) {
+                            echo "WARNING cpu Slack skipped ${slug}; an older message for this advisory was not delivered."
+                            cpuEvent('warning', 'failed', 'slack', slug, 0, "Slack skipped ${slug}; an older message for this advisory was not delivered.", 'message stays pending', 'it is sent after the older message succeeds', '')
+                            continue
                         }
                         def recorded = false
                         try {
@@ -213,6 +219,7 @@ pipeline {
                             response = null
                         }
                         if (!delivered) {
+                            blockedSlugs.add(slug)
                             def failMessage = pendingId
                                 ? "Slack delivery failed for ${slug} after 3 attempts. Notification stays pending."
                                 : "Slack delivery failed for ${slug} after 3 attempts."
@@ -261,6 +268,7 @@ pipeline {
                         }
                         }
                         } catch (Exception err) {
+                            blockedSlugs.add(slug)
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
                             if (!recorded) {
                                 cpuEvent('warning', 'failed', 'slack', slug, 0, "Slack send failed for ${slug}: ${err}", 'pending message kept', 'the next poll sends it again', cpuThrowableText(err))
