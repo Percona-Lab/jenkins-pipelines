@@ -43,8 +43,11 @@ def cpuRunFlags(String runPath) {
     if (!fileExists(runPath)) {
         return [degraded: false, publish: false]
     }
+    // CPS does not keep a `def` from inside `try` visible after the block.
+    // Reading it there looks up the script binding and fails the build.
+    def out = ''
     try {
-        def out = sh(
+        out = sh(
             script: """python3 -c 'import json
 try:
     data = json.load(open("${runPath}"))
