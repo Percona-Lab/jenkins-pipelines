@@ -515,20 +515,35 @@ def collect(
                     exception="\n".join(failed),
                 )
             )
-        stats["refreshed"] += 1
         cves = parse_cves(page)
-        sha = cve_sha(cves)
-        bug_cves: dict[str, list[str]] | None
-        if cves:
-            bug_cves = fetch_bug_map(url, page, notes, slug)
-            if bug_cves is None:
-                warnings.append(
-                    f"WARNING cpu CSAF for {slug} failed. "
-                    "Previous bug map for this advisory is kept."
+        if not cves:
+            message = (
+                f"{slug} page has no CVE ids. "
+                "Previous state for this advisory is kept."
+            )
+            warnings.append("WARNING cpu " + message)
+            notes.append(
+                issue(
+                    level="warning",
+                    outcome="failed",
+                    area="page",
+                    slug=slug,
+                    message=message,
+                    fallback="previous CVE list and bug map kept",
+                    impact="this advisory is not refreshed",
                 )
-                stats["csaf_cached"] += 1
-        else:
-            bug_cves = {}
+            )
+            stats["page_cached"] += 1
+            continue
+        stats["refreshed"] += 1
+        sha = cve_sha(cves)
+        bug_cves = fetch_bug_map(url, page, notes, slug)
+        if bug_cves is None:
+            warnings.append(
+                f"WARNING cpu CSAF for {slug} failed. "
+                "Previous bug map for this advisory is kept."
+            )
+            stats["csaf_cached"] += 1
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
         events.append(
