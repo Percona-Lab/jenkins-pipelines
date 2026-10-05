@@ -259,7 +259,7 @@ def fetch_bug_map(
                 outcome="failed",
                 area="csaf",
                 slug=slug,
-                message=f"{slug} page has no CSAF link. Previous mapping retained.",
+                message=f"{slug} page has no CSAF link.",
                 fallback="previous bug map kept",
                 impact="bug-to-CVE entries from the previous poll stay in the map",
             )
@@ -283,8 +283,7 @@ def fetch_bug_map(
                 slug=slug,
                 attempts=len(failed) or 3,
                 message=(
-                    f"{slug} CSAF download failed after {len(failed) or 3} attempts. "
-                    "Previous mapping retained."
+                    f"{slug} CSAF download failed after {len(failed) or 3} attempts."
                 ),
                 fallback="previous bug map kept",
                 impact="bug-to-CVE entries from the previous poll stay in the map",
@@ -318,7 +317,7 @@ def fetch_bug_map(
                 area="csaf",
                 slug=slug,
                 attempts=1,
-                message=f"{slug} CSAF document is unusable: {exc}. Previous mapping retained.",
+                message=f"{slug} CSAF document is unusable: {exc}.",
                 fallback="previous bug map kept",
                 impact="bug-to-CVE entries from the previous poll stay in the map",
                 exception=exception_text(exc),
@@ -418,7 +417,7 @@ def collect(
     except FETCH_ERRORS as exc:
         message = (
             f"Index download failed after {len(failed) or 3} attempts: "
-            f"{type(exc).__name__}. Previous advisory state is kept."
+            f"{type(exc).__name__}."
         )
         notes.append(
             issue(
@@ -453,7 +452,7 @@ def collect(
         seen.add(slug)
         slugs.append(slug)
     if not slugs:
-        message = "Index has no CPU or CSPU advisory links. Previous advisory state is kept."
+        message = "Index has no CPU or CSPU advisory links."
         notes.append(
             issue(
                 level="warning",
@@ -480,7 +479,7 @@ def collect(
         except FETCH_ERRORS as exc:
             message = (
                 f"{slug} download failed after {len(failed) or 3} attempts: "
-                f"{type(exc).__name__}. Previous state for this advisory is kept."
+                f"{type(exc).__name__}."
             )
             notes.append(
                 issue(
@@ -512,10 +511,7 @@ def collect(
             )
         cves = parse_cves(page)
         if not cves:
-            message = (
-                f"{slug} page has no CVE ids. "
-                "Previous state for this advisory is kept."
-            )
+            message = f"{slug} page has no CVE ids."
             notes.append(
                 issue(
                     level="warning",
@@ -543,7 +539,7 @@ def collect(
             }
         )
     if picked and not events:
-        message = "Every advisory download failed. Previous state is kept."
+        message = "Every advisory download failed."
         notes.append(
             issue(
                 level="warning",
@@ -1135,12 +1131,6 @@ def _row_has(previous: dict[str, Any] | None, slug: str, key: str) -> bool:
     return isinstance(row, dict) and bool(row.get(key))
 
 
-def _drop_kept_claim(text: str, kept_sentence: str, absent_sentence: str) -> str:
-    if kept_sentence in text:
-        return text.replace(kept_sentence, absent_sentence)
-    return text
-
-
 def warning_lines(notes: list[dict[str, Any]]) -> list[str]:
     """Console and degraded-file lines, taken only from structured notes."""
     lines: list[str] = []
@@ -1186,7 +1176,6 @@ def reconcile_fallbacks(
             continue
         area = note.get("area")
         slug = str(note.get("slug") or "")
-        message = str(note.get("message") or "")
         if area == "page" and slug:
             if _row_has(previous, slug, "cves"):
                 page_cached += 1
@@ -1194,38 +1183,18 @@ def reconcile_fallbacks(
             page_unavailable += 1
             note["fallback"] = "no previous advisory state"
             note["impact"] = "this advisory is absent from the baseline"
-            note["message"] = _drop_kept_claim(
-                message,
-                "Previous state for this advisory is kept.",
-                "No previous state for this advisory.",
-            )
         elif area == "csaf" and slug:
             if _row_has(previous, slug, "bug_cves"):
                 csaf_cached += 1
                 continue
             note["fallback"] = "no previous bug map"
             note["impact"] = "this advisory contributes no bug-to-CVE entries"
-            note["message"] = _drop_kept_claim(
-                message,
-                "Previous mapping retained.",
-                "No previous mapping.",
-            )
         elif area == "page" and not slug and not previous:
             note["fallback"] = "no previous advisory state"
             note["impact"] = "this poll has no advisory baseline"
-            note["message"] = _drop_kept_claim(
-                message,
-                "Previous state is kept.",
-                "No previous state.",
-            )
         elif area == "index" and not previous:
             note["fallback"] = "no previous advisory state"
             note["impact"] = "this poll has no advisory baseline"
-            note["message"] = _drop_kept_claim(
-                message,
-                "Previous advisory state is kept.",
-                "No previous advisory state.",
-            )
     return {
         "page_cached": page_cached,
         "page_unavailable": page_unavailable,
