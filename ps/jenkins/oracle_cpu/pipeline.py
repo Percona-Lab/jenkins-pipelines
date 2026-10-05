@@ -9,6 +9,7 @@ from typing import Any
 
 from oracle_cpu.core import (
     PARSER_VERSION,
+    _cve_delta,
     bug_map_from_advisories,
     collect,
     cve_sha,
@@ -118,8 +119,33 @@ def apply_state(
         old_parser = _row_parser(advisories.get(slug) or {}, PARSER_VERSION)
         migrate_slug = state is not None and slug in state and old_parser != PARSER_VERSION
         if migrate_slug:
-            advisories[slug] = _fresh_row(new, bug_cves)
-            log.info("cpu parser migrate slug=%s cves=%d", slug, len(new))
+            # This parser only drops CVEs that lived in Modification History.
+            # Removals on the upgrade poll are that correction. Additions are
+            # real Oracle changes and still get a Slack message.
+            old = list((advisories.get(slug) or {}).get("cves") or [])
+            added, removed = _cve_delta(old, new)
+            fresh = _fresh_row(new, bug_cves)
+            if not added:
+                advisories[slug] = fresh
+                log.info(
+                    "cpu parser migrate slug=%s cves=%d removed=%d",
+                    slug,
+                    len(new),
+                    len(removed),
+                )
+                continue
+            kept_old = [cve for cve in old if cve not in set(removed)]
+            change = describe_change(kept_old, new)
+            if change is None:
+                advisories[slug] = fresh
+                continue
+            change["slug"] = slug
+            change["title"] = ev.get("title") or slug
+            change["url"] = ev.get("url") or ""
+            change["old_sha"] = cve_sha(kept_old)
+            changes.append(change)
+            advisories[slug] = _fresh_row(new, bug_cves, change["sha"])
+            log.info("cpu parser migrate slug=%s additions=%d", slug, len(added))
             continue
         old = list((advisories.get(slug) or {}).get("cves") or [])
         change = describe_change(old, new)
@@ -463,8 +489,8 @@ def _write_run_body(
                 area="parser",
                 message=(
                     f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
-                    "Those CVE sets were realigned. "
-                    "No Slack diff was sent for that realignment."
+                    "CVEs dropped only by the new parser were not posted. "
+                    "CVEs added since the saved set were."
                 ),
                 fallback="refreshed advisories updated to the current parser",
                 impact=(
