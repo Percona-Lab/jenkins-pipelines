@@ -24,13 +24,12 @@ def cpuThrowableText(err) {
     return sw.toString()
 }
 
-def cpuEvent(String eventsPath, String level, String outcome, String area, String slug, int attempts, String message, String fallback, String impact, String exceptionText) {
-    // eventsPath is an argument. A method cannot see a script-local `def EVENTS`.
+def cpuEvent(Map event) {
+    // eventsPath is inside the map. A method cannot see a script-local `def EVENTS`.
     // A failed diagnostic write must not skip thread save, ack, or later advisories.
     try {
-        writeFile file: 'cpu-event-message.txt', text: message ?: ''
-        writeFile file: 'cpu-event-exception.txt', text: exceptionText ?: ''
-        sh "python3 ps/jenkins/cpu_cves.py event ${eventsPath} ${level} ${outcome} ${area} '${slug}' ${attempts} cpu-event-message.txt cpu-event-exception.txt '${fallback}' '${impact}'"
+        writeFile file: 'cpu-event.json', text: groovy.json.JsonOutput.toJson(event)
+        sh "python3 ps/jenkins/cpu_cves.py event ${event.eventsPath} cpu-event.json"
     } catch (Exception err) {
         if (err instanceof InterruptedException) {
             throw err
@@ -41,7 +40,13 @@ def cpuEvent(String eventsPath, String level, String outcome, String area, Strin
 
 def cpuNoteMapArchived(String eventsPath, String bugArtifact, String artifacts) {
     if (artifacts.split(',').contains(bugArtifact)) {
-        cpuEvent(eventsPath, 'ok', 'published', 'archive', '', 0, 'Bug to CVE map archived.', '', '', '')
+        cpuEvent([
+            eventsPath: eventsPath,
+            level: 'ok',
+            outcome: 'published',
+            area: 'archive',
+            message: 'Bug to CVE map archived.',
+        ])
     }
 }
 // Ten advisories, not five. A fix can land in a later tag for a CVE
@@ -223,7 +228,18 @@ pipeline {
                                 ? "the next poll sends it again"
                                 : "this unchanged post is not retried from pending"
                             echo "WARNING cpu ${failMessage}"
-                            cpuEvent(EVENTS, 'warning', 'failed', 'slack', slug, 3, failMessage, failFallback, failImpact, misses.join('\n'))
+                            cpuEvent([
+                                eventsPath: EVENTS,
+                                level: 'warning',
+                                outcome: 'failed',
+                                area: 'slack',
+                                slug: slug,
+                                attempts: 3,
+                                message: failMessage,
+                                fallback: failFallback,
+                                impact: failImpact,
+                                exception: misses.join('\n'),
+                            ])
                             recorded = true
                             unstable(failMessage)
                         } else {
@@ -240,7 +256,16 @@ pipeline {
                         def sentMessage = misses
                             ? "Slack notification delivered for ${slug} on attempt ${deliveredOn}/3."
                             : "Slack notification delivered for ${slug}."
-                        cpuEvent(EVENTS, misses ? 'info' : 'ok', 'delivered', 'slack', slug, deliveredOn, sentMessage, '', '', misses.join('\n'))
+                        cpuEvent([
+                            eventsPath: EVENTS,
+                            level: misses ? 'info' : 'ok',
+                            outcome: 'delivered',
+                            area: 'slack',
+                            slug: slug,
+                            attempts: deliveredOn,
+                            message: sentMessage,
+                            exception: misses.join('\n'),
+                        ])
                         if (changedKeys.contains(key)) {
                             // failOnError is false by default, so a failed upload
                             // returns and the step does not throw. Retry only
@@ -263,7 +288,18 @@ pipeline {
                                     throw uploadErr
                                 }
                                 echo "WARNING cpu Slack file upload failed for ${slug}: ${uploadErr}"
-                                cpuEvent(EVENTS, 'warning', 'upload-failed', 'slack-upload', slug, 3, "Slack file upload failed for ${slug}. Artifact links are in the notification.", 'artifact links already sent', 'the thread has no file', cpuThrowableText(uploadErr))
+                                cpuEvent([
+                                    eventsPath: EVENTS,
+                                    level: 'warning',
+                                    outcome: 'upload-failed',
+                                    area: 'slack-upload',
+                                    slug: slug,
+                                    attempts: 3,
+                                    message: "Slack file upload failed for ${slug}. Artifact links are in the notification.",
+                                    fallback: 'artifact links already sent',
+                                    impact: 'the thread has no file',
+                                    exception: cpuThrowableText(uploadErr),
+                                ])
                                 unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
                             }
                         }
@@ -275,7 +311,17 @@ pipeline {
                             blockedSlugs.add(slug)
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
                             if (!recorded) {
-                                cpuEvent(EVENTS, 'warning', 'failed', 'slack', slug, 0, "Slack send failed for ${slug}: ${err}", 'pending message kept', 'the next poll sends it again', cpuThrowableText(err))
+                                cpuEvent([
+                                    eventsPath: EVENTS,
+                                    level: 'warning',
+                                    outcome: 'failed',
+                                    area: 'slack',
+                                    slug: slug,
+                                    message: "Slack send failed for ${slug}: ${err}",
+                                    fallback: 'pending message kept',
+                                    impact: 'the next poll sends it again',
+                                    exception: cpuThrowableText(err),
+                                ])
                             }
                             unstable("Slack delivery failed for ${slug}. Message stays pending.")
                         }
