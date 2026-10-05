@@ -174,7 +174,7 @@ pipeline {
                         }
                         if (blockedSlugs.contains(slug)) {
                             echo "WARNING cpu Slack skipped ${slug}; an older message for this advisory was not delivered."
-                            cpuEvent('warning', 'failed', 'slack', slug, 0, "Slack skipped ${slug}; an older message for this advisory was not delivered.", 'message stays pending', 'it is sent after the older message succeeds', '')
+                            cpuEvent(EVENTS, 'warning', 'failed', 'slack', slug, 0, "Slack skipped ${slug}; an older message for this advisory was not delivered.", 'message stays pending', 'it is sent after the older message succeeds', '')
                             continue
                         }
                         def recorded = false
