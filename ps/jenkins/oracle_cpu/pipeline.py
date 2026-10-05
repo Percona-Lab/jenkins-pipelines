@@ -516,13 +516,24 @@ def _write_run_body(
         encoding="utf-8",
     )
     publish_marker = state_path.with_name("cpu-publish")
+    publish = baseline_changed(previous, advisories)
     try:
-        if baseline_changed(previous, advisories):
+        if publish:
             publish_marker.write_text("1\n", encoding="utf-8")
         else:
             publish_marker.unlink(missing_ok=True)
     except OSError as exc:
-        log.warning("WARNING cpu publish marker was not written: %s", exc)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="publish",
+                message=f"Publish marker was not written: {exc}",
+                fallback="the run record still asks Jenkins to archive the mapping",
+                impact="the marker file may be missing while the mapping itself was written",
+                exception=exception_text(exc),
+            )
+        )
     delivery, delivery_error, delivery_exc = load_delivery(slack_state_path)
     if delivery_error:
         notes.append(
@@ -585,6 +596,7 @@ def _write_run_body(
         "baseline_present": bool(previous),
         "index_ok": bool(index_ok),
         "degraded": any(note.get("level") in ("warning", "error") for note in notes),
+        "publish": publish,
         "bug_map_generated": True,
         "bug_map_bugs": len(bug_map),
         "cve_added": added,
