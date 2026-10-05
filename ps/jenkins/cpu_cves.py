@@ -394,15 +394,24 @@ def slack_text(changes: list[dict[str, Any]]) -> str:
     return "\n\n".join(blocks) + ("\n" if blocks else "")
 
 
-def load_advisories(path: Path) -> dict[str, Any] | None:
-    """Return the slug map, or None when the state file is absent."""
+def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Return the slug map, or None when the file is absent.
+
+    A corrupt file is not fatal. The error string is a WARNING line and
+    the caller still publishes the bug map from this run's downloads.
+    """
     if not path.is_file() or path.stat().st_size == 0:
-        return None
-    data = json.loads(path.read_text(encoding="utf-8"))
+        return None, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return None, f"WARNING cpu baseline {path} is not JSON: {exc}"
+    if not isinstance(data, dict):
+        return None, f"WARNING cpu baseline {path} is not a JSON object"
     advisories = data.get("advisories", data)
     if not isinstance(advisories, dict):
-        raise SystemExit(f"state file {path} has no advisories object")
-    return advisories
+        return None, f"WARNING cpu baseline {path} has no advisories object"
+    return advisories, None
 
 
 def write_run(
@@ -418,7 +427,15 @@ def write_run(
     notify_mode: str = "none",
 ) -> None:
     events = fetch(count)
-    previous = None if ignore_state else load_advisories(state_path)
+    degraded = state_path.with_name("cpu-degraded.txt")
+    degraded.unlink(missing_ok=True)
+    if ignore_state:
+        previous, baseline_error = None, None
+    else:
+        previous, baseline_error = load_advisories(state_path)
+    if baseline_error:
+        log.warning(baseline_error)
+        degraded.write_text(baseline_error + "\n", encoding="utf-8")
     changes, advisories = apply_state(
         events,
         previous,
