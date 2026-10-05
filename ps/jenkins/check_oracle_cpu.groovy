@@ -68,6 +68,12 @@ def cpuEvent(String eventsPath, String level, String outcome, String area, Strin
         echo "WARNING cpu event record failed: ${err}"
     }
 }
+
+def cpuNoteMapArchived(String eventsPath, String bugArtifact, String artifacts) {
+    if (artifacts.split(',').contains(bugArtifact)) {
+        cpuEvent(eventsPath, 'ok', 'published', 'archive', '', 0, 'Bug to CVE map archived.', '', '', '')
+    }
+}
 // Ten advisories, not five. A fix can land in a later tag for a CVE
 // published in an older CPU or CSPU, and the stored JSON stays small.
 def ADVISORY_COUNT = '10'
@@ -146,7 +152,9 @@ pipeline {
                         env.CPU_DEGRADED = '1'
                         def remembered = [STATE, BUGS, SLACK_STATE].findAll { fileExists(it) }
                         if (remembered) {
-                            archiveArtifacts artifacts: remembered.join(','), allowEmptyArchive: true
+                            def archived = remembered.join(',')
+                            archiveArtifacts artifacts: archived, allowEmptyArchive: true
+                            cpuNoteMapArchived(EVENTS, BUGS, archived)
                         }
                     }
                 }
@@ -163,7 +171,9 @@ pipeline {
                     // leave the new baseline without the undelivered text.
                     def prepared = [STATE, BUGS, SLACK_STATE, DIFF].findAll { fileExists(it) }
                     if (prepared) {
-                        archiveArtifacts artifacts: prepared.join(','), allowEmptyArchive: true
+                        def archived = prepared.join(',')
+                        archiveArtifacts artifacts: archived, allowEmptyArchive: true
+                        cpuNoteMapArchived(EVENTS, BUGS, archived)
                     }
                     def order = readFile("${NOTIFY_DIR}/order.txt").trim().split('\n')
                     def changed = readFile("${NOTIFY_DIR}/changed.txt").trim()
@@ -302,7 +312,9 @@ pipeline {
                     }
                     def remembered = [STATE, BUGS, SLACK_STATE, DIFF].findAll { fileExists(it) }
                     if (remembered) {
-                        archiveArtifacts artifacts: remembered.join(','), allowEmptyArchive: true
+                        def archived = remembered.join(',')
+                        archiveArtifacts artifacts: archived, allowEmptyArchive: true
+                        cpuNoteMapArchived(EVENTS, BUGS, archived)
                     }
                 }
             }
