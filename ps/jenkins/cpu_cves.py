@@ -324,20 +324,11 @@ def fetch_bug_map(
     return bug_map
 
 
-def bug_map_from_advisories(advisories: dict[str, Any]) -> dict[str, list[str]]:
-    """Flatten per-advisory bug maps, including ones kept from older state."""
-    fake = [
-        {"payload": {"bug_cves": (row or {}).get("bug_cves") or {}}}
-        for row in advisories.values()
-        if isinstance(row, dict)
-    ]
-    return merge_bug_maps(fake)
-
-
-def merge_bug_maps(events: list[dict[str, Any]]) -> dict[str, list[str]]:
+def merge_cve_lists(maps: list[dict[str, list[str]]]) -> dict[str, list[str]]:
+    """Union bug-id to CVE-list maps. CVE ids in each list stay sorted."""
     merged: dict[str, list[str]] = {}
-    for ev in events:
-        for bug, cves in ((ev.get("payload") or {}).get("bug_cves") or {}).items():
+    for bug_map in maps:
+        for bug, cves in bug_map.items():
             bucket = merged.setdefault(str(bug), [])
             for cve in cves:
                 if cve not in bucket:
@@ -347,11 +338,41 @@ def merge_bug_maps(events: list[dict[str, Any]]) -> dict[str, list[str]]:
     return merged
 
 
-def format_bodies(old: list[str], new: list[str]) -> tuple[str, str]:
+def bug_map_from_advisories(advisories: dict[str, Any]) -> dict[str, list[str]]:
+    """Flatten per-advisory bug maps, including ones kept from older state."""
+    maps: list[dict[str, list[str]]] = []
+    for row in advisories.values():
+        if not isinstance(row, dict):
+            continue
+        bugs = row.get("bug_cves") or {}
+        if isinstance(bugs, dict):
+            maps.append(bugs)
+    return merge_cve_lists(maps)
+
+
+def merge_bug_maps(events: list[dict[str, Any]]) -> dict[str, list[str]]:
+    maps: list[dict[str, list[str]]] = []
+    for ev in events:
+        bugs = (ev.get("payload") or {}).get("bug_cves") or {}
+        if isinstance(bugs, dict):
+            maps.append(bugs)
+    return merge_cve_lists(maps)
+
+
+def _cve_delta(old: list[str], new: list[str]) -> tuple[list[str], list[str]]:
     old_set = set(old)
     new_set = set(new)
-    added = sorted(new_set - old_set)
-    removed = sorted(old_set - new_set)
+    return sorted(new_set - old_set), sorted(old_set - new_set)
+
+
+def format_bodies(
+    old: list[str],
+    new: list[str],
+    added: list[str] | None = None,
+    removed: list[str] | None = None,
+) -> tuple[str, str]:
+    if added is None or removed is None:
+        added, removed = _cve_delta(old, new)
     gnome = f"+{len(added)} -{len(removed)} CVEs"
     if not old:
         slack = f"+{len(added)} CVEs"
@@ -369,11 +390,10 @@ def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
     An empty new list against an empty old list is unchanged. A first
     non-empty list uses the short Slack line from format_bodies.
     """
-    if set(old) == set(new):
+    added, removed = _cve_delta(old, new)
+    if not added and not removed:
         return None
-    added = sorted(set(new) - set(old))
-    removed = sorted(set(old) - set(new))
-    gnome, slack = format_bodies(old, new)
+    gnome, slack = format_bodies(old, new, added, removed)
     return {
         "sha": cve_sha(new),
         "cves": list(new),
