@@ -121,8 +121,20 @@ pipeline {
                     env.CPU_DIFF = fileExists(DIFF) ? '1' : '0'
                     env.CPU_NOTIFY = order ? '1' : '0'
                     env.CPU_DEGRADED = '0'
-                    if (fileExists(DEGRADED)) {
-                        echo readFile(DEGRADED)
+                    def degraded = fileExists(DEGRADED)
+                    if (!degraded && fileExists(RUN)) {
+                        def flag = sh(
+                            script: """python3 -c 'import json; print("1" if json.load(open("${RUN}")).get("degraded") else "0")'""",
+                            returnStdout: true
+                        ).trim()
+                        degraded = flag == '1'
+                    }
+                    if (degraded) {
+                        if (fileExists(DEGRADED)) {
+                            echo readFile(DEGRADED)
+                        } else {
+                            echo 'WARNING cpu degraded marker file is missing. The run record still marks this poll degraded.'
+                        }
                         unstable('Oracle CPU collection degraded. Previous state kept for failed advisories.')
                         env.CPU_DEGRADED = '1'
                         def remembered = [STATE, BUGS, SLACK_STATE].findAll { fileExists(it) }

@@ -1041,6 +1041,7 @@ def _write_run_body(
         "csaf_cached": kept["csaf_cached"],
         "baseline_present": bool(previous),
         "index_ok": bool(index_ok),
+        "degraded": any(note.get("level") in ("warning", "error") for note in notes),
         "bug_map_generated": True,
         "bug_map_bugs": len(bug_map),
         "cve_added": added,
@@ -1133,13 +1134,17 @@ def warning_lines(notes: list[dict[str, Any]]) -> list[str]:
 
 
 def publish_warnings(notes: list[dict[str, Any]], degraded: Path) -> None:
+    """Write cpu-degraded.txt. A failure must not hide the bug map."""
     lines = warning_lines(notes)
     for line in lines:
         log.warning(line)
-    if lines:
-        degraded.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    else:
-        degraded.unlink(missing_ok=True)
+    try:
+        if lines:
+            degraded.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        else:
+            degraded.unlink(missing_ok=True)
+    except OSError as exc:
+        log.warning("WARNING cpu degraded file was not written: %s", exc)
 
 
 def reconcile_fallbacks(
