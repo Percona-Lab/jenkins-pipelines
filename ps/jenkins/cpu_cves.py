@@ -1053,15 +1053,29 @@ def write_run(
         "cve_added": added,
         "cve_removed": removed,
     }
-    events_path = state_path.with_name("cpu-events.jsonl")
-    events_path.write_text(
-        "".join(json.dumps(note) + "\n" for note in notes),
-        encoding="utf-8",
+    write_diagnostics(
+        state_path.with_name("cpu-events.jsonl"),
+        state_path.with_name("cpu-run.json"),
+        notes,
+        run,
     )
-    state_path.with_name("cpu-run.json").write_text(
-        json.dumps(run, indent=2) + "\n",
-        encoding="utf-8",
-    )
+
+
+def write_diagnostics(
+    events_path: Path,
+    run_path: Path,
+    notes: list[dict[str, Any]],
+    run: dict[str, Any],
+) -> None:
+    """Write summary inputs. A failure here must not hide the bug map."""
+    try:
+        events_path.write_text(
+            "".join(json.dumps(note) + "\n" for note in notes),
+            encoding="utf-8",
+        )
+        run_path.write_text(json.dumps(run, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        log.warning("WARNING cpu status files were not written: %s", exc)
 
 
 def load_events(path: Path) -> list[dict[str, Any]]:
