@@ -1,4 +1,4 @@
-"""Saved advisory baseline, pending Slack queue, and Jenkins outputs."""
+"""One Oracle poll: fetch, diff, and write the durable files."""
 
 from __future__ import annotations
 
@@ -9,124 +9,98 @@ from typing import Any
 
 from oracle_cpu.core import (
     PARSER_VERSION,
-    _cve_delta,
     bug_map_from_advisories,
     collect,
     cve_sha,
     describe_change,
+    _cve_delta,
 )
-from oracle_cpu.diagnostics import exception_text, issue, publish_warnings, write_diagnostics
+from oracle_cpu.diagnostics import exception_text, issue, save_report, warning_lines
+from oracle_cpu.state import (
+    atomic_write,
+    load_state,
+    merge_pending,
+    save_state,
+    stored_advisory,
+    _row_parser,
+)
 
-log = logging.getLogger("ps_notify")
-
-def _row_parser(row: dict[str, Any], default_parser: int) -> int:
-    if "parser" not in row:
-        return default_parser
-    value = row.get("parser")
-    if isinstance(value, bool) or not isinstance(value, int):
-        return default_parser
-    return value
+log = logging.getLogger("oracle_cpu")
 
 
-def _fresh_row(cves: list[str], bug_cves: dict[str, list[str]], sha: str | None = None) -> dict[str, Any]:
+def _fresh_row(
+    cves: list[str],
+    bug_cves: dict[str, list[str]],
+    sha: str | None = None,
+    title: str = "",
+    url: str = "",
+) -> dict[str, Any]:
     copied = list(cves)
     return {
         "sha": sha or cve_sha(copied),
         "cves": copied,
         "bug_cves": bug_cves,
         "parser": PARSER_VERSION,
-    }
-
-
-def stored_advisory(row: Any, default_parser: int = PARSER_VERSION) -> dict[str, Any] | None:
-    """Return a usable advisory row, or None when the saved value is the wrong type.
-
-    A string or number in cves used to raise or be treated as a CVE list and
-    abort the bug-map write.
-    """
-    if not isinstance(row, dict):
-        return None
-    raw_cves = row.get("cves", [])
-    if not isinstance(raw_cves, list) or not all(isinstance(item, str) for item in raw_cves):
-        return None
-    sha = row.get("sha") or ""
-    if not isinstance(sha, str):
-        return None
-    raw_bugs = row.get("bug_cves", {})
-    if raw_bugs is None:
-        raw_bugs = {}
-    if not isinstance(raw_bugs, dict):
-        return None
-    bugs: dict[str, list[str]] = {}
-    for key, cves in raw_bugs.items():
-        if not isinstance(cves, list) or not all(isinstance(item, str) for item in cves):
-            return None
-        bugs[str(key)] = list(cves)
-    return {
-        "sha": sha or cve_sha(list(raw_cves)),
-        "cves": list(raw_cves),
-        "bug_cves": bugs,
-        "parser": _row_parser(row, default_parser),
+        "title": title,
+        "url": url,
     }
 
 
 def apply_state(
-    events: list[dict[str, Any]],
-    state: dict[str, Any] | None,
+    fresh: list[dict[str, Any]],
+    previous: dict[str, Any] | None,
+    *,
     report_seeded: bool = False,
+    ignore_cves: bool = False,
+    saved_parser: int = PARSER_VERSION,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Diff events against saved advisories.
+    """Diff fresh advisories against saved rows.
 
-    events must be newest-first, as fetch() returns them.
-    state None means the S3 object is missing. Every advisory except the
-    newest is stored and not reported, unless report_seeded is set.
-    The newest is reported when its CVE set is non-empty. An empty page
-    is not stored.
-
-    state is a slug to {"sha", "cves"} map, not the on-disk wrapper.
+    fresh is newest-first. previous None means there is no CVE baseline.
+    Every advisory except the newest is stored and not reported, unless
+    report_seeded is set. ignore_cves keeps saved rows, including bug
+    maps, and compares CVE sets as empty. Only the newest advisory is
+    reported, unless report_seeded is set.
     """
-    seeding = state is None
-    advisories: dict[str, Any] = {}
-    if state is not None:
-        for slug, row in state.items():
-            stored = stored_advisory(row)
+    rows: dict[str, Any] = {}
+    if previous is not None:
+        for slug, row in previous.items():
+            stored = stored_advisory(row, saved_parser)
             if stored is None:
                 log.warning("WARNING cpu baseline row %s is malformed and was skipped", slug)
                 continue
-            advisories[slug] = stored
-    newest = None
-    if events:
-        newest = (events[0].get("payload") or {}).get("slug")
+            rows[slug] = stored
+    newest = fresh[0]["slug"] if fresh else None
     changes: list[dict[str, Any]] = []
-    for ev in events:
-        payload = ev.get("payload") or {}
-        slug = payload.get("slug")
-        if not slug:
-            continue
-        new = list(payload.get("cves") or [])
-        if not new:
+    for item in fresh:
+        slug = str(item.get("slug") or "")
+        new = list(item.get("cves") or [])
+        if not slug or not new:
             log.info("cpu skip empty slug=%s", slug)
             continue
-        fresh_bugs = payload.get("bug_cves")
+        fresh_bugs = item.get("bug_cves")
         if fresh_bugs is None:
-            bug_cves = dict((advisories.get(slug) or {}).get("bug_cves") or {})
+            bug_cves = dict((rows.get(slug) or {}).get("bug_cves") or {})
         else:
             bug_cves = fresh_bugs
-        if seeding and slug != newest and not report_seeded:
-            advisories[slug] = _fresh_row(new, bug_cves)
+        title = str(item.get("title") or (rows.get(slug) or {}).get("title") or slug)
+        url = str(item.get("url") or (rows.get(slug) or {}).get("url") or "")
+        if previous is None and slug != newest and not report_seeded:
+            rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
             log.info("cpu seed slug=%s cves=%d", slug, len(new))
             continue
-        old_parser = _row_parser(advisories.get(slug) or {}, PARSER_VERSION)
-        migrate_slug = state is not None and slug in state and old_parser != PARSER_VERSION
+        old_parser = _row_parser(rows.get(slug) or {}, PARSER_VERSION)
+        migrate_slug = (
+            not ignore_cves
+            and previous is not None
+            and slug in previous
+            and old_parser != PARSER_VERSION
+        )
         if migrate_slug:
-            # This parser only drops CVEs that lived in Modification History.
-            # Removals on the upgrade poll are that correction. Additions are
-            # real Oracle changes and still get a Slack message.
-            old = list((advisories.get(slug) or {}).get("cves") or [])
+            old = list((rows.get(slug) or {}).get("cves") or [])
             added, removed = _cve_delta(old, new)
-            fresh = _fresh_row(new, bug_cves)
             if not added:
-                advisories[slug] = fresh
+                rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
                 log.info(
                     "cpu parser migrate slug=%s cves=%d removed=%d",
                     slug,
@@ -137,157 +111,52 @@ def apply_state(
             kept_old = [cve for cve in old if cve not in set(removed)]
             change = describe_change(kept_old, new)
             if change is None:
-                advisories[slug] = fresh
+                rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
                 continue
             change["slug"] = slug
-            change["title"] = ev.get("title") or slug
-            change["url"] = ev.get("url") or ""
+            change["title"] = title
+            change["url"] = url
             change["old_sha"] = cve_sha(kept_old)
             changes.append(change)
-            advisories[slug] = _fresh_row(new, bug_cves, change["sha"])
+            rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
             log.info("cpu parser migrate slug=%s additions=%d", slug, len(added))
             continue
-        old = list((advisories.get(slug) or {}).get("cves") or [])
-        change = describe_change(old, new)
+        if ignore_cves:
+            old = []
+            report = bool(report_seeded or slug == newest)
+        else:
+            old = list((rows.get(slug) or {}).get("cves") or [])
+            report = True
+        change = describe_change(old, new) if report else None
         if change is None:
-            advisories[slug] = _fresh_row(new, bug_cves)
+            rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
             log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
             continue
         change["slug"] = slug
-        change["title"] = ev.get("title") or slug
-        change["url"] = ev.get("url") or ""
+        change["title"] = title
+        change["url"] = url
         change["old_sha"] = cve_sha(old)
         changes.append(change)
-        advisories[slug] = _fresh_row(new, bug_cves, change["sha"])
+        rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
         log.info(
             "cpu diff slug=%s +%d -%d",
             slug,
             len(change["added"]),
             len(change["removed"]),
         )
-    return changes, advisories
-
-
-def change_pending(change: dict[str, Any], seq: int) -> dict[str, str]:
-    """One undelivered Slack message.
-
-    The id names the transition and a sequence number. An id of only the
-    new CVE set collides when that set is added, removed, and added again
-    while the first message is still pending.
-    """
-    slug = str(change["slug"])
-    sha = str(change["sha"])
-    old_sha = str(change.get("old_sha") or "none")
-    return {
-        "id": f"{slug}:{old_sha}-{sha}-{seq}",
-        "slug": slug,
-        "sha": sha,
-        "slack": f"{change['title']}\n{change['url']}\n{change['slack']}",
-    }
-
-
-def merge_pending(
-    existing: list[Any],
-    changes: list[dict[str, Any]],
-) -> list[dict[str, str]]:
-    """Keep undelivered messages, then append changes not already pending.
-
-    The fetched CVE baseline can move forward while a message is still
-    pending. A later poll must not drop that message just because the
-    baseline already contains the new CVE set.
-    """
-    out: list[dict[str, str]] = []
-    seen: set[str] = set()
-    next_seq = 1
-    for item in existing:
-        if not isinstance(item, dict):
-            continue
-        ident = str(item.get("id") or "")
-        slug = str(item.get("slug") or "")
-        text = str(item.get("slack") or "")
-        if not ident or not slug or not text or ident in seen:
-            continue
-        seen.add(ident)
-        tail = ident.rsplit("-", 1)[-1]
-        if "-" in ident and tail.isdigit():
-            next_seq = max(next_seq, int(tail) + 1)
-        out.append(
-            {
-                "id": ident,
-                "slug": slug,
-                "sha": str(item.get("sha") or ""),
-                "slack": text,
-            }
-        )
-    for change in changes:
-        item = change_pending(change, next_seq)
-        next_seq += 1
-        if item["id"] in seen:
-            continue
-        seen.add(item["id"])
-        out.append(item)
-    return out
-
-
-def load_delivery(path: Path) -> tuple[dict[str, Any], str | None, str]:
-    """Return threads plus pending messages, a warning line, and exception text.
-
-    A missing file is an empty delivery state. A corrupt file is a
-    warning and is not treated as an empty successful delivery.
-    """
-    empty: dict[str, Any] = {"threads": {}, "pending": []}
-    if not path.is_file() or path.stat().st_size == 0:
-        return empty, None, ""
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        return empty, f"WARNING cpu slack state {path} is not JSON: {exc}", exception_text(exc)
-    if not isinstance(data, dict):
-        return empty, f"WARNING cpu slack state {path} is not a JSON object", ""
-    threads = data.get("threads") if isinstance(data.get("threads"), dict) else {}
-    pending = data.get("pending") if isinstance(data.get("pending"), list) else []
-    return {"threads": threads, "pending": pending}, None, ""
-
-
-def save_delivery(path: Path, delivery: dict[str, Any]) -> None:
-    path.write_text(
-        json.dumps(
-            {
-                "threads": delivery.get("threads") or {},
-                "pending": delivery.get("pending") or [],
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-
-def ack_pending(path: Path, pending_id: str) -> None:
-    """Drop one pending message after Slack has confirmed that send."""
-    delivery, error, _exc_text = load_delivery(path)
-    if error:
-        raise SystemExit(error)
-    delivery["pending"] = [
-        item
-        for item in delivery["pending"]
-        if isinstance(item, dict) and item.get("id") != pending_id
-    ]
-    save_delivery(path, delivery)
+    return changes, rows
 
 
 def notification_items(
-    events: list[dict[str, Any]],
+    fresh: list[dict[str, Any]],
     mode: str,
     pending: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Slack posts.
+    """Slack posts from the pending queue, plus optional unchanged posts.
 
-    Real CVE changes come only from pending, which already includes this
-    run's changes under their transition ids. Synthesizing slug:sha here
-    posts the same text a second time. mode none posts only those pending
-    messages. latest also posts the newest advisory when it did not change.
-    all does that for every watched advisory. Unchanged posts say "+0 -0 CVEs".
+    Real CVE changes come only from pending. mode none posts only those.
+    latest also posts the newest advisory when it has no pending message.
+    all does that for every watched advisory.
     """
     pending_slugs = {
         str(entry.get("slug") or "")
@@ -295,10 +164,9 @@ def notification_items(
         if isinstance(entry, dict)
     }
     newest = None
-    for ev in events:
-        payload = ev.get("payload") or {}
-        if payload.get("slug") and payload.get("cves"):
-            newest = payload["slug"]
+    for item in fresh:
+        if item.get("slug") and item.get("cves"):
+            newest = item["slug"]
             break
     items: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -313,380 +181,30 @@ def notification_items(
         seen.add(ident)
         items.append(
             {
-                "id": ident,
+                "pending_id": ident,
                 "slug": slug,
-                "slack": text,
+                "text": text,
                 "changed": True,
             }
         )
-    for ev in events:
-        payload = ev.get("payload") or {}
-        slug = payload.get("slug")
-        if not slug or not payload.get("cves"):
-            continue
-        if slug in pending_slugs:
+    for item in fresh:
+        slug = item.get("slug")
+        if not slug or not item.get("cves") or slug in pending_slugs:
             continue
         forced = mode == "all" or (mode == "latest" and slug == newest)
         if not forced:
             continue
-        title = ev.get("title") or slug
-        url = ev.get("url") or ""
+        title = item.get("title") or slug
+        url = item.get("url") or ""
         items.append(
             {
+                "pending_id": "",
                 "slug": slug,
-                "slack": f"{title}\n{url}\n+0 -0 CVEs",
+                "text": f"{title}\n{url}\n+0 -0 CVEs",
                 "changed": False,
             }
         )
     return items
-
-
-def write_notify_dir(path: Path, items: list[dict[str, Any]]) -> None:
-    if path.exists():
-        for child in path.iterdir():
-            child.unlink()
-    path.mkdir(parents=True, exist_ok=True)
-    order = []
-    changed = []
-    for item in items:
-        # Pending ids are "slug:sha". The file name uses "--" so the
-        # pipeline can recover both parts.
-        key = str(item.get("id") or item["slug"]).replace(":", "--")
-        order.append(key)
-        (path / f"{key}.txt").write_text(item["slack"].rstrip() + "\n", encoding="utf-8")
-        if item["changed"]:
-            changed.append(key)
-    (path / "order.txt").write_text("\n".join(order) + ("\n" if order else ""), encoding="utf-8")
-    (path / "changed.txt").write_text(
-        "\n".join(changed) + ("\n" if changed else ""),
-        encoding="utf-8",
-    )
-
-
-def _file_parser(advisories: dict[str, Any], fallback: int) -> int:
-    versions = [
-        _row_parser(row, fallback)
-        for row in advisories.values()
-        if isinstance(row, dict)
-    ]
-    return min(versions) if versions else fallback
-
-
-def _saved_parser(data: dict[str, Any]) -> int:
-    value = data.get("parser", 0)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return 0
-    return value
-
-
-def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str, int]:
-    """Return the slug map, or None when the file is absent.
-
-    A corrupt file is not fatal. The error string is a WARNING line and
-    the caller still publishes the bug map from this run's downloads.
-    The third value is the exception chain when parsing raised.
-    The fourth value is the parser version stored with the baseline.
-    A file written before parser versions existed is version 0.
-    """
-    if not path.is_file() or path.stat().st_size == 0:
-        return None, None, "", PARSER_VERSION
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        return None, f"WARNING cpu baseline {path} is not JSON: {exc}", exception_text(exc), 0
-    if not isinstance(data, dict):
-        return None, f"WARNING cpu baseline {path} is not a JSON object", "", 0
-    saved_parser = _saved_parser(data)
-    advisories = data.get("advisories", data)
-    if not isinstance(advisories, dict):
-        return None, f"WARNING cpu baseline {path} has no advisories object", "", saved_parser
-    kept: dict[str, Any] = {}
-    bad: list[str] = []
-    for slug, row in advisories.items():
-        stored = stored_advisory(row, saved_parser)
-        if stored is None:
-            bad.append(str(slug))
-            continue
-        kept[slug] = stored
-    if not bad:
-        return kept, None, "", saved_parser
-    warning = (
-        f"WARNING cpu baseline {path} skipped malformed advisories: {', '.join(bad)}"
-    )
-    if not kept:
-        return None, warning, "", saved_parser
-    return kept, warning, "", saved_parser
-
-
-def _write_run_body(
-    state_path: Path,
-    diff_path: Path,
-    bugs_path: Path,
-    notify_dir: Path,
-    slack_state_path: Path,
-    *,
-    count: int,
-    ignore_state: bool = False,
-    notify_mode: str = "none",
-    notes: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    collected = collect(count, notes)
-    events, index_ok, notes, stats = collected
-    degraded = state_path.with_name("cpu-degraded.txt")
-    degraded.unlink(missing_ok=True)
-    if ignore_state:
-        previous, baseline_error, baseline_exc, saved_parser = None, None, "", PARSER_VERSION
-    else:
-        previous, baseline_error, baseline_exc, saved_parser = load_advisories(state_path)
-    if baseline_error:
-        detail = baseline_error[12:] if baseline_error.startswith("WARNING cpu ") else baseline_error
-        if previous is None:
-            fallback = "this run treats the baseline as missing"
-            impact = (
-                "the newest advisory can be notified again; "
-                "the bug map from this run is still written"
-            )
-        else:
-            fallback = "malformed rows were skipped"
-            impact = (
-                "the other advisories stay the baseline; "
-                "the bug map from this run is still written"
-            )
-        notes.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="baseline",
-                message=detail,
-                fallback=fallback,
-                impact=impact,
-                exception=baseline_exc,
-            )
-        )
-    if not index_ok:
-        # No fresh pages. apply_state copies the normalized baseline and
-        # reports no CVE diff.
-        changes, advisories = apply_state([], previous)
-    else:
-        changes, advisories = apply_state(
-            events,
-            previous,
-            report_seeded=(previous is None and notify_mode == "all"),
-        )
-    migrated = [
-        slug
-        for slug, row in advisories.items()
-        if previous is not None
-        and isinstance(previous.get(slug), dict)
-        and _row_parser(previous[slug], saved_parser) != PARSER_VERSION
-        and _row_parser(row, PARSER_VERSION) == PARSER_VERSION
-    ]
-    if migrated:
-        notes.append(
-            issue(
-                level="info",
-                outcome="migrated",
-                area="parser",
-                message=(
-                    f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
-                    "CVEs dropped only by the new parser were not posted. "
-                    "CVEs added since the saved set were."
-                ),
-                fallback="refreshed advisories updated to the current parser",
-                impact=(
-                    "a CVE that only the previous parser reported is not "
-                    "posted as an Oracle edit"
-                ),
-            )
-        )
-    state_path.write_text(
-        json.dumps(
-            {
-                "parser": _file_parser(advisories, saved_parser),
-                "advisories": advisories,
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    bug_map = bug_map_from_advisories(advisories)
-    bugs_path.write_text(
-        json.dumps({"bugs": bug_map}, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    publish_marker = state_path.with_name("cpu-publish")
-    publish = baseline_changed(previous, advisories)
-    try:
-        if publish:
-            publish_marker.write_text("1\n", encoding="utf-8")
-        else:
-            publish_marker.unlink(missing_ok=True)
-    except OSError as exc:
-        notes.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="publish",
-                message=f"Publish marker was not written: {exc}",
-                fallback="the run record still asks Jenkins to archive the mapping",
-                impact="the marker file may be missing while the mapping itself was written",
-                exception=exception_text(exc),
-            )
-        )
-    delivery, delivery_error, delivery_exc = load_delivery(slack_state_path)
-    if delivery_error:
-        notes.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="slack-state",
-                message=(
-                    delivery_error[12:]
-                    if delivery_error.startswith("WARNING cpu ")
-                    else delivery_error
-                ),
-                fallback="threads and pending notifications in the unreadable file are not kept",
-                impact=(
-                    "pending Slack notifications are lost and cannot be rebuilt "
-                    "from the CVE baseline; a new thread may be started for an "
-                    "advisory that already had one"
-                ),
-                exception=delivery_exc,
-            )
-        )
-    delivery["pending"] = merge_pending(delivery["pending"], changes)
-    save_delivery(slack_state_path, delivery)
-    try:
-        write_notify_dir(
-            notify_dir,
-            notification_items(events, notify_mode, delivery["pending"]),
-        )
-        if changes:
-            diff_path.write_text(
-                json.dumps({"changes": changes}, indent=2) + "\n",
-                encoding="utf-8",
-            )
-        else:
-            diff_path.unlink(missing_ok=True)
-    except OSError as exc:
-        # State and the pending queue are already saved together. A failure
-        # here must not stop Jenkins from archiving the bug map.
-        notes.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="notify",
-                message=f"Notification files were not written: {exc}",
-                fallback="bug map, advisory state, and pending queue stay paired",
-                impact="this poll may not post Slack",
-                exception=exception_text(exc),
-            )
-        )
-    added = sum(len(change.get("added") or []) for change in changes)
-    removed = sum(len(change.get("removed") or []) for change in changes)
-    kept = reconcile_fallbacks(notes, previous)
-    publish_warnings(notes, degraded)
-    run = {
-        "picked": stats.get("picked", 0),
-        "refreshed": stats.get("refreshed", 0),
-        "page_cached": kept["page_cached"],
-        "page_unavailable": kept["page_unavailable"],
-        "csaf_cached": kept["csaf_cached"],
-        "baseline_present": bool(previous),
-        "index_ok": bool(index_ok),
-        "degraded": any(note.get("level") in ("warning", "error") for note in notes),
-        "publish": publish,
-        "bug_map_generated": True,
-        "bug_map_bugs": len(bug_map),
-        "cve_added": added,
-        "cve_removed": removed,
-    }
-    return run
-
-
-def write_run(
-    state_path: Path,
-    diff_path: Path,
-    bugs_path: Path,
-    notify_dir: Path,
-    slack_state_path: Path,
-    *,
-    count: int,
-    ignore_state: bool = False,
-    notify_mode: str = "none",
-) -> None:
-    """Publish the bug map even when the poll raises.
-
-    Notes gathered before the failure, plus the exception itself, are
-    written in finally. That write cannot replace the original error.
-    """
-    notes: list[dict[str, Any]] = []
-    run: dict[str, Any] = {}
-    try:
-        run = _write_run_body(
-            state_path,
-            diff_path,
-            bugs_path,
-            notify_dir,
-            slack_state_path,
-            count=count,
-            ignore_state=ignore_state,
-            notify_mode=notify_mode,
-            notes=notes,
-        )
-    except BaseException as exc:
-        notes.append(
-            issue(
-                level="error",
-                outcome="failed",
-                area="poll",
-                message=f"Poll failed: {exc}",
-                exception=exception_text(exc),
-            )
-        )
-        raise
-    finally:
-        write_diagnostics(
-            state_path.with_name("cpu-events.jsonl"),
-            state_path.with_name("cpu-run.json"),
-            notes,
-            run,
-        )
-
-def baseline_changed(
-    previous: dict[str, Any] | None,
-    advisories: dict[str, Any],
-) -> bool:
-    """True when saved CVE sets or bug maps differ from this run.
-
-    A bug-map-only change has no Slack diff. The new files still have to
-    be archived or the next poll copies the older baseline.
-    """
-    if previous is None:
-        return bool(advisories)
-
-    def signature(rows: dict[str, Any]) -> dict[str, tuple[Any, ...]]:
-        signed: dict[str, tuple[Any, ...]] = {}
-        for slug, row in rows.items():
-            if not isinstance(row, dict):
-                continue
-            raw_bugs = row.get("bug_cves") if isinstance(row.get("bug_cves"), dict) else {}
-            bugs = tuple(
-                sorted(
-                    (str(key), tuple(values))
-                    for key, values in raw_bugs.items()
-                    if isinstance(values, list)
-                )
-            )
-            signed[str(slug)] = (
-                tuple(row.get("cves") or []),
-                bugs,
-                _row_parser(row, 0),
-            )
-        return signed
-
-    return signature(previous) != signature(advisories)
 
 
 def _row_has(previous: dict[str, Any] | None, slug: str, key: str) -> bool:
@@ -744,3 +262,153 @@ def reconcile_fallbacks(
         "csaf_cached": csaf_cached,
     }
 
+
+def poll(
+    state_path: Path,
+    bugs_path: Path,
+    manifest_path: Path,
+    report_path: Path,
+    *,
+    count: int,
+    ignore_state: bool = False,
+    notify_mode: str = "none",
+) -> bool:
+    """Write the mapping when any advisory row is available.
+
+    Returns False when there is nothing to publish. The report is written
+    as steps finish, including after a later failure.
+    """
+    notes: list[dict[str, Any]] = []
+    run: dict[str, Any] = {
+        "picked": 0,
+        "refreshed": 0,
+        "page_cached": 0,
+        "page_unavailable": 0,
+        "csaf_cached": 0,
+        "baseline_present": False,
+        "index_ok": False,
+        "degraded": False,
+        "usable": False,
+        "bug_map_generated": False,
+        "bug_map_bugs": 0,
+        "cve_added": 0,
+        "cve_removed": 0,
+        "archived": False,
+    }
+
+    def flush() -> None:
+        failed = any(note.get("level") in ("warning", "error") for note in notes)
+        run["degraded"] = bool(failed or not run.get("index_ok"))
+        save_report(report_path, notes, run)
+
+    try:
+        collected = collect(count, notes)
+        fresh, index_ok, notes, stats = collected
+        run["picked"] = stats.get("picked", 0)
+        run["refreshed"] = stats.get("refreshed", 0)
+        run["index_ok"] = bool(index_ok)
+        flush()
+        state, load_notes, saved_parser = load_state(state_path)
+        notes.extend(load_notes)
+        previous = state["advisories"] if state["advisories"] else None
+        run["baseline_present"] = previous is not None
+        if not index_ok:
+            changes, advisories = apply_state([], previous, saved_parser=saved_parser)
+        else:
+            changes, advisories = apply_state(
+                fresh,
+                previous,
+                report_seeded=(previous is None or ignore_state) and notify_mode == "all",
+                ignore_cves=bool(ignore_state and previous is not None),
+                saved_parser=saved_parser,
+            )
+        migrated = [
+            slug
+            for slug, row in advisories.items()
+            if previous is not None
+            and isinstance(previous.get(slug), dict)
+            and _row_parser(previous[slug], saved_parser) != PARSER_VERSION
+            and _row_parser(row, PARSER_VERSION) == PARSER_VERSION
+        ]
+        if migrated:
+            notes.append(
+                issue(
+                    level="info",
+                    outcome="migrated",
+                    area="parser",
+                    message=(
+                        f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
+                        "CVEs dropped only by the new parser were not posted. "
+                        "CVEs added since the saved set were."
+                    ),
+                    fallback="refreshed advisories updated to the current parser",
+                    impact=(
+                        "a CVE that only the previous parser reported is not "
+                        "posted as an Oracle edit"
+                    ),
+                )
+            )
+        if not advisories:
+            notes.append(
+                issue(
+                    level="error",
+                    outcome="failed",
+                    area="poll",
+                    message="No advisory data to publish.",
+                    fallback="previous artifacts stay the copy source",
+                    impact="this build has no bug map",
+                )
+            )
+            return False
+        kept = reconcile_fallbacks(notes, previous)
+        run["page_cached"] = kept["page_cached"]
+        run["page_unavailable"] = kept["page_unavailable"]
+        run["csaf_cached"] = kept["csaf_cached"]
+        state["advisories"] = advisories
+        state["pending"] = merge_pending(state.get("pending") or [], changes)
+        save_state(state_path, state)
+        bug_map = bug_map_from_advisories(advisories)
+        atomic_write(
+            bugs_path,
+            json.dumps({"bugs": bug_map}, indent=2) + "\n",
+        )
+        run["usable"] = True
+        run["bug_map_generated"] = True
+        run["bug_map_bugs"] = len(bug_map)
+        run["cve_added"] = sum(len(change.get("added") or []) for change in changes)
+        run["cve_removed"] = sum(len(change.get("removed") or []) for change in changes)
+        flush()
+        try:
+            items = notification_items(fresh, notify_mode, state["pending"])
+            atomic_write(
+                manifest_path,
+                json.dumps({"items": items}, indent=2) + "\n",
+            )
+        except OSError as exc:
+            notes.append(
+                issue(
+                    level="warning",
+                    outcome="failed",
+                    area="notify",
+                    message=f"Notification manifest was not written: {exc}",
+                    fallback="bug map and pending queue stay paired",
+                    impact="this poll may not post Slack",
+                    exception=exception_text(exc),
+                )
+            )
+        return True
+    except BaseException as exc:
+        notes.append(
+            issue(
+                level="error",
+                outcome="failed",
+                area="poll",
+                message=f"Poll failed: {exc}",
+                exception=exception_text(exc),
+            )
+        )
+        raise
+    finally:
+        for line in warning_lines(notes):
+            log.warning(line)
+        flush()

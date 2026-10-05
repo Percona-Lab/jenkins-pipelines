@@ -9,7 +9,7 @@ import urllib.error
 from pathlib import Path
 from typing import Any
 
-log = logging.getLogger("ps_notify")
+log = logging.getLogger("oracle_cpu")
 
 def exception_text(exc: BaseException) -> str:
     """Exception chain and stack traces.
@@ -80,60 +80,62 @@ def warning_lines(notes: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def publish_warnings(notes: list[dict[str, Any]], degraded: Path) -> None:
-    """Write cpu-degraded.txt. A failure must not hide the bug map."""
-    lines = warning_lines(notes)
-    for line in lines:
-        log.warning(line)
+def _atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
+
+def save_report(path: Path, notes: list[dict[str, Any]], run: dict[str, Any]) -> None:
+    """Write the build report. A failure here must not hide the bug map."""
+    payload = dict(run)
+    payload["notes"] = list(notes)
     try:
-        if lines:
-            degraded.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        else:
-            degraded.unlink(missing_ok=True)
+        _atomic_write(path, json.dumps(payload, indent=2) + "\n")
     except OSError as exc:
-        log.warning("WARNING cpu degraded file was not written: %s", exc)
+        log.warning("WARNING cpu report was not written: %s", exc)
 
 
-def write_diagnostics(
-    events_path: Path,
-    run_path: Path,
-    notes: list[dict[str, Any]],
-    run: dict[str, Any],
-) -> None:
-    """Write summary inputs. A failure here must not hide the bug map."""
-    try:
-        events_path.write_text(
-            "".join(json.dumps(note) + "\n" for note in notes),
-            encoding="utf-8",
-        )
-        run_path.write_text(json.dumps(run, indent=2) + "\n", encoding="utf-8")
-    except OSError as exc:
-        log.warning("WARNING cpu status files were not written: %s", exc)
-
-
-def load_events(path: Path) -> list[dict[str, Any]]:
+def load_report(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Return the report and extra notes. A bad file does not raise."""
+    extra: list[dict[str, Any]] = []
     if not path.is_file() or path.stat().st_size == 0:
-        return []
-    found: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            item = json.loads(line)
-        except json.JSONDecodeError as exc:
-            found.append(
-                issue(
-                    level="error",
-                    outcome="failed",
-                    area="status",
-                    message=f"cpu events line is not JSON: {exc}",
-                    exception=line,
-                )
+        extra.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="status",
+                message="Run record missing. Mapping may already be archived.",
+                impact="status counts for this poll are incomplete",
             )
-            continue
-        if isinstance(item, dict):
-            found.append(item)
-    return found
+        )
+        return {}, extra
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        extra.append(
+            issue(
+                level="error",
+                outcome="failed",
+                area="status",
+                message=f"cpu run record is not JSON: {exc}",
+                exception=exception_text(exc),
+            )
+        )
+        return {}, extra
+    if not isinstance(data, dict):
+        extra.append(
+            issue(
+                level="error",
+                outcome="failed",
+                area="status",
+                message="cpu run record is not a JSON object.",
+            )
+        )
+        return {}, extra
+    notes = data.get("notes") if isinstance(data.get("notes"), list) else []
+    return data, [note for note in notes if isinstance(note, dict)] + extra
 
 
 def pending_count(path: Path) -> int | None:
@@ -157,7 +159,7 @@ def pending_count(path: Path) -> int | None:
 def render_status(
     result: str,
     run: dict[str, Any],
-    events: list[dict[str, Any]],
+    notes: list[dict[str, Any]],
     pending_left: int | None,
 ) -> tuple[str, str]:
     """Return the build description and the full status text.
@@ -166,9 +168,9 @@ def render_status(
     chains and recovered retries stay in the full text.
     """
     lines = [f"Status: {result}"]
-    archived = any(
-        event.get("area") == "archive" and event.get("outcome") == "published"
-        for event in events
+    archived = bool(run.get("archived")) or any(
+        note.get("area") == "archive" and note.get("outcome") == "published"
+        for note in notes
     )
     if not run:
         lines.append("Oracle advisories: run record missing")
@@ -210,19 +212,19 @@ def render_status(
         )
     delivered = sum(
         1
-        for event in events
-        if event.get("area") == "slack" and event.get("outcome") == "delivered"
+        for note in notes
+        if note.get("area") == "slack" and note.get("outcome") == "delivered"
     )
     pending_text = "unknown" if pending_left is None else str(pending_left)
     lines.append(f"Slack notifications: {delivered} delivered, {pending_text} pending")
     problems = [
-        event
-        for event in events
-        if event.get("level") in ("warning", "error")
+        note
+        for note in notes
+        if note.get("level") in ("warning", "error")
     ]
     headlines = []
-    for event in problems:
-        text = str(event.get("message") or "").strip()
+    for note in problems:
+        text = str(note.get("message") or "").strip()
         if len(text) > 400:
             text = text[:400] + "..."
         if text:
@@ -239,14 +241,14 @@ def render_status(
         "Other Jenkins log lines are not listed."
     )
     full.append("Warnings:" if problems else "Warnings: none")
-    for event in problems:
-        full.append(_format_issue(event))
-    info = [event for event in events if event.get("level") == "info"]
+    for note in problems:
+        full.append(_format_issue(note))
+    info = [note for note in notes if note.get("level") == "info"]
     if info:
         full.append("")
         full.append("Info:")
-        for event in info:
-            full.append(_format_issue(event))
+        for note in info:
+            full.append(_format_issue(note))
     description = "\n".join(description_lines).rstrip() + "\n"
     status = "\n".join(full).rstrip() + "\n"
     return description, status
@@ -284,64 +286,44 @@ def description_html(text: str) -> str:
 
 
 def write_status(
-    events_path: Path,
-    run_path: Path,
-    slack_state_path: Path,
+    report_path: Path,
+    state_path: Path,
     status_path: Path,
     description_path: Path,
     result: str,
 ) -> None:
-    events = load_events(events_path)
-    if run_path.is_file() and run_path.stat().st_size:
-        try:
-            run = json.loads(run_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            run = {}
-            events.append(
-                issue(
-                    level="error",
-                    outcome="failed",
-                    area="status",
-                    message=f"cpu run record is not JSON: {exc}",
-                    exception=exception_text(exc),
-                )
-            )
-        if not isinstance(run, dict):
-            run = {}
-    else:
-        run = {}
-        events.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="status",
-                message="Run record missing. Mapping may already be archived.",
-                impact="status counts for this poll are incomplete",
-            )
-        )
-    description, status = render_status(result, run, events, pending_count(slack_state_path))
+    run, notes = load_report(report_path)
+    description, status = render_status(result, run, notes, pending_count(state_path))
     description_path.write_text(description_html(description), encoding="utf-8")
     status_path.write_text(status, encoding="utf-8")
 
 
-def append_event(argv: list[str]) -> None:
-    """Append one Groovy-recorded issue from a single JSON object."""
-    if len(argv) != 3:
-        raise SystemExit("usage: cpu_cves.py event EVENTS JSON_FILE")
-    raw = json.loads(Path(argv[2]).read_text(encoding="utf-8"))
-    if not isinstance(raw, dict):
-        raise SystemExit("event JSON must be an object")
-    event = issue(
-        level=str(raw.get("level") or "info"),
-        outcome=str(raw.get("outcome") or ""),
-        area=str(raw.get("area") or ""),
-        slug=str(raw.get("slug") or ""),
-        attempts=int(raw.get("attempts") or 0),
-        message=str(raw.get("message") or ""),
-        fallback=str(raw.get("fallback") or ""),
-        impact=str(raw.get("impact") or ""),
-        exception=str(raw.get("exception") or ""),
+def append_note(report_path: Path, raw: dict[str, Any]) -> None:
+    """Add one Groovy outcome to the report. Missing report still records it."""
+    run, notes = load_report(report_path)
+    # load_report's own warning is about a missing file, not a poll fact.
+    notes = [
+        note
+        for note in notes
+        if not (
+            note.get("area") == "status"
+            and str(note.get("message") or "").startswith("Run record missing")
+        )
+    ]
+    if raw.get("area") == "archive" and raw.get("outcome") == "published":
+        run["archived"] = True
+    notes.append(
+        issue(
+            level=str(raw.get("level") or "info"),
+            outcome=str(raw.get("outcome") or ""),
+            area=str(raw.get("area") or ""),
+            slug=str(raw.get("slug") or ""),
+            attempts=int(raw.get("attempts") or 0),
+            message=str(raw.get("message") or ""),
+            fallback=str(raw.get("fallback") or ""),
+            impact=str(raw.get("impact") or ""),
+            exception=str(raw.get("exception") or ""),
+        )
     )
-    with Path(argv[1]).open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event) + "\n")
+    save_report(report_path, notes, run)
 

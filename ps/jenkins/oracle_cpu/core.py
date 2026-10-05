@@ -16,10 +16,10 @@ from typing import Any, NamedTuple
 
 from oracle_cpu.diagnostics import exception_text, issue
 
-log = logging.getLogger("ps_notify")
+log = logging.getLogger("oracle_cpu")
 
 INDEX = "https://www.oracle.com/security-alerts/"
-UA = "Mozilla/5.0 (compatible; ps-notify-cpu/1.0)"
+UA = "Mozilla/5.0 (compatible; percona-jenkins-oracle-cpu/1.0)"
 # IncompleteRead is an HTTPException, not a URLError or OSError. A truncated
 # body must retry like a connection failure, then fall back per advisory.
 FETCH_ERRORS = (
@@ -287,80 +287,55 @@ def bug_map_from_advisories(advisories: dict[str, Any]) -> dict[str, list[str]]:
     return merge_cve_lists(maps)
 
 
-def merge_bug_maps(events: list[dict[str, Any]]) -> dict[str, list[str]]:
-    maps: list[dict[str, list[str]]] = []
-    for ev in events:
-        bugs = (ev.get("payload") or {}).get("bug_cves") or {}
-        if isinstance(bugs, dict):
-            maps.append(bugs)
-    return merge_cve_lists(maps)
-
-
 def _cve_delta(old: list[str], new: list[str]) -> tuple[list[str], list[str]]:
     old_set = set(old)
     new_set = set(new)
     return sorted(new_set - old_set), sorted(old_set - new_set)
 
 
-def format_bodies(
+def format_slack(
     old: list[str],
     new: list[str],
     added: list[str] | None = None,
     removed: list[str] | None = None,
-) -> tuple[str, str]:
+) -> str:
+    """Slack text for one CVE-set change. A first list is only the count."""
     if added is None or removed is None:
         added, removed = _cve_delta(old, new)
-    gnome = f"+{len(added)} -{len(removed)} CVEs"
     if not old:
-        slack = f"+{len(added)} CVEs"
-    else:
-        lines = [gnome]
-        lines.extend(f"+ {cve}" for cve in added)
-        lines.extend(f"- {cve}" for cve in removed)
-        slack = "\n".join(lines)
-    return gnome, slack
+        return f"+{len(added)} CVEs"
+    lines = [f"+{len(added)} -{len(removed)} CVEs"]
+    lines.extend(f"+ {cve}" for cve in added)
+    lines.extend(f"- {cve}" for cve in removed)
+    return "\n".join(lines)
 
 
 def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
-    """Return a diff record, or None when the CVE sets match.
-
-    An empty new list against an empty old list is unchanged. A first
-    non-empty list uses the short Slack line from format_bodies.
-    """
+    """Return a diff record, or None when the CVE sets match."""
     added, removed = _cve_delta(old, new)
     if not added and not removed:
         return None
-    gnome, slack = format_bodies(old, new, added, removed)
     return {
         "sha": cve_sha(new),
         "cves": list(new),
         "added": added,
         "removed": removed,
-        "gnome": gnome,
-        "slack": slack,
+        "slack": format_slack(old, new, added, removed),
     }
 
 
 class Collection(NamedTuple):
-    """One Oracle poll. notes is the same list the caller passed in."""
+    """One Oracle poll. notes is the same list the caller passed in.
 
-    events: list[dict[str, Any]]
+    advisories are flat records: slug, title, url, cves, bug_cves.
+    bug_cves is None when CSAF could not be used, and {} when the
+    document is valid and has no bug ids.
+    """
+
+    advisories: list[dict[str, Any]]
     index_ok: bool
     notes: list[dict[str, Any]]
     stats: dict[str, Any]
-
-
-def fetch(count: int) -> list[dict[str, Any]]:
-    """Newest advisory first. A page that still fails after retries is omitted.
-
-    Desktop callers do not build the Jenkins summary, so collection
-    warnings are logged here. The events list still omits failed pages.
-    """
-    collected = collect(count)
-    for note in collected.notes:
-        if note.get("level") in ("warning", "error"):
-            log.warning("WARNING cpu %s", note.get("message"))
-    return collected.events
 
 
 def collect(
@@ -369,7 +344,7 @@ def collect(
 ) -> Collection:
     """Return events, index status, notes, and fetch counts.
 
-    A failed advisory page is not an event. The caller keeps that slug's
+    A failed advisory page is omitted. The caller keeps that slug's
     previous state. bug_cves is None when the CSAF file could not be used.
     notes is filled as advisories are handled, so a later failure can
     still flush what was already recorded.
@@ -433,7 +408,7 @@ def collect(
     picked = slugs[: max(0, count)]
     stats["picked"] = len(picked)
     log.info("cpu index slugs=%d picked=%d", len(slugs), len(picked))
-    events = []
+    advisories = []
     for slug in picked:
         kind, month, year = _parse_slug(slug)
         title = f"{kind} {MONTH_NAME[month]} {year}"
@@ -490,16 +465,16 @@ def collect(
         bug_cves = fetch_bug_map(url, page, notes, slug)
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
-        events.append(
+        advisories.append(
             {
-                "id": f"cpu:{slug}:{sha}",
-                "source": "cpu",
+                "slug": slug,
                 "title": title,
                 "url": url,
-                "payload": {"slug": slug, "cves": cves, "bug_cves": bug_cves},
+                "cves": cves,
+                "bug_cves": bug_cves,
             }
         )
-    if picked and not events:
+    if picked and not advisories:
         message = "Every advisory download failed."
         notes.append(
             issue(
@@ -509,5 +484,5 @@ def collect(
                 message=message,
             )
         )
-    return Collection(events, True, notes, stats)
+    return Collection(advisories, True, notes, stats)
 
