@@ -50,9 +50,17 @@ def cpuThrowableText(err) {
 
 def cpuEvent(String eventsPath, String level, String outcome, String area, String slug, int attempts, String message, String fallback, String impact, String exceptionText) {
     // eventsPath is an argument. A method cannot see a script-local `def EVENTS`.
-    writeFile file: 'cpu-event-message.txt', text: message ?: ''
-    writeFile file: 'cpu-event-exception.txt', text: exceptionText ?: ''
-    sh "python3 ps/jenkins/cpu_cves.py event ${eventsPath} ${level} ${outcome} ${area} '${slug}' ${attempts} cpu-event-message.txt cpu-event-exception.txt '${fallback}' '${impact}'"
+    // A failed diagnostic write must not skip thread save, ack, or later advisories.
+    try {
+        writeFile file: 'cpu-event-message.txt', text: message ?: ''
+        writeFile file: 'cpu-event-exception.txt', text: exceptionText ?: ''
+        sh "python3 ps/jenkins/cpu_cves.py event ${eventsPath} ${level} ${outcome} ${area} '${slug}' ${attempts} cpu-event-message.txt cpu-event-exception.txt '${fallback}' '${impact}'"
+    } catch (Exception err) {
+        if (err instanceof InterruptedException) {
+            throw err
+        }
+        echo "WARNING cpu event record failed: ${err}"
+    }
 }
 // Ten advisories, not five. A fix can land in a later tag for a CVE
 // published in an older CPU or CSPU, and the stored JSON stays small.
@@ -226,10 +234,6 @@ pipeline {
                             recorded = true
                             unstable(failMessage)
                         } else {
-                        def sentMessage = misses
-                            ? "Slack notification delivered for ${slug} on attempt ${deliveredOn}/3."
-                            : "Slack notification delivered for ${slug}."
-                        cpuEvent(EVENTS, misses ? 'info' : 'ok', 'delivered', 'slack', slug, deliveredOn, sentMessage, '', '', misses.join('\n'))
                         if (!threadId) {
                             threadId = response.threadId
                             sh """python3 -c 'import json; from pathlib import Path; p=Path("${SLACK_STATE}"); data=json.loads(p.read_text()) if p.is_file() and p.stat().st_size else {}; threads=data.get("threads") or {}; threads["${slug}"]={"channelId":"${response.channelId}","ts":"${response.ts}","threadId":"${response.threadId}"}; data["threads"]=threads; p.write_text(json.dumps(data, indent=2)+"\\n")'"""
@@ -240,6 +244,10 @@ pipeline {
                             sh "python3 ps/jenkins/cpu_cves.py ack ${SLACK_STATE} '${pendingId}'"
                             archiveArtifacts artifacts: SLACK_STATE, allowEmptyArchive: false
                         }
+                        def sentMessage = misses
+                            ? "Slack notification delivered for ${slug} on attempt ${deliveredOn}/3."
+                            : "Slack notification delivered for ${slug}."
+                        cpuEvent(EVENTS, misses ? 'info' : 'ok', 'delivered', 'slack', slug, deliveredOn, sentMessage, '', '', misses.join('\n'))
                         if (changedKeys.contains(key)) {
                             // failOnError is false by default, so a failed upload
                             // returns and the step does not throw. Retry only
