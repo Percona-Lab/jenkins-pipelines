@@ -991,13 +991,9 @@ def _write_run_body(
             )
         )
     if not index_ok:
-        changes, advisories = [], {}
-        for slug, row in (previous or {}).items():
-            stored = stored_advisory(row)
-            if stored is None:
-                log.warning("WARNING cpu baseline row %s is malformed and was skipped", slug)
-                continue
-            advisories[slug] = stored
+        # No fresh pages. apply_state copies the normalized baseline and
+        # reports no CVE diff.
+        changes, advisories = apply_state([], previous)
     else:
         changes, advisories = apply_state(
             events,
