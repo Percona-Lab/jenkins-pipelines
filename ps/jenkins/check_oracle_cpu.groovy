@@ -35,11 +35,17 @@ def cpuThrowableText(err) {
                 }
             }
         } catch (Exception ignored) {
+            if (ignored instanceof InterruptedException) {
+                throw ignored
+            }
             lines << "    (stack trace unavailable: ${ignored})"
         }
         try {
             current = current.cause
         } catch (Exception ignored) {
+            if (ignored instanceof InterruptedException) {
+                throw ignored
+            }
             lines << "    (cause unavailable: ${ignored})"
             break
         }
@@ -261,6 +267,12 @@ pipeline {
                                     )
                                 }
                             } catch (Exception uploadErr) {
+                                // Abort and timeout throw InterruptedException.
+                                // Swallowing that lets the build continue after
+                                // the user or the job timer stopped it.
+                                if (uploadErr instanceof InterruptedException) {
+                                    throw uploadErr
+                                }
                                 echo "WARNING cpu Slack file upload failed for ${slug}: ${uploadErr}"
                                 cpuEvent('warning', 'upload-failed', 'slack-upload', slug, 3, "Slack file upload failed for ${slug}. Artifact links are in the notification.", 'artifact links already sent', 'the thread has no file', cpuThrowableText(uploadErr))
                                 unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
@@ -268,6 +280,9 @@ pipeline {
                         }
                         }
                         } catch (Exception err) {
+                            if (err instanceof InterruptedException) {
+                                throw err
+                            }
                             blockedSlugs.add(slug)
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
                             if (!recorded) {
@@ -306,6 +321,9 @@ pipeline {
                     def result = currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS'
                     sh "python3 ps/jenkins/cpu_cves.py status ${EVENTS} ${RUN} ${SLACK_STATE} ${STATUS} cpu-description.txt ${result}"
                 } catch (Exception err) {
+                    if (err instanceof InterruptedException) {
+                        throw err
+                    }
                     echo "WARNING cpu status summary failed: ${err}"
                 }
                 try {
@@ -317,6 +335,9 @@ pipeline {
                         archiveArtifacts artifacts: STATUS, allowEmptyArchive: true
                     }
                 } catch (Exception err) {
+                    if (err instanceof InterruptedException) {
+                        throw err
+                    }
                     echo "WARNING cpu status publish failed: ${err}"
                 }
             }
