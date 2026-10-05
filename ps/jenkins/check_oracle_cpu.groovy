@@ -37,6 +37,53 @@ def cpuEvent(Map event) {
     }
 }
 
+def cpuRunFlags(String runPath) {
+    // A partial or invalid run record must not fail the build. The bug
+    // map is archived from the publish marker before this is called.
+    if (!fileExists(runPath)) {
+        return [degraded: false, publish: false]
+    }
+    try {
+        def out = sh(
+            script: """python3 -c 'import json
+try:
+    data = json.load(open("${runPath}"))
+except Exception:
+    print("ERR")
+else:
+    if not isinstance(data, dict):
+        print("ERR")
+    else:
+        degraded = "1" if data.get("degraded") else "0"
+        publish = "1" if data.get("publish") else "0"
+        print(degraded + " " + publish)'""",
+            returnStdout: true
+        ).trim()
+    } catch (Exception err) {
+        if (err instanceof InterruptedException) {
+            throw err
+        }
+        echo "WARNING cpu run record is unreadable: ${err}"
+        return [degraded: false, publish: false]
+    }
+    if (!out || out.startsWith('ERR')) {
+        echo 'WARNING cpu run record is unreadable.'
+        return [degraded: false, publish: false]
+    }
+    def parts = out.split(' ')
+    return [degraded: parts[0] == '1', publish: parts.size() > 1 && parts[1] == '1']
+}
+
+def cpuArchiveCore(String eventsPath, String bugArtifact, List names) {
+    def remembered = names.findAll { fileExists(it) }
+    if (!remembered) {
+        return
+    }
+    def archived = remembered.join(',')
+    archiveArtifacts artifacts: archived, allowEmptyArchive: true
+    cpuNoteMapArchived(eventsPath, bugArtifact, archived)
+}
+
 def cpuNoteMapArchived(String eventsPath, String bugArtifact, String artifacts) {
     if (artifacts.split(',').contains(bugArtifact)) {
         cpuEvent([
@@ -120,15 +167,14 @@ pipeline {
                     def order = fileExists("${NOTIFY_DIR}/order.txt") ? readFile("${NOTIFY_DIR}/order.txt").trim() : ''
                     env.CPU_DIFF = fileExists(DIFF) ? '1' : '0'
                     env.CPU_NOTIFY = order ? '1' : '0'
-                    env.CPU_DEGRADED = '0'
-                    def degraded = fileExists(DEGRADED)
-                    if (!degraded && fileExists(RUN)) {
-                        def flag = sh(
-                            script: """python3 -c 'import json; print("1" if json.load(open("${RUN}")).get("degraded") else "0")'""",
-                            returnStdout: true
-                        ).trim()
-                        degraded = flag == '1'
+                    // Archive before reading the diagnostic record. A partial
+                    // cpu-run.json must not skip the mapping archive.
+                    if (fileExists(PUBLISH)) {
+                        cpuArchiveCore(EVENTS, BUGS, [STATE, BUGS, SLACK_STATE])
                     }
+                    def runFlags = cpuRunFlags(RUN)
+                    def degraded = fileExists(DEGRADED) || runFlags.degraded
+                    env.CPU_DEGRADED = '0'
                     if (degraded) {
                         if (fileExists(DEGRADED)) {
                             echo readFile(DEGRADED)
@@ -138,14 +184,13 @@ pipeline {
                         unstable('Oracle CPU collection degraded. Previous state kept for failed advisories.')
                         env.CPU_DEGRADED = '1'
                     }
-                    env.CPU_PUBLISH = fileExists(PUBLISH) ? '1' : '0'
-                    if (env.CPU_DEGRADED == '1' || env.CPU_PUBLISH == '1') {
-                        def remembered = [STATE, BUGS, SLACK_STATE].findAll { fileExists(it) }
-                        if (remembered) {
-                            def archived = remembered.join(',')
-                            archiveArtifacts artifacts: archived, allowEmptyArchive: true
-                            cpuNoteMapArchived(EVENTS, BUGS, archived)
-                        }
+                    env.CPU_PUBLISH = (fileExists(PUBLISH) || runFlags.publish) ? '1' : '0'
+                    if (env.CPU_PUBLISH == '1' && !fileExists(PUBLISH)) {
+                        echo 'WARNING cpu publish marker file is missing. The run record still marks this mapping for archive.'
+                        cpuArchiveCore(EVENTS, BUGS, [STATE, BUGS, SLACK_STATE])
+                    }
+                    if (env.CPU_DEGRADED == '1' && env.CPU_PUBLISH != '1') {
+                        cpuArchiveCore(EVENTS, BUGS, [STATE, BUGS, SLACK_STATE])
                     }
                 }
             }
