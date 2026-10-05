@@ -404,6 +404,7 @@ def apply_state(
         change["slug"] = slug
         change["title"] = ev.get("title") or slug
         change["url"] = ev.get("url") or ""
+        change["old_sha"] = cve_sha(old)
         changes.append(change)
         advisories[slug] = {
             "sha": change["sha"],
@@ -419,12 +420,18 @@ def apply_state(
     return changes, advisories
 
 
-def change_pending(change: dict[str, Any]) -> dict[str, str]:
-    """One undelivered Slack message. id is stable for the same new CVE set."""
+def change_pending(change: dict[str, Any], seq: int) -> dict[str, str]:
+    """One undelivered Slack message.
+
+    The id names the transition and a sequence number. An id of only the
+    new CVE set collides when that set is added, removed, and added again
+    while the first message is still pending.
+    """
     slug = str(change["slug"])
     sha = str(change["sha"])
+    old_sha = str(change.get("old_sha") or "none")
     return {
-        "id": f"{slug}:{sha}",
+        "id": f"{slug}:{old_sha}-{sha}-{seq}",
         "slug": slug,
         "sha": sha,
         "slack": f"{change['title']}\n{change['url']}\n{change['slack']}",
@@ -443,6 +450,7 @@ def merge_pending(
     """
     out: list[dict[str, str]] = []
     seen: set[str] = set()
+    next_seq = 1
     for item in existing:
         if not isinstance(item, dict):
             continue
@@ -452,6 +460,9 @@ def merge_pending(
         if not ident or not slug or not text or ident in seen:
             continue
         seen.add(ident)
+        tail = ident.rsplit("-", 1)[-1]
+        if "-" in ident and tail.isdigit():
+            next_seq = max(next_seq, int(tail) + 1)
         out.append(
             {
                 "id": ident,
@@ -461,7 +472,8 @@ def merge_pending(
             }
         )
     for change in changes:
-        item = change_pending(change)
+        item = change_pending(change, next_seq)
+        next_seq += 1
         if item["id"] in seen:
             continue
         seen.add(item["id"])
