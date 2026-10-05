@@ -1272,9 +1272,16 @@ def render_status(
     chains and recovered retries stay in the full text.
     """
     lines = [f"Status: {result}"]
+    archived = any(
+        event.get("area") == "archive" and event.get("outcome") == "published"
+        for event in events
+    )
     if not run:
         lines.append("Oracle advisories: run record missing")
-        lines.append("Bug-to-CVE mapping: unknown")
+        if archived:
+            lines.append("Bug-to-CVE mapping: published (bug count unknown)")
+        else:
+            lines.append("Bug-to-CVE mapping: unknown")
     elif not run.get("index_ok") and not run.get("picked"):
         if run.get("baseline_present"):
             lines.append("Oracle advisories: index unusable, previous state kept")
@@ -1292,10 +1299,6 @@ def render_status(
         lines.append("Oracle advisories: " + ", ".join(parts))
     if run:
         generated = bool(run.get("bug_map_generated") or run.get("bug_map_published"))
-        archived = any(
-            event.get("area") == "archive" and event.get("outcome") == "published"
-            for event in events
-        )
         if generated:
             # bug_map_published on an older run file only meant the JSON was written.
             state = "published" if archived else "generated"
