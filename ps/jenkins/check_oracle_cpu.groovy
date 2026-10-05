@@ -11,6 +11,7 @@ def SLACK_STATE = 'cpu-slack.json'
 def SEED = 'cpu-cves-seed'
 def NOTIFY_DIR = 'cpu-notify'
 def DEGRADED = 'cpu-degraded.txt'
+def PUBLISH = 'cpu-publish'
 def EVENTS = 'cpu-events.jsonl'
 def RUN = 'cpu-run.json'
 def STATUS = 'cpu-status.txt'
@@ -80,7 +81,7 @@ pipeline {
         stage('Check advisories') {
             steps {
                 checkout scm
-                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED} ${EVENTS} ${RUN} ${STATUS} cpu-description.txt"
+                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED} ${PUBLISH} ${EVENTS} ${RUN} ${STATUS} cpu-description.txt"
                 script {
                     // SUCCESS or UNSTABLE, not NOT_BUILT or FAILURE. A degraded
                     // poll is UNSTABLE and still holds the advisory state.
@@ -137,6 +138,9 @@ pipeline {
                         }
                         unstable('Oracle CPU collection degraded. Previous state kept for failed advisories.')
                         env.CPU_DEGRADED = '1'
+                    }
+                    env.CPU_PUBLISH = fileExists(PUBLISH) ? '1' : '0'
+                    if (env.CPU_DEGRADED == '1' || env.CPU_PUBLISH == '1') {
                         def remembered = [STATE, BUGS, SLACK_STATE].findAll { fileExists(it) }
                         if (remembered) {
                             def archived = remembered.join(',')
@@ -361,6 +365,7 @@ pipeline {
                 allOf {
                     environment name: 'CPU_NOTIFY', value: '0'
                     environment name: 'CPU_DEGRADED', value: '0'
+                    environment name: 'CPU_PUBLISH', value: '0'
                 }
             }
             steps {
@@ -404,7 +409,7 @@ pipeline {
             script {
                 // Last step of a real SUCCESS only. NOT_BUILT and FAILURE
                 // do not keep the build. A diff is the artifact worth keeping.
-                if (env.CPU_DIFF == '1') {
+                if (env.CPU_DIFF == '1' || env.CPU_PUBLISH == '1') {
                     currentBuild.setKeepLog(true)
                 }
             }

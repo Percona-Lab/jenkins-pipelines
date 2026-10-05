@@ -982,6 +982,14 @@ def _write_run_body(
         json.dumps({"bugs": bug_map}, indent=2) + "\n",
         encoding="utf-8",
     )
+    publish_marker = state_path.with_name("cpu-publish")
+    try:
+        if baseline_changed(previous, advisories):
+            publish_marker.write_text("1\n", encoding="utf-8")
+        else:
+            publish_marker.unlink(missing_ok=True)
+    except OSError as exc:
+        log.warning("WARNING cpu publish marker was not written: %s", exc)
     delivery, delivery_error, delivery_exc = load_delivery(slack_state_path)
     if delivery_error:
         notes.append(
@@ -1095,6 +1103,37 @@ def write_run(
             notes,
             run,
         )
+
+
+def baseline_changed(
+    previous: dict[str, Any] | None,
+    advisories: dict[str, Any],
+) -> bool:
+    """True when saved CVE sets or bug maps differ from this run.
+
+    A bug-map-only change has no Slack diff. The new files still have to
+    be archived or the next poll copies the older baseline.
+    """
+    if previous is None:
+        return bool(advisories)
+
+    def signature(rows: dict[str, Any]) -> dict[str, tuple[Any, ...]]:
+        signed: dict[str, tuple[Any, ...]] = {}
+        for slug, row in rows.items():
+            if not isinstance(row, dict):
+                continue
+            raw_bugs = row.get("bug_cves") if isinstance(row.get("bug_cves"), dict) else {}
+            bugs = tuple(
+                sorted(
+                    (str(key), tuple(values))
+                    for key, values in raw_bugs.items()
+                    if isinstance(values, list)
+                )
+            )
+            signed[str(slug)] = (tuple(row.get("cves") or []), bugs)
+        return signed
+
+    return signature(previous) != signature(advisories)
 
 
 def _row_has(previous: dict[str, Any] | None, slug: str, key: str) -> bool:
