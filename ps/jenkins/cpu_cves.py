@@ -952,7 +952,7 @@ def write_run(
         "page_cached": stats.get("page_cached", 0),
         "csaf_cached": stats.get("csaf_cached", 0),
         "index_ok": bool(index_ok),
-        "bug_map_published": True,
+        "bug_map_generated": True,
         "bug_map_bugs": len(bug_map),
         "cve_added": added,
         "cve_removed": removed,
@@ -1052,13 +1052,23 @@ def render_status(
         else:
             lines.append(f"Oracle advisories: {refreshed} refreshed")
     if run:
-        if run.get("bug_map_published"):
-            mapping = f"Bug-to-CVE mapping: published ({int(run.get('bug_map_bugs') or 0)} bugs)"
+        generated = bool(run.get("bug_map_generated") or run.get("bug_map_published"))
+        archived = any(
+            event.get("area") == "archive" and event.get("outcome") == "published"
+            for event in events
+        )
+        if generated:
+            # bug_map_published on an older run file only meant the JSON was written.
+            state = "published" if archived else "generated"
+            suffix = "" if archived else ", not archived"
+            mapping = (
+                f"Bug-to-CVE mapping: {state} ({int(run.get('bug_map_bugs') or 0)} bugs){suffix}"
+            )
             if run.get("csaf_cached"):
                 mapping += "; cached entries preserved"
             lines.append(mapping)
-        elif "bug_map_published" in run:
-            lines.append("Bug-to-CVE mapping: not published")
+        elif "bug_map_generated" in run or "bug_map_published" in run:
+            lines.append("Bug-to-CVE mapping: not generated")
         lines.append(
             f"CVE changes: +{int(run.get('cve_added') or 0)}, -{int(run.get('cve_removed') or 0)}"
         )
