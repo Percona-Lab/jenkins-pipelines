@@ -158,11 +158,20 @@ State: ${BUILD_URL}artifact/${STATE}"""
                                     )
                                 }
                             } catch (Exception uploadErr) {
+                                // Abort and timeout throw InterruptedException.
+                                // Swallowing that lets the build continue after
+                                // the user or the job timer stopped it.
+                                if (uploadErr instanceof InterruptedException) {
+                                    throw uploadErr
+                                }
                                 echo "WARNING cpu Slack file upload failed for ${slug}: ${uploadErr}"
                                 unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
                             }
                         }
                         } catch (Exception err) {
+                            if (err instanceof InterruptedException) {
+                                throw err
+                            }
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
                             unstable("Slack delivery failed for ${slug}. Successful thread ids are kept.")
                         }
