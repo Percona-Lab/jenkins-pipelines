@@ -1047,11 +1047,14 @@ def _write_run_body(
         slack_path.unlink(missing_ok=True)
     added = sum(len(change.get("added") or []) for change in changes)
     removed = sum(len(change.get("removed") or []) for change in changes)
+    kept = reconcile_fallbacks(notes, previous)
     run = {
         "picked": stats.get("picked", 0),
         "refreshed": stats.get("refreshed", 0),
-        "page_cached": stats.get("page_cached", 0),
-        "csaf_cached": stats.get("csaf_cached", 0),
+        "page_cached": kept["page_cached"],
+        "page_unavailable": kept["page_unavailable"],
+        "csaf_cached": kept["csaf_cached"],
+        "baseline_present": bool(previous),
         "index_ok": bool(index_ok),
         "bug_map_generated": True,
         "bug_map_bugs": len(bug_map),
@@ -1113,6 +1116,77 @@ def write_run(
             notes,
             run,
         )
+
+
+def _row_has(previous: dict[str, Any] | None, slug: str, key: str) -> bool:
+    row = (previous or {}).get(slug)
+    return isinstance(row, dict) and bool(row.get(key))
+
+
+def _drop_kept_claim(text: str, kept_sentence: str, absent_sentence: str) -> str:
+    if kept_sentence in text:
+        return text.replace(kept_sentence, absent_sentence)
+    return text
+
+
+def reconcile_fallbacks(
+    notes: list[dict[str, Any]],
+    previous: dict[str, Any] | None,
+) -> dict[str, int]:
+    """Stop saying cached data was kept when this advisory has no saved row."""
+    page_cached = 0
+    page_unavailable = 0
+    csaf_cached = 0
+    for note in notes:
+        if note.get("outcome") != "failed":
+            continue
+        area = note.get("area")
+        slug = str(note.get("slug") or "")
+        message = str(note.get("message") or "")
+        if area == "page" and slug:
+            if _row_has(previous, slug, "cves"):
+                page_cached += 1
+                continue
+            page_unavailable += 1
+            note["fallback"] = "no previous advisory state"
+            note["impact"] = "this advisory is absent from the baseline"
+            note["message"] = _drop_kept_claim(
+                message,
+                "Previous state for this advisory is kept.",
+                "No previous state for this advisory.",
+            )
+        elif area == "csaf" and slug:
+            if _row_has(previous, slug, "bug_cves"):
+                csaf_cached += 1
+                continue
+            note["fallback"] = "no previous bug map"
+            note["impact"] = "this advisory contributes no bug-to-CVE entries"
+            note["message"] = _drop_kept_claim(
+                message,
+                "Previous mapping retained.",
+                "No previous mapping.",
+            )
+        elif area == "page" and not slug and not previous:
+            note["fallback"] = "no previous advisory state"
+            note["impact"] = "this poll has no advisory baseline"
+            note["message"] = _drop_kept_claim(
+                message,
+                "Previous state is kept.",
+                "No previous state.",
+            )
+        elif area == "index" and not previous:
+            note["fallback"] = "no previous advisory state"
+            note["impact"] = "this poll has no advisory baseline"
+            note["message"] = _drop_kept_claim(
+                message,
+                "Previous advisory state is kept.",
+                "No previous advisory state.",
+            )
+    return {
+        "page_cached": page_cached,
+        "page_unavailable": page_unavailable,
+        "csaf_cached": csaf_cached,
+    }
 
 
 def write_diagnostics(
@@ -1191,16 +1265,20 @@ def render_status(
         lines.append("Oracle advisories: run record missing")
         lines.append("Bug-to-CVE mapping: unknown")
     elif not run.get("index_ok") and not run.get("picked"):
-        lines.append("Oracle advisories: index unusable, previous state kept")
+        if run.get("baseline_present"):
+            lines.append("Oracle advisories: index unusable, previous state kept")
+        else:
+            lines.append("Oracle advisories: index unusable, no previous state")
     else:
         refreshed = int(run.get("refreshed") or 0)
         cached = int(run.get("page_cached") or 0)
+        unavailable = int(run.get("page_unavailable") or 0)
+        parts = [f"{refreshed} refreshed"]
         if cached:
-            lines.append(
-                f"Oracle advisories: {refreshed} refreshed, {cached} using cached data"
-            )
-        else:
-            lines.append(f"Oracle advisories: {refreshed} refreshed")
+            parts.append(f"{cached} using cached data")
+        if unavailable:
+            parts.append(f"{unavailable} unavailable")
+        lines.append("Oracle advisories: " + ", ".join(parts))
     if run:
         generated = bool(run.get("bug_map_generated") or run.get("bug_map_published"))
         archived = any(
