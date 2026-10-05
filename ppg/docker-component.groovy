@@ -62,13 +62,10 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
-        choice(
+        string(
             name: 'REPOSITORY',
-            description: 'Docker hub repository to use for docker images.',
-            choices: [
-                'percona',
-                'perconalab'
-            ]
+            defaultValue: 'percona',
+            description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.'
         )
         booleanParam(
             name: 'DESTROY_ENV',

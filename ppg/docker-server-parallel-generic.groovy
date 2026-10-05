@@ -25,7 +25,7 @@ pipeline {
         )
         string(
             name: 'REPOSITORY',
-            description: 'Docker hub repository to use for docker images.',
+            description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.',
             defaultValue: 'registry.opensuse.org/isv/percona/pr/pr-33/ppg/18/containers/images',
         )
         booleanParam(
