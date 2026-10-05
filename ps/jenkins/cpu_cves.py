@@ -1429,6 +1429,16 @@ def _format_issue(event: dict[str, Any]) -> str:
     return "\n".join(rows)
 
 
+def description_html(text: str) -> str:
+    """Jenkins build description collapses newlines inside a plain div.
+
+    Escape the text, then keep the breaks with br. cpu-status.txt stays
+    plain text.
+    """
+    escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return escaped.replace("\n", "<br>\n")
+
+
 def write_status(
     events_path: Path,
     run_path: Path,
@@ -1466,7 +1476,7 @@ def write_status(
             )
         )
     description, status = render_status(result, run, events, pending_count(slack_state_path))
-    description_path.write_text(description, encoding="utf-8")
+    description_path.write_text(description_html(description), encoding="utf-8")
     status_path.write_text(status, encoding="utf-8")
 
 
