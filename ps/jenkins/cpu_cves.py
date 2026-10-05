@@ -377,14 +377,18 @@ def fetch(count: int) -> list[dict[str, Any]]:
 
 def collect(
     count: int,
+    notes: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str], bool, list[dict[str, Any]], dict[str, Any]]:
     """Return events, warning lines, index ok, issue notes, and counts.
 
     A failed advisory page is not an event. The caller keeps that slug's
     previous state. bug_cves is None when the CSAF file could not be used.
+    notes is filled as advisories are handled, so a later failure can
+    still flush what was already recorded.
     """
     warnings: list[str] = []
-    notes: list[dict[str, Any]] = []
+    if notes is None:
+        notes = []
     stats: dict[str, Any] = {
         "picked": 0,
         "refreshed": 0,
@@ -839,7 +843,7 @@ def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str]
     return advisories, None, ""
 
 
-def write_run(
+def _write_run_body(
     state_path: Path,
     diff_path: Path,
     slack_path: Path,
@@ -851,8 +855,9 @@ def write_run(
     count: int,
     ignore_state: bool = False,
     notify_mode: str = "none",
-) -> None:
-    events, warnings, index_ok, notes, stats = collect(count)
+    notes: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    events, warnings, index_ok, notes, stats = collect(count, notes)
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
@@ -957,12 +962,61 @@ def write_run(
         "cve_added": added,
         "cve_removed": removed,
     }
-    write_diagnostics(
-        state_path.with_name("cpu-events.jsonl"),
-        state_path.with_name("cpu-run.json"),
-        notes,
-        run,
-    )
+    return run
+
+
+def write_run(
+    state_path: Path,
+    diff_path: Path,
+    slack_path: Path,
+    seed_path: Path,
+    bugs_path: Path,
+    notify_dir: Path,
+    slack_state_path: Path,
+    *,
+    count: int,
+    ignore_state: bool = False,
+    notify_mode: str = "none",
+) -> None:
+    """Publish the bug map even when the poll raises.
+
+    Notes gathered before the failure, plus the exception itself, are
+    written in finally. That write cannot replace the original error.
+    """
+    notes: list[dict[str, Any]] = []
+    run: dict[str, Any] = {}
+    try:
+        run = _write_run_body(
+            state_path,
+            diff_path,
+            slack_path,
+            seed_path,
+            bugs_path,
+            notify_dir,
+            slack_state_path,
+            count=count,
+            ignore_state=ignore_state,
+            notify_mode=notify_mode,
+            notes=notes,
+        )
+    except BaseException as exc:
+        notes.append(
+            issue(
+                level="error",
+                outcome="failed",
+                area="poll",
+                message=f"Poll failed: {exc}",
+                exception=exception_text(exc),
+            )
+        )
+        raise
+    finally:
+        write_diagnostics(
+            state_path.with_name("cpu-events.jsonl"),
+            state_path.with_name("cpu-run.json"),
+            notes,
+            run,
+        )
 
 
 def write_diagnostics(
