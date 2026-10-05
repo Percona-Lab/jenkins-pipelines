@@ -1,0 +1,22 @@
+- job:
+    name: ps-group-replication-tests
+    project-type: pipeline
+    description: |
+        Group Replication pytest framework from server-qa (test_scripts/ps/group-replication).
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 100
+            days-to-keep: -1
+            num-to-keep: 100
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: false
+        lightweight-checkout: true
+        script-path: ps/jenkins/ps-group-replication-tests.groovy

@@ -192,17 +192,7 @@ void runTest(Integer TEST_ID) {
                         debug_tests: DEBUG_TESTS,
                         cluster_wide: CLUSTER_WIDE,
                         default_operator_image: "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}",
-                        images: [
-                            IMAGE_OPERATOR    : IMAGE_OPERATOR,
-                            IMAGE_MONGOD      : IMAGE_MONGOD,
-                            IMAGE_BACKUP      : IMAGE_BACKUP,
-                            IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
-                            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-                            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-                            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
-                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
-                            IMAGE_SEARCH      : IMAGE_SEARCH
-                        ]
+                        images: testVariables.images
                     )
                     def exports = testsLib.getExportedVariablesForTests(testVars, clusterSuffix)
                     def testCmd = testsLib.defineTestCommand(testVars, testName)
