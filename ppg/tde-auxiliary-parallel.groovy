@@ -106,6 +106,11 @@ pipeline {
             Values should be comma separated.''',
             name: 'TESTCASE_TO_SKIP'
         )
+        string(
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.',
+            name: 'RUN_LABELS'
+        )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
