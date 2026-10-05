@@ -790,12 +790,17 @@ def notification_items(
 ) -> list[dict[str, Any]]:
     """Slack posts.
 
-    Pending messages come first, including ones whose CVE set is already
-    in the fetched baseline. mode none posts only real changes. latest
-    also posts the newest advisory when it did not change. all does that
-    for every watched advisory. Unchanged posts say "+0 -0 CVEs".
+    Real CVE changes come only from pending, which already includes this
+    run's changes under their transition ids. Synthesizing slug:sha here
+    posts the same text a second time. mode none posts only those pending
+    messages. latest also posts the newest advisory when it did not change.
+    all does that for every watched advisory. Unchanged posts say "+0 -0 CVEs".
     """
-    by_slug = {change["slug"]: change for change in changes}
+    pending_slugs = {
+        str(entry.get("slug") or "")
+        for entry in (pending or [])
+        if isinstance(entry, dict)
+    }
     newest = None
     for ev in events:
         payload = ev.get("payload") or {}
@@ -826,19 +831,7 @@ def notification_items(
         slug = payload.get("slug")
         if not slug or not payload.get("cves"):
             continue
-        if slug in by_slug:
-            change = by_slug[slug]
-            ident = f"{slug}:{change['sha']}"
-            if ident in seen:
-                continue
-            items.append(
-                {
-                    "id": ident,
-                    "slug": slug,
-                    "slack": f"{change['title']}\n{change['url']}\n{change['slack']}",
-                    "changed": True,
-                }
-            )
+        if slug in pending_slugs:
             continue
         forced = mode == "all" or (mode == "latest" and slug == newest)
         if not forced:
