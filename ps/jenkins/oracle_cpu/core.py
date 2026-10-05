@@ -1,0 +1,513 @@
+"""Oracle HTTP fetch, HTML and CSAF parsing, and CVE-set diff."""
+
+from __future__ import annotations
+
+import hashlib
+import http.client
+import json
+import logging
+import re
+import ssl
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from typing import Any, NamedTuple
+
+from oracle_cpu.diagnostics import exception_text, issue
+
+log = logging.getLogger("ps_notify")
+
+INDEX = "https://www.oracle.com/security-alerts/"
+UA = "Mozilla/5.0 (compatible; ps-notify-cpu/1.0)"
+# IncompleteRead is an HTTPException, not a URLError or OSError. A truncated
+# body must retry like a connection failure, then fall back per advisory.
+FETCH_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    OSError,
+    http.client.HTTPException,
+)
+HREF_RE = re.compile(
+    r'href="[^"]*?((?:cpu|cspu)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{4}))\.html"',
+    re.I,
+)
+CVE_RE = re.compile(r"CVE-\d{4}-\d{4,}", re.I)
+# 1: CVE ids are not taken from the Modification History section.
+PARSER_VERSION = 1
+CSAF_RE = re.compile(r'href="([^"]+csaf\.json)"', re.I)
+MONTH = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+MONTH_NAME = {
+    1: "January",
+    2: "February",
+    3: "March",
+    4: "April",
+    5: "May",
+    6: "June",
+    7: "July",
+    8: "August",
+    9: "September",
+    10: "October",
+    11: "November",
+    12: "December",
+}
+
+def _fetch(url: str, failed: list[str]) -> str:
+    """GET url, pause one second, and try again up to 3 times.
+
+    failed collects the exception text of each failed attempt. A later
+    success leaves those texts for an informational note. The raised
+    exception is the last attempt.
+    """
+    failed.clear()
+    ctx = ssl.create_default_context()
+    last: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, context=ctx, timeout=120) as resp:
+                body = resp.read().decode("utf-8", "replace")
+        except FETCH_ERRORS as exc:
+            last = exc
+            failed.append(exception_text(exc))
+            log.info(
+                "cpu fetch attempt %s/3 failed url=%s err=%s",
+                attempt,
+                url,
+                type(exc).__name__,
+            )
+            time.sleep(1)
+            continue
+        time.sleep(1)
+        return body
+    assert last is not None
+    raise last
+
+
+def _parse_slug(slug: str) -> tuple[str, int, int]:
+    slug = slug.lower()
+    if slug.startswith("cspu"):
+        kind = "CSPU"
+        mon = slug[4:7]
+        year = int(slug[7:11])
+    else:
+        kind = "CPU"
+        mon = slug[3:6]
+        year = int(slug[6:10])
+    return kind, MONTH[mon], year
+
+
+def strip_modification_history(html: str) -> str:
+    """Drop the Modification History section before CVE scanning.
+
+    A CVE removed from the risk matrix can still be named in that history.
+    The following risk-matrix headings stay. Other prose matches are kept.
+    """
+    match = re.search(
+        r"<h[1-6][^>]*>\s*Modification History\s*</h[1-6]>",
+        html,
+        re.I,
+    )
+    if not match:
+        return html
+    rest = html[match.end() :]
+    nxt = re.search(r"<h[1-6]\b", rest, re.I)
+    if not nxt:
+        return html[: match.start()]
+    return html[: match.start()] + rest[nxt.start() :]
+
+
+def parse_cves(html: str) -> list[str]:
+    html = strip_modification_history(html)
+    return sorted({m.group(0).upper() for m in CVE_RE.finditer(html)})
+
+
+def cve_sha(cves: list[str]) -> str:
+    return hashlib.sha256("\n".join(cves).encode()).hexdigest()[:12]
+
+
+def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
+    """Map Oracle bug id to CVE ids.
+
+    CSAF stores these on each vulnerability as ids[].system_name
+    "Oracle Bug ID of ..." and ids[].text the bug number. Entries
+    without a bug id are omitted. A non-object document raises
+    ValueError so the caller can skip that advisory only.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("CSAF document is not a JSON object")
+    # A JSON object without a vulnerabilities list is not a CSAF document.
+    # Treating it as an empty map would erase the cached bug ids.
+    if "vulnerabilities" not in data or not isinstance(data.get("vulnerabilities"), list):
+        raise ValueError("CSAF document has no vulnerabilities list")
+    vulns = data["vulnerabilities"]
+    bugs: dict[str, list[str]] = {}
+    for vuln in vulns:
+        if not isinstance(vuln, dict):
+            continue
+        cve = str(vuln.get("cve") or "").upper()
+        if not cve.startswith("CVE-"):
+            continue
+        for item in vuln.get("ids") or []:
+            name = str(item.get("system_name") or "")
+            if "bug id" not in name.lower():
+                continue
+            bug = str(item.get("text") or "").strip()
+            if not bug.isdigit():
+                continue
+            bucket = bugs.setdefault(bug, [])
+            if cve not in bucket:
+                bucket.append(cve)
+    for cves in bugs.values():
+        cves.sort()
+    return bugs
+
+
+def fetch_bug_map(
+    page_url: str,
+    html: str,
+    notes: list[dict[str, Any]],
+    slug: str,
+) -> dict[str, list[str]] | None:
+    """Return the bug map, or None when the CSAF file could not be used.
+
+    None tells the caller to keep the previous bug map. A missing link
+    and a document that is not CSAF are both unavailable, not an empty map.
+    Recovered download attempts are informational. The exhausted failure
+    is a warning.
+    """
+    match = CSAF_RE.search(html)
+    if not match:
+        log.warning("WARNING cpu no CSAF link url=%s", page_url)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="csaf",
+                slug=slug,
+                message=f"{slug} page has no CSAF link.",
+            )
+        )
+        return None
+    csaf_url = urllib.parse.urljoin(page_url, match.group(1))
+    failed: list[str] = []
+    try:
+        raw = _fetch(csaf_url, failed)
+    except FETCH_ERRORS as exc:
+        log.warning(
+            "WARNING cpu CSAF fetch failed url=%s err=%s",
+            csaf_url,
+            type(exc).__name__,
+        )
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="csaf",
+                slug=slug,
+                attempts=len(failed) or 3,
+                message=(
+                    f"{slug} CSAF download failed after {len(failed) or 3} attempts."
+                ),
+                exception="\n".join(failed) if failed else exception_text(exc),
+            )
+        )
+        return None
+    if failed:
+        notes.append(
+            issue(
+                level="info",
+                outcome="recovered",
+                area="csaf",
+                slug=slug,
+                attempts=len(failed) + 1,
+                message=(
+                    f"{slug} CSAF download failed {len(failed)} time(s), then succeeded."
+                ),
+                exception="\n".join(failed),
+            )
+        )
+    try:
+        data = json.loads(raw)
+        bug_map = bug_map_from_csaf(data)
+    except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
+        log.warning("WARNING cpu CSAF unusable url=%s err=%s", csaf_url, exc)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="csaf",
+                slug=slug,
+                attempts=1,
+                message=f"{slug} CSAF document is unusable: {exc}.",
+                exception=exception_text(exc),
+            )
+        )
+        return None
+    log.info("cpu CSAF url=%s bugs=%d", csaf_url, len(bug_map))
+    return bug_map
+
+
+def merge_cve_lists(maps: list[dict[str, list[str]]]) -> dict[str, list[str]]:
+    """Union bug-id to CVE-list maps. CVE ids in each list stay sorted."""
+    merged: dict[str, list[str]] = {}
+    for bug_map in maps:
+        for bug, cves in bug_map.items():
+            bucket = merged.setdefault(str(bug), [])
+            for cve in cves:
+                if cve not in bucket:
+                    bucket.append(cve)
+    for cves in merged.values():
+        cves.sort()
+    return merged
+
+
+def bug_map_from_advisories(advisories: dict[str, Any]) -> dict[str, list[str]]:
+    """Flatten per-advisory bug maps, including ones kept from older state."""
+    maps: list[dict[str, list[str]]] = []
+    for row in advisories.values():
+        if not isinstance(row, dict):
+            continue
+        bugs = row.get("bug_cves") or {}
+        if isinstance(bugs, dict):
+            maps.append(bugs)
+    return merge_cve_lists(maps)
+
+
+def merge_bug_maps(events: list[dict[str, Any]]) -> dict[str, list[str]]:
+    maps: list[dict[str, list[str]]] = []
+    for ev in events:
+        bugs = (ev.get("payload") or {}).get("bug_cves") or {}
+        if isinstance(bugs, dict):
+            maps.append(bugs)
+    return merge_cve_lists(maps)
+
+
+def _cve_delta(old: list[str], new: list[str]) -> tuple[list[str], list[str]]:
+    old_set = set(old)
+    new_set = set(new)
+    return sorted(new_set - old_set), sorted(old_set - new_set)
+
+
+def format_bodies(
+    old: list[str],
+    new: list[str],
+    added: list[str] | None = None,
+    removed: list[str] | None = None,
+) -> tuple[str, str]:
+    if added is None or removed is None:
+        added, removed = _cve_delta(old, new)
+    gnome = f"+{len(added)} -{len(removed)} CVEs"
+    if not old:
+        slack = f"+{len(added)} CVEs"
+    else:
+        lines = [gnome]
+        lines.extend(f"+ {cve}" for cve in added)
+        lines.extend(f"- {cve}" for cve in removed)
+        slack = "\n".join(lines)
+    return gnome, slack
+
+
+def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
+    """Return a diff record, or None when the CVE sets match.
+
+    An empty new list against an empty old list is unchanged. A first
+    non-empty list uses the short Slack line from format_bodies.
+    """
+    added, removed = _cve_delta(old, new)
+    if not added and not removed:
+        return None
+    gnome, slack = format_bodies(old, new, added, removed)
+    return {
+        "sha": cve_sha(new),
+        "cves": list(new),
+        "added": added,
+        "removed": removed,
+        "gnome": gnome,
+        "slack": slack,
+    }
+
+
+class Collection(NamedTuple):
+    """One Oracle poll. notes is the same list the caller passed in."""
+
+    events: list[dict[str, Any]]
+    index_ok: bool
+    notes: list[dict[str, Any]]
+    stats: dict[str, Any]
+
+
+def fetch(count: int) -> list[dict[str, Any]]:
+    """Newest advisory first. A page that still fails after retries is omitted.
+
+    Desktop callers do not build the Jenkins summary, so collection
+    warnings are logged here. The events list still omits failed pages.
+    """
+    collected = collect(count)
+    for note in collected.notes:
+        if note.get("level") in ("warning", "error"):
+            log.warning("WARNING cpu %s", note.get("message"))
+    return collected.events
+
+
+def collect(
+    count: int,
+    notes: list[dict[str, Any]] | None = None,
+) -> Collection:
+    """Return events, index status, notes, and fetch counts.
+
+    A failed advisory page is not an event. The caller keeps that slug's
+    previous state. bug_cves is None when the CSAF file could not be used.
+    notes is filled as advisories are handled, so a later failure can
+    still flush what was already recorded.
+    """
+    if notes is None:
+        notes = []
+    stats: dict[str, Any] = {
+        "picked": 0,
+        "refreshed": 0,
+    }
+    failed: list[str] = []
+    try:
+        html = _fetch(INDEX, failed)
+    except FETCH_ERRORS as exc:
+        message = (
+            f"Index download failed after {len(failed) or 3} attempts: "
+            f"{type(exc).__name__}."
+        )
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="index",
+                attempts=len(failed) or 3,
+                message=message,
+                exception="\n".join(failed) if failed else exception_text(exc),
+            )
+        )
+        return Collection([], False, notes, stats)
+    if failed:
+        notes.append(
+            issue(
+                level="info",
+                outcome="recovered",
+                area="index",
+                attempts=len(failed) + 1,
+                message=f"Index download failed {len(failed)} time(s), then succeeded.",
+                exception="\n".join(failed),
+            )
+        )
+    seen: set[str] = set()
+    slugs: list[str] = []
+    for match in HREF_RE.finditer(html):
+        slug = match.group(1).lower()
+        if slug in seen:
+            continue
+        seen.add(slug)
+        slugs.append(slug)
+    if not slugs:
+        message = "Index has no CPU or CSPU advisory links."
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="index",
+                message=message,
+            )
+        )
+        return Collection([], False, notes, stats)
+    slugs.sort(key=lambda s: (_parse_slug(s)[2], _parse_slug(s)[1]), reverse=True)
+    picked = slugs[: max(0, count)]
+    stats["picked"] = len(picked)
+    log.info("cpu index slugs=%d picked=%d", len(slugs), len(picked))
+    events = []
+    for slug in picked:
+        kind, month, year = _parse_slug(slug)
+        title = f"{kind} {MONTH_NAME[month]} {year}"
+        url = f"https://www.oracle.com/security-alerts/{slug}.html"
+        failed = []
+        try:
+            page = _fetch(url, failed)
+        except FETCH_ERRORS as exc:
+            message = (
+                f"{slug} download failed after {len(failed) or 3} attempts: "
+                f"{type(exc).__name__}."
+            )
+            notes.append(
+                issue(
+                    level="warning",
+                    outcome="failed",
+                    area="page",
+                    slug=slug,
+                    attempts=len(failed) or 3,
+                    message=message,
+                    exception="\n".join(failed) if failed else exception_text(exc),
+                )
+            )
+            continue
+        if failed:
+            notes.append(
+                issue(
+                    level="info",
+                    outcome="recovered",
+                    area="page",
+                    slug=slug,
+                    attempts=len(failed) + 1,
+                    message=(
+                        f"{slug} download failed {len(failed)} time(s), then succeeded."
+                    ),
+                    exception="\n".join(failed),
+                )
+            )
+        cves = parse_cves(page)
+        if not cves:
+            message = f"{slug} page has no CVE ids."
+            notes.append(
+                issue(
+                    level="warning",
+                    outcome="failed",
+                    area="page",
+                    slug=slug,
+                    message=message,
+                )
+            )
+            continue
+        stats["refreshed"] += 1
+        sha = cve_sha(cves)
+        bug_cves = fetch_bug_map(url, page, notes, slug)
+        logged = -1 if bug_cves is None else len(bug_cves)
+        log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
+        events.append(
+            {
+                "id": f"cpu:{slug}:{sha}",
+                "source": "cpu",
+                "title": title,
+                "url": url,
+                "payload": {"slug": slug, "cves": cves, "bug_cves": bug_cves},
+            }
+        )
+    if picked and not events:
+        message = "Every advisory download failed."
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="page",
+                message=message,
+            )
+        )
+    return Collection(events, True, notes, stats)
+
