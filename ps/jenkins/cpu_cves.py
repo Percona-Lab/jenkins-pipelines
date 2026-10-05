@@ -185,11 +185,11 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     """
     if not isinstance(data, dict):
         raise ValueError("CSAF document is not a JSON object")
-    vulns = data.get("vulnerabilities")
-    if vulns is None:
-        vulns = []
-    if not isinstance(vulns, list):
-        raise ValueError("CSAF vulnerabilities is not a list")
+    # A JSON object without a vulnerabilities list is not a CSAF document.
+    # Treating it as an empty map would erase the cached bug ids.
+    if "vulnerabilities" not in data or not isinstance(data.get("vulnerabilities"), list):
+        raise ValueError("CSAF document has no vulnerabilities list")
+    vulns = data["vulnerabilities"]
     bugs: dict[str, list[str]] = {}
     for vuln in vulns:
         if not isinstance(vuln, dict):
@@ -245,15 +245,26 @@ def fetch_bug_map(
 ) -> dict[str, list[str]] | None:
     """Return the bug map, or None when the CSAF file could not be used.
 
-    An advisory page with no CSAF link returns an empty map. That is not
-    a failure. None tells the caller to keep the previous bug map.
+    None tells the caller to keep the previous bug map. A missing link
+    and a document that is not CSAF are both unavailable, not an empty map.
     Recovered download attempts are informational. The exhausted failure
     is a warning.
     """
     match = CSAF_RE.search(html)
     if not match:
-        log.info("cpu no CSAF link url=%s", page_url)
-        return {}
+        log.warning("WARNING cpu no CSAF link url=%s", page_url)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="csaf",
+                slug=slug,
+                message=f"{slug} page has no CSAF link. Previous mapping retained.",
+                fallback="previous bug map kept",
+                impact="bug-to-CVE entries from the previous poll stay in the map",
+            )
+        )
+        return None
     csaf_url = urllib.parse.urljoin(page_url, match.group(1))
     failed: list[str] = []
     try:
