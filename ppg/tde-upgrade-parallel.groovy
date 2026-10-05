@@ -184,6 +184,11 @@ pipeline {
             description: 'Optional expected Percona Server patch version for the TO cluster (e.g. "18.4.2"). ' +
                          'When set, the test asserts SELECT version() reports it after the upgrade and fails otherwise.'
         )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
+        )
     }
 
     environment {

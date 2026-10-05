@@ -148,6 +148,11 @@ pipeline {
             defaultValue: true,
             description: 'Destroy the VM after the test run. Disable to keep the VM for debugging.'
         )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
+        )
     }
 
     environment {
