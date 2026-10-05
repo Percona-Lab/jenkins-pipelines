@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
+import json
 import sys
 import traceback
-import json
 import logging
 import re
 import ssl
@@ -29,6 +30,14 @@ log = logging.getLogger("ps_notify")
 
 INDEX = "https://www.oracle.com/security-alerts/"
 UA = "Mozilla/5.0 (compatible; ps-notify-cpu/1.0)"
+# IncompleteRead is an HTTPException, not a URLError or OSError. A truncated
+# body must retry like a connection failure, then fall back per advisory.
+FETCH_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    OSError,
+    http.client.HTTPException,
+)
 HREF_RE = re.compile(
     r'href="[^"]*?((?:cpu|cspu)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{4}))\.html"',
     re.I,
@@ -107,7 +116,7 @@ def _fetch(url: str, failed: list[str]) -> str:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, context=ctx, timeout=120) as resp:
                 body = resp.read().decode("utf-8", "replace")
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except FETCH_ERRORS as exc:
             last = exc
             failed.append(exception_text(exc))
             log.info(
@@ -249,7 +258,7 @@ def fetch_bug_map(
     failed: list[str] = []
     try:
         raw = _fetch(csaf_url, failed)
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except FETCH_ERRORS as exc:
         log.warning(
             "WARNING cpu CSAF fetch failed url=%s err=%s",
             csaf_url,
@@ -395,7 +404,7 @@ def collect(
     failed: list[str] = []
     try:
         html = _fetch(INDEX, failed)
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except FETCH_ERRORS as exc:
         message = (
             f"Index download failed after {len(failed) or 3} attempts: "
             f"{type(exc).__name__}. Previous advisory state is kept."
@@ -460,7 +469,7 @@ def collect(
         failed = []
         try:
             page = _fetch(url, failed)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except FETCH_ERRORS as exc:
             message = (
                 f"{slug} download failed after {len(failed) or 3} attempts: "
                 f"{type(exc).__name__}. Previous state for this advisory is kept."
