@@ -43,6 +43,8 @@ HREF_RE = re.compile(
     re.I,
 )
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,}", re.I)
+# 1: CVE ids are not taken from the Modification History section.
+PARSER_VERSION = 1
 CSAF_RE = re.compile(r'href="([^"]+csaf\.json)"', re.I)
 MONTH = {
     "jan": 1,
@@ -588,6 +590,7 @@ def apply_state(
     events: list[dict[str, Any]],
     state: dict[str, Any] | None,
     report_seeded: bool = False,
+    migrate: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Diff events against saved advisories.
 
@@ -633,6 +636,14 @@ def apply_state(
                 "bug_cves": bug_cves,
             }
             log.info("cpu seed slug=%s cves=%d", slug, len(new))
+            continue
+        if migrate and state is not None and slug in state:
+            advisories[slug] = {
+                "sha": cve_sha(new),
+                "cves": new,
+                "bug_cves": bug_cves,
+            }
+            log.info("cpu parser migrate slug=%s cves=%d", slug, len(new))
             continue
         old = list((advisories.get(slug) or {}).get("cves") or [])
         change = describe_change(old, new)
@@ -867,24 +878,34 @@ def slack_text(changes: list[dict[str, Any]]) -> str:
     return "\n\n".join(blocks) + ("\n" if blocks else "")
 
 
-def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str]:
+def _saved_parser(data: dict[str, Any]) -> int:
+    value = data.get("parser", 0)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
+
+
+def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str, int]:
     """Return the slug map, or None when the file is absent.
 
     A corrupt file is not fatal. The error string is a WARNING line and
     the caller still publishes the bug map from this run's downloads.
     The third value is the exception chain when parsing raised.
+    The fourth value is the parser version stored with the baseline.
+    A file written before parser versions existed is version 0.
     """
     if not path.is_file() or path.stat().st_size == 0:
-        return None, None, ""
+        return None, None, "", PARSER_VERSION
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return None, f"WARNING cpu baseline {path} is not JSON: {exc}", exception_text(exc)
+        return None, f"WARNING cpu baseline {path} is not JSON: {exc}", exception_text(exc), 0
     if not isinstance(data, dict):
-        return None, f"WARNING cpu baseline {path} is not a JSON object", ""
+        return None, f"WARNING cpu baseline {path} is not a JSON object", "", 0
+    saved_parser = _saved_parser(data)
     advisories = data.get("advisories", data)
     if not isinstance(advisories, dict):
-        return None, f"WARNING cpu baseline {path} has no advisories object", ""
+        return None, f"WARNING cpu baseline {path} has no advisories object", "", saved_parser
     kept: dict[str, Any] = {}
     bad: list[str] = []
     for slug, row in advisories.items():
@@ -894,13 +915,13 @@ def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str]
             continue
         kept[slug] = stored
     if not bad:
-        return kept, None, ""
+        return kept, None, "", saved_parser
     warning = (
         f"WARNING cpu baseline {path} skipped malformed advisories: {', '.join(bad)}"
     )
     if not kept:
-        return None, warning, ""
-    return kept, warning, ""
+        return None, warning, "", saved_parser
+    return kept, warning, "", saved_parser
 
 
 def _write_run_body(
@@ -921,9 +942,28 @@ def _write_run_body(
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
-        previous, baseline_error, baseline_exc = None, None, ""
+        previous, baseline_error, baseline_exc, saved_parser = None, None, "", PARSER_VERSION
     else:
-        previous, baseline_error, baseline_exc = load_advisories(state_path)
+        previous, baseline_error, baseline_exc, saved_parser = load_advisories(state_path)
+    migrating = index_ok and previous is not None and saved_parser != PARSER_VERSION
+    if migrating:
+        notes.append(
+            issue(
+                level="info",
+                outcome="migrated",
+                area="parser",
+                message=(
+                    f"Parser version {saved_parser} -> {PARSER_VERSION}. "
+                    "Existing CVE sets were realigned. "
+                    "No Slack diff was sent for that realignment."
+                ),
+                fallback="baseline updated to the current parser",
+                impact=(
+                    "a CVE that only the previous parser reported is not "
+                    "posted as an Oracle edit"
+                ),
+            )
+        )
     if baseline_error:
         detail = baseline_error[12:] if baseline_error.startswith("WARNING cpu ") else baseline_error
         if previous is None:
@@ -962,9 +1002,17 @@ def _write_run_body(
             events,
             previous,
             report_seeded=(previous is None and notify_mode == "all"),
+            migrate=migrating,
         )
     state_path.write_text(
-        json.dumps({"advisories": advisories}, indent=2) + "\n",
+        json.dumps(
+            {
+                "parser": PARSER_VERSION if index_ok else saved_parser,
+                "advisories": advisories,
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
     bug_map = bug_map_from_advisories(advisories)
@@ -974,7 +1022,7 @@ def _write_run_body(
     )
     publish_marker = state_path.with_name("cpu-publish")
     try:
-        if baseline_changed(previous, advisories):
+        if migrating or baseline_changed(previous, advisories):
             publish_marker.write_text("1\n", encoding="utf-8")
         else:
             publish_marker.unlink(missing_ok=True)
