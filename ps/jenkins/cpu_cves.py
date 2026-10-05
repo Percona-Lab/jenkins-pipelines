@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import sys
+import traceback
 import json
 import logging
 import re
@@ -64,8 +65,41 @@ MONTH_NAME = {
 }
 
 
-def _fetch(url: str) -> str:
-    """GET url, pause one second, and try again up to 3 times."""
+def exception_text(exc: BaseException) -> str:
+    """Exception chain and stack traces.
+
+    traceback walks __cause__ and __context__. URLError.reason is a
+    separate object, so it is printed first when it is itself an exception.
+    """
+    parts: list[str] = []
+    reason = getattr(exc, "reason", None)
+    if isinstance(exc, urllib.error.URLError) and isinstance(reason, BaseException):
+        parts.append(
+            "URLError.reason:\n"
+            + "".join(
+                traceback.format_exception(
+                    type(reason), reason, reason.__traceback__, chain=True
+                )
+            )
+        )
+    elif isinstance(exc, urllib.error.URLError) and reason is not None:
+        parts.append(f"URLError.reason: {reason}\n")
+    parts.append(
+        "".join(
+            traceback.format_exception(type(exc), exc, exc.__traceback__, chain=True)
+        )
+    )
+    return "\n".join(parts).rstrip() + "\n"
+
+
+def _fetch(url: str, failed: list[str]) -> str:
+    """GET url, pause one second, and try again up to 3 times.
+
+    failed collects the exception text of each failed attempt. A later
+    success leaves those texts for an informational note. The raised
+    exception is the last attempt.
+    """
+    failed.clear()
     ctx = ssl.create_default_context()
     last: Exception | None = None
     for attempt in range(1, 4):
@@ -75,8 +109,9 @@ def _fetch(url: str) -> str:
                 body = resp.read().decode("utf-8", "replace")
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             last = exc
-            log.warning(
-                "WARNING cpu fetch attempt %s/3 failed url=%s err=%s",
+            failed.append(exception_text(exc))
+            log.info(
+                "cpu fetch attempt %s/3 failed url=%s err=%s",
                 attempt,
                 url,
                 type(exc).__name__,
@@ -168,31 +203,107 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     return bugs
 
 
-def fetch_bug_map(page_url: str, html: str) -> dict[str, list[str]] | None:
+def issue(
+    *,
+    level: str,
+    outcome: str,
+    area: str,
+    message: str,
+    slug: str = "",
+    attempts: int = 0,
+    fallback: str = "",
+    impact: str = "",
+    exception: str = "",
+) -> dict[str, Any]:
+    return {
+        "level": level,
+        "outcome": outcome,
+        "area": area,
+        "slug": slug,
+        "attempts": attempts,
+        "message": message,
+        "fallback": fallback,
+        "impact": impact,
+        "exception": exception,
+    }
+
+
+def fetch_bug_map(
+    page_url: str,
+    html: str,
+    notes: list[dict[str, Any]],
+    slug: str,
+) -> dict[str, list[str]] | None:
     """Return the bug map, or None when the CSAF file could not be used.
 
     An advisory page with no CSAF link returns an empty map. That is not
     a failure. None tells the caller to keep the previous bug map.
+    Recovered download attempts are informational. The exhausted failure
+    is a warning.
     """
     match = CSAF_RE.search(html)
     if not match:
-        log.warning("cpu no CSAF link url=%s", page_url)
+        log.info("cpu no CSAF link url=%s", page_url)
         return {}
     csaf_url = urllib.parse.urljoin(page_url, match.group(1))
+    failed: list[str] = []
     try:
-        raw = _fetch(csaf_url)
+        raw = _fetch(csaf_url, failed)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         log.warning(
             "WARNING cpu CSAF fetch failed url=%s err=%s",
             csaf_url,
             type(exc).__name__,
         )
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="csaf",
+                slug=slug,
+                attempts=len(failed) or 3,
+                message=(
+                    f"{slug} CSAF download failed after {len(failed) or 3} attempts. "
+                    "Previous mapping retained."
+                ),
+                fallback="previous bug map kept",
+                impact="bug-to-CVE entries from the previous poll stay in the map",
+                exception="\n".join(failed) if failed else exception_text(exc),
+            )
+        )
         return None
+    if failed:
+        notes.append(
+            issue(
+                level="info",
+                outcome="recovered",
+                area="csaf",
+                slug=slug,
+                attempts=len(failed),
+                message=(
+                    f"{slug} CSAF download failed {len(failed)} time(s), then succeeded."
+                ),
+                exception="\n".join(failed),
+            )
+        )
     try:
         data = json.loads(raw)
         bug_map = bug_map_from_csaf(data)
     except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
         log.warning("WARNING cpu CSAF unusable url=%s err=%s", csaf_url, exc)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="csaf",
+                slug=slug,
+                attempts=1,
+                message=f"{slug} CSAF document is unusable: {exc}. Previous mapping retained.",
+                fallback="previous bug map kept",
+                impact="bug-to-CVE entries from the previous poll stay in the map",
+                exception=exception_text(exc),
+            )
+        )
         return None
     log.info("cpu CSAF url=%s bugs=%d", csaf_url, len(bug_map))
     return bug_map
@@ -260,24 +371,60 @@ def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
 
 def fetch(count: int) -> list[dict[str, Any]]:
     """Newest advisory first. A page that still fails after retries is omitted."""
-    events, _warnings, _ok = collect(count)
+    events, _warnings, _ok, _notes, _stats = collect(count)
     return events
 
 
-def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
-    """Return events, warning lines, and whether the index was usable.
+def collect(
+    count: int,
+) -> tuple[list[dict[str, Any]], list[str], bool, list[dict[str, Any]], dict[str, Any]]:
+    """Return events, warning lines, index ok, issue notes, and counts.
 
     A failed advisory page is not an event. The caller keeps that slug's
     previous state. bug_cves is None when the CSAF file could not be used.
     """
     warnings: list[str] = []
+    notes: list[dict[str, Any]] = []
+    stats: dict[str, Any] = {
+        "picked": 0,
+        "refreshed": 0,
+        "page_cached": 0,
+        "csaf_cached": 0,
+        "index_ok": False,
+    }
+    failed: list[str] = []
     try:
-        html = _fetch(INDEX)
+        html = _fetch(INDEX, failed)
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        warnings.append(
-            f"WARNING cpu index download failed after 3 tries: {type(exc).__name__}"
+        message = (
+            f"Index download failed after {len(failed) or 3} attempts: "
+            f"{type(exc).__name__}. Previous advisory state is kept."
         )
-        return [], warnings, False
+        warnings.append("WARNING cpu " + message)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="index",
+                attempts=len(failed) or 3,
+                message=message,
+                fallback="previous advisory state kept",
+                impact="this poll does not replace the saved advisories",
+                exception="\n".join(failed) if failed else exception_text(exc),
+            )
+        )
+        return [], warnings, False, notes, stats
+    if failed:
+        notes.append(
+            issue(
+                level="info",
+                outcome="recovered",
+                area="index",
+                attempts=len(failed),
+                message=f"Index download failed {len(failed)} time(s), then succeeded.",
+                exception="\n".join(failed),
+            )
+        )
     seen: set[str] = set()
     slugs: list[str] = []
     for match in HREF_RE.finditer(html):
@@ -287,35 +434,79 @@ def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
         seen.add(slug)
         slugs.append(slug)
     if not slugs:
-        warnings.append("WARNING cpu index has no CPU or CSPU advisory links")
-        return [], warnings, False
+        message = "Index has no CPU or CSPU advisory links. Previous advisory state is kept."
+        warnings.append("WARNING cpu " + message)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="index",
+                message=message,
+                fallback="previous advisory state kept",
+                impact="this poll does not replace the saved advisories",
+            )
+        )
+        return [], warnings, False, notes, stats
     slugs.sort(key=lambda s: (_parse_slug(s)[2], _parse_slug(s)[1]), reverse=True)
     picked = slugs[: max(0, count)]
+    stats["picked"] = len(picked)
+    stats["index_ok"] = True
     log.info("cpu index slugs=%d picked=%d", len(slugs), len(picked))
     events = []
     for slug in picked:
         kind, month, year = _parse_slug(slug)
         title = f"{kind} {MONTH_NAME[month]} {year}"
         url = f"https://www.oracle.com/security-alerts/{slug}.html"
+        failed = []
         try:
-            page = _fetch(url)
+            page = _fetch(url, failed)
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            warnings.append(
-                "WARNING cpu advisory "
-                f"{slug} download failed after 3 tries: {type(exc).__name__}. "
-                "Previous state for this advisory is kept."
+            message = (
+                f"{slug} download failed after {len(failed) or 3} attempts: "
+                f"{type(exc).__name__}. Previous state for this advisory is kept."
             )
+            warnings.append("WARNING cpu " + message)
+            notes.append(
+                issue(
+                    level="warning",
+                    outcome="failed",
+                    area="page",
+                    slug=slug,
+                    attempts=len(failed) or 3,
+                    message=message,
+                    fallback="previous CVE list and bug map kept",
+                    impact="this advisory is not refreshed",
+                    exception="\n".join(failed) if failed else exception_text(exc),
+                )
+            )
+            stats["page_cached"] += 1
             continue
+        if failed:
+            notes.append(
+                issue(
+                    level="info",
+                    outcome="recovered",
+                    area="page",
+                    slug=slug,
+                    attempts=len(failed),
+                    message=(
+                        f"{slug} download failed {len(failed)} time(s), then succeeded."
+                    ),
+                    exception="\n".join(failed),
+                )
+            )
+        stats["refreshed"] += 1
         cves = parse_cves(page)
         sha = cve_sha(cves)
         bug_cves: dict[str, list[str]] | None
         if cves:
-            bug_cves = fetch_bug_map(url, page)
+            bug_cves = fetch_bug_map(url, page, notes, slug)
             if bug_cves is None:
                 warnings.append(
                     f"WARNING cpu CSAF for {slug} failed. "
                     "Previous bug map for this advisory is kept."
                 )
+                stats["csaf_cached"] += 1
         else:
             bug_cves = {}
         logged = -1 if bug_cves is None else len(bug_cves)
@@ -330,10 +521,19 @@ def collect(count: int) -> tuple[list[dict[str, Any]], list[str], bool]:
             }
         )
     if picked and not events:
-        warnings.append(
-            "WARNING cpu every advisory download failed. Previous state is kept."
+        message = "Every advisory download failed. Previous state is kept."
+        warnings.append("WARNING cpu " + message)
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="page",
+                message=message,
+                fallback="previous advisory state kept",
+                impact="no advisory was refreshed",
+            )
         )
-    return events, warnings, True
+    return events, warnings, True, notes, stats
 
 
 def apply_state(
@@ -469,24 +669,24 @@ def merge_pending(
     return out
 
 
-def load_delivery(path: Path) -> tuple[dict[str, Any], str | None]:
-    """Return threads plus pending messages.
+def load_delivery(path: Path) -> tuple[dict[str, Any], str | None, str]:
+    """Return threads plus pending messages, a warning line, and exception text.
 
     A missing file is an empty delivery state. A corrupt file is a
     warning and is not treated as an empty successful delivery.
     """
     empty: dict[str, Any] = {"threads": {}, "pending": []}
     if not path.is_file() or path.stat().st_size == 0:
-        return empty, None
+        return empty, None, ""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return empty, f"WARNING cpu slack state {path} is not JSON: {exc}"
+        return empty, f"WARNING cpu slack state {path} is not JSON: {exc}", exception_text(exc)
     if not isinstance(data, dict):
-        return empty, f"WARNING cpu slack state {path} is not a JSON object"
+        return empty, f"WARNING cpu slack state {path} is not a JSON object", ""
     threads = data.get("threads") if isinstance(data.get("threads"), dict) else {}
     pending = data.get("pending") if isinstance(data.get("pending"), list) else []
-    return {"threads": threads, "pending": pending}, None
+    return {"threads": threads, "pending": pending}, None, ""
 
 
 def save_delivery(path: Path, delivery: dict[str, Any]) -> None:
@@ -505,7 +705,7 @@ def save_delivery(path: Path, delivery: dict[str, Any]) -> None:
 
 def ack_pending(path: Path, pending_id: str) -> None:
     """Drop one pending message after Slack has confirmed that send."""
-    delivery, error = load_delivery(path)
+    delivery, error, _exc_text = load_delivery(path)
     if error:
         raise SystemExit(error)
     delivery["pending"] = [
@@ -618,24 +818,25 @@ def slack_text(changes: list[dict[str, Any]]) -> str:
     return "\n\n".join(blocks) + ("\n" if blocks else "")
 
 
-def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str]:
     """Return the slug map, or None when the file is absent.
 
     A corrupt file is not fatal. The error string is a WARNING line and
     the caller still publishes the bug map from this run's downloads.
+    The third value is the exception chain when parsing raised.
     """
     if not path.is_file() or path.stat().st_size == 0:
-        return None, None
+        return None, None, ""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        return None, f"WARNING cpu baseline {path} is not JSON: {exc}"
+        return None, f"WARNING cpu baseline {path} is not JSON: {exc}", exception_text(exc)
     if not isinstance(data, dict):
-        return None, f"WARNING cpu baseline {path} is not a JSON object"
+        return None, f"WARNING cpu baseline {path} is not a JSON object", ""
     advisories = data.get("advisories", data)
     if not isinstance(advisories, dict):
-        return None, f"WARNING cpu baseline {path} has no advisories object"
-    return advisories, None
+        return None, f"WARNING cpu baseline {path} has no advisories object", ""
+    return advisories, None, ""
 
 
 def write_run(
@@ -651,15 +852,30 @@ def write_run(
     ignore_state: bool = False,
     notify_mode: str = "none",
 ) -> None:
-    events, warnings, index_ok = collect(count)
+    events, warnings, index_ok, notes, stats = collect(count)
     degraded = state_path.with_name("cpu-degraded.txt")
     degraded.unlink(missing_ok=True)
     if ignore_state:
-        previous, baseline_error = None, None
+        previous, baseline_error, baseline_exc = None, None, ""
     else:
-        previous, baseline_error = load_advisories(state_path)
+        previous, baseline_error, baseline_exc = load_advisories(state_path)
     if baseline_error:
         warnings.append(baseline_error)
+        detail = baseline_error[12:] if baseline_error.startswith("WARNING cpu ") else baseline_error
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="baseline",
+                message=detail,
+                fallback="this run treats the baseline as missing",
+                impact=(
+                    "the newest advisory can be notified again; "
+                    "the bug map from this run is still written"
+                ),
+                exception=baseline_exc,
+            )
+        )
     for line in warnings:
         log.warning(line)
     if warnings:
@@ -684,15 +900,31 @@ def write_run(
         json.dumps({"advisories": advisories}, indent=2) + "\n",
         encoding="utf-8",
     )
+    bug_map = bug_map_from_advisories(advisories)
     bugs_path.write_text(
-        json.dumps({"bugs": bug_map_from_advisories(advisories)}, indent=2) + "\n",
+        json.dumps({"bugs": bug_map}, indent=2) + "\n",
         encoding="utf-8",
     )
-    delivery, delivery_error = load_delivery(slack_state_path)
+    delivery, delivery_error, delivery_exc = load_delivery(slack_state_path)
     if delivery_error:
         warnings.append(delivery_error)
         log.warning(delivery_error)
         degraded.write_text("\n".join(warnings) + "\n", encoding="utf-8")
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="slack-state",
+                message=(
+                    delivery_error[12:]
+                    if delivery_error.startswith("WARNING cpu ")
+                    else delivery_error
+                ),
+                fallback="threads in the unreadable file are not kept",
+                impact="a new thread may be started for an advisory that already had one",
+                exception=delivery_exc,
+            )
+        )
     delivery["pending"] = merge_pending(delivery["pending"], changes)
     save_delivery(slack_state_path, delivery)
     write_notify_dir(
@@ -712,6 +944,234 @@ def write_run(
     else:
         diff_path.unlink(missing_ok=True)
         slack_path.unlink(missing_ok=True)
+    added = sum(len(change.get("added") or []) for change in changes)
+    removed = sum(len(change.get("removed") or []) for change in changes)
+    run = {
+        "picked": stats.get("picked", 0),
+        "refreshed": stats.get("refreshed", 0),
+        "page_cached": stats.get("page_cached", 0),
+        "csaf_cached": stats.get("csaf_cached", 0),
+        "index_ok": bool(index_ok),
+        "bug_map_published": True,
+        "bug_map_bugs": len(bug_map),
+        "cve_added": added,
+        "cve_removed": removed,
+    }
+    events_path = state_path.with_name("cpu-events.jsonl")
+    events_path.write_text(
+        "".join(json.dumps(note) + "\n" for note in notes),
+        encoding="utf-8",
+    )
+    state_path.with_name("cpu-run.json").write_text(
+        json.dumps(run, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_events(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file() or path.stat().st_size == 0:
+        return []
+    found: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError as exc:
+            found.append(
+                issue(
+                    level="error",
+                    outcome="failed",
+                    area="status",
+                    message=f"cpu events line is not JSON: {exc}",
+                    exception=line,
+                )
+            )
+            continue
+        if isinstance(item, dict):
+            found.append(item)
+    return found
+
+
+def pending_count(path: Path) -> int | None:
+    """How many Slack messages are still waiting. None when the file is unreadable."""
+    if not path.is_file() or path.stat().st_size == 0:
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    pending = data.get("pending")
+    if pending is None:
+        return 0
+    if not isinstance(pending, list):
+        return None
+    return len(pending)
+
+
+def render_status(
+    result: str,
+    run: dict[str, Any],
+    events: list[dict[str, Any]],
+    pending_left: int | None,
+) -> tuple[str, str]:
+    """Return the build description and the full status text.
+
+    The description is the header plus warning headlines. Exception
+    chains and recovered retries stay in the full text.
+    """
+    lines = [f"Status: {result}"]
+    if not run:
+        lines.append("Oracle advisories: run record missing")
+        lines.append("Bug-to-CVE mapping: unknown")
+    elif not run.get("index_ok") and not run.get("picked"):
+        lines.append("Oracle advisories: index unusable, previous state kept")
+    else:
+        refreshed = int(run.get("refreshed") or 0)
+        cached = int(run.get("page_cached") or 0)
+        if cached:
+            lines.append(
+                f"Oracle advisories: {refreshed} refreshed, {cached} using cached data"
+            )
+        else:
+            lines.append(f"Oracle advisories: {refreshed} refreshed")
+    if run:
+        if run.get("bug_map_published"):
+            mapping = f"Bug-to-CVE mapping: published ({int(run.get('bug_map_bugs') or 0)} bugs)"
+            if run.get("csaf_cached"):
+                mapping += "; cached entries preserved"
+            lines.append(mapping)
+        elif "bug_map_published" in run:
+            lines.append("Bug-to-CVE mapping: not published")
+        lines.append(
+            f"CVE changes: +{int(run.get('cve_added') or 0)}, -{int(run.get('cve_removed') or 0)}"
+        )
+    delivered = sum(
+        1
+        for event in events
+        if event.get("area") == "slack" and event.get("outcome") == "delivered"
+    )
+    pending_text = "unknown" if pending_left is None else str(pending_left)
+    lines.append(f"Slack notifications: {delivered} delivered, {pending_text} pending")
+    problems = [
+        event
+        for event in events
+        if event.get("level") in ("warning", "error")
+    ]
+    headlines = []
+    for event in problems:
+        text = str(event.get("message") or "").strip()
+        if len(text) > 400:
+            text = text[:400] + "..."
+        if text:
+            headlines.append(f"- {text}")
+    description_lines = list(lines)
+    if headlines:
+        description_lines.append("")
+        description_lines.append("Warnings:")
+        description_lines.extend(headlines)
+    full = list(lines)
+    full.append("")
+    full.append("Warnings:" if problems else "Warnings: none")
+    for event in problems:
+        full.append(_format_issue(event))
+    info = [event for event in events if event.get("level") == "info"]
+    if info:
+        full.append("")
+        full.append("Info:")
+        for event in info:
+            full.append(_format_issue(event))
+    description = "\n".join(description_lines).rstrip() + "\n"
+    status = "\n".join(full).rstrip() + "\n"
+    return description, status
+
+
+def _format_issue(event: dict[str, Any]) -> str:
+    rows = [f"- {str(event.get('message') or event.get('level') or 'issue').strip()}"]
+    slug = str(event.get("slug") or "")
+    if slug:
+        rows.append(f"  Advisory: {slug}")
+    attempts = event.get("attempts") or 0
+    if attempts:
+        rows.append(f"  Attempts: {attempts}")
+    fallback = str(event.get("fallback") or "")
+    if fallback:
+        rows.append(f"  Fallback: {fallback}")
+    impact = str(event.get("impact") or "")
+    if impact:
+        rows.append(f"  Impact: {impact}")
+    exception = str(event.get("exception") or "").rstrip()
+    if exception:
+        rows.append("  Exception:")
+        rows.extend(f"  {row}" for row in exception.splitlines())
+    return "\n".join(rows)
+
+
+def write_status(
+    events_path: Path,
+    run_path: Path,
+    slack_state_path: Path,
+    status_path: Path,
+    description_path: Path,
+    result: str,
+) -> None:
+    events = load_events(events_path)
+    if run_path.is_file() and run_path.stat().st_size:
+        try:
+            run = json.loads(run_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            run = {}
+            events.append(
+                issue(
+                    level="error",
+                    outcome="failed",
+                    area="status",
+                    message=f"cpu run record is not JSON: {exc}",
+                    exception=exception_text(exc),
+                )
+            )
+        if not isinstance(run, dict):
+            run = {}
+    else:
+        run = {}
+        events.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area="status",
+                message="Run record missing. Mapping may already be archived.",
+                impact="status counts for this poll are incomplete",
+            )
+        )
+    description, status = render_status(result, run, events, pending_count(slack_state_path))
+    description_path.write_text(description, encoding="utf-8")
+    status_path.write_text(status, encoding="utf-8")
+
+
+def append_event(argv: list[str]) -> None:
+    """Append one Groovy-recorded issue. Paths hold free text so the shell stays simple."""
+    if len(argv) != 11:
+        raise SystemExit(
+            "usage: cpu_cves.py event EVENTS level outcome area slug "
+            "attempts MESSAGE_FILE EXCEPTION_FILE fallback impact"
+        )
+    message = Path(argv[7]).read_text(encoding="utf-8").strip("\n")
+    exception = Path(argv[8]).read_text(encoding="utf-8")
+    event = issue(
+        level=argv[2],
+        outcome=argv[3],
+        area=argv[4],
+        slug=argv[5],
+        attempts=int(argv[6]),
+        message=message,
+        fallback=argv[9],
+        impact=argv[10],
+        exception=exception,
+    )
+    with Path(argv[1]).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event) + "\n")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -722,6 +1182,24 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit("usage: cpu_cves.py ack SLACK_STATE PENDING_ID")
         logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
         ack_pending(Path(argv[1]), argv[2])
+        return
+    if argv and argv[0] == "event":
+        append_event(argv)
+        return
+    if argv and argv[0] == "status":
+        if len(argv) != 7:
+            raise SystemExit(
+                "usage: cpu_cves.py status EVENTS RUN SLACK_STATE "
+                "STATUS_OUT DESCRIPTION_OUT RESULT"
+            )
+        write_status(
+            Path(argv[1]),
+            Path(argv[2]),
+            Path(argv[3]),
+            Path(argv[4]),
+            Path(argv[5]),
+            argv[6],
+        )
         return
     parser = argparse.ArgumentParser(description="Diff Oracle CPU/CSPU CVE sets")
     parser.add_argument("--state", required=True, help="cpu-cves.json path")

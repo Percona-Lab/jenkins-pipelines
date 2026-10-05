@@ -11,6 +11,48 @@ def SLACK_STATE = 'cpu-slack.json'
 def SEED = 'cpu-cves-seed'
 def NOTIFY_DIR = 'cpu-notify'
 def DEGRADED = 'cpu-degraded.txt'
+def EVENTS = 'cpu-events.jsonl'
+def RUN = 'cpu-run.json'
+def STATUS = 'cpu-status.txt'
+
+def cpuThrowableText(err) {
+    def lines = []
+    def current = err
+    def guard = 0
+    while (current != null && guard < 15) {
+        lines << current.toString()
+        try {
+            def frames = current.stackTrace
+            def shown = 0
+            if (frames != null) {
+                for (frame in frames) {
+                    lines << "    at ${frame}"
+                    shown++
+                    if (shown >= 40) {
+                        lines << "    ..."
+                        break
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            lines << "    (stack trace unavailable: ${ignored})"
+        }
+        try {
+            current = current.cause
+        } catch (Exception ignored) {
+            lines << "    (cause unavailable: ${ignored})"
+            break
+        }
+        guard++
+    }
+    return lines.join('\n')
+}
+
+def cpuEvent(String level, String outcome, String area, String slug, int attempts, String message, String fallback, String impact, String exceptionText) {
+    writeFile file: 'cpu-event-message.txt', text: message ?: ''
+    writeFile file: 'cpu-event-exception.txt', text: exceptionText ?: ''
+    sh "python3 ps/jenkins/cpu_cves.py event ${EVENTS} ${level} ${outcome} ${area} '${slug}' ${attempts} cpu-event-message.txt cpu-event-exception.txt '${fallback}' '${impact}'"
+}
 // Ten advisories, not five. A fix can land in a later tag for a CVE
 // published in an older CPU or CSPU, and the stored JSON stays small.
 def ADVISORY_COUNT = '10'
@@ -42,7 +84,7 @@ pipeline {
         stage('Check advisories') {
             steps {
                 checkout scm
-                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED}"
+                sh "rm -rf ${STATE} ${DIFF} ${BUGS} ${SLACK} ${SLACK_STATE} ${SEED} ${NOTIFY_DIR} ${DEGRADED} ${EVENTS} ${RUN} ${STATUS} cpu-description.txt"
                 script {
                     // SUCCESS or UNSTABLE, not NOT_BUILT or FAILURE. A degraded
                     // poll is UNSTABLE and still holds the advisory state.
@@ -122,6 +164,7 @@ pipeline {
                             slug = key.substring(0, splitAt)
                             pendingId = slug + ':' + key.substring(splitAt + 2)
                         }
+                        def recorded = false
                         try {
                         def text = readFile("${NOTIFY_DIR}/${key}.txt").trim()
                         def linkLines = []
@@ -150,6 +193,8 @@ pipeline {
                         // throw when failOnError is left false.
                         def response = null
                         def delivered = false
+                        def deliveredOn = 0
+                        def misses = []
                         for (attempt in [1, 2, 3]) {
                             response = slackSend(
                                 botUser: true,
@@ -160,20 +205,30 @@ pipeline {
                             )
                             if (response != null && (threadId || response.threadId)) {
                                 delivered = true
+                                deliveredOn = attempt
                                 break
                             }
+                            misses << "attempt ${attempt}/3: slackSend returned null"
                             echo "WARNING cpu Slack attempt ${attempt}/3 failed for ${slug}: empty response"
                             response = null
                         }
                         if (!delivered) {
-                            if (pendingId) {
-                                echo "WARNING cpu Slack not confirmed for ${slug}. Message stays pending."
-                                unstable("Slack delivery failed for ${slug}. Message stays pending.")
-                            } else {
-                                echo "WARNING cpu Slack not confirmed for ${slug}."
-                                unstable("Slack delivery failed for ${slug}.")
-                            }
+                            def failMessage = pendingId
+                                ? "Slack delivery failed for ${slug} after 3 attempts. Notification stays pending."
+                                : "Slack delivery failed for ${slug} after 3 attempts."
+                            def failFallback = pendingId ? "pending message kept" : "not queued"
+                            def failImpact = pendingId
+                                ? "the next poll sends it again"
+                                : "this unchanged post is not retried from pending"
+                            echo "WARNING cpu ${failMessage}"
+                            cpuEvent('warning', 'failed', 'slack', slug, 3, failMessage, failFallback, failImpact, misses.join('\n'))
+                            recorded = true
+                            unstable(failMessage)
                         } else {
+                        def sentMessage = misses
+                            ? "Slack notification delivered for ${slug} on attempt ${deliveredOn}/3."
+                            : "Slack notification delivered for ${slug}."
+                        cpuEvent(misses ? 'info' : 'ok', 'delivered', 'slack', slug, deliveredOn, sentMessage, '', '', misses.join('\n'))
                         if (!threadId) {
                             threadId = response.threadId
                             sh """python3 -c 'import json; from pathlib import Path; p=Path("${SLACK_STATE}"); data=json.loads(p.read_text()) if p.is_file() and p.stat().st_size else {}; threads=data.get("threads") or {}; threads["${slug}"]={"channelId":"${response.channelId}","ts":"${response.ts}","threadId":"${response.threadId}"}; data["threads"]=threads; p.write_text(json.dumps(data, indent=2)+"\\n")'"""
@@ -200,12 +255,16 @@ pipeline {
                                 }
                             } catch (Exception uploadErr) {
                                 echo "WARNING cpu Slack file upload failed for ${slug}: ${uploadErr}"
+                                cpuEvent('warning', 'upload-failed', 'slack-upload', slug, 3, "Slack file upload failed for ${slug}. Artifact links are in the notification.", 'artifact links already sent', 'the thread has no file', cpuThrowableText(uploadErr))
                                 unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
                             }
                         }
                         }
                         } catch (Exception err) {
                             echo "WARNING cpu Slack failed for ${slug}: ${err}"
+                            if (!recorded) {
+                                cpuEvent('warning', 'failed', 'slack', slug, 0, "Slack send failed for ${slug}: ${err}", 'pending message kept', 'the next poll sends it again', cpuThrowableText(err))
+                            }
                             unstable("Slack delivery failed for ${slug}. Message stays pending.")
                         }
                     }
@@ -231,6 +290,29 @@ pipeline {
         }
     }
     post {
+        always {
+            script {
+                // Mapping is already archived. A failure here must not
+                // change the build result or hide that artifact.
+                try {
+                    def result = currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS'
+                    sh "python3 ps/jenkins/cpu_cves.py status ${EVENTS} ${RUN} ${SLACK_STATE} ${STATUS} cpu-description.txt ${result}"
+                } catch (Exception err) {
+                    echo "WARNING cpu status summary failed: ${err}"
+                }
+                try {
+                    if (fileExists('cpu-description.txt')) {
+                        currentBuild.description = readFile('cpu-description.txt').trim()
+                    }
+                    if (fileExists(STATUS)) {
+                        echo readFile(STATUS)
+                        archiveArtifacts artifacts: STATUS, allowEmptyArchive: true
+                    }
+                } catch (Exception err) {
+                    echo "WARNING cpu status publish failed: ${err}"
+                }
+            }
+        }
         success {
             script {
                 // Last step of a real SUCCESS only. NOT_BUILT and FAILURE
