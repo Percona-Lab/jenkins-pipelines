@@ -18,7 +18,26 @@ from oracle_cpu.diagnostics import exception_text, issue, publish_warnings, writ
 
 log = logging.getLogger("ps_notify")
 
-def stored_advisory(row: Any) -> dict[str, Any] | None:
+def _row_parser(row: dict[str, Any], default_parser: int) -> int:
+    if "parser" not in row:
+        return default_parser
+    value = row.get("parser")
+    if isinstance(value, bool) or not isinstance(value, int):
+        return default_parser
+    return value
+
+
+def _fresh_row(cves: list[str], bug_cves: dict[str, list[str]], sha: str | None = None) -> dict[str, Any]:
+    copied = list(cves)
+    return {
+        "sha": sha or cve_sha(copied),
+        "cves": copied,
+        "bug_cves": bug_cves,
+        "parser": PARSER_VERSION,
+    }
+
+
+def stored_advisory(row: Any, default_parser: int = PARSER_VERSION) -> dict[str, Any] | None:
     """Return a usable advisory row, or None when the saved value is the wrong type.
 
     A string or number in cves used to raise or be treated as a CVE list and
@@ -46,6 +65,7 @@ def stored_advisory(row: Any) -> dict[str, Any] | None:
         "sha": sha or cve_sha(list(raw_cves)),
         "cves": list(raw_cves),
         "bug_cves": bugs,
+        "parser": _row_parser(row, default_parser),
     }
 
 
@@ -53,7 +73,6 @@ def apply_state(
     events: list[dict[str, Any]],
     state: dict[str, Any] | None,
     report_seeded: bool = False,
-    migrate: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Diff events against saved advisories.
 
@@ -93,30 +112,19 @@ def apply_state(
         else:
             bug_cves = fresh_bugs
         if seeding and slug != newest and not report_seeded:
-            advisories[slug] = {
-                "sha": cve_sha(new),
-                "cves": new,
-                "bug_cves": bug_cves,
-            }
+            advisories[slug] = _fresh_row(new, bug_cves)
             log.info("cpu seed slug=%s cves=%d", slug, len(new))
             continue
-        if migrate and state is not None and slug in state:
-            advisories[slug] = {
-                "sha": cve_sha(new),
-                "cves": new,
-                "bug_cves": bug_cves,
-            }
+        old_parser = _row_parser(advisories.get(slug) or {}, PARSER_VERSION)
+        migrate_slug = state is not None and slug in state and old_parser != PARSER_VERSION
+        if migrate_slug:
+            advisories[slug] = _fresh_row(new, bug_cves)
             log.info("cpu parser migrate slug=%s cves=%d", slug, len(new))
             continue
         old = list((advisories.get(slug) or {}).get("cves") or [])
         change = describe_change(old, new)
         if change is None:
-            kept = advisories.get(slug) or {}
-            advisories[slug] = {
-                "sha": kept.get("sha") or cve_sha(new),
-                "cves": new,
-                "bug_cves": bug_cves,
-            }
+            advisories[slug] = _fresh_row(new, bug_cves)
             log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
             continue
         change["slug"] = slug
@@ -124,11 +132,7 @@ def apply_state(
         change["url"] = ev.get("url") or ""
         change["old_sha"] = cve_sha(old)
         changes.append(change)
-        advisories[slug] = {
-            "sha": change["sha"],
-            "cves": list(new),
-            "bug_cves": bug_cves,
-        }
+        advisories[slug] = _fresh_row(new, bug_cves, change["sha"])
         log.info(
             "cpu diff slug=%s +%d -%d",
             slug,
@@ -333,6 +337,15 @@ def write_notify_dir(path: Path, items: list[dict[str, Any]]) -> None:
     )
 
 
+def _file_parser(advisories: dict[str, Any], fallback: int) -> int:
+    versions = [
+        _row_parser(row, fallback)
+        for row in advisories.values()
+        if isinstance(row, dict)
+    ]
+    return min(versions) if versions else fallback
+
+
 def _saved_parser(data: dict[str, Any]) -> int:
     value = data.get("parser", 0)
     if isinstance(value, bool) or not isinstance(value, int):
@@ -364,7 +377,7 @@ def load_advisories(path: Path) -> tuple[dict[str, Any] | None, str | None, str,
     kept: dict[str, Any] = {}
     bad: list[str] = []
     for slug, row in advisories.items():
-        stored = stored_advisory(row)
+        stored = stored_advisory(row, saved_parser)
         if stored is None:
             bad.append(str(slug))
             continue
@@ -399,25 +412,6 @@ def _write_run_body(
         previous, baseline_error, baseline_exc, saved_parser = None, None, "", PARSER_VERSION
     else:
         previous, baseline_error, baseline_exc, saved_parser = load_advisories(state_path)
-    migrating = index_ok and previous is not None and saved_parser != PARSER_VERSION
-    if migrating:
-        notes.append(
-            issue(
-                level="info",
-                outcome="migrated",
-                area="parser",
-                message=(
-                    f"Parser version {saved_parser} -> {PARSER_VERSION}. "
-                    "Existing CVE sets were realigned. "
-                    "No Slack diff was sent for that realignment."
-                ),
-                fallback="baseline updated to the current parser",
-                impact=(
-                    "a CVE that only the previous parser reported is not "
-                    "posted as an Oracle edit"
-                ),
-            )
-        )
     if baseline_error:
         detail = baseline_error[12:] if baseline_error.startswith("WARNING cpu ") else baseline_error
         if previous is None:
@@ -452,12 +446,37 @@ def _write_run_body(
             events,
             previous,
             report_seeded=(previous is None and notify_mode == "all"),
-            migrate=migrating,
+        )
+    migrated = [
+        slug
+        for slug, row in advisories.items()
+        if previous is not None
+        and isinstance(previous.get(slug), dict)
+        and _row_parser(previous[slug], saved_parser) != PARSER_VERSION
+        and _row_parser(row, PARSER_VERSION) == PARSER_VERSION
+    ]
+    if migrated:
+        notes.append(
+            issue(
+                level="info",
+                outcome="migrated",
+                area="parser",
+                message=(
+                    f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
+                    "Those CVE sets were realigned. "
+                    "No Slack diff was sent for that realignment."
+                ),
+                fallback="refreshed advisories updated to the current parser",
+                impact=(
+                    "a CVE that only the previous parser reported is not "
+                    "posted as an Oracle edit"
+                ),
+            )
         )
     state_path.write_text(
         json.dumps(
             {
-                "parser": PARSER_VERSION if index_ok else saved_parser,
+                "parser": _file_parser(advisories, saved_parser),
                 "advisories": advisories,
             },
             indent=2,
@@ -472,7 +491,7 @@ def _write_run_body(
     )
     publish_marker = state_path.with_name("cpu-publish")
     try:
-        if migrating or baseline_changed(previous, advisories):
+        if baseline_changed(previous, advisories):
             publish_marker.write_text("1\n", encoding="utf-8")
         else:
             publish_marker.unlink(missing_ok=True)
@@ -622,7 +641,11 @@ def baseline_changed(
                     if isinstance(values, list)
                 )
             )
-            signed[str(slug)] = (tuple(row.get("cves") or []), bugs)
+            signed[str(slug)] = (
+                tuple(row.get("cves") or []),
+                bugs,
+                _row_parser(row, 0),
+            )
         return signed
 
     return signature(previous) != signature(advisories)
