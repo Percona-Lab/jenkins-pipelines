@@ -1311,24 +1311,22 @@ def write_status(
 
 
 def append_event(argv: list[str]) -> None:
-    """Append one Groovy-recorded issue. Paths hold free text so the shell stays simple."""
-    if len(argv) != 11:
-        raise SystemExit(
-            "usage: cpu_cves.py event EVENTS level outcome area slug "
-            "attempts MESSAGE_FILE EXCEPTION_FILE fallback impact"
-        )
-    message = Path(argv[7]).read_text(encoding="utf-8").strip("\n")
-    exception = Path(argv[8]).read_text(encoding="utf-8")
+    """Append one Groovy-recorded issue from a single JSON object."""
+    if len(argv) != 3:
+        raise SystemExit("usage: cpu_cves.py event EVENTS JSON_FILE")
+    raw = json.loads(Path(argv[2]).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise SystemExit("event JSON must be an object")
     event = issue(
-        level=argv[2],
-        outcome=argv[3],
-        area=argv[4],
-        slug=argv[5],
-        attempts=int(argv[6]),
-        message=message,
-        fallback=argv[9],
-        impact=argv[10],
-        exception=exception,
+        level=str(raw.get("level") or "info"),
+        outcome=str(raw.get("outcome") or ""),
+        area=str(raw.get("area") or ""),
+        slug=str(raw.get("slug") or ""),
+        attempts=int(raw.get("attempts") or 0),
+        message=str(raw.get("message") or ""),
+        fallback=str(raw.get("fallback") or ""),
+        impact=str(raw.get("impact") or ""),
+        exception=str(raw.get("exception") or ""),
     )
     with Path(argv[1]).open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event) + "\n")
