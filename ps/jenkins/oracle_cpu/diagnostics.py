@@ -80,7 +80,8 @@ def warning_lines(notes: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
-def _atomic_write(path: Path, text: str) -> None:
+def atomic_write(path: Path, text: str) -> None:
+    """Replace path with text. Readers see the old file or the new file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
@@ -92,7 +93,7 @@ def save_report(path: Path, notes: list[dict[str, Any]], run: dict[str, Any]) ->
     payload = dict(run)
     payload["notes"] = list(notes)
     try:
-        _atomic_write(path, json.dumps(payload, indent=2) + "\n")
+        atomic_write(path, json.dumps(payload, indent=2) + "\n")
     except OSError as exc:
         log.warning("WARNING cpu report was not written: %s", exc)
 

@@ -8,23 +8,14 @@ cpu-cves.json and cpu-slack.json beside it.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 from oracle_cpu.core import PARSER_VERSION, cve_sha
-from oracle_cpu.diagnostics import exception_text, issue
+from oracle_cpu.diagnostics import atomic_write, exception_text, issue
 
 LEGACY_ADVISORIES = "cpu-cves.json"
 LEGACY_SLACK = "cpu-slack.json"
-
-
-def atomic_write(path: Path, text: str) -> None:
-    """Replace path with text. Readers see the old file or the new file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    os.replace(tmp, path)
 
 
 def _row_parser(row: dict[str, Any], default_parser: int) -> int:
