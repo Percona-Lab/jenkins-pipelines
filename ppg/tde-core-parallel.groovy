@@ -13,6 +13,21 @@ def sendSlackNotification(psp_repo, psp_branch, version, io_method, tde_branch) 
     }
 }
 
+// The operating systems to test: every supported one, or the PLATFORMS subset.
+// An unknown name fails the build instead of silently testing nothing.
+def selectedOperatingSystems() {
+    def all = ppgOperatingSystemsALL()
+    def wanted = (params.PLATFORMS ?: '').tokenize()
+    if (!wanted) {
+        return all
+    }
+    def unknown = wanted.findAll { !all.contains(it) }
+    if (unknown) {
+        error("Unknown PLATFORMS: ${unknown.join(' ')}. Supported: ${all.join(' ')}")
+    }
+    return all.findAll { wanted.contains(it) }
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -59,6 +74,11 @@ pipeline {
             defaultValue: '',
             description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
             name: 'OBS_PROJECT'
+        )
+        string(
+            defaultValue: '',
+            description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
+            name: 'PLATFORMS'
         )
         string(
             defaultValue: 'https://github.com/percona/postgres',
@@ -131,7 +151,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -139,7 +159,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                moleculeParallelPostDestroyPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 // Slack notifications disabled for now.
                 // sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.IO_METHOD, env.TDE_BRANCH)
             }
