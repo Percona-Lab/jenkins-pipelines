@@ -177,12 +177,14 @@ pipeline {
     stages {
         stage('Test') {
             steps {
+                // post reads these files. A failed test must not summarize
+                // the previous build's workspace copy.
+                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-item-slug.txt cpu-item-pending.txt cpu-item-changed.txt cpu-item-text.txt cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
                 sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins'
             }
         }
         stage('Check advisories') {
             steps {
-                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-item-slug.txt cpu-item-pending.txt cpu-item-changed.txt cpu-item-text.txt cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
                 script {
                     // SUCCESS or UNSTABLE. NOT_BUILT is skipped, so the
                     // copy is the newest build that archived a checkpoint.
