@@ -50,8 +50,6 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-buster-x64": setup_debian_package_tests,
-    "min-bullseye-x64": setup_debian_package_tests,
     "min-bookworm-x64": setup_debian_package_tests,
     "min-trixie-x64": setup_debian_package_tests,
     "min-ol-8-x64": setup_ol8_package_tests,
@@ -61,6 +59,7 @@ node_setups = [
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
     "min-noble-x64": setup_ubuntu_package_tests
+    "min-resolute-x64": setup_ubuntu_package_tests
 ]
 
 void setup_package_tests() {

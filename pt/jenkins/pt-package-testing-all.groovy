@@ -101,12 +101,6 @@ pipeline {
     stages {
         stage('Run parallel') {
             parallel {
-                stage('Debian Bullseye') {
-                    steps {
-                        runNodeBuild('min-bullseye-x64')
-                    }
-                }
-
                 stage('Debian Bookworm') {
                     steps {
                         runNodeBuild('min-bookworm-x64')
@@ -133,6 +127,12 @@ pipeline {
                 stage('Ubuntu Noble Numbat') {
                     steps {
                         runNodeBuild('min-noble-x64')
+                    }
+                }
+
+                stage('Ubuntu Resolute') {
+                    steps {
+                        runNodeBuild('min-resolute-x64')
                     }
                 }
 
