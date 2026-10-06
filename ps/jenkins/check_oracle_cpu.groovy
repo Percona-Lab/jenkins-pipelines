@@ -63,8 +63,10 @@ def load(path):
         return None
 report = load("${reportPath}")
 manifest = load("${manifestPath}")
+items = manifest.get("items") if isinstance(manifest, dict) else None
+notify = str(len(items)) if isinstance(items, list) else "x"
 if not isinstance(report, dict):
-    print("ERR")
+    print("ERR " + notify)
 else:
     usable = "1" if report.get("usable") else "0"
     degraded = "1" if report.get("degraded") else "0"
@@ -75,8 +77,6 @@ else:
         changed_s = "0"
     else:
         changed_s = "x"
-    items = manifest.get("items") if isinstance(manifest, dict) else None
-    notify = str(len(items)) if isinstance(items, list) else "x"
     print(usable + " " + degraded + " " + changed_s + " " + notify)'""",
             returnStdout: true
         ).trim()
@@ -87,7 +87,16 @@ else:
         echo "WARNING cpu run record is unreadable: ${err}"
         return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
     }
-    if (!out || out.startsWith('ERR')) {
+    if (out.startsWith('ERR')) {
+        echo 'WARNING cpu run record is unreadable.'
+        def notify = -1
+        def errParts = out.split(' ')
+        if (errParts.size() > 1 && errParts[1].isInteger()) {
+            notify = errParts[1].toInteger()
+        }
+        return [readable: false, usable: true, degraded: true, changed: null, notify: notify]
+    }
+    if (!out) {
         echo 'WARNING cpu run record is unreadable.'
         return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
     }
