@@ -127,6 +127,49 @@ def _follow(url: str) -> tuple[str | None, str]:
     return None, " -> ".join(hops)
 
 
+def record_download(
+    notes: list[dict[str, Any]],
+    *,
+    area: str,
+    slug: str,
+    label: str,
+    failed: list[str],
+    exc: BaseException | None,
+) -> None:
+    """One failure or recovery note for a finished download.
+
+    Callers still decide whether a body is usable and whether a cache
+    stays. exc is set only when every attempt failed.
+    """
+    if exc is not None:
+        detail = failed[-1].splitlines()[0] if failed else type(exc).__name__
+        notes.append(
+            issue(
+                level="warning",
+                outcome="failed",
+                area=area,
+                slug=slug,
+                attempts=len(failed) or 3,
+                message=f"{label} download failed after {len(failed) or 3} attempts. {detail}",
+                exception="\n".join(failed) if failed else exception_text(exc),
+            )
+        )
+        return
+    if not failed:
+        return
+    notes.append(
+        issue(
+            level="info",
+            outcome="recovered",
+            area=area,
+            slug=slug,
+            attempts=len(failed) + 1,
+            message=f"{label} download failed {len(failed)} time(s), then succeeded.",
+            exception="\n".join(failed),
+        )
+    )
+
+
 def _fetch(url: str, failed: list[str]) -> str:
     """GET url, pause one second, and try again up to 3 times.
 
@@ -269,40 +312,17 @@ def fetch_bug_map(
     try:
         raw = _fetch(csaf_url, failed)
     except FETCH_ERRORS as exc:
-        detail = failed[-1].splitlines()[0] if failed else str(exc.reason)
-        log.warning(
-            "WARNING cpu CSAF fetch failed url=%s detail=%s",
-            csaf_url,
-            detail,
-        )
-        notes.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="csaf",
-                slug=slug,
-                attempts=len(failed) or 3,
-                message=(
-                    f"{slug} CSAF download failed after {len(failed) or 3} attempts. {detail}"
-                ),
-                exception="\n".join(failed) if failed else exception_text(exc),
-            )
+        log.warning("WARNING cpu CSAF fetch failed url=%s", csaf_url)
+        record_download(
+            notes,
+            area="csaf",
+            slug=slug,
+            label=f"{slug} CSAF",
+            failed=failed,
+            exc=exc,
         )
         return None
-    if failed:
-        notes.append(
-            issue(
-                level="info",
-                outcome="recovered",
-                area="csaf",
-                slug=slug,
-                attempts=len(failed) + 1,
-                message=(
-                    f"{slug} CSAF download failed {len(failed)} time(s), then succeeded."
-                ),
-                exception="\n".join(failed),
-            )
-        )
+    record_download(notes, area="csaf", slug=slug, label=f"{slug} CSAF", failed=failed, exc=None)
     try:
         data = json.loads(raw)
         bug_map = bug_map_from_csaf(data)
@@ -422,32 +442,9 @@ def collect(
     try:
         html = _fetch(INDEX, failed)
     except FETCH_ERRORS as exc:
-        message = (
-            f"Index download failed after {len(failed) or 3} attempts: "
-            f"{type(exc).__name__}."
-        )
-        notes.append(
-            issue(
-                level="warning",
-                outcome="failed",
-                area="index",
-                attempts=len(failed) or 3,
-                message=message,
-                exception="\n".join(failed) if failed else exception_text(exc),
-            )
-        )
+        record_download(notes, area="index", slug="", label="Index", failed=failed, exc=exc)
         return Collection([], False, notes, stats)
-    if failed:
-        notes.append(
-            issue(
-                level="info",
-                outcome="recovered",
-                area="index",
-                attempts=len(failed) + 1,
-                message=f"Index download failed {len(failed)} time(s), then succeeded.",
-                exception="\n".join(failed),
-            )
-        )
+    record_download(notes, area="index", slug="", label="Index", failed=failed, exc=None)
     seen: set[str] = set()
     slugs: list[str] = []
     for match in HREF_RE.finditer(html):
@@ -480,36 +477,9 @@ def collect(
         try:
             page = _fetch(url, failed)
         except FETCH_ERRORS as exc:
-            message = (
-                f"{slug} download failed after {len(failed) or 3} attempts: "
-                f"{type(exc).__name__}."
-            )
-            notes.append(
-                issue(
-                    level="warning",
-                    outcome="failed",
-                    area="page",
-                    slug=slug,
-                    attempts=len(failed) or 3,
-                    message=message,
-                    exception="\n".join(failed) if failed else exception_text(exc),
-                )
-            )
+            record_download(notes, area="page", slug=slug, label=slug, failed=failed, exc=exc)
             continue
-        if failed:
-            notes.append(
-                issue(
-                    level="info",
-                    outcome="recovered",
-                    area="page",
-                    slug=slug,
-                    attempts=len(failed) + 1,
-                    message=(
-                        f"{slug} download failed {len(failed)} time(s), then succeeded."
-                    ),
-                    exception="\n".join(failed),
-                )
-            )
+        record_download(notes, area="page", slug=slug, label=slug, failed=failed, exc=None)
         cves = parse_cves(page)
         excluded = history_only_cves(page)
         if not cves:
