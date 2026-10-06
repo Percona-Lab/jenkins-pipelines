@@ -5,13 +5,20 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
-from oracle_cpu.core import Collection, bug_map_from_csaf, cve_sha, parse_cves
+from oracle_cpu.core import (
+    Collection,
+    _fetch,
+    bug_map_from_csaf,
+    cve_sha,
+    parse_cves,
+)
 from oracle_cpu.diagnostics import load_report, write_status
 from oracle_cpu.pipeline import apply_state, notification_items, poll
-from oracle_cpu.state import ack_state, atomic_write, load_state, merge_pending
+from oracle_cpu.state import ack_state, atomic_write, load_state, merge_pending, persistent_signature
 
 
 _MISSING = object()
@@ -341,6 +348,82 @@ class OracleCpuTest(unittest.TestCase):
             self.assertEqual(manifest["items"], [])
             report, _notes = load_report(root / "cpu-run.json")
             self.assertFalse(report["degraded"])
+            self.assertTrue(report["state_changed"])
+
+    def test_unchanged_checkpoint_is_not_a_state_change(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            row = {
+                "sha": cve_sha(["CVE-2026-1"]),
+                "cves": ["CVE-2026-1"],
+                "bug_cves": {"42": ["CVE-2026-1"]},
+                "parser": 1,
+                "title": "cpuapr2026",
+                "url": "https://www.oracle.com/security-alerts/cpuapr2026.html",
+            }
+            atomic_write(
+                root / "cpu-state.json",
+                json.dumps({"threads": {}, "pending": [], "advisories": {"cpuapr2026": row}})
+                + "\n",
+            )
+            fresh = [_fresh("cpuapr2026", ["CVE-2026-1"], {"42": ["CVE-2026-1"]})]
+
+            def ok_collect(count: int, notes: list | None = None) -> Collection:
+                return Collection(fresh, True, notes or [], {"picked": 1, "refreshed": 1})
+
+            with patch("oracle_cpu.pipeline.collect", ok_collect):
+                poll(
+                    root / "cpu-state.json",
+                    root / "cpu-bug-cve.json",
+                    root / "cpu-notify.json",
+                    root / "cpu-run.json",
+                    count=10,
+                )
+            report, _notes = load_report(root / "cpu-run.json")
+            self.assertFalse(report["state_changed"])
+            self.assertEqual(report["state_changed"], False)
+
+    def test_corrupt_checkpoint_has_no_comparison(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "cpu-state.json").write_text("{", encoding="utf-8")
+            fresh = [_fresh("cpuapr2026", ["CVE-2026-1"], {"42": ["CVE-2026-1"]})]
+
+            def ok_collect(count: int, notes: list | None = None) -> Collection:
+                return Collection(fresh, True, notes or [], {"picked": 1, "refreshed": 1})
+
+            with patch("oracle_cpu.pipeline.collect", ok_collect):
+                poll(
+                    root / "cpu-state.json",
+                    root / "cpu-bug-cve.json",
+                    root / "cpu-notify.json",
+                    root / "cpu-run.json",
+                    count=10,
+                )
+            report, _notes = load_report(root / "cpu-run.json")
+            self.assertIsNone(report["state_changed"])
+
+    def test_pending_removal_changes_the_checkpoint(self) -> None:
+        before = {"threads": {}, "pending": [{"id": "a", "slug": "s", "sha": "1", "slack": "t"}], "advisories": {}}
+        after = {"threads": {}, "pending": [], "advisories": {}}
+        self.assertNotEqual(persistent_signature(before), persistent_signature(after))
+
+    def test_csaf_404_names_the_redirect_target(self) -> None:
+        published = "https://www.oracle.com/docs/tech/security-alerts/cspumay2026csaf.json"
+        direct = "https://www.oracle.com/a/tech/docs/security-alerts/cspumay2026csaf.json"
+
+        def fake_get(url: str) -> tuple[int, str, str]:
+            if url == published:
+                return 301, "", direct
+            return 404, "", ""
+
+        with patch("oracle_cpu.core._http_get", fake_get), patch("oracle_cpu.core.time.sleep"):
+            failed: list[str] = []
+            with self.assertRaises(urllib.error.URLError):
+                _fetch(published, failed)
+        self.assertIn(published, failed[0])
+        self.assertIn(direct, failed[0])
+        self.assertIn("404", failed[0])
 
     def test_malformed_report_still_renders_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

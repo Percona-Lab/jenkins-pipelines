@@ -50,21 +50,34 @@ def cpuArchiveMapping(String reportPath, String bugArtifact, List names) {
     ])
 }
 
-def cpuReportDegraded(String reportPath) {
-    if (!fileExists(reportPath)) {
-        return false
-    }
-    // CPS drops a def that lives only inside try.
+def cpuPollDecision(String reportPath, String manifestPath) {
+    // Missing comparison data is not "unchanged". Callers archive.
     def out = ''
     try {
         out = sh(
             script: """python3 -c 'import json
-try:
-    data = json.load(open("${reportPath}"))
-except Exception:
+def load(path):
+    try:
+        return json.load(open(path))
+    except Exception:
+        return None
+report = load("${reportPath}")
+manifest = load("${manifestPath}")
+if not isinstance(report, dict):
     print("ERR")
 else:
-    print("1" if isinstance(data, dict) and data.get("degraded") else "0")'""",
+    usable = "1" if report.get("usable") else "0"
+    degraded = "1" if report.get("degraded") else "0"
+    changed = report.get("state_changed")
+    if changed is True:
+        changed_s = "1"
+    elif changed is False:
+        changed_s = "0"
+    else:
+        changed_s = "x"
+    items = manifest.get("items") if isinstance(manifest, dict) else None
+    notify = str(len(items)) if isinstance(items, list) else "x"
+    print(usable + " " + degraded + " " + changed_s + " " + notify)'""",
             returnStdout: true
         ).trim()
     } catch (Exception err) {
@@ -72,13 +85,49 @@ else:
             throw err
         }
         echo "WARNING cpu run record is unreadable: ${err}"
-        return false
+        return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
     }
     if (!out || out.startsWith('ERR')) {
         echo 'WARNING cpu run record is unreadable.'
-        return false
+        return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
     }
-    return out == '1'
+    def parts = out.split(' ')
+    if (parts.size() < 4) {
+        echo 'WARNING cpu run record is unreadable.'
+        return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
+    }
+    def changed = null
+    if (parts[2] == '1') {
+        changed = true
+    } else if (parts[2] == '0') {
+        changed = false
+    }
+    def notify = -1
+    if (parts[3].isInteger()) {
+        notify = parts[3].toInteger()
+    }
+    return [
+        readable: true,
+        usable: parts[0] == '1',
+        degraded: parts[1] == '1',
+        changed: changed,
+        notify: notify,
+    ]
+}
+
+def cpuLoadNotifyItem(String manifestPath, int index) {
+    sh """python3 -c 'import json
+item = (json.load(open("${manifestPath}")).get("items") or [])[${index}]
+open("cpu-item-slug.txt","w").write(str(item.get("slug") or ""))
+open("cpu-item-pending.txt","w").write(str(item.get("pending_id") or ""))
+open("cpu-item-changed.txt","w").write("1" if item.get("changed") else "0")
+open("cpu-item-text.txt","w").write(str(item.get("text") or ""))'"""
+    return [
+        slug: readFile('cpu-item-slug.txt').trim(),
+        pendingId: readFile('cpu-item-pending.txt').trim(),
+        changed: readFile('cpu-item-changed.txt').trim() == '1',
+        text: readFile('cpu-item-text.txt').trim(),
+    ]
 }
 
 // Ten advisories, not five. A fix can land in a later tag for a CVE
@@ -105,7 +154,11 @@ pipeline {
     }
     options {
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        // removeLastBuild stays false. LogRotator then keeps the last
+        // successful build and the last stable build, including their
+        // artifacts, after NOT_BUILT polls rotate the rest.
+        // setKeepLog would also keep artifacts and skip that rotation.
+        buildDiscarder(logRotator(numToKeepStr: '100', artifactNumToKeepStr: '10'))
         timestamps()
         // Production mode rejects copyArtifacts unless the source job names
         // the reader. This job copies its own last build. '*' also covers a
@@ -120,10 +173,10 @@ pipeline {
         }
         stage('Check advisories') {
             steps {
-                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
+                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-item-slug.txt cpu-item-pending.txt cpu-item-changed.txt cpu-item-text.txt cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
                 script {
-                    // SUCCESS or UNSTABLE. Every poll that had a mapping
-                    // archived it, including an unchanged SUCCESS.
+                    // SUCCESS or UNSTABLE. NOT_BUILT is skipped, so the
+                    // copy is the newest build that archived a checkpoint.
                     copyArtifacts(
                         projectName: env.JOB_NAME,
                         selector: [$class: 'StatusBuildSelector', stable: false],
@@ -153,56 +206,64 @@ pipeline {
                     echo \$? > ${POLL_RC}
                 """
                 script {
-                    // Archive before the report is consulted. A partial
-                    // cpu-run.json must not skip the mapping.
-                    cpuArchiveMapping(REPORT, BUGS, [STATE, BUGS])
                     def pollRc = fileExists(POLL_RC) ? readFile(POLL_RC).trim() : '1'
                     if (pollRc != '0') {
                         error 'Oracle CPU poll produced no usable mapping.'
                     }
-                    if (cpuReportDegraded(REPORT)) {
+                    def decision = cpuPollDecision(REPORT, MANIFEST)
+                    env.CPU_UNCHANGED = '0'
+                    env.CPU_NOTIFY = '0'
+                    if (!decision.readable || decision.degraded) {
                         unstable('Oracle CPU collection degraded. Previous state kept for failed advisories.')
                     }
-                    env.CPU_DIFF = '0'
-                    def diffOut = ''
+                    // false/0 is the only unchanged poll. A missing comparison
+                    // or an unreadable manifest still archives.
+                    def unchanged = decision.readable && !decision.degraded && decision.changed == false && decision.notify == 0
+                    if (unchanged) {
+                        env.CPU_UNCHANGED = '1'
+                    } else if (!fileExists(STATE) || !fileExists(BUGS)) {
+                        error 'Oracle CPU poll has no checkpoint to archive.'
+                    } else {
+                        cpuArchiveMapping(REPORT, BUGS, [STATE, BUGS])
+                    }
+                    if (decision.notify > 0) {
+                        env.CPU_NOTIFY = '1'
+                    }
+                }
+            }
+        }
+        stage('Notify') {
+            when {
+                environment name: 'CPU_NOTIFY', value: '1'
+            }
+            steps {
+                script {
+                    def countOut = ''
                     try {
-                        diffOut = sh(
-                            script: """python3 -c 'import json
-data = json.load(open("${REPORT}"))
-added = int(data.get("cve_added") or 0)
-removed = int(data.get("cve_removed") or 0)
-print("1" if added or removed else "0")'""",
+                        countOut = sh(
+                            script: """python3 -c 'import json; print(len(json.load(open("${MANIFEST}")).get("items") or []))'""",
                             returnStdout: true
                         ).trim()
                     } catch (Exception err) {
                         if (err instanceof InterruptedException) {
                             throw err
                         }
-                        echo "WARNING cpu diff flag unreadable: ${err}"
-                    }
-                    if (diffOut == '1') {
-                        env.CPU_DIFF = '1'
-                    }
-                }
-            }
-        }
-        stage('Notify') {
-            steps {
-                script {
-                    if (!fileExists(MANIFEST)) {
+                        echo "WARNING cpu notify manifest is unreadable: ${err}"
+                        unstable('Oracle CPU notify manifest is unreadable.')
                         return
                     }
-                    def parsed = new groovy.json.JsonSlurperClassic().parseText(readFile(MANIFEST))
-                    def items = parsed.items ?: []
-                    if (!items) {
+                    if (!countOut.isInteger()) {
+                        unstable('Oracle CPU notify manifest is unreadable.')
                         return
                     }
+                    def count = countOut.toInteger()
                     def blockedSlugs = []
-                    for (def item : items) {
-                        def slug = item.slug ?: ''
-                        def pendingId = item.pending_id ?: ''
-                        def changed = item.changed ? true : false
-                        def text = (item.text ?: '').trim()
+                    for (int index = 0; index < count; index++) {
+                        def item = cpuLoadNotifyItem(MANIFEST, index)
+                        def slug = item.slug
+                        def pendingId = item.pendingId
+                        def changed = item.changed
+                        def text = item.text
                         if (!slug || !text) {
                             continue
                         }
@@ -223,8 +284,11 @@ print("1" if added or removed else "0")'""",
                         def recorded = false
                         try {
                             def linkLines = []
-                            linkLines << "Bug to CVE map: ${BUILD_URL}artifact/${BUGS}"
-                            linkLines << "State: ${BUILD_URL}artifact/${STATE}"
+                            // Permalink. After this build finishes, a SUCCESS
+                            // or UNSTABLE result becomes this file. NOT_BUILT
+                            // does not move it.
+                            linkLines << "Bug to CVE map: ${JOB_URL}lastSuccessfulBuild/artifact/${BUGS}"
+                            linkLines << "State: ${JOB_URL}lastSuccessfulBuild/artifact/${STATE}"
                             def message = "[${JOB_NAME}]: Oracle CPU/CSPU CVE change\n${text}"
                             if (changed) {
                                 message = "${message}\n\n${linkLines.join('\n')}"
@@ -371,6 +435,16 @@ print("1" if added or removed else "0")'""",
                 }
             }
         }
+        stage('Mark unchanged') {
+            steps {
+                script {
+                    def result = currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS'
+                    if (env.CPU_UNCHANGED == '1' && result == 'SUCCESS') {
+                        currentBuild.result = 'NOT_BUILT'
+                    }
+                }
+            }
+        }
     }
     post {
         always {
@@ -385,7 +459,11 @@ print("1" if added or removed else "0")'""",
                     echo "WARNING cpu status summary failed: ${err}"
                 }
                 try {
-                    if (fileExists('cpu-description.txt')) {
+                    def resultNow = currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS'
+                    if (resultNow == 'NOT_BUILT') {
+                        def mapUrl = "${env.JOB_URL}lastSuccessfulBuild/artifact/${BUGS}"
+                        currentBuild.description = "No new CVEs or mapping changes. <a href=\"${mapUrl}\">Bug to CVE map</a>"
+                    } else if (fileExists('cpu-description.txt')) {
                         currentBuild.description = readFile('cpu-description.txt').trim()
                     }
                     if (fileExists(STATUS)) {
@@ -398,18 +476,6 @@ print("1" if added or removed else "0")'""",
                     }
                     echo "WARNING cpu status publish failed: ${err}"
                 }
-            }
-        }
-        success {
-            script {
-                if (env.CPU_DIFF == '1') {
-                    currentBuild.setKeepLog(true)
-                }
-            }
-        }
-        unstable {
-            script {
-                currentBuild.setKeepLog(true)
             }
         }
     }

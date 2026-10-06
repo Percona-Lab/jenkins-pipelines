@@ -20,6 +20,7 @@ from oracle_cpu.state import (
     atomic_write,
     load_state,
     merge_pending,
+    persistent_signature,
     save_state,
     stored_advisory,
     _row_parser,
@@ -294,6 +295,7 @@ def poll(
         "cve_added": 0,
         "cve_removed": 0,
         "archived": False,
+        "state_changed": None,
     }
 
     def flush() -> None:
@@ -310,6 +312,10 @@ def poll(
         flush()
         state, load_notes, saved_parser = load_state(state_path)
         notes.extend(load_notes)
+        comparable = not any(
+            "is not JSON" in str(note.get("message") or "") for note in load_notes
+        )
+        before_sig = persistent_signature(state) if comparable else None
         previous = state["advisories"] if state["advisories"] else None
         run["baseline_present"] = previous is not None
         if not index_ok:
@@ -366,6 +372,10 @@ def poll(
         run["csaf_cached"] = kept["csaf_cached"]
         state["advisories"] = advisories
         state["pending"] = merge_pending(state.get("pending") or [], changes)
+        if before_sig is None:
+            run["state_changed"] = None
+        else:
+            run["state_changed"] = persistent_signature(state) != before_sig
         save_state(state_path, state)
         bug_map = bug_map_from_advisories(advisories)
         atomic_write(

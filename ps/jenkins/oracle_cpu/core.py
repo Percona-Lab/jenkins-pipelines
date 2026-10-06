@@ -65,36 +65,87 @@ MONTH_NAME = {
     12: "December",
 }
 
+_REDIRECTS = frozenset({301, 302, 303, 307, 308})
+
+
+def _http_get(url: str) -> tuple[int, str, str]:
+    """One GET without following redirects. Returns status, body, Location."""
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    ctx = ssl.create_default_context()
+    opener = urllib.request.build_opener(
+        _NoRedirect,
+        urllib.request.HTTPSHandler(context=ctx),
+    )
+    request = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with opener.open(request, timeout=120) as resp:
+            status = int(getattr(resp, "status", None) or resp.getcode())
+            location = resp.headers.get("Location") or ""
+            if status in _REDIRECTS:
+                return status, "", location
+            return status, resp.read().decode("utf-8", "replace"), ""
+    except urllib.error.HTTPError as exc:
+        location = ""
+        if exc.headers is not None:
+            location = exc.headers.get("Location") or ""
+        return int(exc.code), "", location
+
+
+def _follow(url: str) -> tuple[str | None, str]:
+    """Follow redirects. The second value is the hop list.
+
+    A URL already seen stops the walk. The count stops a chain of
+    distinct URLs that never repeats.
+    """
+    hops: list[str] = []
+    current = url
+    seen: set[str] = set()
+    for _ in range(50):
+        if current in seen:
+            hops.append(f"repeat {current}")
+            return None, " -> ".join(hops)
+        seen.add(current)
+        try:
+            status, body, location = _http_get(current)
+        except FETCH_ERRORS as exc:
+            hops.append(f"error {current}: {type(exc).__name__}")
+            return None, " -> ".join(hops) + "\n" + exception_text(exc)
+        if status in _REDIRECTS and location:
+            nxt = urllib.parse.urljoin(current, location)
+            hops.append(f"{status} {current} -> {nxt}")
+            current = nxt
+            continue
+        hops.append(f"{status} {current}")
+        if 200 <= status < 300:
+            return body, " -> ".join(hops)
+        return None, " -> ".join(hops)
+    hops.append("too many redirects")
+    return None, " -> ".join(hops)
+
+
 def _fetch(url: str, failed: list[str]) -> str:
     """GET url, pause one second, and try again up to 3 times.
 
-    failed collects the exception text of each failed attempt. A later
-    success leaves those texts for an informational note. The raised
-    exception is the last attempt.
+    failed collects one line per attempt, including the redirect target
+    that returned the error. A later success leaves those lines for an
+    informational note. The raised error is the last attempt.
     """
     failed.clear()
-    ctx = ssl.create_default_context()
-    last: Exception | None = None
+    last = "no attempt"
     for attempt in range(1, 4):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, context=ctx, timeout=120) as resp:
-                body = resp.read().decode("utf-8", "replace")
-        except FETCH_ERRORS as exc:
-            last = exc
-            failed.append(exception_text(exc))
-            log.info(
-                "cpu fetch attempt %s/3 failed url=%s err=%s",
-                attempt,
-                url,
-                type(exc).__name__,
-            )
+        body, detail = _follow(url)
+        if body is not None:
             time.sleep(1)
-            continue
+            return body
+        last = detail
+        failed.append(detail)
+        log.info("cpu fetch attempt %s/3 failed url=%s detail=%s", attempt, url, detail)
         time.sleep(1)
-        return body
-    assert last is not None
-    raise last
+    raise urllib.error.URLError(last)
 
 
 def _parse_slug(slug: str) -> tuple[str, int, int]:
@@ -207,10 +258,11 @@ def fetch_bug_map(
     try:
         raw = _fetch(csaf_url, failed)
     except FETCH_ERRORS as exc:
+        detail = failed[-1].splitlines()[0] if failed else str(exc.reason)
         log.warning(
-            "WARNING cpu CSAF fetch failed url=%s err=%s",
+            "WARNING cpu CSAF fetch failed url=%s detail=%s",
             csaf_url,
-            type(exc).__name__,
+            detail,
         )
         notes.append(
             issue(
@@ -220,7 +272,7 @@ def fetch_bug_map(
                 slug=slug,
                 attempts=len(failed) or 3,
                 message=(
-                    f"{slug} CSAF download failed after {len(failed) or 3} attempts."
+                    f"{slug} CSAF download failed after {len(failed) or 3} attempts. {detail}"
                 ),
                 exception="\n".join(failed) if failed else exception_text(exc),
             )

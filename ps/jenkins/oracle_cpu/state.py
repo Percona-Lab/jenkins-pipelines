@@ -66,6 +66,20 @@ def stored_advisory(row: Any, default_parser: int = PARSER_VERSION) -> dict[str,
     }
 
 
+def persistent_signature(state: dict[str, Any]) -> str:
+    """Canonical text of the checkpoint.
+
+    Poll counters and the build report are not part of this. A mapping
+    change, a parser bump, a thread id, or a pending message is.
+    """
+    payload = {
+        "advisories": state.get("advisories") if isinstance(state.get("advisories"), dict) else {},
+        "threads": state.get("threads") if isinstance(state.get("threads"), dict) else {},
+        "pending": state.get("pending") if isinstance(state.get("pending"), list) else [],
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
 def empty_state() -> dict[str, Any]:
     return {"threads": {}, "pending": [], "advisories": {}}
 
