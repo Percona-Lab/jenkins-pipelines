@@ -116,6 +116,14 @@ pipeline {
                 }
             }
         }
+        stage('Set package release') {
+            when {
+                expression { params.DESTINATION == 'experimental' }
+            }
+            steps {
+                sh 'echo "$(cat VERSION)-$(date +%s)" > VERSION.new && mv VERSION.new VERSION'
+            }
+        }
         stage('Build client source rpm') {
             parallel {
                 stage('Build client source rpm EL9') {

@@ -232,7 +232,7 @@ pipeline {
                                 sh """
                                     docker network create pmm-qa || true
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                    PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                    PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker compose up -d
                                     docker network connect pmm-qa pmm-server || true
                                 """
                             }
@@ -354,7 +354,7 @@ pipeline {
             steps {
                 sh '''
                     docker rm -f webhookd || true
-                    docker-compose -f e2e_tests/docker-compose.yml up -d --no-deps webhookd
+                    docker compose -f e2e_tests/docker-compose.yml up -d --no-deps webhookd
                 '''
                 dir('e2e_tests') {
                     sh '''
@@ -381,7 +381,7 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
                 docker stop webhookd || true
                 docker rm webhookd || true
-                cd codeceptjs-e2e && docker-compose down || true
+                cd codeceptjs-e2e && docker compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true

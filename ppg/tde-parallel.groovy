@@ -38,6 +38,11 @@ pipeline {
             name: 'OBS_HOST'
         )
         string(
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
+        )
+        string(
             defaultValue: 'https://github.com/percona/pg_tde.git',
             description: 'pg_tde repo that we want to test, we could also use forked developer repo here.',
             name: 'TDE_REPO'
@@ -69,6 +74,11 @@ pipeline {
         booleanParam(
             name: 'MAJOR_REPO',
             description: "Enable to use major (ppg-17) repo instead of ppg-17.6"
+        )
+        string(
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.',
+            name: 'RUN_LABELS'
         )
     }
     environment {
