@@ -1,0 +1,33 @@
+- job:
+    name: operators-weekly-security-builds
+    project-type: folder
+    description: |
+        Jobs for weekly operator security builds.
+
+- job-template:
+    name: 'operators-weekly-security-builds/weekly-security-builds-{repository_id}'
+    project-type: pipeline
+    concurrent: false
+    description: |
+        Do not edit this job through the web!
+    # Disable scheduled triggers
+    # triggers:
+    #   - parameterized-timer:
+    #       cron: '{schedule} % OPERATOR={repository}'
+    pipeline-scm:
+        scm:
+          - git:
+              url: https://github.com/Percona-Lab/jenkins-pipelines.git
+              branches:
+                - master
+              wipe-workspace: false
+        lightweight-checkout: true
+        script-path: cloud/jenkins/weekly_security_builds.groovy
+
+- project:
+    name: weekly-security-builds
+    jobs:
+      - 'operators-weekly-security-builds/weekly-security-builds-{repository_id}':
+          repository_id: pso
+          repository: percona-server-mysql-operator
+          schedule: '0 12 * * 1'
