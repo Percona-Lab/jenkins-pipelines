@@ -1,3 +1,9 @@
+- job:
+    name: operators-weekly-security-builds
+    project-type: folder
+    description: |
+        Jobs for weekly operator security builds.
+
 - job-template:
     name: 'operators-weekly-security-builds/weekly-security-builds-{repository_id}'
     project-type: pipeline
