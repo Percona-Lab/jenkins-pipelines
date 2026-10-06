@@ -3,52 +3,22 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-// The source repository is private, so every access to it carries a token. GIT_TOKEN_ID names a
-// "secret text" credential holding a GitHub token that can read it. The token is bound only for
-// as long as it is needed, and Jenkins masks it in the console output; nothing writes the
-// authenticated URL to a file.
-def withRepoToken(Closure body) {
-    withCredentials([string(credentialsId: params.GIT_TOKEN_ID, variable: 'GIT_TOKEN')]) {
-        body()
-    }
-}
-
 // Runs one stage of BUILD/percona/percona_proxy_builder.sh, from the branch being built, inside a
 // container of the target distribution.
 void buildStage(String DOCKER_OS, String STAGE_PARAM, String INSTALL_DEPS = '1') {
-    withRepoToken {
-        sh """
+    sh """
+        set -o xtrace
+        mkdir -p test
+        wget \$(echo ${params.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${params.BRANCH}/BUILD/percona/percona_proxy_builder.sh -O percona_proxy_builder.sh
+        pwd -P
+        export build_dir=\$(pwd -P)
+        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o errexit
-            mkdir -p test
-            build_dir=\$(pwd -P)
-
-            # The token is put into the URL here and passed on through the environment, so that it
-            # is never written to a file in the workspace. Jenkins masks it in the console output.
-            GIT_REPO_URL='${params.GIT_REPO}'
-            AUTH_REPO="https://\${GIT_TOKEN}@\${GIT_REPO_URL#https://}"
-
-            # The builder itself lives in the private repository, so it comes from a shallow clone.
-            # raw.githubusercontent.com cannot serve it: it does not accept a token.
-            rm -rf builder-src
-            git clone --quiet --depth 1 --branch '${params.BRANCH}' "\${AUTH_REPO}" builder-src
-            cp builder-src/BUILD/percona/percona_proxy_builder.sh .
-            rm -rf builder-src
-
-            docker run -u root -v "\${build_dir}:\${build_dir}" \
-                -e BUILD_DIR="\${build_dir}" -e AUTH_REPO="\${AUTH_REPO}" \
-                ${DOCKER_OS} sh -c '
-                    set -o errexit
-                    cd "\$BUILD_DIR"
-                    bash ./percona_proxy_builder.sh --builddir="\$BUILD_DIR/test" \
-                        --repo="\$AUTH_REPO" --branch=${params.BRANCH} --install_deps=${INSTALL_DEPS}
-                    bash ./percona_proxy_builder.sh --builddir="\$BUILD_DIR/test" \
-                        --repo="\$AUTH_REPO" --branch=${params.BRANCH} --version=${params.VERSION} \
-                        --rpm_release=${params.RPM_RELEASE} --deb_release=${params.DEB_RELEASE} \
-                        --package_name=${params.PACKAGE_NAME} \
-                        --build_tests=${params.BUILD_TESTS ? 1 : 0} ${STAGE_PARAM}
-                '
-        """
-    }
+            set -o xtrace
+            cd \${build_dir}
+            bash -x ./percona_proxy_builder.sh --builddir=\${build_dir}/test --repo=${params.GIT_REPO} --branch=${params.BRANCH} --install_deps=${INSTALL_DEPS}
+            bash -x ./percona_proxy_builder.sh --builddir=\${build_dir}/test --repo=${params.GIT_REPO} --branch=${params.BRANCH} --version=${params.VERSION} --rpm_release=${params.RPM_RELEASE} --deb_release=${params.DEB_RELEASE} --package_name=${params.PACKAGE_NAME} --build_tests=${params.BUILD_TESTS ? 1 : 0} ${STAGE_PARAM}"
+    """
 }
 
 // Builds the source packages the binary packages are then rebuilt from, so that the published
@@ -163,10 +133,6 @@ pipeline {
             description: 'Tag/Branch to build',
             name: 'BRANCH')
         string(
-            defaultValue: 'GITHUB_API_TOKEN',
-            description: 'Secret text credential holding a GitHub token that can read GIT_REPO. The repository is private',
-            name: 'GIT_TOKEN_ID')
-        string(
             defaultValue: '1.0.0',
             description: 'Percona Proxy for MariaDB version, must match the version in the sources',
             name: 'VERSION')
@@ -186,6 +152,10 @@ pipeline {
             defaultValue: false,
             description: 'Also build and run the unit tests in every package build',
             name: 'BUILD_TESTS')
+        booleanParam(
+            defaultValue: true,
+            description: 'Install the packages that were just built and check that Percona Proxy routes queries, before anything is signed or pushed',
+            name: 'VERIFY_PACKAGES')
         booleanParam(
             defaultValue: false,
             description: 'Push the signed packages to PERCONA_PROXY_DEST_REPO on repo.percona.com',
@@ -221,7 +191,7 @@ pipeline {
             steps {
                 script {
                     // The string parameters are pasted into nested shell commands that run as root.
-                    ['GIT_REPO', 'BRANCH', 'GIT_TOKEN_ID', 'VERSION', 'RPM_RELEASE', 'DEB_RELEASE',
+                    ['GIT_REPO', 'BRANCH', 'VERSION', 'RPM_RELEASE', 'DEB_RELEASE',
                      'PACKAGE_NAME', 'PERCONA_PROXY_DEST_REPO'].each { name ->
                         if (!(params[name] ==~ /[A-Za-z0-9._\/:@+-]*/)) {
                             error("Parameter ${name} contains characters that are not allowed")
@@ -425,6 +395,31 @@ pipeline {
                 }
             }
         }
+        stage('Verify the packages that were built') {
+            when {
+                expression { params.VERIFY_PACKAGES }
+            }
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            steps {
+                cleanUpWS()
+                // The packages are installed and exercised exactly as they came out of the
+                // build, before they are signed or pushed, so that a broken package cannot
+                // reach a repository. Nothing is downloaded from repo.percona.com here, which
+                // is also why this works before the repository for this product exists.
+                popArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                popArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                sh """
+                    set -o xtrace
+                    wget \$(echo ${params.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${params.BRANCH}/BUILD/percona/verify_packages.sh -O verify_packages.sh
+                    chmod +x verify_packages.sh
+                    # The agent is x86_64 and the folders hold both architectures; the script
+                    # picks the ones this machine can run.
+                    ./verify_packages.sh --packages=\$(pwd -P) --version=${params.VERSION}
+                """
+            }
+        }
         stage('Sign packages') {
             steps {
                 signRPM(params.CLOUD)
@@ -452,16 +447,10 @@ pipeline {
                 // only started syncing.
                 echo "Waiting 10 minutes for the packages to appear in the ${params.COMPONENT} repository"
                 sh 'sleep 600'
-                withRepoToken {
-                    sh """
-                        set -o errexit
-                        GIT_REPO_URL='${params.GIT_REPO}'
-                        AUTH_REPO="https://\${GIT_TOKEN}@\${GIT_REPO_URL#https://}"
-                        git clone --quiet --depth 1 --branch '${params.BRANCH}' "\${AUTH_REPO}" percona-proxy-src
-                    """
-                }
                 sh """
                     set -o xtrace
+                    git clone --depth 1 --branch ${params.BRANCH} ${params.GIT_REPO} percona-proxy-src
+
                     # buildx and qemu are what make the arm64 image buildable here.
                     sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                     sudo docker buildx rm percona-proxy-builder || true

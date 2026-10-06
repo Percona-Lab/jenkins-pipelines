@@ -6,8 +6,8 @@
 
         Builds percona-proxy-mariadb packages for Percona Proxy for MariaDB. RPMs and DEBs are
         rebuilt from the source packages the job publishes, so the sources reproduce the shipped
-        binaries. The source repository is private, so the job needs a GitHub token in the
-        credential named by GIT_TOKEN_ID.
+        binaries. The packages are then installed and exercised before they are signed or
+        pushed, so a broken package cannot reach a repository.
     pipeline-scm:
       scm:
         - git:
