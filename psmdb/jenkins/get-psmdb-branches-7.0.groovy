@@ -38,12 +38,9 @@ pipeline {
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-7.0\\* | tail -1)
 			  BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
 			  COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
-			  MONGO_TOOLS_TAG_LINK=\$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')
-			  MONGO_TOOLS_TAG=\$(curl \${MONGO_TOOLS_TAG_LINK}/\${BRANCH_NAME}/MONGO_TOOLS_TAG_VERSION)
 
 			  echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id_70.properties
 			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id_70.properties
-			  echo "MONGO_TOOLS_TAG=\${MONGO_TOOLS_TAG}" >> branch_commit_id_70.properties
 
 			  aws s3 cp branch_commit_id_70.properties s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT}
                           echo "START_NEW_BUILD=NO" > startBuild
@@ -54,8 +51,6 @@ pipeline {
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-7.0\\* | tail -1)
 			  LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
 			  LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
-			  MONGO_TOOLS_TAG_LINK=\$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')
-			  MONGO_TOOLS_TAG=\$(curl \${MONGO_TOOLS_TAG_LINK}/\${LATEST_BRANCH_NAME}/MONGO_TOOLS_TAG_VERSION)
 
 			  if [ "x\${COMMIT_ID}" != "x\${LATEST_COMMIT_ID}" ] || [ "x\${BRANCH_NAME}" != "x\${LATEST_BRANCH_NAME}" ]; then
 			    echo "START_NEW_BUILD=YES" > startBuild
@@ -65,7 +60,6 @@ pipeline {
 
 			  echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_70.properties
 			  echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_70.properties
-			  echo "MONGO_TOOLS_TAG=\${MONGO_TOOLS_TAG}" >> branch_commit_id_70.properties
 			  aws s3 cp branch_commit_id_70.properties s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT}
                         fi
                     """
@@ -75,7 +69,6 @@ pipeline {
                     COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id_70.properties; echo \${COMMIT_ID}").trim()
                     VERSION = sh(returnStdout: true, script: "source branch_commit_id_70.properties; echo \${BRANCH_NAME} | cut -d - -f 2 ").trim()
                     RELEASE = sh(returnStdout: true, script: "source branch_commit_id_70.properties; echo \${BRANCH_NAME} | cut -d - -f 3 ").trim()
-                    MONGO_TOOLS_TAG = sh(returnStdout: true, script: "source branch_commit_id_70.properties; echo \${MONGO_TOOLS_TAG}").trim()
                 }
 
             }
@@ -92,7 +85,7 @@ pipeline {
                     """
                 }
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'hetzner-psmdb70-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'MONGO_TOOLS_TAG', value: MONGO_TOOLS_TAG), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'hetzner-psmdb70-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'COMPONENT', value: 'testing')]
             }
         }
         stage('Build skipped') {
