@@ -1,5 +1,5 @@
 - job-template:
-    name: 'weekly-security-build-{repository_id}'
+    name: 'operators-weekly-security-builds/weekly-security-build-{repository_id}'
     project-type: pipeline
     concurrent: false
     description: |
@@ -9,18 +9,19 @@
     #   - parameterized-timer:
     #       cron: '{schedule} % OPERATOR={repository}'
     pipeline-scm:
-      scm:
-        - git:
-            url: https://github.com/Percona-Lab/jenkins-pipelines.git
-            branches: ["master"]
-            wipe-workspace: false
-      lightweight-checkout: true
-      script-path: cloud/jenkins/weekly_security_build.groovy
+        scm:
+          - git:
+              url: https://github.com/Percona-Lab/jenkins-pipelines.git
+              branches:
+                - master
+              wipe-workspace: false
+        lightweight-checkout: true
+        script-path: cloud/jenkins/weekly_security_build.groovy
 
 - project:
     name: weekly-security-builds
     jobs:
-      - 'weekly-security-build-{repository_id}':
+      - 'operators-weekly-security-builds/weekly-security-build-{repository_id}':
           repository_id: pso
           repository: percona-server-mysql-operator
           schedule: '0 12 * * 1'
