@@ -1,5 +1,5 @@
 - job-template:
-    name: 'operators-weekly-security-builds/weekly-security-build-{repository_id}'
+    name: 'operators-weekly-security-builds/weekly-security-builds-{repository_id}'
     project-type: pipeline
     concurrent: false
     description: |
@@ -16,12 +16,12 @@
                 - master
               wipe-workspace: false
         lightweight-checkout: true
-        script-path: cloud/jenkins/weekly_security_build.groovy
+        script-path: cloud/jenkins/weekly_security_builds.groovy
 
 - project:
     name: weekly-security-builds
     jobs:
-      - 'operators-weekly-security-builds/weekly-security-build-{repository_id}':
+      - 'operators-weekly-security-builds/weekly-security-builds-{repository_id}':
           repository_id: pso
           repository: percona-server-mysql-operator
           schedule: '0 12 * * 1'
