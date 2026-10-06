@@ -10,20 +10,11 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 // path from MariaDB MaxScale works, and that runtime administration is persisted.
 void verifyPlatforms(String PLATFORMS, String PORT_BASE) {
     cleanUpWS()
-    // The repository is private, so the script is taken from a shallow clone with a token
-    // rather than from raw.githubusercontent.com, which does not accept one.
-    withCredentials([string(credentialsId: params.GIT_TOKEN_ID, variable: 'GIT_TOKEN')]) {
-        sh """
-            set -o errexit
-            GIT_REPO_URL='${params.GIT_REPO}'
-            AUTH_REPO="https://\${GIT_TOKEN}@\${GIT_REPO_URL#https://}"
-            rm -rf verify-src
-            git clone --quiet --depth 1 --branch '${params.BRANCH}' "\${AUTH_REPO}" verify-src
-            cp verify-src/BUILD/percona/verify_packages.sh .
-            rm -rf verify-src
-            chmod +x verify_packages.sh
-        """
-    }
+    sh """
+        set -o xtrace
+        wget \$(echo ${params.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${params.BRANCH}/BUILD/percona/verify_packages.sh -O verify_packages.sh
+        chmod +x verify_packages.sh
+    """
     sh """
         set -o xtrace
         export REPO_PRODUCT='${params.REPO_PRODUCT}'
@@ -68,10 +59,6 @@ pipeline {
             description: 'Tag/Branch to take the test script from',
             name: 'BRANCH')
         string(
-            defaultValue: 'GITHUB_API_TOKEN',
-            description: 'Secret text credential holding a GitHub token that can read GIT_REPO. The repository is private',
-            name: 'GIT_TOKEN_ID')
-        string(
             defaultValue: 'el8 el9 el10 amzn2023',
             description: 'RPM platforms to verify',
             name: 'RPM_PLATFORMS')
@@ -89,7 +76,7 @@ pipeline {
         stage('Check parameters') {
             steps {
                 script {
-                    ['GIT_REPO', 'BRANCH', 'GIT_TOKEN_ID', 'VERSION', 'REPO_PRODUCT',
+                    ['GIT_REPO', 'BRANCH', 'VERSION', 'REPO_PRODUCT',
                      'RPM_PLATFORMS', 'DEB_PLATFORMS'].each { name ->
                         if (!(params[name] ==~ /[A-Za-z0-9._\/:@+ -]*/)) {
                             error("Parameter ${name} contains characters that are not allowed")
