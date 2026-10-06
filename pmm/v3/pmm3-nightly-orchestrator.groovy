@@ -51,7 +51,7 @@ properties([
             trim: true),
         choice(
             choices: ['DOCKER', 'UI'],
-            description: 'How the upgrade suites upgrade PMM Server',
+            description: 'How the AMI upgrade suites upgrade PMM Server',
             name: 'UPGRADE_TYPE'),
         booleanParam(
             defaultValue: true,
@@ -255,37 +255,10 @@ def supportsUiUpgrade(String version) {
     return major < 3 || (major == 3 && minor < 9)
 }
 
-def upgradeBranches(Map branches, List pmmVersions, List clientDebVersions, String serverImage, String latestDevVersion) {
-    def variants = ['SSL', 'EXTERNAL SERVICES', 'OTHERS']
-    pmmVersions.each { ver ->
-        // The apt pool carries only the newest few client debs.
-        def clientVersion = ver in clientDebVersions
-            ? ver
-            : "https://downloads.percona.com/downloads/pmm3/${ver}/binary/tarball/pmm-client-${ver}-x86_64.tar.gz"
-
-        def upgradeType = supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'
-
-        variants.each { variant ->
-            def name = "upgrade / ${ver} ${variant}"
-            branches[name] = suite(name, 'pmm3-upgrade-test-runner', [
-                string(name: 'DOCKER_TAG',                    value: "percona/pmm-server:${ver}"),
-                string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
-                string(name: 'CLIENT_VERSION',                value: clientVersion),
-                string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
-                string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
-                string(name: 'PMM_QA_GIT_BRANCH',             value: params.PMM_QA_GIT_BRANCH),
-                string(name: 'UPGRADE_FLAG',                  value: variant),
-                string(name: 'UPGRADE_TYPE',                  value: upgradeType),
-                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
-            ])
-        }
-    }
-}
-
 def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion) {
-    // The AMI equivalent of upgradeBranches, and the last matrix wrapper this job
-    // replaces: pmm3-upgrade-ami-test fanned these five out itself, on an executor,
-    // behind a retry(2), and reported them as one box.
+    // Docker and UI upgrades run in the GitHub nightly-test-suite (upgrade-pmm.yml);
+    // AMI has no GitHub equivalent. pmm3-upgrade-ami-test fanned these five out
+    // itself, on an executor, behind a retry(2), and reported them as one box.
     def amis = pmmVersion('v3-ami')
     pmmVersion('v3')[-5..-1].each { ver ->
         def name = "upgrade / ami ${ver}"
@@ -310,8 +283,6 @@ timestamps {
     def installRepo = isRc ? 'testing' : 'experimental'
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
-    def upgradeVersions = pmmVersion('v3')[-6..-1]
-    def clientDebVersions = []
     def latestDevVersion
 
     stage('Plan') {
@@ -329,25 +300,16 @@ timestamps {
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
                 ).trim()
-                clientDebVersions = sh(
-                    returnStdout: true,
-                    script: '''curl -fsSL https://repo.percona.com/pmm3-client/apt/dists/jammy/main/binary-amd64/Packages | awk '/^Package: pmm-client$/{p=1} p&&/^Version:/{split($2,a,"-"); print a[1]; p=0}' | sort -u'''
-                ).trim().tokenize()
             } finally {
                 deleteDir()
             }
         }
-        def uiCapable = upgradeVersions.findAll { supportsUiUpgrade(it) }
-        def dockerOnly = upgradeVersions.findAll { !supportsUiUpgrade(it) }
         currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
   AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
-  upgrade from    : ${upgradeVersions.join(', ')}
-  client source   : deb ${upgradeVersions.findAll { it in clientDebVersions }.join(', ')} | tarball ${upgradeVersions.findAll { !(it in clientDebVersions) }.join(', ')}
-  upgrade path    : UI-capable ${uiCapable.join(', ')} | Docker-only ${dockerOnly.join(', ')}
   dev version     : ${latestDevVersion}
   on-demand       : ${params.USE_ONDEMAND}"""
     }
@@ -391,8 +353,6 @@ timestamps {
     def packageVersion = isRc ? imageTag.tokenize('-')[0] : latestDevVersion
     packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL)
     packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL_ARM64)
-    upgradeBranches(branches, upgradeVersions, clientDebVersions, serverImage, latestDevVersion)
-
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
 
     branches['nightly / gssapi'] = suite('nightly / gssapi', 'pmm3-ui-tests-nightly-gssapi', [
