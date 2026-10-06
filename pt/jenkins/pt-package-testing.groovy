@@ -67,7 +67,7 @@ node_setups = [
     "min-al2023-x64": setup_rhel_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
-    "min-noble-x64": setup_ubuntu_package_tests
+    "min-noble-x64": setup_ubuntu_package_tests,
     "min-resolute-x64": setup_ubuntu_package_tests
 ]
 
