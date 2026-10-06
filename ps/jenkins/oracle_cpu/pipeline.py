@@ -43,32 +43,6 @@ def _fresh_row(
     }
 
 
-def _store(
-    changes: list[dict[str, Any]],
-    rows: dict[str, Any],
-    slug: str,
-    old: list[str],
-    new: list[str],
-    bug_cves: dict[str, list[str]],
-    title: str,
-    url: str,
-    *,
-    report: bool = True,
-) -> dict[str, Any] | None:
-    """Save one advisory. Queue a Slack change when report finds a difference."""
-    change = describe_change(old, new) if report else None
-    if change is None:
-        rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
-        return None
-    change["slug"] = slug
-    change["title"] = title
-    change["url"] = url
-    change["old_sha"] = cve_sha(old)
-    changes.append(change)
-    rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
-    return change
-
-
 def apply_state(
     fresh: list[dict[str, Any]],
     previous: dict[str, Any] | None,
@@ -100,42 +74,32 @@ def apply_state(
         if not slug or not new:
             log.info("cpu skip empty slug=%s", slug)
             continue
-        fresh_bugs = item.get("bug_cves")
-        if fresh_bugs is None:
-            bug_cves = dict((rows.get(slug) or {}).get("bug_cves") or {})
-        else:
-            bug_cves = fresh_bugs
-        title = str(item.get("title") or (rows.get(slug) or {}).get("title") or slug)
-        url = str(item.get("url") or (rows.get(slug) or {}).get("url") or "")
-        if previous is None and slug != newest and not report_seeded:
-            _store(changes, rows, slug, [], new, bug_cves, title, url, report=False)
-            log.info("cpu seed slug=%s cves=%d", slug, len(new))
-            continue
-        old = list((rows.get(slug) or {}).get("cves") or [])
-        report = True
-        if ignore_cves:
-            old = []
-            report = bool(report_seeded or slug == newest)
-        change = _store(
-            changes,
-            rows,
-            slug,
-            old,
-            new,
-            bug_cves,
-            title,
-            url,
-            report=report,
-        )
-        if change is None:
-            log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
-        else:
+        saved = rows.get(slug) or {}
+        bug_cves = item.get("bug_cves")
+        if bug_cves is None:
+            bug_cves = dict(saved.get("bug_cves") or {})
+        title = str(item.get("title") or saved.get("title") or slug)
+        url = str(item.get("url") or saved.get("url") or "")
+        old = [] if ignore_cves else list(saved.get("cves") or [])
+        report = report_seeded or slug == newest or (previous is not None and not ignore_cves)
+        change = describe_change(old, new) if report else None
+        rows[slug] = _fresh_row(new, bug_cves, change["sha"] if change else None, title, url)
+        if change is not None:
+            change["slug"] = slug
+            change["title"] = title
+            change["url"] = url
+            change["old_sha"] = cve_sha(old)
+            changes.append(change)
             log.info(
                 "cpu diff slug=%s +%d -%d",
                 slug,
                 len(change["added"]),
                 len(change["removed"]),
             )
+        elif previous is None and slug != newest and not report_seeded:
+            log.info("cpu seed slug=%s cves=%d", slug, len(new))
+        else:
+            log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
     return changes, rows
 
 
