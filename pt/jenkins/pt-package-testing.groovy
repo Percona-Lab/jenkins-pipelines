@@ -154,6 +154,10 @@ pipeline {
             description: "Enable to skip ps 8.0 packages installation tests"
         )
         booleanParam(
+            name: 'skip_ps84',
+            description: "Enable to skip ps 8.4 packages installation tests"
+        )
+        booleanParam(
             name: 'skip_pxc57',
             description: "Enable to skip pxc 5.7 packages installation tests"
         )
@@ -254,6 +258,24 @@ pipeline {
                     }
                     environment {
                         install_with = 'ps80'
+                    }
+                    steps {
+                        runPlaybook("pt_with_products")
+                    }
+                }
+
+                stage('ps84_and_pt') {
+                    agent {
+                        label params.node_to_test
+                    }
+                    when {
+                        beforeAgent true
+                        expression {
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_ps84
+                        }
+                    }
+                    environment {
+                        install_with = 'ps84'
                     }
                     steps {
                         runPlaybook("pt_with_products")

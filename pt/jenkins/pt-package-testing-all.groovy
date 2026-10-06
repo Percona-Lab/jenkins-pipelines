@@ -14,6 +14,7 @@ void runNodeBuild(String node_to_test) {
             string(name: 'git_branch', value: params.git_branch),
             booleanParam(name: 'skip_ps57', value: params.skip_ps57),
             booleanParam(name: 'skip_ps80', value: params.skip_ps80),
+            booleanParam(name: 'skip_ps84', value: params.skip_ps80),
             booleanParam(name: 'skip_pxc57', value: params.skip_pxc57),
             booleanParam(name: 'skip_pxc80', value: params.skip_pxc80),
             booleanParam(name: 'skip_upstream57', value: params.skip_upstream57),
@@ -61,6 +62,10 @@ pipeline {
         )
         booleanParam(
             name: 'skip_ps80',
+            description: "Enable to skip ps 8.0 packages installation tests"
+        )
+        booleanParam(
+            name: 'skip_ps84',
             description: "Enable to skip ps 8.0 packages installation tests"
         )
         booleanParam(
