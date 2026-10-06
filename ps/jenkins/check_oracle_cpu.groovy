@@ -179,13 +179,15 @@ pipeline {
                     echo \$? > ${POLL_RC}
                 """
                 script {
-                    def haveCheckpoint = fileExists(STATE) && fileExists(BUGS)
+                    def haveBugs = fileExists(BUGS)
+                    def haveState = fileExists(STATE)
+                    def remembered = haveState ? [STATE, BUGS] : [BUGS]
                     def pollRc = fileExists(POLL_RC) ? readFile(POLL_RC).trim() : '1'
-                    // A late failure can leave both files and a non-zero exit.
-                    // Archive before that exit decides the build.
-                    if (pollRc != '0' && haveCheckpoint) {
-                        cpuArchiveMapping(REPORT, BUGS, [STATE, BUGS])
-                        unstable('Oracle CPU poll failed after writing a checkpoint. Mapping archived.')
+                    // Archive the mapping before the checkpoint check. A failed
+                    // state replace can leave cpu-bug-cve.json and no state file.
+                    if (pollRc != '0' && haveBugs) {
+                        cpuArchiveMapping(REPORT, BUGS, remembered)
+                        unstable('Oracle CPU poll failed after writing a mapping. Mapping archived.')
                     } else if (pollRc != '0') {
                         error 'Oracle CPU poll produced no usable mapping.'
                     }
@@ -200,10 +202,10 @@ pipeline {
                     def unchanged = pollRc == '0' && decision.readable && !decision.degraded && decision.changed == false && decision.notify == 0
                     if (unchanged) {
                         env.CPU_UNCHANGED = '1'
-                    } else if (!haveCheckpoint) {
-                        error 'Oracle CPU poll has no checkpoint to archive.'
+                    } else if (!haveBugs) {
+                        error 'Oracle CPU poll has no mapping to archive.'
                     } else if (pollRc == '0') {
-                        cpuArchiveMapping(REPORT, BUGS, [STATE, BUGS])
+                        cpuArchiveMapping(REPORT, BUGS, remembered)
                     }
                     if (decision.notify > 0) {
                         env.CPU_NOTIFY = '1'

@@ -424,9 +424,13 @@ class OracleCpuTest(unittest.TestCase):
             self.assertTrue(usable)
             bugs = json.loads((root / "cpu-bug-cve.json").read_text(encoding="utf-8"))
             self.assertEqual(bugs["bugs"], {"42": ["CVE-2026-1"]})
+            # No previous checkpoint was copied, and the replace failed, so
+            # the mapping file is the only artifact Jenkins can publish.
+            self.assertFalse((root / "cpu-state.json").exists())
             self.assertFalse((root / "cpu-notify.json").exists())
             report, notes = load_report(root / "cpu-run.json")
             self.assertFalse(report["checkpoint_saved"])
+            self.assertTrue(report["usable"])
             self.assertTrue(any(note.get("area") == "baseline" for note in notes))
 
     def test_malformed_report_still_renders_status(self) -> None:
