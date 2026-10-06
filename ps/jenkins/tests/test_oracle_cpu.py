@@ -425,6 +425,32 @@ class OracleCpuTest(unittest.TestCase):
         self.assertIn(direct, failed[0])
         self.assertIn("404", failed[0])
 
+    def test_bug_map_is_written_when_checkpoint_save_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fresh = [_fresh("cpuapr2026", ["CVE-2026-1"], {"42": ["CVE-2026-1"]})]
+
+            def ok_collect(count: int, notes: list | None = None) -> Collection:
+                return Collection(fresh, True, notes or [], {"picked": 1, "refreshed": 1})
+
+            with patch("oracle_cpu.pipeline.collect", ok_collect), patch(
+                "oracle_cpu.pipeline.save_state", side_effect=PermissionError("denied")
+            ):
+                usable = poll(
+                    root / "cpu-state.json",
+                    root / "cpu-bug-cve.json",
+                    root / "cpu-notify.json",
+                    root / "cpu-run.json",
+                    count=10,
+                )
+            self.assertTrue(usable)
+            bugs = json.loads((root / "cpu-bug-cve.json").read_text(encoding="utf-8"))
+            self.assertEqual(bugs["bugs"], {"42": ["CVE-2026-1"]})
+            self.assertFalse((root / "cpu-notify.json").exists())
+            report, notes = load_report(root / "cpu-run.json")
+            self.assertFalse(report["checkpoint_saved"])
+            self.assertTrue(any(note.get("area") == "baseline" for note in notes))
+
     def test_malformed_report_still_renders_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

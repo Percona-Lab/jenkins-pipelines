@@ -296,6 +296,7 @@ def poll(
         "cve_removed": 0,
         "archived": False,
         "state_changed": None,
+        "checkpoint_saved": False,
     }
 
     def flush() -> None:
@@ -372,22 +373,53 @@ def poll(
         run["csaf_cached"] = kept["csaf_cached"]
         state["advisories"] = advisories
         state["pending"] = merge_pending(state.get("pending") or [], changes)
-        if before_sig is None:
-            run["state_changed"] = None
+        try:
+            save_state(state_path, state)
+        except OSError as exc:
+            notes.append(
+                issue(
+                    level="warning",
+                    outcome="failed",
+                    area="baseline",
+                    message=f"Checkpoint was not written: {exc}",
+                    fallback="the bug map is still written",
+                    impact="pending messages from this poll are not sent",
+                    exception=exception_text(exc),
+                )
+            )
         else:
-            run["state_changed"] = persistent_signature(state) != before_sig
-        save_state(state_path, state)
+            run["checkpoint_saved"] = True
+            if before_sig is None:
+                run["state_changed"] = None
+            else:
+                run["state_changed"] = persistent_signature(state) != before_sig
         bug_map = bug_map_from_advisories(advisories)
-        atomic_write(
-            bugs_path,
-            json.dumps({"bugs": bug_map}, indent=2) + "\n",
-        )
+        try:
+            atomic_write(
+                bugs_path,
+                json.dumps({"bugs": bug_map}, indent=2) + "\n",
+            )
+        except OSError as exc:
+            notes.append(
+                issue(
+                    level="error",
+                    outcome="failed",
+                    area="poll",
+                    message=f"Bug map was not written: {exc}",
+                    fallback="previous artifacts stay the copy source",
+                    impact="this build has no bug map",
+                    exception=exception_text(exc),
+                )
+            )
+            return False
         run["usable"] = True
         run["bug_map_generated"] = True
         run["bug_map_bugs"] = len(bug_map)
         run["cve_added"] = sum(len(change.get("added") or []) for change in changes)
         run["cve_removed"] = sum(len(change.get("removed") or []) for change in changes)
         flush()
+        if not run["checkpoint_saved"]:
+            return True
         try:
             items = notification_items(fresh, notify_mode, state["pending"])
             atomic_write(
