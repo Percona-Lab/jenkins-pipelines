@@ -225,8 +225,19 @@ pipeline {
                         unstable('Oracle CPU notify manifest is unreadable.')
                         return
                     }
-                    def state = fileExists(STATE) ? cpuReadJson(STATE) : null
-                    def threads = (state instanceof Map && state.threads instanceof Map) ? state.threads : [:]
+                    def threads = [:]
+                    if (fileExists(STATE)) {
+                        def state = cpuReadJson(STATE)
+                        // A failed read is not an empty thread map. Starting
+                        // new roots and then acking would replace saved ids.
+                        if (!(state instanceof Map)) {
+                            unstable('Oracle CPU checkpoint is unreadable. Slack deferred.')
+                            return
+                        }
+                        if (state.threads instanceof Map) {
+                            threads = state.threads
+                        }
+                    }
                     def blockedSlugs = []
                     for (def item : items) {
                         if (!(item instanceof Map)) {
