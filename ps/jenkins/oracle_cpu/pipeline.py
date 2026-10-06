@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from oracle_cpu.core import (
-    PARSER_VERSION,
     bug_map_from_advisories,
     collect,
     cve_sha,
@@ -22,7 +21,6 @@ from oracle_cpu.state import (
     persistent_signature,
     save_state,
     stored_advisory,
-    _row_parser,
 )
 
 log = logging.getLogger("oracle_cpu")
@@ -40,7 +38,6 @@ def _fresh_row(
         "sha": sha or cve_sha(copied),
         "cves": copied,
         "bug_cves": bug_cves,
-        "parser": PARSER_VERSION,
         "title": title,
         "url": url,
     }
@@ -57,15 +54,12 @@ def _store(
     url: str,
     *,
     report: bool = True,
-    prefix: str = "",
 ) -> dict[str, Any] | None:
     """Save one advisory. Queue a Slack change when report finds a difference."""
     change = describe_change(old, new) if report else None
     if change is None:
         rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
         return None
-    if prefix:
-        change["slack"] = prefix + change["slack"]
     change["slug"] = slug
     change["title"] = title
     change["url"] = url
@@ -81,7 +75,6 @@ def apply_state(
     *,
     report_seeded: bool = False,
     ignore_cves: bool = False,
-    saved_parser: int = PARSER_VERSION,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Diff fresh advisories against saved rows.
 
@@ -94,7 +87,7 @@ def apply_state(
     rows: dict[str, Any] = {}
     if previous is not None:
         for slug, row in previous.items():
-            stored = stored_advisory(row, saved_parser)
+            stored = stored_advisory(row)
             if stored is None:
                 log.warning("WARNING cpu baseline row %s is malformed and was skipped", slug)
                 continue
@@ -118,26 +111,9 @@ def apply_state(
             _store(changes, rows, slug, [], new, bug_cves, title, url, report=False)
             log.info("cpu seed slug=%s cves=%d", slug, len(new))
             continue
-        old_parser = _row_parser(rows.get(slug) or {}, PARSER_VERSION)
-        migrate_slug = (
-            not ignore_cves
-            and previous is not None
-            and slug in previous
-            and old_parser != PARSER_VERSION
-        )
         old = list((rows.get(slug) or {}).get("cves") or [])
-        prefix = ""
         report = True
-        if migrate_slug:
-            excluded = item.get("parser_excluded")
-            if isinstance(excluded, list):
-                # Only ids the new parser is defined to drop stay quiet.
-                old = [cve for cve in old if cve not in set(excluded)]
-            else:
-                # No exclusion list. Report the whole difference so a real
-                # Oracle removal is not stored and then forgotten.
-                prefix = "Parser upgrade.\n"
-        elif ignore_cves:
+        if ignore_cves:
             old = []
             report = bool(report_seeded or slug == newest)
         change = _store(
@@ -150,7 +126,6 @@ def apply_state(
             title,
             url,
             report=report,
-            prefix=prefix,
         )
         if change is None:
             log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
@@ -327,7 +302,7 @@ def poll(
         run["refreshed"] = stats.get("refreshed", 0)
         run["index_ok"] = bool(index_ok)
         flush()
-        state, load_notes, saved_parser = load_state(state_path)
+        state, load_notes = load_state(state_path)
         notes.extend(load_notes)
         comparable = not any(
             "is not JSON" in str(note.get("message") or "") for note in load_notes
@@ -336,40 +311,13 @@ def poll(
         previous = state["advisories"] if state["advisories"] else None
         run["baseline_present"] = previous is not None
         if not index_ok:
-            changes, advisories = apply_state([], previous, saved_parser=saved_parser)
+            changes, advisories = apply_state([], previous)
         else:
             changes, advisories = apply_state(
                 fresh,
                 previous,
                 report_seeded=(previous is None or ignore_state) and notify_mode == "all",
                 ignore_cves=bool(ignore_state and previous is not None),
-                saved_parser=saved_parser,
-            )
-        migrated = [
-            slug
-            for slug, row in advisories.items()
-            if previous is not None
-            and isinstance(previous.get(slug), dict)
-            and _row_parser(previous[slug], saved_parser) != PARSER_VERSION
-            and _row_parser(row, PARSER_VERSION) == PARSER_VERSION
-        ]
-        if migrated:
-            notes.append(
-                issue(
-                    level="info",
-                    outcome="migrated",
-                    area="parser",
-                    message=(
-                    f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
-                    "CVEs on the parser exclusion list were not posted. "
-                    "Any other difference was."
-                    ),
-                    fallback="refreshed advisories updated to the current parser",
-                    impact=(
-                        "a CVE that only the previous parser reported is not "
-                        "posted as an Oracle edit"
-                    ),
-                )
             )
         if not advisories:
             notes.append(

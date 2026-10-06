@@ -11,23 +11,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from oracle_cpu.core import PARSER_VERSION, cve_sha
+from oracle_cpu.core import cve_sha
 from oracle_cpu.diagnostics import atomic_write, exception_text, issue
 
 LEGACY_ADVISORIES = "cpu-cves.json"
 LEGACY_SLACK = "cpu-slack.json"
 
 
-def _row_parser(row: dict[str, Any], default_parser: int) -> int:
-    if "parser" not in row:
-        return default_parser
-    value = row.get("parser")
-    if isinstance(value, bool) or not isinstance(value, int):
-        return default_parser
-    return value
-
-
-def stored_advisory(row: Any, default_parser: int = PARSER_VERSION) -> dict[str, Any] | None:
+def stored_advisory(row: Any) -> dict[str, Any] | None:
     """Return a usable advisory row, or None when the saved value is the wrong type."""
     if not isinstance(row, dict):
         return None
@@ -51,7 +42,6 @@ def stored_advisory(row: Any, default_parser: int = PARSER_VERSION) -> dict[str,
         "sha": sha or cve_sha(list(raw_cves)),
         "cves": list(raw_cves),
         "bug_cves": bugs,
-        "parser": _row_parser(row, default_parser),
         "title": str(row.get("title") or ""),
         "url": str(row.get("url") or ""),
     }
@@ -61,7 +51,7 @@ def persistent_signature(state: dict[str, Any]) -> str:
     """Canonical text of the checkpoint.
 
     Poll counters and the build report are not part of this. A mapping
-    change, a parser bump, a thread id, or a pending message is.
+    change, a thread id, or a pending message is.
     """
     payload = {
         "advisories": state.get("advisories") if isinstance(state.get("advisories"), dict) else {},
@@ -75,14 +65,7 @@ def empty_state() -> dict[str, Any]:
     return {"threads": {}, "pending": [], "advisories": {}}
 
 
-def _saved_parser(data: dict[str, Any]) -> int:
-    value = data.get("parser", 0)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return 0
-    return value
-
-
-def _advisories_from(data: dict[str, Any], saved_parser: int) -> tuple[dict[str, Any], list[str]]:
+def _advisories_from(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     raw = data.get("advisories", data)
     if not isinstance(raw, dict):
         return {}, ["baseline has no advisories object"]
@@ -91,7 +74,7 @@ def _advisories_from(data: dict[str, Any], saved_parser: int) -> tuple[dict[str,
     for slug, row in raw.items():
         if slug in ("parser", "threads", "pending", "advisories"):
             continue
-        stored = stored_advisory(row, saved_parser)
+        stored = stored_advisory(row)
         if stored is None:
             bad.append(str(slug))
             continue
@@ -137,7 +120,7 @@ def _read_json(path: Path) -> tuple[dict[str, Any] | None, str]:
     return data, ""
 
 
-def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
+def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Load cpu-state.json, or the legacy pair when that file is absent.
 
     A corrupt cpu-state.json does not fall through to the legacy files.
@@ -161,9 +144,8 @@ def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
                     exception=exc_text,
                 )
             )
-            return empty_state(), notes, 0
-        saved_parser = _saved_parser(data)
-        advisories, bad = _advisories_from(data, saved_parser)
+            return empty_state(), notes
+        advisories, bad = _advisories_from(data)
         if bad:
             notes.append(
                 issue(
@@ -180,13 +162,12 @@ def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
             "pending": _pending_from(data),
             "advisories": advisories,
         }
-        return state, notes, saved_parser
+        return state, notes
     legacy_advisories = path.with_name(LEGACY_ADVISORIES)
     legacy_slack = path.with_name(LEGACY_SLACK)
     if not legacy_advisories.is_file() and not legacy_slack.is_file():
-        return empty_state(), notes, PARSER_VERSION
+        return empty_state(), notes
     state = empty_state()
-    saved_parser = PARSER_VERSION
     imported: list[str] = []
     if legacy_advisories.is_file() and legacy_advisories.stat().st_size:
         data, exc_text = _read_json(legacy_advisories)
@@ -203,8 +184,7 @@ def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
                 )
             )
         else:
-            saved_parser = _saved_parser(data)
-            advisories, bad = _advisories_from(data, saved_parser)
+            advisories, bad = _advisories_from(data)
             state["advisories"] = advisories
             imported.append(legacy_advisories.name)
             if bad:
@@ -247,7 +227,7 @@ def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
                 impact="legacy files are not read again once the combined file exists",
             )
         )
-    return state, notes, saved_parser
+    return state, notes
 
 
 def save_state(path: Path, state: dict[str, Any]) -> None:
@@ -317,7 +297,7 @@ def ack_state(
     thread: dict[str, Any] | None = None,
 ) -> None:
     """Drop one pending id and store a thread, in one replacement."""
-    state, notes, _parser = load_state(path)
+    state, notes = load_state(path)
     unreadable = any("is not JSON" in str(note.get("message") or "") for note in notes)
     if unreadable:
         raise SystemExit(f"cpu state {path} is unreadable; ack skipped")

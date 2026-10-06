@@ -33,8 +33,6 @@ HREF_RE = re.compile(
     re.I,
 )
 CVE_RE = re.compile(r"CVE-\d{4}-\d{4,}", re.I)
-# 1: CVE ids are not taken from the Modification History section.
-PARSER_VERSION = 1
 CSAF_RE = re.compile(r'href="([^"]+csaf\.json)"', re.I)
 MONTH = {
     "jan": 1,
@@ -227,17 +225,6 @@ def strip_modification_history(html: str) -> str:
 def parse_cves(html: str) -> list[str]:
     html = strip_modification_history(html)
     return sorted({m.group(0).upper() for m in CVE_RE.finditer(html)})
-
-
-def history_only_cves(html: str) -> list[str]:
-    """CVE ids removed by dropping Modification History.
-
-    These are the exclusions of parser version 1. A removal that is not
-    in this list is an Oracle edit, including on a parser upgrade.
-    """
-    kept = set(parse_cves(html))
-    seen = {match.group(0).upper() for match in CVE_RE.finditer(html)}
-    return sorted(seen - kept)
 
 
 def cve_sha(cves: list[str]) -> str:
@@ -481,7 +468,6 @@ def collect(
             continue
         record_download(notes, area="page", slug=slug, label=slug, failed=failed, exc=None)
         cves = parse_cves(page)
-        excluded = history_only_cves(page)
         if not cves:
             message = f"{slug} page has no CVE ids."
             notes.append(
@@ -506,7 +492,6 @@ def collect(
                 "url": url,
                 "cves": cves,
                 "bug_cves": bug_cves,
-                "parser_excluded": excluded,
             }
         )
     if picked and not advisories:

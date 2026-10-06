@@ -65,56 +65,18 @@ class OracleCpuTest(unittest.TestCase):
         )
         self.assertEqual(parse_cves(html), ["CVE-2026-0001", "CVE-2026-0002"])
 
-    def test_parser_upgrade_queues_additions_only(self) -> None:
+    def test_saved_removal_is_reported(self) -> None:
         previous = {
-            "cpujul2026": {
-                "sha": "old",
-                "cves": ["CVE-2026-1"],
-                "bug_cves": {},
-                "parser": 0,
-            },
             "cpuapr2026": {
                 "sha": "older",
                 "cves": ["CVE-2026-2", "CVE-2021-22555"],
                 "bug_cves": {"1": ["CVE-2026-2"]},
                 "parser": 0,
-            },
+            }
         }
-        changes, rows = apply_state(
-            [_fresh("cpujul2026", ["CVE-2026-1", "CVE-2026-9"])],
-            previous,
-            saved_parser=0,
-        )
-        self.assertEqual(changes[0]["added"], ["CVE-2026-9"])
-        self.assertEqual(changes[0]["removed"], [])
-        self.assertEqual(rows["cpujul2026"]["parser"], 1)
-        self.assertEqual(rows["cpuapr2026"]["parser"], 0)
-        self.assertIn("CVE-2021-22555", rows["cpuapr2026"]["cves"])
-        excluded = _fresh("cpuapr2026", ["CVE-2026-2"])
-        excluded["parser_excluded"] = ["CVE-2021-22555"]
-        quiet, quiet_rows = apply_state(
-            [excluded],
-            {"cpuapr2026": previous["cpuapr2026"]},
-            saved_parser=0,
-        )
-        self.assertEqual(quiet, [])
-        self.assertEqual(quiet_rows["cpuapr2026"]["cves"], ["CVE-2026-2"])
-        genuine = _fresh("cpuapr2026", ["CVE-2026-2"])
-        genuine["parser_excluded"] = []
-        told, told_rows = apply_state(
-            [genuine],
-            {"cpuapr2026": previous["cpuapr2026"]},
-            saved_parser=0,
-        )
-        self.assertEqual(told[0]["removed"], ["CVE-2021-22555"])
-        self.assertEqual(told_rows["cpuapr2026"]["cves"], ["CVE-2026-2"])
-        unknown = apply_state(
-            [_fresh("cpuapr2026", ["CVE-2026-2"])],
-            {"cpuapr2026": previous["cpuapr2026"]},
-            saved_parser=0,
-        )[0]
-        self.assertEqual(unknown[0]["removed"], ["CVE-2021-22555"])
-        self.assertTrue(unknown[0]["slack"].startswith("Parser upgrade."))
+        changes, rows = apply_state([_fresh("cpuapr2026", ["CVE-2026-2"])], previous)
+        self.assertEqual(changes[0]["removed"], ["CVE-2021-22555"])
+        self.assertNotIn("parser", rows["cpuapr2026"])
 
     def test_failed_csaf_keeps_the_cached_map_and_empty_map_replaces_it(self) -> None:
         previous = {
@@ -172,7 +134,7 @@ class OracleCpuTest(unittest.TestCase):
                 "cpuapr2026",
                 {"channelId": "C", "ts": "1.2", "threadId": "1.2"},
             )
-            state, notes, _parser = load_state(path)
+            state, notes = load_state(path)
             self.assertEqual(notes, [])
             self.assertEqual(state["pending"], [])
             self.assertEqual(state["threads"]["cpuapr2026"]["threadId"], "1.2")
@@ -213,9 +175,8 @@ class OracleCpuTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            state, notes, parser = load_state(root / "cpu-state.json")
-            self.assertEqual(parser, 0)
-            self.assertEqual(state["advisories"]["cpujul2026"]["parser"], 0)
+            state, notes = load_state(root / "cpu-state.json")
+            self.assertNotIn("parser", state["advisories"]["cpujul2026"])
             self.assertEqual(state["pending"][0]["id"], "cpujul2026:a-b-1")
             self.assertEqual(state["threads"]["cpujul2026"]["threadId"], "9.9")
             self.assertEqual(notes[0]["outcome"], "imported")
@@ -228,7 +189,7 @@ class OracleCpuTest(unittest.TestCase):
                 json.dumps({"advisories": {"cpuapr2026": {"cves": ["CVE-2026-1"], "bug_cves": {}}}}),
                 encoding="utf-8",
             )
-            state, notes, _parser = load_state(root / "cpu-state.json")
+            state, notes = load_state(root / "cpu-state.json")
             self.assertEqual(state["advisories"], {})
             self.assertEqual(notes[0]["area"], "baseline")
 
@@ -316,7 +277,7 @@ class OracleCpuTest(unittest.TestCase):
             self.assertTrue(usable)
             bugs = json.loads((root / "cpu-bug-cve.json").read_text(encoding="utf-8"))
             self.assertEqual(bugs["bugs"]["9"], ["CVE-2026-1"])
-            state, _notes, _parser = load_state(root / "cpu-state.json")
+            state, _notes = load_state(root / "cpu-state.json")
             self.assertEqual(state["pending"][0]["slack"], "still pending")
             report, notes = load_report(root / "cpu-run.json")
             self.assertTrue(report["degraded"])
@@ -375,7 +336,6 @@ class OracleCpuTest(unittest.TestCase):
                 "sha": cve_sha(["CVE-2026-1"]),
                 "cves": ["CVE-2026-1"],
                 "bug_cves": {"42": ["CVE-2026-1"]},
-                "parser": 1,
                 "title": "cpuapr2026",
                 "url": "https://www.oracle.com/security-alerts/cpuapr2026.html",
             }
