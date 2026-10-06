@@ -7,8 +7,8 @@
         Installs percona-proxy-mariadb from a repo.percona.com component on every supported
         platform and checks that Percona Proxy routes queries through two real MariaDB servers,
         that a MariaDB MaxScale configuration can be migrated, and that runtime administration
-        is persisted. The source repository is private, so the job needs a GitHub token in the
-        credential named by GIT_TOKEN_ID.
+        is persisted. This job tests what is already published; the build job verifies the
+        packages it produces before they are pushed.
     pipeline-scm:
       scm:
         - git:
