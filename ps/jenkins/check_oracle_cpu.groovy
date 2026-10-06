@@ -345,36 +345,6 @@ pipeline {
                                     message: sentMessage,
                                     exception: misses.join('\n'),
                                 ])
-                                if (changed) {
-                                    try {
-                                        retry(3) {
-                                            slackUploadFile(
-                                                channel: threadId,
-                                                filePath: BUGS,
-                                                initialComment: 'Bug to CVE map',
-                                                failOnError: true
-                                            )
-                                        }
-                                    } catch (Exception uploadErr) {
-                                        if (uploadErr instanceof InterruptedException) {
-                                            throw uploadErr
-                                        }
-                                        echo "WARNING cpu Slack file upload failed for ${slug}: ${uploadErr}"
-                                        cpuNote([
-                                            reportPath: REPORT,
-                                            level: 'warning',
-                                            outcome: 'upload-failed',
-                                            area: 'slack-upload',
-                                            slug: slug,
-                                            attempts: 3,
-                                            message: "Slack file upload failed for ${slug}. Artifact links are in the notification.",
-                                            fallback: 'artifact links already sent',
-                                            impact: 'the thread has no file',
-                                            exception: cpuThrowableText(uploadErr),
-                                        ])
-                                        unstable("Slack file upload failed for ${slug}. Artifact links are in the notification.")
-                                    }
-                                }
                             }
                         } catch (Exception err) {
                             if (err instanceof InterruptedException) {
