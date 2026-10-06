@@ -97,8 +97,7 @@ def cpuPollDecision(String reportPath, String manifestPath) {
 // Ten advisories, not five. A fix can land in a later tag for a CVE
 // published in an older CPU or CSPU, and the stored JSON stays small.
 def ADVISORY_COUNT = '10'
-// Temporary test channel. Jenkins CI is a member. Put #eol-dev back after the test.
-def SLACK_CHANNEL = '#marcinbabij-notifications'
+def SLACK_CHANNEL = '#eol-dev'
 
 pipeline {
     agent {
