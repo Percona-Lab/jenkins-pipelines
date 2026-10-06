@@ -206,8 +206,14 @@ pipeline {
                     echo \$? > ${POLL_RC}
                 """
                 script {
+                    def haveCheckpoint = fileExists(STATE) && fileExists(BUGS)
                     def pollRc = fileExists(POLL_RC) ? readFile(POLL_RC).trim() : '1'
-                    if (pollRc != '0') {
+                    // A late failure can leave both files and a non-zero exit.
+                    // Archive before that exit decides the build.
+                    if (pollRc != '0' && haveCheckpoint) {
+                        cpuArchiveMapping(REPORT, BUGS, [STATE, BUGS])
+                        unstable('Oracle CPU poll failed after writing a checkpoint. Mapping archived.')
+                    } else if (pollRc != '0') {
                         error 'Oracle CPU poll produced no usable mapping.'
                     }
                     def decision = cpuPollDecision(REPORT, MANIFEST)
@@ -218,12 +224,12 @@ pipeline {
                     }
                     // false/0 is the only unchanged poll. A missing comparison
                     // or an unreadable manifest still archives.
-                    def unchanged = decision.readable && !decision.degraded && decision.changed == false && decision.notify == 0
+                    def unchanged = pollRc == '0' && decision.readable && !decision.degraded && decision.changed == false && decision.notify == 0
                     if (unchanged) {
                         env.CPU_UNCHANGED = '1'
-                    } else if (!fileExists(STATE) || !fileExists(BUGS)) {
+                    } else if (!haveCheckpoint) {
                         error 'Oracle CPU poll has no checkpoint to archive.'
-                    } else {
+                    } else if (pollRc == '0') {
                         cpuArchiveMapping(REPORT, BUGS, [STATE, BUGS])
                     }
                     if (decision.notify > 0) {
