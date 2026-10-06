@@ -50,92 +50,54 @@ def cpuArchiveMapping(String reportPath, String bugArtifact, List names) {
     ])
 }
 
-def cpuPollDecision(String reportPath, String manifestPath) {
-    // Missing comparison data is not "unchanged". Callers archive.
-    def out = ''
+def cpuReadJson(String path) {
+    if (!fileExists(path)) {
+        return null
+    }
     try {
-        out = sh(
-            script: """python3 -c 'import json
-def load(path):
-    try:
-        return json.load(open(path))
-    except Exception:
-        return None
-report = load("${reportPath}")
-manifest = load("${manifestPath}")
-items = manifest.get("items") if isinstance(manifest, dict) else None
-notify = str(len(items)) if isinstance(items, list) else "x"
-if not isinstance(report, dict):
-    print("ERR " + notify)
-else:
-    usable = "1" if report.get("usable") else "0"
-    degraded = "1" if report.get("degraded") else "0"
-    changed = report.get("state_changed")
-    if changed is True:
-        changed_s = "1"
-    elif changed is False:
-        changed_s = "0"
-    else:
-        changed_s = "x"
-    print(usable + " " + degraded + " " + changed_s + " " + notify)'""",
-            returnStdout: true
-        ).trim()
+        // returnPojo avoids net.sf.json types and the forbidden JsonSlurper.
+        return readJSON(file: path, returnPojo: true)
     } catch (Exception err) {
         if (err instanceof InterruptedException) {
             throw err
         }
-        echo "WARNING cpu run record is unreadable: ${err}"
-        return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
+        echo "WARNING cpu ${path} is unreadable: ${err}"
+        return null
     }
-    if (out.startsWith('ERR')) {
+}
+
+def cpuNotifyCount(Object manifest) {
+    if (!(manifest instanceof Map)) {
+        return -1
+    }
+    def items = manifest.items
+    if (!(items instanceof List)) {
+        return -1
+    }
+    return items.size()
+}
+
+def cpuPollDecision(String reportPath, String manifestPath) {
+    // Missing comparison data is not "unchanged". Callers archive.
+    // The manifest is read on its own so a bad report cannot hide Slack.
+    def report = cpuReadJson(reportPath)
+    def notify = cpuNotifyCount(cpuReadJson(manifestPath))
+    if (!(report instanceof Map)) {
         echo 'WARNING cpu run record is unreadable.'
-        def notify = -1
-        def errParts = out.split(' ')
-        if (errParts.size() > 1 && errParts[1].isInteger()) {
-            notify = errParts[1].toInteger()
-        }
         return [readable: false, usable: true, degraded: true, changed: null, notify: notify]
     }
-    if (!out) {
-        echo 'WARNING cpu run record is unreadable.'
-        return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
-    }
-    def parts = out.split(' ')
-    if (parts.size() < 4) {
-        echo 'WARNING cpu run record is unreadable.'
-        return [readable: false, usable: true, degraded: true, changed: null, notify: -1]
-    }
     def changed = null
-    if (parts[2] == '1') {
+    if (report.state_changed == true) {
         changed = true
-    } else if (parts[2] == '0') {
+    } else if (report.state_changed == false) {
         changed = false
-    }
-    def notify = -1
-    if (parts[3].isInteger()) {
-        notify = parts[3].toInteger()
     }
     return [
         readable: true,
-        usable: parts[0] == '1',
-        degraded: parts[1] == '1',
+        usable: report.usable == true,
+        degraded: report.degraded == true,
         changed: changed,
         notify: notify,
-    ]
-}
-
-def cpuLoadNotifyItem(String manifestPath, int index) {
-    sh """python3 -c 'import json
-item = (json.load(open("${manifestPath}")).get("items") or [])[${index}]
-open("cpu-item-slug.txt","w").write(str(item.get("slug") or ""))
-open("cpu-item-pending.txt","w").write(str(item.get("pending_id") or ""))
-open("cpu-item-changed.txt","w").write("1" if item.get("changed") else "0")
-open("cpu-item-text.txt","w").write(str(item.get("text") or ""))'"""
-    return [
-        slug: readFile('cpu-item-slug.txt').trim(),
-        pendingId: readFile('cpu-item-pending.txt').trim(),
-        changed: readFile('cpu-item-changed.txt').trim() == '1',
-        text: readFile('cpu-item-text.txt').trim(),
     ]
 }
 
@@ -179,7 +141,7 @@ pipeline {
             steps {
                 // post reads these files. A failed test must not summarize
                 // the previous build's workspace copy.
-                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-item-slug.txt cpu-item-pending.txt cpu-item-changed.txt cpu-item-text.txt cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
+                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
                 sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins'
             }
         }
@@ -255,32 +217,23 @@ pipeline {
             }
             steps {
                 script {
-                    def countOut = ''
-                    try {
-                        countOut = sh(
-                            script: """python3 -c 'import json; print(len(json.load(open("${MANIFEST}")).get("items") or []))'""",
-                            returnStdout: true
-                        ).trim()
-                    } catch (Exception err) {
-                        if (err instanceof InterruptedException) {
-                            throw err
-                        }
-                        echo "WARNING cpu notify manifest is unreadable: ${err}"
+                    def manifest = cpuReadJson(MANIFEST)
+                    def items = (manifest instanceof Map) ? manifest.items : null
+                    if (!(items instanceof List)) {
                         unstable('Oracle CPU notify manifest is unreadable.')
                         return
                     }
-                    if (!countOut.isInteger()) {
-                        unstable('Oracle CPU notify manifest is unreadable.')
-                        return
-                    }
-                    def count = countOut.toInteger()
+                    def state = fileExists(STATE) ? cpuReadJson(STATE) : null
+                    def threads = (state instanceof Map && state.threads instanceof Map) ? state.threads : [:]
                     def blockedSlugs = []
-                    for (int index = 0; index < count; index++) {
-                        def item = cpuLoadNotifyItem(MANIFEST, index)
-                        def slug = item.slug
-                        def pendingId = item.pendingId
-                        def changed = item.changed
-                        def text = item.text
+                    for (def item : items) {
+                        if (!(item instanceof Map)) {
+                            continue
+                        }
+                        def slug = (item.slug ?: '').toString().trim()
+                        def pendingId = (item.pending_id ?: '').toString().trim()
+                        def changed = item.changed == true
+                        def text = (item.text ?: '').toString().trim()
                         if (!slug || !text) {
                             continue
                         }
@@ -311,13 +264,9 @@ pipeline {
                                 message = "${message}\n\n${linkLines.join('\n')}"
                             }
                             def threadId = ''
-                            if (fileExists(STATE)) {
-                                def threadOut = ''
-                                threadOut = sh(
-                                    script: """python3 -c 'import json; d=json.load(open("${STATE}")); print(((d.get("threads") or {}).get("${slug}") or {}).get("threadId") or "")'""",
-                                    returnStdout: true
-                                ).trim()
-                                threadId = threadOut
+                            def thread = threads[slug]
+                            if (thread instanceof Map && thread.threadId) {
+                                threadId = thread.threadId.toString()
                             }
                             def target = threadId ? threadId : SLACK_CHANNEL
                             // failOnError true sets the build to FAILURE before
@@ -374,6 +323,7 @@ pipeline {
                                     ])
                                     ackCmd = "${ackCmd} --thread ${slug} cpu-thread.json"
                                     threadId = response.threadId
+                                    threads[slug] = [threadId: threadId]
                                 }
                                 if (pendingId) {
                                     ackCmd = "${ackCmd} --pending '${pendingId}'"
