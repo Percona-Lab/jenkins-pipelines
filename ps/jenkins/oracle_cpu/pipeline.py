@@ -46,6 +46,35 @@ def _fresh_row(
     }
 
 
+def _store(
+    changes: list[dict[str, Any]],
+    rows: dict[str, Any],
+    slug: str,
+    old: list[str],
+    new: list[str],
+    bug_cves: dict[str, list[str]],
+    title: str,
+    url: str,
+    *,
+    report: bool = True,
+    prefix: str = "",
+) -> dict[str, Any] | None:
+    """Save one advisory. Queue a Slack change when report finds a difference."""
+    change = describe_change(old, new) if report else None
+    if change is None:
+        rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
+        return None
+    if prefix:
+        change["slack"] = prefix + change["slack"]
+    change["slug"] = slug
+    change["title"] = title
+    change["url"] = url
+    change["old_sha"] = cve_sha(old)
+    changes.append(change)
+    rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
+    return change
+
+
 def apply_state(
     fresh: list[dict[str, Any]],
     previous: dict[str, Any] | None,
@@ -86,7 +115,7 @@ def apply_state(
         title = str(item.get("title") or (rows.get(slug) or {}).get("title") or slug)
         url = str(item.get("url") or (rows.get(slug) or {}).get("url") or "")
         if previous is None and slug != newest and not report_seeded:
-            rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
+            _store(changes, rows, slug, [], new, bug_cves, title, url, report=False)
             log.info("cpu seed slug=%s cves=%d", slug, len(new))
             continue
         old_parser = _row_parser(rows.get(slug) or {}, PARSER_VERSION)
@@ -96,61 +125,42 @@ def apply_state(
             and slug in previous
             and old_parser != PARSER_VERSION
         )
+        old = list((rows.get(slug) or {}).get("cves") or [])
+        prefix = ""
+        report = True
         if migrate_slug:
-            old = list((rows.get(slug) or {}).get("cves") or [])
             excluded = item.get("parser_excluded")
             if isinstance(excluded, list):
                 # Only ids the new parser is defined to drop stay quiet.
-                baseline = [cve for cve in old if cve not in set(excluded)]
-                prefix = ""
+                old = [cve for cve in old if cve not in set(excluded)]
             else:
                 # No exclusion list. Report the whole difference so a real
                 # Oracle removal is not stored and then forgotten.
-                baseline = old
                 prefix = "Parser upgrade.\n"
-            change = describe_change(baseline, new)
-            if change is None:
-                rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
-                log.info("cpu parser migrate slug=%s cves=%d", slug, len(new))
-                continue
-            if prefix:
-                change["slack"] = prefix + change["slack"]
-            change["slug"] = slug
-            change["title"] = title
-            change["url"] = url
-            change["old_sha"] = cve_sha(baseline)
-            changes.append(change)
-            rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
+        elif ignore_cves:
+            old = []
+            report = bool(report_seeded or slug == newest)
+        change = _store(
+            changes,
+            rows,
+            slug,
+            old,
+            new,
+            bug_cves,
+            title,
+            url,
+            report=report,
+            prefix=prefix,
+        )
+        if change is None:
+            log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
+        else:
             log.info(
-                "cpu parser migrate slug=%s +%d -%d",
+                "cpu diff slug=%s +%d -%d",
                 slug,
                 len(change["added"]),
                 len(change["removed"]),
             )
-            continue
-        if ignore_cves:
-            old = []
-            report = bool(report_seeded or slug == newest)
-        else:
-            old = list((rows.get(slug) or {}).get("cves") or [])
-            report = True
-        change = describe_change(old, new) if report else None
-        if change is None:
-            rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
-            log.info("cpu unchanged slug=%s cves=%d", slug, len(new))
-            continue
-        change["slug"] = slug
-        change["title"] = title
-        change["url"] = url
-        change["old_sha"] = cve_sha(old)
-        changes.append(change)
-        rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
-        log.info(
-            "cpu diff slug=%s +%d -%d",
-            slug,
-            len(change["added"]),
-            len(change["removed"]),
-        )
     return changes, rows
 
 
