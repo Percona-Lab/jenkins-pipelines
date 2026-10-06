@@ -186,6 +186,17 @@ def parse_cves(html: str) -> list[str]:
     return sorted({m.group(0).upper() for m in CVE_RE.finditer(html)})
 
 
+def history_only_cves(html: str) -> list[str]:
+    """CVE ids removed by dropping Modification History.
+
+    These are the exclusions of parser version 1. A removal that is not
+    in this list is an Oracle edit, including on a parser upgrade.
+    """
+    kept = set(parse_cves(html))
+    seen = {match.group(0).upper() for match in CVE_RE.finditer(html)}
+    return sorted(seen - kept)
+
+
 def cve_sha(cves: list[str]) -> str:
     return hashlib.sha256("\n".join(cves).encode()).hexdigest()[:12]
 
@@ -500,6 +511,7 @@ def collect(
                 )
             )
         cves = parse_cves(page)
+        excluded = history_only_cves(page)
         if not cves:
             message = f"{slug} page has no CVE ids."
             notes.append(
@@ -524,6 +536,7 @@ def collect(
                 "url": url,
                 "cves": cves,
                 "bug_cves": bug_cves,
+                "parser_excluded": excluded,
             }
         )
     if picked and not advisories:

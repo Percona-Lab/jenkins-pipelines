@@ -90,13 +90,31 @@ class OracleCpuTest(unittest.TestCase):
         self.assertEqual(rows["cpujul2026"]["parser"], 1)
         self.assertEqual(rows["cpuapr2026"]["parser"], 0)
         self.assertIn("CVE-2021-22555", rows["cpuapr2026"]["cves"])
+        excluded = _fresh("cpuapr2026", ["CVE-2026-2"])
+        excluded["parser_excluded"] = ["CVE-2021-22555"]
         quiet, quiet_rows = apply_state(
-            [_fresh("cpuapr2026", ["CVE-2026-2"])],
+            [excluded],
             {"cpuapr2026": previous["cpuapr2026"]},
             saved_parser=0,
         )
         self.assertEqual(quiet, [])
         self.assertEqual(quiet_rows["cpuapr2026"]["cves"], ["CVE-2026-2"])
+        genuine = _fresh("cpuapr2026", ["CVE-2026-2"])
+        genuine["parser_excluded"] = []
+        told, told_rows = apply_state(
+            [genuine],
+            {"cpuapr2026": previous["cpuapr2026"]},
+            saved_parser=0,
+        )
+        self.assertEqual(told[0]["removed"], ["CVE-2021-22555"])
+        self.assertEqual(told_rows["cpuapr2026"]["cves"], ["CVE-2026-2"])
+        unknown = apply_state(
+            [_fresh("cpuapr2026", ["CVE-2026-2"])],
+            {"cpuapr2026": previous["cpuapr2026"]},
+            saved_parser=0,
+        )[0]
+        self.assertEqual(unknown[0]["removed"], ["CVE-2021-22555"])
+        self.assertTrue(unknown[0]["slack"].startswith("Parser upgrade."))
 
     def test_failed_csaf_keeps_the_cached_map_and_empty_map_replaces_it(self) -> None:
         previous = {

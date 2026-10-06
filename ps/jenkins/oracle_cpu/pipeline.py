@@ -13,7 +13,6 @@ from oracle_cpu.core import (
     collect,
     cve_sha,
     describe_change,
-    _cve_delta,
 )
 from oracle_cpu.diagnostics import exception_text, issue, save_report, warning_lines
 from oracle_cpu.state import (
@@ -99,28 +98,35 @@ def apply_state(
         )
         if migrate_slug:
             old = list((rows.get(slug) or {}).get("cves") or [])
-            added, removed = _cve_delta(old, new)
-            if not added:
-                rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
-                log.info(
-                    "cpu parser migrate slug=%s cves=%d removed=%d",
-                    slug,
-                    len(new),
-                    len(removed),
-                )
-                continue
-            kept_old = [cve for cve in old if cve not in set(removed)]
-            change = describe_change(kept_old, new)
+            excluded = item.get("parser_excluded")
+            if isinstance(excluded, list):
+                # Only ids the new parser is defined to drop stay quiet.
+                baseline = [cve for cve in old if cve not in set(excluded)]
+                prefix = ""
+            else:
+                # No exclusion list. Report the whole difference so a real
+                # Oracle removal is not stored and then forgotten.
+                baseline = old
+                prefix = "Parser upgrade.\n"
+            change = describe_change(baseline, new)
             if change is None:
                 rows[slug] = _fresh_row(new, bug_cves, title=title, url=url)
+                log.info("cpu parser migrate slug=%s cves=%d", slug, len(new))
                 continue
+            if prefix:
+                change["slack"] = prefix + change["slack"]
             change["slug"] = slug
             change["title"] = title
             change["url"] = url
-            change["old_sha"] = cve_sha(kept_old)
+            change["old_sha"] = cve_sha(baseline)
             changes.append(change)
             rows[slug] = _fresh_row(new, bug_cves, change["sha"], title, url)
-            log.info("cpu parser migrate slug=%s additions=%d", slug, len(added))
+            log.info(
+                "cpu parser migrate slug=%s +%d -%d",
+                slug,
+                len(change["added"]),
+                len(change["removed"]),
+            )
             continue
         if ignore_cves:
             old = []
@@ -344,9 +350,9 @@ def poll(
                     outcome="migrated",
                     area="parser",
                     message=(
-                        f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
-                        "CVEs dropped only by the new parser were not posted. "
-                        "CVEs added since the saved set were."
+                    f"Parser version -> {PARSER_VERSION} for {', '.join(migrated)}. "
+                    "CVEs on the parser exclusion list were not posted. "
+                    "Any other difference was."
                     ),
                     fallback="refreshed advisories updated to the current parser",
                     impact=(
