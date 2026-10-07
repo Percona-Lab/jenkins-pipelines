@@ -41,7 +41,8 @@ pipeline {
 
     environment {
         PATH = "/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${env.HOME}/.local/bin"
-        MOLECULE_DIR = "docker/ppg-docker-upgrade"
+        MOLECULE_DIR = "docker/ppg-docker"
+        DOCKER_TEST_TYPE = "upgrade"
     }
 
     options {
@@ -75,7 +76,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
-                    sh "python3 tools/render.py --group docker/ppg-docker-upgrade"
+                    sh "python3 tools/render.py --group docker/ppg-docker"
                 }
             }
         }
