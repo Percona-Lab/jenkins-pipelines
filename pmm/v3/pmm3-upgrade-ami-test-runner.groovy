@@ -8,29 +8,6 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
-    def PMM_VERSION = CLIENT_VERSION.trim();
-    env.PMM_VERSION = PMM_VERSION;
-    if (PMM_VERSION == '3-dev-latest') {
-        sh '''
-            GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
-        '''
-    } else if (PMM_VERSION == 'pmm3-rc') {
-        sh '''
-            GET_PMM_CLIENT_VERSION=$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc$ | sort -V | tail -n1)
-            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
-        '''
-    } else {
-        sh '''
-            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
-            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
-        '''
-    }
-}
-
 void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH, SSH_KEY) {
   amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID),

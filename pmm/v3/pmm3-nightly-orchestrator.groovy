@@ -390,7 +390,7 @@ timestamps {
                     def ghVerdict = 'FAILURE'
                     try {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
-                            ref   : 'main',
+                            ref   : params.PMM_QA_GIT_BRANCH,
                             inputs: [
                                 pmm_image_tag          : imageTag,
                                 pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8,
@@ -421,7 +421,7 @@ timestamps {
                                          pmm-qa/.github/scripts/wait-for-gh-run-completion.sh
 
                                 RUN_ID=\$(pmm-qa/.github/scripts/wait-for-gh-run.sh \\
-                                    "percona/pmm-qa" "nightly-test-suite.yml" "main" "\${DISPATCH_AT}")
+                                    "percona/pmm-qa" "nightly-test-suite.yml" "${params.PMM_QA_GIT_BRANCH}" "\${DISPATCH_AT}")
                                 echo "\${RUN_ID}" > gh_run_id.txt
 
                                 pmm-qa/.github/scripts/wait-for-gh-run-completion.sh "percona/pmm-qa" "\${RUN_ID}"
@@ -536,7 +536,7 @@ timestamps {
                             jq --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{run_id, claims: [
                                 .jobs | map(select(.result == "failure" or .result == "cancelled") | .group) | unique[]
                                 | {by: "Investigator routine", at: $at, suites: [.]}]}' report.json > claims.json
-                            if [ "$(jq '.claims | length' claims.json)" -gt 0 ]; then
+                            if [ "${PMM_QA_GIT_BRANCH}" = main ] && [ "$(jq '.claims | length' claims.json)" -gt 0 ]; then
                                 pmm-qa/nightly/ci/publish_report.sh claims.json
                             fi
                         '''
@@ -554,7 +554,8 @@ timestamps {
 
         // One notification for the whole night: most lanes never reach GitHub
         // Actions, and this is the only place that sees all of them.
-        if (totalBad > 0) {
+        // Only main's nightly wakes the Investigator; a branch run is someone's experiment.
+        if (totalBad > 0 && params.PMM_QA_GIT_BRANCH == 'main') {
             def failed = []
             results.each { name, r ->
                 if (r.result == 'FAILURE' || r.result == 'ABORTED') {
