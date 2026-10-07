@@ -52,6 +52,9 @@ func CleanInstances(http.ResponseWriter, *http.Request) {
 	if err := request.Pages(ctx, func(page *compute.InstanceAggregatedList) error {
 		for _, scopedList := range page.Items {
 			for _, instance := range scopedList.Instances {
+				if isGKENode(instance) {
+					continue
+				}
 				prefix, isRancherInstance := rancherClusterPrefix(instance.Name)
 				if !isRancherInstance {
 					continue
@@ -88,6 +91,13 @@ func CleanInstances(http.ResponseWriter, *http.Request) {
 	}); err != nil {
 		log.Printf("Instance cleanup: list instances: %v", err)
 	}
+}
+
+// isGKENode explicitly excludes Google Kubernetes Engine nodes. The label is
+// the primary signal; the standard gke- name prefix is a defensive fallback.
+func isGKENode(instance *compute.Instance) bool {
+	_, hasGKENodeLabel := instance.Labels["goog-gke-node"]
+	return hasGKENodeLabel || strings.HasPrefix(instance.Name, "gke-")
 }
 
 func deleteRancherFirewalls(ctx context.Context, computeService *compute.Service, project, prefix string, dryRun bool) {
