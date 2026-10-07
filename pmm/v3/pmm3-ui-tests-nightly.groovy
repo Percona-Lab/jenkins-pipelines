@@ -266,19 +266,19 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.4', '8.0', '5.7', '5.7.30', '5.6'],
+            choices: ['8.4', '8.0', '5.7'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.4', '8.0', '5.7', '5.6'],
+            choices: ['8.4', '8.0', '5.7'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['17', '18', '16', '15', '14', '13'],
+            choices: ['17', '18', '16', '15', '14'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['17', '18', '16', '15','14', '13'],
+            choices: ['17', '18', '16', '15', '14'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -286,11 +286,11 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
         choice(

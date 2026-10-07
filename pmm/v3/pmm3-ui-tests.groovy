@@ -177,7 +177,7 @@ pipeline {
                 QUERY_SOURCE=perfschema|slowlog
             --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
             Additional options:
-                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|sharding(Sharded cluster)
             --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
             --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
             --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
