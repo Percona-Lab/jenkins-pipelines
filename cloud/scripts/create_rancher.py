@@ -534,7 +534,7 @@ def create_instance(cfg, name):
         if cfg["image"]
         else ["--image-family", cfg["image_family"]]
     )
-    labels = f"delete-after-hours={cfg['delete_after_hours']},product={cfg['product']},owner={cfg['owner']}"
+    labels = f"delete-cluster-after-hours={cfg['delete_after_hours']},product={cfg['product']},owner={cfg['owner']}"
     run_command(
         cfg,
         f"Create VM: {name}",
