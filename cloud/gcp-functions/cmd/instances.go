@@ -29,6 +29,10 @@ var rancherFirewallSuffixes = []string{
 	"allow-internal",
 }
 
+var createComputeService = func(ctx context.Context) (*compute.Service, error) {
+	return compute.NewService(ctx)
+}
+
 type rancherInstance struct {
 	instance *compute.Instance
 	zone     string
@@ -40,17 +44,19 @@ type rancherInstance struct {
 // their firewall rules are removed after every instance deletion request
 // succeeds. Instances without a TTL label, with an invalid label, or with an
 // invalid creation timestamp are preserved.
-func CleanInstances(http.ResponseWriter, *http.Request) {
+func CleanInstances(w http.ResponseWriter, _ *http.Request) {
 	ctx := context.Background()
-	computeService, err := compute.NewService(ctx)
+	computeService, err := createComputeService(ctx)
 	if err != nil {
 		log.Printf("Instance cleanup: create Compute Engine service: %v", err)
+		http.Error(w, "Instance cleanup: cannot create Compute Engine service", http.StatusInternalServerError)
 		return
 	}
 
 	project := os.Getenv("GCP_DEV_PROJECT")
 	if project == "" {
 		log.Printf("Instance cleanup: GCP_DEV_PROJECT is not set")
+		http.Error(w, "Instance cleanup: GCP_DEV_PROJECT is not set", http.StatusInternalServerError)
 		return
 	}
 	dryRun := strings.EqualFold(os.Getenv("DRY_RUN"), "true")
@@ -87,9 +93,11 @@ func CleanInstances(http.ResponseWriter, *http.Request) {
 		return nil
 	}); err != nil {
 		log.Printf("Instance cleanup: list instances: %v", err)
+		http.Error(w, "Instance cleanup: cannot list instances", http.StatusInternalServerError)
 		return
 	}
 
+	cleanupFailed := false
 	sort.Slice(genericInstances, func(i, j int) bool {
 		return genericInstances[i].instance.Name < genericInstances[j].instance.Name
 	})
@@ -105,7 +113,9 @@ func CleanInstances(http.ResponseWriter, *http.Request) {
 			log.Printf("Instance cleanup: DRY_RUN would delete instance %s in %s", member.instance.Name, member.zone)
 			continue
 		}
-		deleteInstances(ctx, computeService, project, "generic", []rancherInstance{member})
+		if !deleteInstances(ctx, computeService, project, "generic", []rancherInstance{member}) {
+			cleanupFailed = true
+		}
 	}
 
 	prefixes := make([]string, 0, len(rancherClusters))
@@ -130,12 +140,22 @@ func CleanInstances(http.ResponseWriter, *http.Request) {
 
 		if !deleteInstances(ctx, computeService, project, prefix, instances) {
 			log.Printf("Instance cleanup: preserving firewalls for %s because at least one instance deletion failed", prefix)
+			cleanupFailed = true
 			continue
 		}
-		deleteRancherFirewalls(ctx, computeService, project, prefix, false)
+		if !deleteRancherFirewalls(ctx, computeService, project, prefix, false) {
+			cleanupFailed = true
+		}
 	}
 
-	sweepOrphanedRancherFirewalls(ctx, computeService, project, instancePrefixes, now, dryRun)
+	if !sweepOrphanedRancherFirewalls(ctx, computeService, project, instancePrefixes, now, dryRun) {
+		cleanupFailed = true
+	}
+	if cleanupFailed {
+		http.Error(w, "Instance cleanup completed with errors", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // isGKENode explicitly excludes Google Kubernetes Engine nodes. The label is
@@ -183,7 +203,8 @@ func deleteInstances(ctx context.Context, computeService *compute.Service, proje
 	return allDeleted
 }
 
-func deleteRancherFirewalls(ctx context.Context, computeService *compute.Service, project, prefix string, dryRun bool) {
+func deleteRancherFirewalls(ctx context.Context, computeService *compute.Service, project, prefix string, dryRun bool) bool {
+	allDeleted := true
 	for _, suffix := range rancherFirewallSuffixes {
 		firewallName := prefix + "-" + suffix
 		if dryRun {
@@ -193,18 +214,21 @@ func deleteRancherFirewalls(ctx context.Context, computeService *compute.Service
 		operation, err := computeService.Firewalls.Delete(project, firewallName).Context(ctx).Do()
 		if err != nil {
 			log.Printf("Instance cleanup: cannot delete firewall %s after instance deletion: %v", firewallName, err)
+			allDeleted = false
 			continue
 		}
 
 		log.Printf("Instance cleanup: firewall deletion requested for %s; operation=%s status=%s", firewallName, operation.Name, operation.Status)
 	}
+	return allDeleted
 }
 
 // sweepOrphanedRancherFirewalls provides a retry path when all instance
 // deletion requests succeeded but a firewall deletion failed. The grace period
 // prevents deleting rules while create_rancher.py is between firewall and
 // instance creation.
-func sweepOrphanedRancherFirewalls(ctx context.Context, computeService *compute.Service, project string, instancePrefixes map[string]bool, now time.Time, dryRun bool) {
+func sweepOrphanedRancherFirewalls(ctx context.Context, computeService *compute.Service, project string, instancePrefixes map[string]bool, now time.Time, dryRun bool) bool {
+	sweepSucceeded := true
 	request := computeService.Firewalls.List(project)
 	if err := request.Pages(ctx, func(page *compute.FirewallList) error {
 		for _, firewall := range page.Items {
@@ -228,6 +252,7 @@ func sweepOrphanedRancherFirewalls(ctx context.Context, computeService *compute.
 			operation, err := computeService.Firewalls.Delete(project, firewall.Name).Context(ctx).Do()
 			if err != nil {
 				log.Printf("Instance cleanup: cannot delete orphaned firewall %s: %v", firewall.Name, err)
+				sweepSucceeded = false
 				continue
 			}
 			log.Printf("Instance cleanup: orphaned firewall deletion requested for %s; operation=%s status=%s", firewall.Name, operation.Name, operation.Status)
@@ -235,7 +260,9 @@ func sweepOrphanedRancherFirewalls(ctx context.Context, computeService *compute.
 		return nil
 	}); err != nil {
 		log.Printf("Instance cleanup: list firewall rules for orphan sweep: %v", err)
+		return false
 	}
+	return sweepSucceeded
 }
 
 func rancherFirewallPrefix(firewallName string) (string, bool) {
