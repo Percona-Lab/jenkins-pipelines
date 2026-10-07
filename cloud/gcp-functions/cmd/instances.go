@@ -102,7 +102,7 @@ func CleanInstances(w http.ResponseWriter, _ *http.Request) {
 		return genericInstances[i].instance.Name < genericInstances[j].instance.Name
 	})
 	for _, member := range genericInstances {
-		if !instanceLifetimeExpired(member.instance, now) {
+		if !instanceLifetimeExpired(member.instance, now, deleteAfterHoursLabel) {
 			continue
 		}
 		if member.zone == "" {
@@ -179,7 +179,7 @@ func rancherClusterExpired(instances []rancherInstance, now time.Time) bool {
 			log.Printf("Instance cleanup: preserving cluster because zone is missing for %s", member.instance.Name)
 			return false
 		}
-		if !instanceLifetimeExpired(member.instance, now) {
+		if !instanceLifetimeExpired(member.instance, now, deleteClusterAfterHoursLabel) {
 			return false
 		}
 	}
@@ -306,8 +306,8 @@ func rancherClusterPrefix(instanceName string) (string, bool) {
 	return instanceName[:markerIndex], true
 }
 
-func instanceLifetimeExpired(instance *compute.Instance, now time.Time) bool {
-	ttlValue, ttlLabel, ok := instanceTTL(instance)
+func instanceLifetimeExpired(instance *compute.Instance, now time.Time, ttlLabel string) bool {
+	ttlValue, ok := instance.Labels[ttlLabel]
 	if !ok {
 		return false
 	}
@@ -325,16 +325,6 @@ func instanceLifetimeExpired(instance *compute.Instance, now time.Time) bool {
 	}
 
 	return now.Sub(createdAt) > time.Duration(ttlHours*float64(time.Hour))
-}
-
-func instanceTTL(instance *compute.Instance) (value, label string, ok bool) {
-	if value, ok := instance.Labels[deleteAfterHoursLabel]; ok {
-		return value, deleteAfterHoursLabel, true
-	}
-	if value, ok := instance.Labels[deleteClusterAfterHoursLabel]; ok {
-		return value, deleteClusterAfterHoursLabel, true
-	}
-	return "", "", false
 }
 
 func resourceName(resourceURL string) string {
