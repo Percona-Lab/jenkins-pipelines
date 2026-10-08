@@ -51,6 +51,11 @@ pipeline {
             description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
             name: 'OBS_PROJECT'
         )
+        text(
+            defaultValue: '',
+            description: 'Expected versions of the packages for the version upgraded to, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing versions/*.py for this run. Leave empty to use the tables.',
+            name: 'EXPECTED_VERSIONS'
+        )
         string(
             defaultValue: 'ppg-18.3',
             description: 'From this version PPG will be updated',
