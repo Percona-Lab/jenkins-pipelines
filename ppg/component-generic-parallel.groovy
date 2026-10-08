@@ -69,8 +69,8 @@ pipeline {
         )
         string(
             defaultValue: 'master',
-            description: 'Tag of COMPONENT_REPO to check out for the test suite; should match the packaged version.',
-            name: 'COMPONENT_VERSION'
+            description: 'Git ref (tag, branch or commit) of COMPONENT_REPO to check out for the test suite, e.g. release/2.59.2 for pgbackrest; should be the ref the package was built from.',
+            name: 'COMPONENT_REF'
         )
         string(
             defaultValue: 'ppg-18.3',
@@ -122,7 +122,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-${env.COMPONENT_VERSION}-parallel"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-${env.COMPONENT_REF}-parallel"
                     if (!params.COMPONENT_REPO?.trim()) {
                         env.COMPONENT_REPO = defaultComponentRepo[params.PRODUCT]
                     }
@@ -160,7 +160,7 @@ pipeline {
                 } else {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
-                sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
+                sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_REF)
             }
             archiveArtifacts(
                 artifacts: "${env.MOLECULE_DIR}/artifacts/**/*.tar.gz",
