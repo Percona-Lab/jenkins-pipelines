@@ -544,7 +544,9 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_84") {
-                                        moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_97") {
                                         moleculeParallelTestALL(allOS, ps97PackageTesting(), "molecule/ps/")
