@@ -75,7 +75,8 @@ def waitForClusterApi() {
     sh '''
         set +x
         for i in $(seq 1 40); do
-            if OUT=$(oc get --raw /readyz 2>&1); then
+            # Bounded, so a load balancer that accepts but never answers cannot stall the wait.
+            if OUT=$(oc get --raw /readyz --request-timeout=10s 2>&1); then
                 exit 0
             fi
             echo "Cluster API not reachable (${i}/40), retrying in 30s: $(echo "${OUT}" | tail -n 1)"
@@ -109,7 +110,7 @@ def withClusterApiRetry(Closure body) {
         } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
             throw e   // aborted or timed out
         } catch (err) {
-            def apiUp = sh(returnStatus: true, script: 'oc get --raw /readyz >/dev/null 2>&1') == 0
+            def apiUp = sh(returnStatus: true, script: 'oc get --raw /readyz --request-timeout=10s >/dev/null 2>&1') == 0
             if (apiUp || i == attempts) {
                 throw err
             }
@@ -644,7 +645,9 @@ pipeline {
                         echo "Waiting for cluster authentication to become available..."
                         sleep 120
 
-                        for i in $(seq 1 12); do
+                        # The same 20 minutes waitForClusterApi gives: the login is the first call that can
+                        # hit the cached NXDOMAIN, and there is no context to probe with before it.
+                        for i in $(seq 1 40); do
                             if oc login "${API_URL}" \
                                 --username=cluster-admin \
                                 --password="${ADMIN_PW}" \
@@ -652,31 +655,38 @@ pipeline {
                                 echo "Login successful."
                                 break
                             fi
-                            echo "Login attempt ${i}/12 failed, retrying in 30s..."
-                            sleep 30
-                        done
-
-                        oc whoami
-
-                        echo "Waiting for all worker nodes to be ready (timeout: 20m)..."
-                        for i in $(seq 1 40); do
-                            READY_COUNT=$(oc get nodes --no-headers | grep -c " Ready " || true)
-                            echo "Ready nodes: ${READY_COUNT}/${NODE_COUNT}"
-                            if [ "${READY_COUNT}" -ge "${NODE_COUNT}" ]; then
-                                echo "All worker nodes are ready."
-                                break
-                            fi
                             if [ "$i" -eq 40 ]; then
-                                echo "ERROR: Timed out waiting for ${NODE_COUNT} nodes to be ready after 20 minutes."
-                                oc get nodes
+                                echo "ERROR: could not log in to ${API_URL} after 20 minutes."
                                 exit 1
                             fi
+                            echo "Login attempt ${i}/40 failed, retrying in 30s..."
                             sleep 30
                         done
-                        oc get nodes -o wide
                     '''
 
                     script {
+                        withClusterApiRetry {
+                            sh '''
+                                oc whoami
+
+                                echo "Waiting for all worker nodes to be ready (timeout: 20m)..."
+                                for i in $(seq 1 40); do
+                                    READY_COUNT=$(oc get nodes --no-headers | grep -c " Ready " || true)
+                                    echo "Ready nodes: ${READY_COUNT}/${NODE_COUNT}"
+                                    if [ "${READY_COUNT}" -ge "${NODE_COUNT}" ]; then
+                                        echo "All worker nodes are ready."
+                                        break
+                                    fi
+                                    if [ "$i" -eq 40 ]; then
+                                        echo "ERROR: Timed out waiting for ${NODE_COUNT} nodes to be ready after 20 minutes."
+                                        oc get nodes
+                                        exit 1
+                                    fi
+                                    sleep 30
+                                done
+                                oc get nodes -o wide
+                            '''
+                        }
                         withClusterApiRetry { mintAdminKubeconfig() }
                     }
                 }
@@ -833,6 +843,9 @@ EOF
                                     return 1
                                 }
 
+                                # Diagnostics are archived on failure, so drop an earlier attempt's.
+                                rm -rf helm-debug
+
                                 oc create namespace pmm --dry-run=client -o yaml | oc apply -f -
 
                                 # Newer charts need their OpenShift overlay, anyuid breaks it, so only older charts get anyuid.
@@ -973,9 +986,16 @@ EOF
 
                                 # On a rerun, a release an earlier attempt deployed is not upgraded: that re-runs the chart's
                                 # PostgreSQL credentials hook, which races the operator and rotates gfuser's password.
-                                if helm status pmm-ha -n pmm 2>/dev/null | grep -q '^STATUS: deployed'; then
+                                # Only "release: not found" means a first install; any other error (the API
+                                # going away again) must not fall through to an upgrade of a live release.
+                                STATUS_OUT=$(helm status pmm-ha -n pmm 2>&1)
+                                STATUS_RC=$?
+                                if [ "$STATUS_RC" -eq 0 ] && echo "${STATUS_OUT}" | grep -q '^STATUS: deployed'; then
                                     echo "pmm-ha was deployed by an earlier attempt, waiting for it instead of upgrading it"
                                     HELM_EXIT_CODE=0
+                                elif [ "$STATUS_RC" -ne 0 ] && ! echo "${STATUS_OUT}" | grep -q 'release: not found'; then
+                                    echo "ERROR: cannot read the pmm-ha release status: ${STATUS_OUT}"
+                                    exit 1
                                 else
                                     # Install pmm-ha chart (creates component service accounts)
                                     helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
