@@ -778,6 +778,14 @@ EOF
                             oc adm policy add-scc-to-group anyuid system:serviceaccounts:pmm
                         fi
 
+                        # Since PMM-14746 the dependencies chart pins a uid for the ClickHouse operator that
+                        # restricted-v2 refuses, and ships its own overlay to unset it.
+                        DEPS_OPENSHIFT_VALUES="helm-charts/charts/pmm-ha-dependencies/examples/values-openshift.yaml"
+                        DEPS_OPENSHIFT_ARGS=""
+                        if [ -f "${DEPS_OPENSHIFT_VALUES}" ]; then
+                            DEPS_OPENSHIFT_ARGS="-f ${DEPS_OPENSHIFT_VALUES}"
+                        fi
+
                         # OpenShift uses dns-default.openshift-dns instead of kube-dns.kube-system
                         sed -i 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' helm-charts/charts/pmm-ha/templates/haproxy-configmap.yaml
 
@@ -787,7 +795,7 @@ EOF
                         helm repo update
 
                         helm dependency update helm-charts/charts/pmm-ha-dependencies
-                        helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
+                        helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm ${DEPS_OPENSHIFT_ARGS} --wait --timeout 10m
 
                         retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
                         retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
