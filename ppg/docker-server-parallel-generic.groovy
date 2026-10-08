@@ -25,7 +25,7 @@ pipeline {
         )
         string(
             name: 'REPOSITORY',
-            description: 'Docker hub repository to use for docker images.',
+            description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.',
             defaultValue: 'registry.opensuse.org/isv/percona/pr/pr-33/ppg/18/containers/images',
         )
         booleanParam(
@@ -36,6 +36,11 @@ pipeline {
             name: 'DESTROY_ENV',
             defaultValue: true,
             description: 'Destroy VM after tests'
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {

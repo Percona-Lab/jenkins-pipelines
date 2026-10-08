@@ -14,6 +14,21 @@ def sendSlackNotification(pgsm_repo, pgsm_branch, pgsm_package_install, version,
     }
 }
 
+// The operating systems to test: every supported one, or the PLATFORMS subset.
+// An unknown name fails the build instead of silently testing nothing.
+def selectedOperatingSystems() {
+    def all = ppgOperatingSystemsALL()
+    def wanted = (params.PLATFORMS ?: '').tokenize()
+    if (!wanted) {
+        return all
+    }
+    def unknown = wanted.findAll { !all.contains(it) }
+    if (unknown) {
+        error("Unknown PLATFORMS: ${unknown.join(' ')}. Supported: ${all.join(' ')}")
+    }
+    return all.findAll { wanted.contains(it) }
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -70,6 +85,16 @@ pipeline {
             name: 'MAJOR_REPO',
             description: "Enable to use major (ppg-16) repo instead of ppg-16.2"
         )
+        string(
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.',
+            name: 'RUN_LABELS'
+        )
+        string(
+            defaultValue: '',
+            description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
+            name: 'PLATFORMS'
+        )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -109,7 +134,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -117,7 +142,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                moleculeParallelPostDestroyPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
             }
             archiveArtifacts(

@@ -163,11 +163,11 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
     }

@@ -63,6 +63,11 @@ pipeline {
             description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
             name: 'PLATFORMS'
         )
+        text(
+            defaultValue: '',
+            description: 'Expected versions of the packages under test, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing versions/*.py for this run. Leave empty to use the tables.',
+            name: 'EXPECTED_VERSIONS'
+        )
         string(
             defaultValue: 'ppg-18.4',
             description: 'PG version for test',
@@ -90,6 +95,11 @@ pipeline {
         booleanParam(
             name: 'MAJOR_REPO',
             description: "Enable to use major (ppg-17) repo instead of ppg-17.0"
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {

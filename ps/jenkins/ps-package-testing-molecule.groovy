@@ -534,8 +534,13 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
+                                        def ps80OS = ps80PackageTesting()
+                                        // PS 5.7 has no ARM packages, so ps_57 -> ps_80 major upgrade can't run on ARM
+                                        if (action_to_test == "major_upgrade" && major_upgrade_from_product == "ps_57") {
+                                            ps80OS = ps80OS.findAll { !it.endsWith('-arm') }
+                                        }
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                            moleculeParallelTestALL(allOS, ps80OS, "molecule/ps/")
                                         }
                                     }
                                     else if (product_to_test == "ps_84") {

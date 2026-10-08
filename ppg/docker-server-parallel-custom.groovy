@@ -26,8 +26,9 @@ pipeline {
         string(name: 'DOCKER_TAG', defaultValue: '18.4', description: 'TAG of the docker to test.')
         string(name: 'SERVER_VERSION', defaultValue: '18.4', description: 'Docker PG version to test.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
-        choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
+        string(name: 'REPOSITORY', defaultValue: 'perconalab', description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.')
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
+        string(name: 'RUN_LABELS', defaultValue: 'Manual', description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.')
     }
 
     environment {

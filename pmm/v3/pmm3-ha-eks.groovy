@@ -135,6 +135,16 @@ pipeline {
             defaultValue: '',
             description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
         )
+        string(
+            name: 'PMM_CLIENT_IMAGE_REPOSITORY',
+            defaultValue: '',
+            description: 'PMM Client image repository override. Empty follows PMM_IMAGE_REPOSITORY, i.e. "perconalab/pmm-server-fb" gives "perconalab/pmm-client-fb", or the Helm chart value when that is empty too'
+        )
+        string(
+            name: 'PMM_CLIENT_IMAGE_TAG',
+            defaultValue: '',
+            description: 'PMM Client image tag override. Empty uses PMM_IMAGE_TAG, or the Helm chart value when that is empty too'
+        )
         text(
             name: 'PMM_ENV_VARIABLE',
             defaultValue: '',
@@ -195,6 +205,10 @@ pipeline {
 
                     // The chart profile does not fit on fewer workers, so it overrides WORKER_COUNT.
                     env.NODE_COUNT = params.RESOURCE_PROFILE == 'chart' ? '12' : params.WORKER_COUNT
+
+                    // The client follows the server image unless it is given its own.
+                    env.PMM_CLIENT_REPO = params.PMM_CLIENT_IMAGE_REPOSITORY ?: params.PMM_IMAGE_REPOSITORY.replace('pmm-server', 'pmm-client')
+                    env.PMM_CLIENT_TAG = params.PMM_CLIENT_IMAGE_TAG ?: params.PMM_IMAGE_TAG
                 }
                 sh '''
                     cat > cluster-config.yaml <<EOF
@@ -509,6 +523,8 @@ EOF
                             --wait --timeout 15m \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
                             ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
+                            ${PMM_CLIENT_REPO:+--set pmmClient.image.repository=${PMM_CLIENT_REPO}} \
+                            ${PMM_CLIENT_TAG:+--set pmmClient.image.tag=${PMM_CLIENT_TAG}} \
                             ${PMM_ENV_ARGS} \
                             ${HELM_VALUES:+--set ${HELM_VALUES}}
 

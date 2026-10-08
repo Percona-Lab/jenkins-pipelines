@@ -14,6 +14,21 @@ def sendSlackNotification(psp_repo, psp_branch, version, testsuite, percona_serv
     }
 }
 
+// The operating systems to test: every supported one, or the PLATFORMS subset.
+// An unknown name fails the build instead of silently testing nothing.
+def selectedOperatingSystems() {
+    def all = ppgOperatingSystemsALL()
+    def wanted = (params.PLATFORMS ?: '').tokenize()
+    if (!wanted) {
+        return all
+    }
+    def unknown = wanted.findAll { !all.contains(it) }
+    if (unknown) {
+        error("Unknown PLATFORMS: ${unknown.join(' ')}. Supported: ${all.join(' ')}")
+    }
+    return all.findAll { wanted.contains(it) }
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -72,6 +87,11 @@ pipeline {
             description: 'Branch for pg_tde repository. Would only be used with check-tde, check-all and installcheck-world testsuites.',
             name: 'TDE_BRANCH'
         )
+        string(
+            defaultValue: '',
+            description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
+            name: 'PLATFORMS'
+        )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -111,7 +131,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -119,7 +139,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                moleculeParallelPostDestroyPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.TESTSUITE, env.PERCONA_SERVER_VERSION, env.IO_METHOD, env.TDE_BRANCH)
             }
             archiveArtifacts(

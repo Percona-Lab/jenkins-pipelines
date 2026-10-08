@@ -32,8 +32,9 @@ pipeline {
         string(name: 'NEW_VERSION_DOCKER_TAG', defaultValue: '17.10', description: 'New version docker tag to test: 16.13, 17.9, 18.3. etc.')
         string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18-17-16', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
-        choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
+        string(name: 'REPOSITORY', defaultValue: 'perconalab', description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.')
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
+        string(name: 'RUN_LABELS', defaultValue: 'Manual', description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.')
     }
 
     environment {
