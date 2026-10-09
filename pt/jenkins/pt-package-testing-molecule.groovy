@@ -69,7 +69,7 @@ def deleteBuildInstances(){
                 ),
                 aws(
                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+                    credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 )
         ]
