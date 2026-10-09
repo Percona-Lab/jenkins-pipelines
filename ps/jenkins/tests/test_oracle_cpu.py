@@ -13,6 +13,7 @@ from oracle_cpu.core import (
     Collection,
     _component_name,
     _fetch,
+    _read_body,
     bug_map_from_csaf,
     cve_sha,
     format_slack,
@@ -59,6 +60,23 @@ class OracleCpuTest(unittest.TestCase):
             }
         )
         self.assertEqual(bugs, {"38888307": ["CVE-2026-1000"]})
+
+    def test_download_stops_past_the_size_limit(self) -> None:
+        class _Body:
+            def __init__(self, parts: list[bytes], length: str | None) -> None:
+                self._parts = list(parts)
+                self.headers = {} if length is None else {"Content-Length": length}
+
+            def read(self, _size: int) -> bytes:
+                if not self._parts:
+                    return b""
+                return self._parts.pop(0)
+
+        self.assertEqual(_read_body(_Body([b"abc"], "3"), limit=10), b"abc")
+        with self.assertRaises(urllib.error.URLError):
+            _read_body(_Body([], "11"), limit=10)
+        with self.assertRaises(urllib.error.URLError):
+            _read_body(_Body([b"aaaaaa", b"bbbbbb"], None), limit=10)
 
     def test_mysql_counts_and_components_follow_the_cve_diff(self) -> None:
         text = (
