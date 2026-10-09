@@ -140,12 +140,10 @@ class OracleCpuTest(unittest.TestCase):
                 "sha": "older",
                 "cves": ["CVE-2026-2", "CVE-2021-22555"],
                 "bug_cves": {"1": ["CVE-2026-2"]},
-                "parser": 0,
             }
         }
         changes, rows = apply_state([_fresh("cpuapr2026", ["CVE-2026-2"])], previous)
         self.assertEqual(changes[0]["removed"], ["CVE-2021-22555"])
-        self.assertNotIn("parser", rows["cpuapr2026"])
 
     def test_failed_csaf_keeps_the_cached_map_and_empty_map_replaces_it(self) -> None:
         previous = {
@@ -153,7 +151,6 @@ class OracleCpuTest(unittest.TestCase):
                 "sha": cve_sha(["CVE-2026-1"]),
                 "cves": ["CVE-2026-1"],
                 "bug_cves": {"9": ["CVE-2026-1"]},
-                "parser": 1,
             }
         }
         kept = _fresh("cpuapr2026", ["CVE-2026-1"])
@@ -190,7 +187,6 @@ class OracleCpuTest(unittest.TestCase):
                                 "sha": "def",
                                 "cves": ["CVE-2026-1"],
                                 "bug_cves": {"9": ["CVE-2026-1"]},
-                                "parser": 1,
                             }
                         },
                     }
@@ -224,13 +220,11 @@ class OracleCpuTest(unittest.TestCase):
                 "sha": "n",
                 "cves": ["CVE-2026-9"],
                 "bug_cves": {"1": ["CVE-2026-9"]},
-                "parser": 1,
             },
             "cpuapr2026": {
                 "sha": "o",
                 "cves": ["CVE-2026-1"],
                 "bug_cves": {"2": ["CVE-2026-1"]},
-                "parser": 1,
             },
         }
         changes, rows = apply_state(
@@ -266,7 +260,6 @@ class OracleCpuTest(unittest.TestCase):
                                 "sha": "b",
                                 "cves": ["CVE-2026-1"],
                                 "bug_cves": {"9": ["CVE-2026-1"]},
-                                "parser": 1,
                             }
                         },
                     }
@@ -317,7 +310,6 @@ class OracleCpuTest(unittest.TestCase):
                     "sha": cve_sha(["CVE-2026-1"]),
                     "cves": ["CVE-2026-1"],
                     "bug_cves": {},
-                    "parser": 1,
                     "title": "CPU April 2026",
                     "url": "https://example.test/cpuapr2026.html",
                 }

@@ -75,7 +75,7 @@ def _advisories_from(data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     kept: dict[str, Any] = {}
     bad: list[str] = []
     for slug, row in raw.items():
-        if slug in ("parser", "threads", "pending", "advisories"):
+        if slug in ("threads", "pending", "advisories"):
             continue
         stored = stored_advisory(row)
         if stored is None:
