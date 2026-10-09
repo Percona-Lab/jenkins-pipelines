@@ -1,6 +1,4 @@
 def STATE = 'cpu-state.json'
-def LEGACY_STATE = 'cpu-cves.json'
-def LEGACY_SLACK = 'cpu-slack.json'
 def BUGS = 'cpu-bug-cve.json'
 def MANIFEST = 'cpu-notify.json'
 def REPORT = 'cpu-run.json'
@@ -140,23 +138,32 @@ pipeline {
             steps {
                 // post reads these files. A failed test must not summarize
                 // the previous build's workspace copy.
-                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json"
+                sh "rm -rf ${STATE} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json"
                 sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins'
             }
         }
         stage('Check advisories') {
             steps {
                 script {
-                    // SUCCESS or UNSTABLE. NOT_BUILT is skipped, so the
-                    // copy is the newest build that archived a checkpoint.
-                    copyArtifacts(
-                        projectName: env.JOB_NAME,
-                        selector: [$class: 'StatusBuildSelector', stable: false],
-                        filter: "${STATE},${LEGACY_STATE},${LEGACY_SLACK}",
-                        optional: true,
-                        flatten: true,
-                        fingerprintArtifacts: false
-                    )
+                    // Newest completed build that archived the checkpoint,
+                    // including ABORTED and FAILURE. NOT_BUILT has no file,
+                    // so the walk continues. StatusBuildSelector would skip
+                    // an abort that already stored a confirmed Slack ack.
+                    def run = currentBuild.previousBuild
+                    while (run != null) {
+                        copyArtifacts(
+                            projectName: env.JOB_NAME,
+                            selector: [$class: 'SpecificBuildSelector', buildNumber: "${run.number}"],
+                            filter: STATE,
+                            optional: true,
+                            flatten: true,
+                            fingerprintArtifacts: false
+                        )
+                        if (fileExists(STATE)) {
+                            break
+                        }
+                        run = run.previousBuild
+                    }
                 }
                 script {
                     def notifyMode = params.NOTIFY ?: 'none'
@@ -424,6 +431,16 @@ pipeline {
                         throw err
                     }
                     echo "WARNING cpu status publish failed: ${err}"
+                }
+            }
+        }
+        aborted {
+            script {
+                // ack can update the workspace file before the mid-loop
+                // archive returns. This build stays ABORTED. The next poll
+                // still finds the file by walking previous builds.
+                if (fileExists(STATE)) {
+                    archiveArtifacts artifacts: STATE, allowEmptyArchive: false
                 }
             }
         }

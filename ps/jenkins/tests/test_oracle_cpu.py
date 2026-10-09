@@ -210,54 +210,10 @@ class OracleCpuTest(unittest.TestCase):
             self.assertEqual(state["advisories"]["cpuapr2026"]["bug_cves"]["9"], ["CVE-2026-1"])
             self.assertFalse(path.with_name(path.name + ".tmp").exists())
 
-    def test_legacy_files_import_pending_and_threads(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "cpu-cves.json").write_text(
-                json.dumps(
-                    {
-                        "parser": 0,
-                        "advisories": {
-                            "cpujul2026": {
-                                "sha": "a",
-                                "cves": ["CVE-2026-1"],
-                                "bug_cves": {},
-                            }
-                        },
-                    }
-                ),
-                encoding="utf-8",
-            )
-            (root / "cpu-slack.json").write_text(
-                json.dumps(
-                    {
-                        "threads": {"cpujul2026": {"threadId": "9.9", "channelId": "C", "ts": "9.9"}},
-                        "pending": [
-                            {
-                                "id": "cpujul2026:a-b-1",
-                                "slug": "cpujul2026",
-                                "sha": "b",
-                                "slack": "text",
-                            }
-                        ],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            state, notes = load_state(root / "cpu-state.json")
-            self.assertNotIn("parser", state["advisories"]["cpujul2026"])
-            self.assertEqual(state["pending"][0]["id"], "cpujul2026:a-b-1")
-            self.assertEqual(state["threads"]["cpujul2026"]["threadId"], "9.9")
-            self.assertEqual(notes[0]["outcome"], "imported")
-
-    def test_corrupt_state_does_not_read_legacy_files(self) -> None:
+    def test_corrupt_state_is_not_a_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "cpu-state.json").write_text("{", encoding="utf-8")
-            (root / "cpu-cves.json").write_text(
-                json.dumps({"advisories": {"cpuapr2026": {"cves": ["CVE-2026-1"], "bug_cves": {}}}}),
-                encoding="utf-8",
-            )
             state, notes = load_state(root / "cpu-state.json")
             self.assertEqual(state["advisories"], {})
             self.assertEqual(notes[0]["area"], "baseline")

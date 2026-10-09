@@ -1,8 +1,7 @@
 """Saved advisory cache, Slack threads, and pending messages.
 
 One cpu-state.json holds all three. CVE baseline and pending messages
-are replaced together. A missing new file is filled once from
-cpu-cves.json and cpu-slack.json beside it.
+are replaced together.
 """
 
 from __future__ import annotations
@@ -13,9 +12,6 @@ from typing import Any
 
 from oracle_cpu.core import cve_sha
 from oracle_cpu.diagnostics import atomic_write, exception_text, issue
-
-LEGACY_ADVISORIES = "cpu-cves.json"
-LEGACY_SLACK = "cpu-slack.json"
 
 
 def stored_advisory(row: Any) -> dict[str, Any] | None:
@@ -128,10 +124,9 @@ def _read_json(path: Path) -> tuple[dict[str, Any] | None, str]:
 
 
 def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Load cpu-state.json, or the legacy pair when that file is absent.
+    """Load cpu-state.json. A missing file is an empty checkpoint.
 
-    A corrupt cpu-state.json does not fall through to the legacy files.
-    Those files are the previous generation, not a repair for a torn write.
+    A corrupt file is a warning and is not treated as an empty success.
     """
     notes: list[dict[str, Any]] = []
     if path.is_file() and path.stat().st_size:
@@ -170,71 +165,7 @@ def load_state(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
             "advisories": advisories,
         }
         return state, notes
-    legacy_advisories = path.with_name(LEGACY_ADVISORIES)
-    legacy_slack = path.with_name(LEGACY_SLACK)
-    if not legacy_advisories.is_file() and not legacy_slack.is_file():
-        return empty_state(), notes
-    state = empty_state()
-    imported: list[str] = []
-    if legacy_advisories.is_file() and legacy_advisories.stat().st_size:
-        data, exc_text = _read_json(legacy_advisories)
-        if data is None:
-            notes.append(
-                issue(
-                    level="warning",
-                    outcome="failed",
-                    area="baseline",
-                    message=f"legacy {legacy_advisories.name} is not JSON.",
-                    fallback="this run treats the baseline as missing",
-                    impact="the newest advisory can be notified again",
-                    exception=exc_text,
-                )
-            )
-        else:
-            advisories, bad = _advisories_from(data)
-            state["advisories"] = advisories
-            imported.append(legacy_advisories.name)
-            if bad:
-                notes.append(
-                    issue(
-                        level="warning",
-                        outcome="failed",
-                        area="baseline",
-                        message=f"malformed advisory rows skipped: {', '.join(bad)}.",
-                        fallback="malformed rows were skipped",
-                        impact="the other advisories stay the baseline",
-                    )
-                )
-    if legacy_slack.is_file() and legacy_slack.stat().st_size:
-        data, exc_text = _read_json(legacy_slack)
-        if data is None:
-            notes.append(
-                issue(
-                    level="warning",
-                    outcome="failed",
-                    area="slack-state",
-                    message=f"legacy {legacy_slack.name} is not JSON.",
-                    fallback="threads and pending notifications in the unreadable file are not kept",
-                    impact="a new thread may be started for an advisory that already had one",
-                    exception=exc_text,
-                )
-            )
-        else:
-            state["threads"] = _threads_from(data)
-            state["pending"] = _pending_from(data)
-            imported.append(legacy_slack.name)
-    if imported:
-        notes.append(
-            issue(
-                level="info",
-                outcome="imported",
-                area="baseline",
-                message=f"Imported {', '.join(imported)} into {path.name}.",
-                fallback="next poll reads the combined file",
-                impact="legacy files are not read again once the combined file exists",
-            )
-        )
-    return state, notes
+    return empty_state(), notes
 
 
 def save_state(path: Path, state: dict[str, Any]) -> None:
