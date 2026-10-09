@@ -372,7 +372,7 @@ pipeline {
         TESTING_GIT_ACCOUNT = "${params.git_account}"
     }
     options {
-        withCredentials(moleculePdpsJenkinsCreds())
+        withCredentials(awsCredentials)
         timeout(time: 6, unit: 'HOURS')
     }
         stages {
