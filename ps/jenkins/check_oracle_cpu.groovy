@@ -125,6 +125,10 @@ pipeline {
     }
     options {
         disableConcurrentBuilds()
+        // Each Oracle read aborts after 120 s of socket silence. A slow
+        // body can still run without end, and disableConcurrentBuilds
+        // then holds every later cron trigger until that build finishes.
+        timeout(time: 30, unit: 'MINUTES')
         // removeLastBuild stays false. LogRotator then keeps the last
         // successful build and the last stable build, including their
         // artifacts, after NOT_BUILT polls rotate the rest.
