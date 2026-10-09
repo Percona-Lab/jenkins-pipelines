@@ -268,13 +268,71 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     return bugs
 
 
+def _vuln_description(vuln: dict[str, Any]) -> str:
+    for note in vuln.get("notes") or []:
+        if not isinstance(note, dict):
+            continue
+        if str(note.get("category") or "").lower() == "description":
+            return str(note.get("text") or "")
+    return ""
+
+
+def _product_name(description: str) -> str:
+    match = re.search(r"Vulnerability in the (.+?) product of", description)
+    return match.group(1).strip() if match else ""
+
+
+def _component_name(description: str) -> str:
+    """Text after '(component:' up to the matching close paren."""
+    key = "(component:"
+    start = description.lower().find(key)
+    if start < 0:
+        return ""
+    depth = 1
+    buf: list[str] = []
+    for char in description[start + len(key) :]:
+        if char == "(":
+            depth += 1
+            buf.append(char)
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                break
+            buf.append(char)
+        else:
+            buf.append(char)
+    return "".join(buf).strip()
+
+
+def mysql_cve_components(data: dict[str, Any]) -> dict[str, str]:
+    """CVE id to the CSAF component, for MySQL products only."""
+    if not isinstance(data, dict):
+        return {}
+    vulns = data.get("vulnerabilities")
+    if not isinstance(vulns, list):
+        return {}
+    found: dict[str, str] = {}
+    for vuln in vulns:
+        if not isinstance(vuln, dict):
+            continue
+        cve = str(vuln.get("cve") or "").upper()
+        if not cve.startswith("CVE-"):
+            continue
+        description = _vuln_description(vuln)
+        product = _product_name(description)
+        if not product.lower().startswith("mysql"):
+            continue
+        found[cve] = _component_name(description)
+    return found
+
+
 def fetch_bug_map(
     page_url: str,
     html: str,
     notes: list[dict[str, Any]],
     slug: str,
-) -> dict[str, list[str]] | None:
-    """Return the bug map, or None when the CSAF file could not be used.
+) -> tuple[dict[str, list[str]], dict[str, str]] | None:
+    """Return the bug map and MySQL CVE components, or None when CSAF is unusable.
 
     None tells the caller to keep the previous bug map. A missing link
     and a document that is not CSAF are both unavailable, not an empty map.
@@ -313,6 +371,7 @@ def fetch_bug_map(
     try:
         data = json.loads(raw)
         bug_map = bug_map_from_csaf(data)
+        components = mysql_cve_components(data)
     except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
         log.warning("WARNING cpu CSAF unusable url=%s err=%s", csaf_url, exc)
         notes.append(
@@ -328,7 +387,7 @@ def fetch_bug_map(
         )
         return None
     log.info("cpu CSAF url=%s bugs=%d", csaf_url, len(bug_map))
-    return bug_map
+    return bug_map, components
 
 
 def merge_cve_lists(maps: list[dict[str, list[str]]]) -> dict[str, list[str]]:
@@ -363,24 +422,73 @@ def _cve_delta(old: list[str], new: list[str]) -> tuple[list[str], list[str]]:
     return sorted(new_set - old_set), sorted(old_set - new_set)
 
 
+def _mysql_lines(
+    added: list[str],
+    removed: list[str],
+    components: dict[str, str] | None,
+    bug_maps: list[dict[str, list[str]]] | None,
+) -> list[str]:
+    """MySQL subset of a CVE diff, then components by how many bugs name them."""
+    if components is None:
+        return []
+    mysql_added = [cve for cve in added if cve in components]
+    mysql_removed = [cve for cve in removed if cve in components]
+    lines = [f"MySQL: +{len(mysql_added)} -{len(mysql_removed)}"]
+    bugs_for: dict[str, list[str]] = {}
+    for bug_map in bug_maps or []:
+        for bug, cves in bug_map.items():
+            if not isinstance(cves, list):
+                continue
+            for cve in cves:
+                bucket = bugs_for.setdefault(str(cve), [])
+                if str(bug) not in bucket:
+                    bucket.append(str(bug))
+    seen: set[tuple[str, str]] = set()
+    counts: dict[str, int] = {}
+    for cve in mysql_added + mysql_removed:
+        component = components.get(cve) or ""
+        if not component:
+            continue
+        bugs = bugs_for.get(cve) or [cve]
+        for bug in bugs:
+            key = (bug, component)
+            if key in seen:
+                continue
+            seen.add(key)
+            counts[component] = counts.get(component, 0) + 1
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    if ranked:
+        lines.append(", ".join(f"{name} ({count})" for name, count in ranked))
+    return lines
+
+
 def format_slack(
     old: list[str],
     new: list[str],
     added: list[str] | None = None,
     removed: list[str] | None = None,
+    components: dict[str, str] | None = None,
+    bug_maps: list[dict[str, list[str]]] | None = None,
 ) -> str:
     """Slack text for one CVE-set change. A first list is only the count."""
     if added is None or removed is None:
         added, removed = _cve_delta(old, new)
     if not old:
-        return f"+{len(added)} CVEs"
-    lines = [f"+{len(added)} -{len(removed)} CVEs"]
-    lines.extend(f"+ {cve}" for cve in added)
-    lines.extend(f"- {cve}" for cve in removed)
+        lines = [f"+{len(added)} CVEs"]
+    else:
+        lines = [f"+{len(added)} -{len(removed)} CVEs"]
+        lines.extend(f"+ {cve}" for cve in added)
+        lines.extend(f"- {cve}" for cve in removed)
+    lines.extend(_mysql_lines(added, removed, components, bug_maps))
     return "\n".join(lines)
 
 
-def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
+def describe_change(
+    old: list[str],
+    new: list[str],
+    components: dict[str, str] | None = None,
+    bug_maps: list[dict[str, list[str]]] | None = None,
+) -> dict[str, Any] | None:
     """Return a diff record, or None when the CVE sets match."""
     added, removed = _cve_delta(old, new)
     if not added and not removed:
@@ -390,7 +498,7 @@ def describe_change(old: list[str], new: list[str]) -> dict[str, Any] | None:
         "cves": list(new),
         "added": added,
         "removed": removed,
-        "slack": format_slack(old, new, added, removed),
+        "slack": format_slack(old, new, added, removed, components, bug_maps),
     }
 
 
@@ -482,7 +590,12 @@ def collect(
             continue
         stats["refreshed"] += 1
         sha = cve_sha(cves)
-        bug_cves = fetch_bug_map(url, page, notes, slug)
+        fetched = fetch_bug_map(url, page, notes, slug)
+        if fetched is None:
+            bug_cves = None
+            cve_components = None
+        else:
+            bug_cves, cve_components = fetched
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
         advisories.append(
@@ -492,6 +605,7 @@ def collect(
                 "url": url,
                 "cves": cves,
                 "bug_cves": bug_cves,
+                "cve_components": cve_components,
             }
         )
     if picked and not advisories:

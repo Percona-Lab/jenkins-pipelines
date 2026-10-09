@@ -11,9 +11,12 @@ from unittest.mock import patch
 
 from oracle_cpu.core import (
     Collection,
+    _component_name,
     _fetch,
     bug_map_from_csaf,
     cve_sha,
+    format_slack,
+    mysql_cve_components,
     parse_cves,
 )
 from oracle_cpu.diagnostics import load_report, write_status
@@ -56,6 +59,54 @@ class OracleCpuTest(unittest.TestCase):
             }
         )
         self.assertEqual(bugs, {"38888307": ["CVE-2026-1000"]})
+
+    def test_mysql_counts_and_components_follow_the_cve_diff(self) -> None:
+        text = (
+            "Vulnerability in the MySQL Server product of Oracle MySQL "
+            "(component: Server: InnoDB)."
+        )
+        nested = (
+            "Vulnerability in the Oracle Communications Unified Assurance product "
+            "of Oracle Communications (component: Core (MySQL Server))."
+        )
+        self.assertEqual(_component_name(text), "Server: InnoDB")
+        self.assertEqual(_component_name(nested), "Core (MySQL Server)")
+        components = mysql_cve_components(
+            {
+                "vulnerabilities": [
+                    {
+                        "cve": "CVE-2026-1000",
+                        "notes": [{"category": "description", "text": text}],
+                    },
+                    {
+                        "cve": "CVE-2026-1001",
+                        "notes": [
+                            {
+                                "category": "description",
+                                "text": text.replace("InnoDB", "Optimizer"),
+                            }
+                        ],
+                    },
+                    {
+                        "cve": "CVE-2026-2000",
+                        "notes": [{"category": "description", "text": nested}],
+                    },
+                ]
+            }
+        )
+        self.assertEqual(
+            components,
+            {"CVE-2026-1000": "Server: InnoDB", "CVE-2026-1001": "Server: Optimizer"},
+        )
+        slack = format_slack(
+            ["CVE-2026-1000"],
+            ["CVE-2026-1000", "CVE-2026-1001", "CVE-2026-2000"],
+            components=components,
+            bug_maps=[{"38888307": ["CVE-2026-1001"], "38888308": ["CVE-2026-1001"]}],
+        )
+        self.assertIn("+2 -0 CVEs", slack)
+        self.assertIn("MySQL: +1 -0", slack)
+        self.assertIn("Server: Optimizer (2)", slack)
 
     def test_parser_skips_modification_history(self) -> None:
         html = (

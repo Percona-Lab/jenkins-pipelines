@@ -38,10 +38,17 @@ def stored_advisory(row: Any) -> dict[str, Any] | None:
         if not isinstance(cves, list) or not all(isinstance(item, str) for item in cves):
             return None
         bugs[str(key)] = list(cves)
+    raw_components = row.get("cve_components") or {}
+    components: dict[str, str] = {}
+    if isinstance(raw_components, dict):
+        for cve, name in raw_components.items():
+            if isinstance(cve, str) and isinstance(name, str) and cve.startswith("CVE-"):
+                components[cve] = name
     return {
         "sha": sha or cve_sha(list(raw_cves)),
         "cves": list(raw_cves),
         "bug_cves": bugs,
+        "cve_components": components,
         "title": str(row.get("title") or ""),
         "url": str(row.get("url") or ""),
     }

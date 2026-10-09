@@ -32,12 +32,14 @@ def _fresh_row(
     sha: str | None = None,
     title: str = "",
     url: str = "",
+    cve_components: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     copied = list(cves)
     return {
         "sha": sha or cve_sha(copied),
         "cves": copied,
         "bug_cves": bug_cves,
+        "cve_components": dict(cve_components or {}),
         "title": title,
         "url": url,
     }
@@ -78,12 +80,30 @@ def apply_state(
         bug_cves = item.get("bug_cves")
         if bug_cves is None:
             bug_cves = dict(saved.get("bug_cves") or {})
+        old_components = dict(saved.get("cve_components") or {})
+        fresh_components = item.get("cve_components")
+        if fresh_components is None:
+            cve_components = old_components
+            components = old_components
+        else:
+            cve_components = dict(fresh_components)
+            components = {**old_components, **cve_components}
         title = str(item.get("title") or saved.get("title") or slug)
         url = str(item.get("url") or saved.get("url") or "")
         old = [] if ignore_cves else list(saved.get("cves") or [])
         report = report_seeded or slug == newest or (previous is not None and not ignore_cves)
-        change = describe_change(old, new) if report else None
-        rows[slug] = _fresh_row(new, bug_cves, change["sha"] if change else None, title, url)
+        old_bugs = dict(saved.get("bug_cves") or {})
+        change = (
+            describe_change(old, new, components, [old_bugs, bug_cves]) if report else None
+        )
+        rows[slug] = _fresh_row(
+            new,
+            bug_cves,
+            change["sha"] if change else None,
+            title,
+            url,
+            cve_components,
+        )
         if change is not None:
             change["slug"] = slug
             change["title"] = title
@@ -156,7 +176,7 @@ def notification_items(
             {
                 "pending_id": "",
                 "slug": slug,
-                "text": f"{title}\n{url}\n+0 -0 CVEs",
+                "text": f"{title}\n{url}\n+0 -0 CVEs\nMySQL: +0 -0",
                 "changed": False,
             }
         )
