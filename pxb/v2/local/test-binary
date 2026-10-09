@@ -59,7 +59,9 @@ cd ${TEST_DIR}
 SUBUNIT2JUNITXML_CMD="PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml"
 if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
-  if [[ ${RHEL} == 9 ]]; then
+  if [[ $(rpm --eval %dist) == ".amzn2023" ]]; then
+    SUBUNIT2JUNITXML_CMD="PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml_python3"
+  elif [[ ${RHEL} == 9 ]]; then
     sudo yum install -y python3-junitxml python3-subunit
     SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
   fi
