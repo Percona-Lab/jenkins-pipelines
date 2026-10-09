@@ -354,7 +354,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=16
-                                def BRANCH_NAME = "REL_16_STABLE"
+                                def BRANCH_NAME = "REL_16_15"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -383,7 +383,7 @@ pipeline {
                         cleanUpWS()
 			script {
 				def PG_VERSION=16
-				def BRANCH_NAME = "REL_16_STABLE"
+				def BRANCH_NAME = "REL_16_15"
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -412,7 +412,7 @@ pipeline {
                         cleanUpWS()
 			script {
 				def PG_VERSION=16
-				def BRANCH_NAME = 'REL_16_STABLE'
+				def BRANCH_NAME = 'REL_16_15'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -441,7 +441,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=15
-                                def BRANCH_NAME = "REL_15_STABLE"
+                                def BRANCH_NAME = "REL_15_19"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -470,7 +470,7 @@ pipeline {
                         cleanUpWS()
 			script {
 				def PG_VERSION=15
-                        	def BRANCH_NAME = 'REL_15_STABLE'
+                        	def BRANCH_NAME = 'REL_15_19'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -499,7 +499,7 @@ pipeline {
                         cleanUpWS()
 			script {
                         	def PG_VERSION=15
-                        	def BRANCH_NAME = 'REL_15_STABLE'
+                        	def BRANCH_NAME = 'REL_15_19'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -528,7 +528,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=14
-                                def BRANCH_NAME = "REL_14_STABLE"
+                                def BRANCH_NAME = "REL_14_24"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -557,7 +557,7 @@ pipeline {
                         cleanUpWS()
 			script {
                         	def PG_VERSION=14
-                        	def BRANCH_NAME = 'REL_14_STABLE'
+                        	def BRANCH_NAME = 'REL_14_24'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -586,7 +586,7 @@ pipeline {
                         cleanUpWS()
 			script {
                         	def PG_VERSION=14
-                        	def BRANCH_NAME = 'REL_14_STABLE'
+                        	def BRANCH_NAME = 'REL_14_24'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
