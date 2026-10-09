@@ -14,7 +14,9 @@ from oracle_cpu.core import (
     _component_name,
     _fetch,
     _read_body,
+    INDEX,
     bug_map_from_csaf,
+    collect,
     cve_sha,
     format_slack,
     mysql_cve_components,
@@ -402,6 +404,46 @@ class OracleCpuTest(unittest.TestCase):
         before = {"threads": {}, "pending": [{"id": "a", "slug": "s", "sha": "1", "slack": "t"}], "advisories": {}}
         after = {"threads": {}, "pending": [], "advisories": {}}
         self.assertNotEqual(persistent_signature(before), persistent_signature(after))
+
+    def test_collect_omits_a_failed_page_and_keeps_an_empty_csaf_map(self) -> None:
+        index = (
+            '<a href="https://www.oracle.com/security-alerts/cpujul2026.html"></a>'
+            '<a href="https://www.oracle.com/security-alerts/cpuapr2026.html"></a>'
+        )
+        page = (
+            "<h2>Risk</h2><p>CVE-2026-0001</p>"
+            '<a href="cpuapr2026csaf.json"></a>'
+        )
+
+        def fake_fetch(url: str, failed: list[str]) -> str:
+            failed.clear()
+            if url == INDEX:
+                return index
+            if url.endswith("cpujul2026.html"):
+                raise urllib.error.URLError("page down")
+            if url.endswith("cpuapr2026.html"):
+                return page
+            if url.endswith("csaf.json"):
+                return '{"vulnerabilities":[]}'
+            raise AssertionError(url)
+
+        with patch("oracle_cpu.core._fetch", fake_fetch):
+            collected = collect(10)
+        advisories = {item["slug"]: item for item in collected.advisories}
+        self.assertNotIn("cpujul2026", advisories)
+        self.assertTrue(
+            any(
+                note.get("level") == "warning"
+                and note.get("area") == "page"
+                and note.get("slug") == "cpujul2026"
+                for note in collected.notes
+            )
+        )
+        row = advisories["cpuapr2026"]
+        self.assertEqual(row["cves"], ["CVE-2026-0001"])
+        self.assertIsNotNone(row["bug_cves"])
+        self.assertEqual(row["bug_cves"], {})
+        self.assertEqual(row["cve_components"], {})
 
     def test_csaf_404_names_the_redirect_target(self) -> None:
         published = "https://www.oracle.com/docs/tech/security-alerts/cspumay2026csaf.json"
