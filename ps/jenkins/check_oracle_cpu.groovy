@@ -1,8 +1,3 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
-    $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
-]) _
-
 def STATE = 'cpu-state.json'
 def LEGACY_STATE = 'cpu-cves.json'
 def LEGACY_SLACK = 'cpu-slack.json'
