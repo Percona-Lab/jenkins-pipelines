@@ -156,7 +156,30 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "client_test"]'
+                    script: 'return ["pt3"]'
+                ]
+            ]
+        ],
+
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Install Repo',
+            name: 'install_repo',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            return ["NA"]
+                        }
+                        else {
+                            return ["testing", "main", "experimental"]
+                        }
+                    '''
                 ]
             ]
         ],
@@ -165,6 +188,12 @@ properties([
             defaultValue: 'Percona-QA',
             description: 'Git account name',
             name: 'git_account',
+            trim: false
+        ),
+        string(
+            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+            description: 'Git repository name',
+            name: 'git_repo',
             trim: false
         ),
         string(
@@ -199,28 +228,6 @@ properties([
             ]
         ],
 
-        [
-            $class: 'CascadeChoiceParameter',
-            choiceType: 'PT_SINGLE_SELECT',
-            description: 'Install Repo',
-            name: 'install_repo',
-            referencedParameters: 'action_to_test',
-            script: [
-                $class: 'GroovyScript',
-                script: [
-                    classpath: [],
-                    sandbox: true,
-                    script: '''
-                        if (action_to_test == "major_upgrade") {
-                            return ["NA"]
-                        }
-                        else {
-                            return ["testing", "main", "experimental"]
-                        }
-                    '''
-                ]
-            ]
-        ],
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
@@ -342,11 +349,6 @@ properties([
             description: 'check_warnings',
             name: 'check_warnings'
         ),
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Install MySQL Shell',
-            name: 'install_mysql_shell'
-        )
     ])
 ])
 
