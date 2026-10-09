@@ -38,6 +38,11 @@ pipeline {
             defaultValue: 'percona',
             description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.'
         )
+        text(
+            defaultValue: '',
+            description: 'Expected versions of the packages in the image, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing tables for this run. Leave empty to use the tables.',
+            name: 'EXPECTED_VERSIONS'
+        )
         booleanParam(
             name: 'WITH_POSTGIS',
             description: "Enable if testing a psp/ppg server docker that also contains postgis."
