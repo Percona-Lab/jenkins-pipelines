@@ -145,7 +145,7 @@ pipeline {
             steps {
                 // post reads these files. A failed test must not summarize
                 // the previous build's workspace copy.
-                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json cpu-cves-diff.json cpu-notify cpu-degraded.txt cpu-publish cpu-events.jsonl cpu-event.json"
+                sh "rm -rf ${STATE} ${LEGACY_STATE} ${LEGACY_SLACK} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json"
                 sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins'
             }
         }
