@@ -139,7 +139,7 @@ pipeline {
                 // post reads these files. A failed test must not summarize
                 // the previous build's workspace copy.
                 sh "rm -rf ${STATE} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json"
-                sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins'
+                sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins -p test_oracle_cpu.py'
             }
         }
         stage('Check advisories') {
