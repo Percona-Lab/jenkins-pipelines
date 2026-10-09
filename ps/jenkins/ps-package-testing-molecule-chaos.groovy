@@ -169,7 +169,7 @@ def installMoleculeChaos() {
 
         # Run as the agent user (NOT sudo): chaos-setup.sh calls sudo itself for
         # the apt steps and creates the venv under $HOME (/opt/jenkins-agent).
-        bash "${WORKSPACE}/scripts/chaos-setup.sh"
+        sudo bash "${WORKSPACE}/scripts/chaos-setup.sh"
     '''
 }
 
