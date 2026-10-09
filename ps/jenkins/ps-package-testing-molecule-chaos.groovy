@@ -124,18 +124,21 @@ def moleculeParallelTestChaos(allOS, operatingSystems, venvDir) {
 }
 
 // Kill leftover VMs / disks from previous runs on the shared metal node.
+// Everything here is owned by the agent user (molecule launches the qemu
+// processes and writes the /tmp artifacts as this user), so no sudo is needed
+// - and the chaos-amd node denies sudo to the jenkins user anyway.
 def cleanupStaleVMs() {
     sh '''
         set +e
         echo "Killing any running qemu-system processes..."
-        sudo pkill -9 -f 'qemu-system-(x86_64|aarch64)' || true
+        pkill -9 -f 'qemu-system-(x86_64|aarch64)' || true
         echo "Removing stale pidfiles, disks, cloud-init artifacts, and qemu logs..."
-        sudo rm -f /tmp/qemu-*.pid
-        sudo rm -f /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log
-        sudo rm -f /tmp/qemu-*-vars.fd
-        sudo rm -f /tmp/molecule-*.raw
-        sudo rm -f /tmp/cloud-init-*.iso
-        sudo rm -rf /tmp/cloud-init-*
+        rm -f /tmp/qemu-*.pid
+        rm -f /tmp/qemu-*-serial.log /tmp/qemu-*-qemu.log /tmp/qemu-*-stderr.log
+        rm -f /tmp/qemu-*-vars.fd
+        rm -f /tmp/molecule-*.raw
+        rm -f /tmp/cloud-init-*.iso
+        rm -rf /tmp/cloud-init-*
         echo "Removing ansible caches (keeping ${HOME}/qemu-images intact)..."
         rm -rf ${HOME}/.ansible/tmp ${HOME}/.cache/molecule || true
         echo "Disk free after cleanup:"
@@ -145,31 +148,21 @@ def cleanupStaleVMs() {
     '''
 }
 
-// Build the molecule + QEMU environment (venv, system packages, cloud images).
-// Runs scripts/chaos-setup.sh straight from this jenkins-pipelines checkout
-// (it carries the molecule/ansible-core version pins for the Python 3.10 node)
-// instead of the qemu-kvm-molecule repo's own setup.sh.
+// Build the molecule + QEMU environment (venv, cloud images) for the agent
+// user. Runs scripts/chaos-setup.sh straight from this jenkins-pipelines
+// checkout (it carries the molecule/ansible-core version pins for the Python
+// 3.10 node) instead of the qemu-kvm-molecule repo's own setup.sh.
+//
+// The jenkins user has NO sudo on chaos-amd, so chaos-setup.sh no longer
+// installs system packages or configures apt-cacher-ng - the node must be
+// pre-provisioned with qemu-system-x86, qemu-utils, python3-venv, genisoimage,
+// wget and git (and optionally apt-cacher-ng) baked into its image. The script
+// runs as the agent user and only builds the venv + downloads cloud images
+// under $HOME.
 def installMoleculeChaos() {
     sh '''
         set -e
-        # A freshly-booted node may still be running unattended-upgrades /
-        # apt-daily, which holds the dpkg lock and makes apt-get fail
-        # instantly. Wait (up to ~10 min) for the lock to clear first.
-        echo "Waiting for any apt/dpkg lock to be released..."
-        for i in $(seq 1 120); do
-            if ! sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
-               && ! sudo fuser /var/lib/dpkg/lock         >/dev/null 2>&1 \
-               && ! sudo fuser /var/lib/apt/lists/lock    >/dev/null 2>&1; then
-                echo "apt/dpkg lock is free."
-                break
-            fi
-            echo "apt/dpkg is busy, waiting... (${i}/120)"
-            sleep 5
-        done
-
-        # Run as the agent user (NOT sudo): chaos-setup.sh calls sudo itself for
-        # the apt steps and creates the venv under $HOME (/opt/jenkins-agent).
-        sudo bash "${WORKSPACE}/scripts/chaos-setup.sh"
+        bash "${WORKSPACE}/scripts/chaos-setup.sh"
     '''
 }
 

@@ -4,6 +4,22 @@
 #
 # For Linux aarch64: use ./setup-aarch64.sh
 # For macOS Apple Silicon: use ./setup-arm.sh
+#
+# SUDO-FREE: the chaos-amd agent user has no sudo, so this script no longer
+# installs OS packages or configures apt-cacher-ng. Those must be baked into
+# the node image once (see "Node pre-provisioning" below). This script runs as
+# the agent user and only builds the Python venv + downloads cloud images under
+# $HOME-owned paths.
+#
+# Node pre-provisioning (one-time, by an admin with root):
+#   apt-get install -y qemu-system-x86 qemu-utils python3 python3-venv \
+#       python3-pip genisoimage wget git apt-cacher-ng
+#   systemctl enable --now apt-cacher-ng
+#   # Optional apt-cacher-ng tuning for parallel-VM package caching, appended
+#   # to /etc/apt-cacher-ng/acng.conf:
+#   #   Remap-percona: http://repo.percona.com ; https://repo.percona.com
+#   #   PassThroughPattern: .*
+#   # then: systemctl reload apt-cacher-ng
 
 set -e
 
@@ -11,45 +27,25 @@ set -e
 
 VENV_DIR="${HOME}/.venv/molecule_qemu"
 # Cache cloud images in a fixed, HOME-independent location so repeat runs
-# (whether invoked with or without sudo) always find the already-converted
-# .raw files and skip re-downloading. Override with QEMU_IMAGES_DIR if the
-# agent home differs. NOTE: the molecule scenarios
-# (package-testing molecule/ps/chaos/molecule/<os>/molecule.yml) must point
-# their image: paths at this SAME directory, or the VMs won't find the images.
+# always find the already-converted .raw files and skip re-downloading.
+# Override with QEMU_IMAGES_DIR if the agent home differs. NOTE: the molecule
+# scenarios (package-testing molecule/ps/chaos/molecule/<os>/molecule.yml) must
+# point their image: paths at this SAME directory, or the VMs won't find them.
 IMG_DIR="${QEMU_IMAGES_DIR:-/opt/jenkins-agent/qemu-images}"
 
-echo "→ Installing OS packages (requires sudo)"
-sudo apt-get update -y
-sudo apt-get install -y qemu-system-x86 qemu-utils \
-    python3 python3-venv python3-pip genisoimage wget git \
-    apt-cacher-ng
-
-# apt-cacher-ng listens on 0.0.0.0:3142. Guests reach it at 10.0.2.2:3142
-# via SLIRP. Adds request-coalescing across parallel VMs hitting the same
-# package URLs (apt + dnf — content-agnostic HTTP cache).
-sudo systemctl enable --now apt-cacher-ng
-
-# Cache HTTPS Percona repos by remapping client HTTP requests to HTTPS upstream.
-# Without this, apt-cacher tunnels TLS without caching and the parallel-VM
-# request-coalescing win is lost for percona-xtrabackup downloads.
-if ! grep -q '^Remap-percona:' /etc/apt-cacher-ng/acng.conf 2>/dev/null; then
-    echo "→ Adding Remap-percona rule to apt-cacher-ng"
-    echo 'Remap-percona: http://repo.percona.com ; https://repo.percona.com' \
-        | sudo tee -a /etc/apt-cacher-ng/acng.conf > /dev/null
+# Preflight: the node must be pre-provisioned (we have no sudo to install).
+# Fail loudly and early rather than deep inside molecule with a cryptic error.
+echo "→ Checking required tools are present (node must be pre-provisioned)"
+missing=""
+for cmd in qemu-system-x86_64 qemu-img python3 genisoimage wget git; do
+    command -v "${cmd}" >/dev/null 2>&1 || missing="${missing} ${cmd}"
+done
+if [ -n "${missing}" ]; then
+    echo "ERROR: missing required tools:${missing}" >&2
+    echo "The agent user has no sudo; install these on the node image first." >&2
+    echo "See 'Node pre-provisioning' at the top of this script." >&2
+    exit 1
 fi
-
-# Allow HTTPS CONNECT pass-through. Default apt-cacher policy returns 403
-# for any HTTPS host not explicitly allowed, which breaks dnf on Rocky
-# (mirrors.rockylinux.org is HTTPS). Pass-through is uncached but at
-# least functional — Percona stays cached via the Remap rule above.
-if ! grep -q '^PassThroughPattern:' /etc/apt-cacher-ng/acng.conf 2>/dev/null; then
-    echo "→ Adding PassThroughPattern to apt-cacher-ng"
-    echo 'PassThroughPattern: .*' \
-        | sudo tee -a /etc/apt-cacher-ng/acng.conf > /dev/null
-fi
-
-sudo systemctl reload apt-cacher-ng || sudo systemctl restart apt-cacher-ng
-echo "→ apt-cacher-ng status: $(systemctl is-active apt-cacher-ng)"
 
 echo "→ Python venv at ${VENV_DIR}"
 python3 -m venv "${VENV_DIR}"
