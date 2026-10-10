@@ -16,13 +16,11 @@ rm -fr ${WORKDIR_ABS}/PXB
 mkdir -p ${WORKDIR_ABS}/PXB
 
 function errmsg {
-cat <<-EOF | tee ${WORKDIR_ABS}/test_results.subunit
-time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
-test: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as its not supported on selected platform
-time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
-success: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as its not supported on selected platform
+cat <<-EOF | tee ${WORKDIR_ABS}/junit.xml
+<testsuite errors="0" failures="0" name="" tests="1" time="0.000">
+<testcase classname="" name="Compilation &amp; Test run for this flavour(${XTRABACKUP_TARGET}) is masked as its not supported on selected platform" time="0.000"/>
+</testsuite>
 EOF
-  iconv -c -t UTF-8 ${WORKDIR_ABS}/test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
   echo "${SSL_VER} is not supported for ${XTRABACKUP_TARGET} target, this is a stub we decided to implement in PXB-2368"
   exit 0
 }
@@ -160,9 +158,18 @@ if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
         XBTR_ARGS+=" -D"
     fi
 fi
+rm -f junit.xml
 ./run.sh ${XBTR_ARGS} -f | tee -a ${WORKDIR_ABS}/xbtr.output
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/ ${WORKDIR_ABS}/
-cp test_results.subunit ${WORKDIR_ABS}
-iconv -c -t UTF-8 test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
+if [ -f junit.xml ]; then
+  cp junit.xml ${WORKDIR_ABS}
+elif [ -f test_results.subunit ]; then
+  # run.sh of 2.4, 8.0 and older trees writes test_results.subunit instead of junit.xml
+  cp test_results.subunit ${WORKDIR_ABS}
+  iconv -c -t UTF-8 test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
+else
+  # Keep going so run-test still exports the logs, the JUnit step fails the build
+  echo "run.sh wrote neither junit.xml nor test_results.subunit"
+fi
 exit $status
