@@ -564,35 +564,17 @@ EOF
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=600s
 
-                        # The PG operator restarts the pg-db pods after pmm-token-init writes the PMM token secret; tests that
-                        # start during that roll hit PMM-15716, so wait for the job and then for 90s without a pg-db pod change.
-                        if kubectl get job/pmm-ha-pmm-token-init -n pmm >/dev/null 2>&1; then
-                          kubectl wait --for=condition=complete job/pmm-ha-pmm-token-init -n pmm --timeout=600s
-                        fi
+                        # The PG operator restarts the pg-db pods to add the pmm-client sidecar once pmm-token-init writes the
+                        # PMM token; tests started during that restart hit PMM-15716, so wait until every pod has the sidecar.
+                        kubectl wait --for=condition=complete job/pmm-ha-pmm-token-init -n pmm --timeout=600s
                         PG_PODS='postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres'
-                        prev=''
-                        stable_since=$SECONDS
-                        deadline=$((SECONDS + 900))
-                        while true; do
-                          state=$(kubectl get perconapgcluster pmm-ha-pg-db -n pmm -o jsonpath='{.status.state}' || true)
-                          pods=$(kubectl get pods -n pmm -l "$PG_PODS" \
-                            -o jsonpath='{range .items[*]}{.metadata.uid}={.status.conditions[?(@.type=="Ready")].status} {end}' || true)
-                          total=$(echo "$pods" | wc -w)
-                          ready=$(echo "$pods" | grep -o '=True' | wc -l)
-                          if [ "$state" != ready ] || [ "$total" -eq 0 ] || [ "$ready" -ne "$total" ] || [ "$pods" != "$prev" ]; then
-                            stable_since=$SECONDS
-                          elif [ $((SECONDS - stable_since)) -ge 90 ]; then
-                            echo "pg-db settled: state=$state, $ready/$total pods ready and unchanged for 90s"
-                            break
-                          fi
-                          prev=$pods
-                          if [ "$SECONDS" -ge "$deadline" ]; then
-                            echo "pg-db did not settle within 15m (state=$state, $ready/$total ready)"
-                            kubectl get pods -n pmm -l "$PG_PODS" -o wide || true
-                            exit 1
-                          fi
+                        for i in $(seq 90); do
+                          pods=$(kubectl get pods -n pmm -l "$PG_PODS" -o jsonpath='{range .items[*]}{.spec.containers[*].name};{end}')
+                          [ -n "$pods" ] && [ "$(echo "$pods" | grep -o ';' | wc -l)" -eq "$(echo "$pods" | grep -o 'pmm-client' | wc -l)" ] && break
+                          [ "$i" -lt 90 ] || { echo "pg-db pods did not get the pmm-client sidecar within 15m"; kubectl get pods -n pmm -l "$PG_PODS"; exit 1; }
                           sleep 10
                         done
+                        kubectl wait --for=condition=ready pod -l "$PG_PODS" -n pmm --timeout=600s
                         kubectl get pods -n pmm
                     '''
                 }
