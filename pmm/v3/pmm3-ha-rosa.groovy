@@ -965,6 +965,18 @@ EOF
                         retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
                         retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
 
+                        # The PG operator restarts the pg-db pods to add the pmm-client sidecar once pmm-token-init writes the
+                        # PMM token; tests started during that restart hit PMM-15716, so wait until every pod has the sidecar.
+                        retry oc wait --for=condition=complete job/pmm-ha-pmm-token-init -n pmm --timeout=10m
+                        PG_PODS='postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres'
+                        for i in $(seq 90); do
+                          pods=$(oc get pods -n pmm -l "$PG_PODS" -o jsonpath='{range .items[*]}{.spec.containers[*].name};{end}' || true)
+                          [ -n "$pods" ] && [ "$(echo "$pods" | grep -o ';' | wc -l)" -eq "$(echo "$pods" | grep -o 'pmm-client' | wc -l)" ] && break
+                          [ "$i" -lt 90 ] || { echo "pg-db pods did not get the pmm-client sidecar within 15m"; oc get pods -n pmm -l "$PG_PODS"; exit 1; }
+                          sleep 10
+                        done
+                        retry oc wait --for=condition=ready pod -l "$PG_PODS" -n pmm --timeout=10m
+
                         echo ""
                         oc get pods -n pmm
                     '''
