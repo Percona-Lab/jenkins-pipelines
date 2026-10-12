@@ -453,9 +453,14 @@ def _mysql_lines(
     components: dict[str, str] | None,
     bug_maps: list[dict[str, list[str]]] | None,
 ) -> list[str]:
-    """MySQL subset of a CVE diff, then components by how many bugs name them."""
+    """MySQL subset of a CVE diff, then components by how many bugs name them.
+
+    components None means this poll has no CSAF document, so the MySQL
+    counts are unknown. An empty dict means CSAF was read and named no
+    MySQL CVEs.
+    """
     if components is None:
-        return []
+        return ["MySQL: unknown (CSAF unavailable)"]
     mysql_added = [cve for cve in added if cve in components]
     mysql_removed = [cve for cve in removed if cve in components]
     lines = [f"MySQL: +{len(mysql_added)} -{len(mysql_removed)}"]

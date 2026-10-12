@@ -83,8 +83,12 @@ def apply_state(
         old_components = dict(saved.get("cve_components") or {})
         fresh_components = item.get("cve_components")
         if fresh_components is None:
+            # Keep the last known map on the row. Do not use it to count
+            # this diff: new CVE ids are absent from it, so the line would
+            # say MySQL: +0 -0 and a later successful CSAF would not post
+            # a correction when the CVE set is unchanged.
             cve_components = old_components
-            components = old_components
+            components = None
         else:
             cve_components = dict(fresh_components)
             components = {**old_components, **cve_components}

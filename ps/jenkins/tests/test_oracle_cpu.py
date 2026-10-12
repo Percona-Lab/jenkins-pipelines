@@ -136,6 +136,26 @@ class OracleCpuTest(unittest.TestCase):
         )
         self.assertEqual(parse_cves(html), ["CVE-2026-0001", "CVE-2026-0002"])
 
+    def test_missing_csaf_does_not_claim_zero_mysql_cves(self) -> None:
+        previous = {
+            "cpuapr2026": {
+                "sha": "old",
+                "cves": ["CVE-2026-1"],
+                "bug_cves": {},
+                "cve_components": {"CVE-2026-1": "Server: InnoDB"},
+                "title": "CPU April 2026",
+                "url": "https://example.test/cpuapr2026.html",
+            }
+        }
+        fresh = _fresh("cpuapr2026", ["CVE-2026-1", "CVE-2026-2"])
+        changes, rows = apply_state([fresh], previous)
+        self.assertIn("MySQL: unknown (CSAF unavailable)", changes[0]["slack"])
+        self.assertNotIn("MySQL: +0 -0", changes[0]["slack"])
+        self.assertEqual(
+            rows["cpuapr2026"]["cve_components"],
+            {"CVE-2026-1": "Server: InnoDB"},
+        )
+
     def test_saved_removal_is_reported(self) -> None:
         previous = {
             "cpuapr2026": {
