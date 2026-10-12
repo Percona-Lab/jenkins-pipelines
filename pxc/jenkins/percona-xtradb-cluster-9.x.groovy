@@ -293,6 +293,29 @@ pipeline {
                 }
             }
         }
+        stage('Build docker containers') {
+            when {
+                expression { env.FIPSMODE != 'YES' }
+            }
+            agent {
+                label 'launcher-x64'
+            }
+            steps {
+                sleep time: 20, unit: 'MINUTES'
+                script {
+                    build job: 'hetzner-pxc8.0-docker-build',
+                          parameters: [
+                              string(name: 'CLOUD', value: 'Hetzner'),
+                              string(name: 'ORGANIZATION', value: 'perconalab'),
+                              string(name: 'GIT_REPO', value: "${GIT_REPO}"),
+                              string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),
+                              string(name: 'RPM_RELEASE', value: "${RPM_RELEASE}"),
+                              string(name: 'COMPONENT', value: "${COMPONENT}")
+                          ],
+                          wait: false
+                }
+            }
+        }
     }
     post {
         success {
