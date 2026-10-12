@@ -128,6 +128,12 @@ def _follow(url: str) -> tuple[str | None, str]:
     current = url
     seen: set[str] = set()
     for _ in range(50):
+        # data: and file: responses have no HTTP status. int(None) is a
+        # TypeError, which is not a per-advisory fetch failure, so it
+        # aborts the poll. http: would be fetched in cleartext.
+        if urllib.parse.urlsplit(current).scheme.lower() != "https":
+            hops.append(f"rejected non-https {current}")
+            return None, " -> ".join(hops)
         if current in seen:
             hops.append(f"repeat {current}")
             return None, " -> ".join(hops)

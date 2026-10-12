@@ -465,6 +465,27 @@ class OracleCpuTest(unittest.TestCase):
         self.assertEqual(row["bug_cves"], {})
         self.assertEqual(row["cve_components"], {})
 
+    def test_non_https_redirect_fails_that_download(self) -> None:
+        start = "https://www.oracle.com/security-alerts/cpuapr2026.html"
+        for location in (
+            "data:text/plain,hi",
+            "file:///etc/hostname",
+            "http://www.oracle.com/security-alerts/x.html",
+        ):
+            with self.subTest(location=location):
+                def fake_get(url: str, location: str = location) -> tuple[int, str, str]:
+                    self.assertTrue(url.startswith("https://"), url)
+                    return 302, "", location
+
+                with patch("oracle_cpu.core._http_get", fake_get), patch(
+                    "oracle_cpu.core.time.sleep"
+                ):
+                    failed: list[str] = []
+                    with self.assertRaises(urllib.error.URLError):
+                        _fetch(start, failed)
+                self.assertIn(location, failed[0])
+                self.assertIn("rejected non-https", failed[0])
+
     def test_csaf_404_names_the_redirect_target(self) -> None:
         published = "https://www.oracle.com/docs/tech/security-alerts/cspumay2026csaf.json"
         direct = "https://www.oracle.com/a/tech/docs/security-alerts/cspumay2026csaf.json"
