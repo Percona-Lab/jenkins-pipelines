@@ -79,6 +79,10 @@ class OracleCpuTest(unittest.TestCase):
             _read_body(_Body([], "11"), limit=10)
         with self.assertRaises(urllib.error.URLError):
             _read_body(_Body([b"aaaaaa", b"bbbbbb"], None), limit=10)
+        with self.assertRaises(urllib.error.URLError) as short:
+            _read_body(_Body([b"x" * 20], "200"), limit=1000)
+        self.assertIn("20", str(short.exception))
+        self.assertIn("200", str(short.exception))
 
     def test_mysql_counts_and_components_follow_the_cve_diff(self) -> None:
         text = (

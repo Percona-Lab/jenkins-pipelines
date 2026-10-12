@@ -20,8 +20,9 @@ log = logging.getLogger("oracle_cpu")
 
 INDEX = "https://www.oracle.com/security-alerts/"
 UA = "Mozilla/5.0 (compatible; percona-jenkins-oracle-cpu/1.0)"
-# IncompleteRead is an HTTPException, not a URLError or OSError. A truncated
-# body must retry like a connection failure, then fall back per advisory.
+# A truncated body must retry like a connection failure, then fall back
+# per advisory. read(n) returns a short body instead of IncompleteRead,
+# so _read_body rejects a length that does not match Content-Length.
 # The bytes are decoded to text, so the process holds about two copies.
 # The largest CSAF file seen is about 6 MB. This stops a runaway body
 # before that pair of copies is allocated.
@@ -74,6 +75,7 @@ def _read_body(resp: Any, limit: int = MAX_DOWNLOAD_BYTES) -> bytes:
     """Read a response body, refusing anything over the byte limit."""
     headers = getattr(resp, "headers", None)
     declared = headers.get("Content-Length") if headers is not None else None
+    size = None
     if declared is not None and str(declared).strip().isdigit():
         size = int(str(declared).strip())
         if size > limit:
@@ -88,6 +90,10 @@ def _read_body(resp: Any, limit: int = MAX_DOWNLOAD_BYTES) -> bytes:
         if total > limit:
             raise urllib.error.URLError(f"response exceeded {limit} bytes")
         chunks.append(chunk)
+    if size is not None and total != size:
+        raise urllib.error.URLError(
+            f"response ended after {total} bytes, Content-Length is {size}"
+        )
     return b"".join(chunks)
 
 
