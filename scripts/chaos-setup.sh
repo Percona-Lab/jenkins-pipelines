@@ -52,7 +52,9 @@ python3 -m venv "${VENV_DIR}"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 pip install --upgrade pip
-pip install "molecule>=25.6.0,<26" "molecule-plugins>=23.7.0,<26" "ansible-core>=2.17,<2.18"
+# ansible-core must be >= 2.20 on Python 3.11+ (ansible_compat hard-refuses
+# older cores on Python 3.14 - "Python 3.14 requires ansible-core >= 2.20.0").
+pip install "molecule>=25.6.0,<26" "molecule-plugins>=23.7.0,<26" "ansible-core>=2.20,<2.21"
 ansible-galaxy collection install ansible.posix community.general
 
 if [ ! -f "${HOME}/.ssh/id_rsa" ]; then

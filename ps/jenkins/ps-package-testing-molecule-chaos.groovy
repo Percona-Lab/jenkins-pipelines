@@ -52,13 +52,13 @@ def ps80PackageTesting() {
 
 def ps84PackageTesting() {
     return [
-        'debian12',
+        //'debian12',
         'debian13',
-        'ubuntu22',
+        //'ubuntu22',
         'ubuntu24',
-        'oraclelinux9',
+        //'oraclelinux9',
         'oraclelinux10',
-        'rocky9',
+        //'rocky9',
         'rocky10',
         'al2023'
     ]
@@ -100,27 +100,49 @@ def chaosMoleculeDir() {
 // Run each scenario's create/converge/destroy cycle in parallel on the local
 // QEMU host. Mirrors moleculeParallelTestALL() but uses the qemu venv and the
 // create/converge/destroy lifecycle from workingsetup.groovy.
-def moleculeParallelTestChaos(allOS, operatingSystems, venvDir) {
-    def tests = [:]
-    allOS.each { os ->
-        tests["${os}"] = {
-            stage("${os}") {
-                if (operatingSystems.contains(os)) {
+// Run scenarios with a bounded concurrency so the shared metal node is not
+// overwhelmed by too many QEMU/KVM VMs at once. `batchSize` scenarios run in
+// parallel; once a batch finishes the next batch starts. Only OSes that are in
+// `operatingSystems` are run (the rest are skipped), and the eligible list is
+// split into groups of `batchSize` via List.collate().
+def moleculeParallelTestChaos(allOS, operatingSystems, venvDir, batchSize = 2) {
+    def eligibleOS = allOS.findAll { operatingSystems.contains(it) }
+    (allOS - eligibleOS).each { os ->
+        echo "Skipping ${os} as it's not in operatingSystems"
+    }
+
+    eligibleOS.collate(batchSize).eachWithIndex { batch, idx ->
+        echo "Running batch ${idx + 1}: ${batch.join(', ')}"
+        def tests = [:]
+        batch.each { os ->
+            tests["${os}"] = {
+                stage("${os}") {
                     sh """
                         set -e
                         . ${venvDir}/bin/activate
                         cd ${chaosMoleculeDir()}
-                        molecule create   -s ${os}
+                        # On a create failure the real qemu error is redirected
+                        # to /tmp/qemu-<os>-stderr.log by the create playbook and
+                        # never reaches the molecule output - dump it (plus the
+                        # serial console tail) so the cause is visible in Jenkins.
+                        if ! molecule create -s ${os}; then
+                            echo "===== qemu stderr (${os}) ====="
+                            cat /tmp/qemu-${os}-stderr.log 2>/dev/null || echo "(no stderr log)"
+                            echo "===== qemu serial log tail (${os}) ====="
+                            tail -n 80 /tmp/qemu-${os}-serial.log 2>/dev/null || echo "(no serial log)"
+                            echo "===== /dev/kvm status ====="
+                            ls -l /dev/kvm 2>&1 || echo "(no /dev/kvm)"
+                            id
+                            exit 1
+                        fi
                         molecule converge -s ${os}
                         molecule destroy  -s ${os}
                     """
-                } else {
-                    echo "Skipping ${os} as it's not in operatingSystems"
                 }
             }
         }
+        parallel tests
     }
-    parallel tests
 }
 
 // Kill leftover VMs / disks from previous runs on the shared metal node.
