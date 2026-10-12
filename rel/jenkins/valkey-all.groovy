@@ -45,6 +45,7 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Docker image: valkey (server)',           name: 'IMG_VALKEY')
         booleanParam(defaultValue: true, description: 'Docker image: valkey-bundle',             name: 'IMG_BUNDLE')
         booleanParam(defaultValue: true, description: 'Docker image: valkey modules',            name: 'IMG_MODULE')
+        booleanParam(defaultValue: true, description: 'Docker image: valkey-admin',              name: 'IMG_ADMIN')
         booleanParam(defaultValue: true, description: 'Run the package test suite (final stage)', name: 'RUN_TESTS')
 
         // --- Versions / refs ---
@@ -163,7 +164,7 @@ pipeline {
             }
         }
         stage('Build Docker images') {
-            when { expression { params.IMG_VALKEY || params.IMG_BUNDLE || params.IMG_MODULE } }
+            when { expression { params.IMG_VALKEY || params.IMG_BUNDLE || params.IMG_MODULE || params.IMG_ADMIN } }
             steps {
                 script {
                     String cloud = params.CLOUD
@@ -195,6 +196,15 @@ pipeline {
                             string(name: 'PACKAGING_BRANCH', value: pkgBr),
                             string(name: 'REPO_CHANNEL',     value: ch),
                             string(name: 'IMAGE_PREFIX',     value: "${ns}/valkey-mod"),
+                        ])
+                    }
+                    if (params.IMG_ADMIN) {
+                        jobs['admin'] = trigger('hetzner-valkey-admin-DOCKER', [
+                            string(name: 'CLOUD',                value: cloud),
+                            string(name: 'PACKAGING_BRANCH',     value: pkgBr),
+                            string(name: 'VALKEY_ADMIN_VERSION', value: params.VALKEY_ADMIN_VERSION),
+                            string(name: 'REPO_CHANNEL',         value: ch),
+                            string(name: 'IMAGE_NAME',           value: "${ns}/valkey-admin"),
                         ])
                     }
                     echo "Building Docker images (namespace ${ns}): ${jobs.keySet().join(', ')}"
