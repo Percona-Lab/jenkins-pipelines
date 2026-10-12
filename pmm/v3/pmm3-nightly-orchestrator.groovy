@@ -392,14 +392,16 @@ timestamps {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : params.PMM_QA_GIT_BRANCH,
                             inputs: [
-                                pmm_image_tag          : imageTag,
-                                pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8,
-                                pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9,
-                                pmm_qa_branch          : params.PMM_QA_GIT_BRANCH,
-                                pxc_version            : '8.0',
-                                pxc_glibc              : '2.35',
-                                pdpgsql_version        : '17',
-                                skip_compatibility     : false,
+                                pmm_image_tag            : imageTag,
+                                pmm_client_tarball_amd64 : params.PMM_CLIENT_TARBALL,
+                                pmm_client_tarball_arm64 : params.PMM_CLIENT_TARBALL_ARM64,
+                                pmm_client_tarball_ol8   : params.PMM_CLIENT_TARBALL_OL8,
+                                pmm_client_tarball_ol9   : params.PMM_CLIENT_TARBALL_OL9,
+                                pmm_qa_branch            : params.PMM_QA_GIT_BRANCH,
+                                pxc_version              : '8.0',
+                                pxc_glibc                : '2.35',
+                                pdpgsql_version          : '17',
+                                skip_compatibility       : false,
                             ],
                         ]).toString()
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
