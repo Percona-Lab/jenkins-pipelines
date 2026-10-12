@@ -175,9 +175,14 @@ def clonePackageTesting(gitAccount, gitBranch) {
         if [ -d "\${PT_DIR}/.git" ]; then
             echo "Refreshing \${PT_DIR} (${gitAccount}/${gitBranch})"
             git -C "\${PT_DIR}" remote set-url origin "\${PT_URL}"
+            # Fetch the requested branch into FETCH_HEAD and hard-reset onto it.
+            # A plain "fetch --depth 1 origin <branch>" does NOT create a local
+            # branch or an origin/<branch> tracking ref, so checking out the
+            # branch name fails with "pathspec did not match" - reset to
+            # FETCH_HEAD instead so any branch works on a pre-existing clone.
             git -C "\${PT_DIR}" fetch --depth 1 origin "${gitBranch}"
-            git -C "\${PT_DIR}" checkout -f "${gitBranch}"
-            git -C "\${PT_DIR}" reset --hard "origin/${gitBranch}"
+            git -C "\${PT_DIR}" checkout -qf FETCH_HEAD
+            git -C "\${PT_DIR}" reset --hard FETCH_HEAD
         else
             echo "Cloning \${PT_URL} (${gitBranch}) -> \${PT_DIR}"
             git clone --depth 1 --branch "${gitBranch}" "\${PT_URL}" "\${PT_DIR}"
