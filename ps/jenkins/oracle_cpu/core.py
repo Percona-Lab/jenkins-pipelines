@@ -305,15 +305,6 @@ def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     return bugs
 
 
-def _vuln_description(vuln: dict[str, Any]) -> str:
-    for note in vuln.get("notes") or []:
-        if not isinstance(note, dict):
-            continue
-        if str(note.get("category") or "").lower() == "description":
-            return str(note.get("text") or "")
-    return ""
-
-
 def _product_name(description: str) -> str:
     match = re.search(r"Vulnerability in the (.+?) product of", description)
     return match.group(1).strip() if match else ""
@@ -341,13 +332,88 @@ def _component_name(description: str) -> str:
     return "".join(buf).strip()
 
 
+def _mysql_product_ids(data: dict[str, Any]) -> set[str]:
+    """Product ids under the product family named Oracle MySQL."""
+    tree = data.get("product_tree")
+    if not isinstance(tree, dict):
+        return set()
+    found: set[str] = set()
+
+    def walk(nodes: Any, in_mysql: bool) -> None:
+        if not isinstance(nodes, list):
+            return
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            name = str(node.get("name") or "").strip().lower()
+            category = str(node.get("category") or "").strip().lower()
+            here = in_mysql or (category == "product_family" and name == "oracle mysql")
+            product = node.get("product")
+            if here and isinstance(product, dict):
+                pid = str(product.get("product_id") or "").strip()
+                if pid:
+                    found.add(pid)
+            walk(node.get("branches"), here)
+
+    walk(tree.get("branches"), False)
+    return found
+
+
+def _description_texts(vuln: dict[str, Any]) -> list[str]:
+    texts: list[str] = []
+    for note in vuln.get("notes") or []:
+        if not isinstance(note, dict):
+            continue
+        if str(note.get("category") or "").lower() != "description":
+            continue
+        texts.append(str(note.get("text") or ""))
+    return texts
+
+
+def _mysql_note_component(texts: list[str]) -> str:
+    """Component from a MySQL description.
+
+    A third-party note is often first. A later note names the MySQL
+    product. A Security-in-Depth note has no "Vulnerability in the"
+    sentence, so it is the label only when no vulnerability note does.
+    """
+    sid = ""
+    for text in texts:
+        if _product_name(text).lower().startswith("mysql"):
+            return _component_name(text)
+        if sid:
+            continue
+        match = re.search(r"issue in the (.+?) product of", text)
+        if match and match.group(1).strip().lower().startswith("mysql"):
+            sid = _component_name(text)
+    return sid
+
+
+def _known_affected(vuln: dict[str, Any]) -> list[str]:
+    status = vuln.get("product_status")
+    if not isinstance(status, dict):
+        return []
+    raw = status.get("known_affected")
+    if not isinstance(raw, list):
+        return []
+    return [str(pid) for pid in raw if pid is not None]
+
+
 def mysql_cve_components(data: dict[str, Any]) -> dict[str, str]:
-    """CVE id to the CSAF component, for MySQL products only."""
+    """CVE id to the CSAF component, for MySQL products only.
+
+    Membership is a known_affected product under the Oracle MySQL
+    family. That set includes every CVE whose first description names
+    a MySQL product, plus third-party fixes and Security-in-Depth
+    notes that the first-description check misses. A document with no
+    such family still uses the first description.
+    """
     if not isinstance(data, dict):
         return {}
     vulns = data.get("vulnerabilities")
     if not isinstance(vulns, list):
         return {}
+    mysql_ids = _mysql_product_ids(data)
     found: dict[str, str] = {}
     for vuln in vulns:
         if not isinstance(vuln, dict):
@@ -355,9 +421,14 @@ def mysql_cve_components(data: dict[str, Any]) -> dict[str, str]:
         cve = str(vuln.get("cve") or "").upper()
         if not cve.startswith("CVE-"):
             continue
-        description = _vuln_description(vuln)
-        product = _product_name(description)
-        if not product.lower().startswith("mysql"):
+        texts = _description_texts(vuln)
+        if mysql_ids:
+            if not any(pid in mysql_ids for pid in _known_affected(vuln)):
+                continue
+            found[cve] = _mysql_note_component(texts)
+            continue
+        description = texts[0] if texts else ""
+        if not _product_name(description).lower().startswith("mysql"):
             continue
         found[cve] = _component_name(description)
     return found

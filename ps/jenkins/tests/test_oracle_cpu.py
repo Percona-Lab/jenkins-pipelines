@@ -122,6 +122,87 @@ class OracleCpuTest(unittest.TestCase):
             components,
             {"CVE-2026-1000": "Server: InnoDB", "CVE-2026-1001": "Server: Optimizer"},
         )
+        tree = {
+            "branches": [
+                {
+                    "category": "vendor",
+                    "name": "Oracle",
+                    "branches": [
+                        {
+                            "category": "product_family",
+                            "name": "Oracle MySQL",
+                            "branches": [
+                                {
+                                    "category": "product_name",
+                                    "name": "MySQL Server",
+                                    "product": {"product_id": "P-server", "name": "MySQL Server"},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+        counted = mysql_cve_components(
+            {
+                "product_tree": tree,
+                "vulnerabilities": [
+                    {
+                        "cve": "CVE-2026-3000",
+                        "product_status": {"known_affected": ["P-server"]},
+                        "notes": [
+                            {
+                                "category": "description",
+                                "text": (
+                                    "Vulnerability in the Oracle BI product of Oracle Analytics "
+                                    "(component: BI Platform (OpenSSL))."
+                                ),
+                            },
+                            {
+                                "category": "description",
+                                "text": (
+                                    "Vulnerability in the MySQL Server product of Oracle MySQL "
+                                    "(component: Server: Packaging (OpenSSL))."
+                                ),
+                            },
+                        ],
+                    },
+                    {
+                        "cve": "CVE-2026-3001",
+                        "product_status": {"known_affected": ["P-server"]},
+                        "notes": [
+                            {
+                                "category": "description",
+                                "text": (
+                                    "Security-in-Depth issue in the MySQL Server product of "
+                                    "Oracle MySQL (component: Server: Packaging (OpenSSL))."
+                                ),
+                            }
+                        ],
+                    },
+                    {
+                        "cve": "CVE-2026-3002",
+                        "product_status": {"known_not_affected": ["P-server"]},
+                        "notes": [
+                            {
+                                "category": "description",
+                                "text": (
+                                    "Security-in-Depth issue in the MySQL Workbench product of "
+                                    "Oracle MySQL (component: MySQL Workbench (libpng))."
+                                ),
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            counted,
+            {
+                "CVE-2026-3000": "Server: Packaging (OpenSSL)",
+                "CVE-2026-3001": "Server: Packaging (OpenSSL)",
+            },
+        )
         slack = format_slack(
             ["CVE-2026-1000"],
             ["CVE-2026-1000", "CVE-2026-1001", "CVE-2026-2000"],
