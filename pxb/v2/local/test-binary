@@ -54,10 +54,13 @@ SSL_VER=$(ls -la {/,/usr/}{lib64,lib,lib/x86_64-linux-gnu}/libssl.so.1.* | sed '
 echo "Running XBTR suite: $suite"
 TEST_DIR=$(dirname "$(find ${WORKDIR_ABS}/PXB -name bootstrap.sh)")
 cd ${TEST_DIR}
+# run.sh of 2.4, 8.0 and older trees writes test_results.subunit and ships the
+# subunit to JUnit converter next to it. Newer trees write junit.xml and ship no
+# converter, so the converter packages are installed only when the tree has it.
 SUBUNIT2JUNITXML_CMD="PYTHONPATH=./python:/usr/local/lib/python:$PYTHONPATH ./subunit2junitxml"
 if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
-  if [[ ${RHEL} == 9 ]]; then
+  if [[ ${RHEL} == 9 ]] && [ -f subunit2junitxml ]; then
     sudo yum install -y python3-junitxml python3-subunit
     SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
   fi
@@ -81,9 +84,11 @@ else
       fi
       ;;
     noble|bookworm|trixie)
-      sudo apt update
-      sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-subunit python3-junitxml
-      SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
+      if [ -f subunit2junitxml ]; then
+        sudo apt update
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-subunit python3-junitxml
+        SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
+      fi
       ;;
     xenial)
       if [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
