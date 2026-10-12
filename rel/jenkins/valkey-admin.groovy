@@ -43,11 +43,11 @@ pipeline {
             description: 'URL for valkey-admin repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v1.1.1',
+            defaultValue: 'v1.2.0',
             description: 'Tag/Branch for valkey-admin repository (upstream tags carry a leading "v")',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1.1.1',
+            defaultValue: '1.2.0',
             description: 'valkey-admin version value',
             name: 'VALKEY_ADMIN_VERSION')
         string(

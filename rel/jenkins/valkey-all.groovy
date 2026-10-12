@@ -58,7 +58,7 @@ pipeline {
         string(defaultValue: '1.1.1', description: 'valkey-ldap version',   name: 'VALKEY_LDAP_VERSION')
         string(defaultValue: '0.2.2', description: 'valkey-audit version',  name: 'VALKEY_AUDIT_VERSION')
         string(defaultValue: '9.1.0', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
-        string(defaultValue: '1.1.1', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
+        string(defaultValue: '1.2.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
     }
     options {
