@@ -145,10 +145,11 @@ pipeline {
         stage('Check advisories') {
             steps {
                 script {
-                    // Newest completed build that archived the checkpoint,
-                    // including ABORTED and FAILURE. NOT_BUILT has no file,
-                    // so the walk continues. StatusBuildSelector would skip
-                    // an abort that already stored a confirmed Slack ack.
+                    // Newest completed build that archived the checkpoint.
+                    // post { always } stores it for every result, including
+                    // NOT_BUILT and ABORTED, when the workspace still has the
+                    // file. A build that never got that far has none, so the
+                    // walk continues.
                     def run = currentBuild.previousBuild
                     while (run != null) {
                         copyArtifacts(
@@ -432,15 +433,20 @@ pipeline {
                     }
                     echo "WARNING cpu status publish failed: ${err}"
                 }
-            }
-        }
-        aborted {
-            script {
-                // ack can update the workspace file before the mid-loop
-                // archive returns. This build stays ABORTED. The next poll
-                // still finds the file by walking previous builds.
-                if (fileExists(STATE)) {
-                    archiveArtifacts artifacts: STATE, allowEmptyArchive: false
+                // LogRotator keeps artifacts for the last successful build
+                // and the last stable build. ABORTED and NOT_BUILT are
+                // neither, and artifactNumToKeep 10 deletes the older
+                // copies. Archive the workspace checkpoint on every result
+                // so a later unchanged build still has the acked file.
+                try {
+                    if (fileExists(STATE)) {
+                        archiveArtifacts artifacts: STATE, allowEmptyArchive: false
+                    }
+                } catch (Exception err) {
+                    if (err instanceof InterruptedException) {
+                        throw err
+                    }
+                    echo "WARNING cpu checkpoint archive failed: ${err}"
                 }
             }
         }
