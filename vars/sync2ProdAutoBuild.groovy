@@ -1,5 +1,21 @@
-def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
+// LOCK_REPO=true serializes publishing per repository: concurrent jobs pushing
+// to the same REPO_NAME wait on a flock held by the remote shell for the whole
+// reprepro/createrepo + rsync sequence. The kernel drops the lock when that
+// shell and its children exit, so a crashed or aborted job never leaves it stale.
+def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION, Boolean LOCK_REPO = false) {
     def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
+    def lockWaitSeconds = 5400
+    def lockFile = '/srv/repo-copy/.publish-locks/' + REPO_NAME.replaceAll('/', '_') + '.lock'
+    def repoLock = !LOCK_REPO ? '' : '''
+                        mkdir -p /srv/repo-copy/.publish-locks
+                        exec 9>>''' + lockFile + '''
+                        echo "Waiting for publish lock ''' + lockFile + ''' (up to ''' + lockWaitSeconds + '''s)"
+                        if ! flock -w ''' + lockWaitSeconds + ''' 9; then
+                            echo "ERROR: could not get publish lock for ''' + REPO_NAME + ''' in ''' + lockWaitSeconds + '''s"
+                            exit 1
+                        fi
+                        echo "Publish lock acquired for ''' + REPO_NAME + '''"
+'''
     node(nodeLabel) {
         unstash 'uploadPath'
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
@@ -14,7 +30,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
                         set -o errexit
                         set -o xtrace
-
+${repoLock}
                         pushd ${path_to_build}/binary
                             if [ "x${REPO_NAME}" == "xpsmdb-50" -o "x${REPO_NAME}" == "xpsmdb-60" ]; then
                                 createrepo_opts=" --no-database "
