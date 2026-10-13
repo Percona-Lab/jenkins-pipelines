@@ -400,10 +400,15 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
+                    MYSQL_VERSION_MAJOR = BRANCH.replaceAll(/^release-/, '').tokenize('.')[0]
                     MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                    echo "MYSQL_VERSION_MAJOR=${MYSQL_VERSION_MAJOR}, MYSQL_VERSION_MINOR=${MYSQL_VERSION_MINOR}"
                     // sync packages
-                    if (env.FIPSMODE == 'YES') {
+                    if ("${MYSQL_VERSION_MAJOR}" == "26") {
+                            sync2ProdAutoBuild(params.CLOUD, "ps-26x-innovation", COMPONENT)
+                        }
+                    } else if (env.FIPSMODE == 'YES') {
                         if ("${MYSQL_VERSION_MINOR}" == "7") {
                             sync2PrivateProdAutoBuild(params.CLOUD, "ps-97-pro", COMPONENT)
                         } else {
