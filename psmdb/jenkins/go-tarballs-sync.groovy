@@ -60,7 +60,7 @@ pipeline {
             }
         }
         stage('Download and verify') {
-            when { expression { env.NEW_VERSIONS } }
+            when { expression { return env.NEW_VERSIONS ? true : false } }
             steps {
                 sh '''#!/bin/bash
                     set -o errexit -o nounset -o pipefail
@@ -76,7 +76,7 @@ pipeline {
             }
         }
         stage('Upload to downloads.percona.com') {
-            when { expression { env.NEW_VERSIONS } }
+            when { expression { return env.NEW_VERSIONS ? true : false } }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''#!/bin/bash
@@ -101,25 +101,28 @@ pipeline {
             }
         }
         stage('Wait until published') {
-            when { expression { env.NEW_VERSIONS } }
+            when { expression { return env.NEW_VERSIONS ? true : false } }
             steps {
-                timeout(time: 3, unit: 'HOURS') {
-                    waitUntil(initialRecurrencePeriod: 60000) {
-                        sh(returnStatus: true, script: '''#!/bin/bash
-                            set -o nounset
-                            while read -r f sha; do
-                                wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}" || { echo "not yet: ${f}"; exit 1; }
-                                wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}.sha256sum" || { echo "not yet: ${f}.sha256sum"; exit 1; }
-                                published=$(wget -q --max-redirect=0 -O - "${DOWNLOADS_URL}/${f}.sha256sum" | awk '{print $1}')
-                                [ "${published}" = "${sha}" ] || { echo "stale checksum for ${f}: ${published}"; exit 1; }
-                            done < todo.txt
-                        ''') == 0
+                // declarative only allows steps here, the == 0 check needs a script block
+                script {
+                    timeout(time: 3, unit: 'HOURS') {
+                        waitUntil(initialRecurrencePeriod: 60000) {
+                            return sh(returnStatus: true, script: '''#!/bin/bash
+                                set -o nounset
+                                while read -r f sha; do
+                                    wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}" || { echo "not yet: ${f}"; exit 1; }
+                                    wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}.sha256sum" || { echo "not yet: ${f}.sha256sum"; exit 1; }
+                                    published=$(wget -q --max-redirect=0 -O - "${DOWNLOADS_URL}/${f}.sha256sum" | awk '{print $1}')
+                                    [ "${published}" = "${sha}" ] || { echo "stale checksum for ${f}: ${published}"; exit 1; }
+                                done < todo.txt
+                            ''') == 0
+                        }
                     }
                 }
             }
         }
         stage('Collect fixed CVEs') {
-            when { expression { env.NEW_VERSIONS } }
+            when { expression { return env.NEW_VERSIONS ? true : false } }
             steps {
                 sh '''#!/bin/bash
                     set -o errexit -o nounset -o pipefail
@@ -161,7 +164,7 @@ pipeline {
             }
         }
         stage('Check Go in our builders') {
-            when { expression { env.NEW_VERSIONS } }
+            when { expression { return env.NEW_VERSIONS ? true : false } }
             steps {
                 sh '''#!/bin/bash
                     set -o errexit -o nounset -o pipefail
