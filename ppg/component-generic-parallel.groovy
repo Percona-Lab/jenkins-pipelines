@@ -4,16 +4,17 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def defaultComponentRepo = [
+    credcheck         : 'https://github.com/HexaCluster/credcheck.git',
+    patroni           : 'https://github.com/zalando/patroni.git',
     pg_audit          : 'https://github.com/pgaudit/pgaudit.git',
     pg_repack         : 'https://github.com/reorg/pg_repack.git',
-    patroni           : 'https://github.com/zalando/patroni.git',
-    pgbackrest        : 'https://github.com/pgbackrest/pgbackrest.git',
-    pgpool            : 'https://github.com/pgpool/pgpool2.git',
-    postgis           : 'https://github.com/postgis/postgis.git',
     pgaudit13_set_user: 'https://github.com/pgaudit/set_user.git',
+    pgbackrest        : 'https://github.com/pgbackrest/pgbackrest.git',
     pgbadger          : 'https://github.com/darold/pgbadger.git',
     pgbouncer         : 'https://github.com/pgbouncer/pgbouncer.git',
+    pgpool            : 'https://github.com/pgpool/pgpool2.git',
     pgvector          : 'https://github.com/pgvector/pgvector.git',
+    postgis           : 'https://github.com/postgis/postgis.git',
     wal2json          : 'https://github.com/eulerto/wal2json.git',
 ]
 
@@ -81,16 +82,17 @@ pipeline {
             name: 'PRODUCT',
             description: 'Component to test: runs the &lt;PRODUCT&gt;/setup scenario and picks the default COMPONENT_REPO.',
             choices: [
+                'credcheck',
+                'patroni',
                 'pg_audit',
                 'pg_repack',
-                'patroni',
-                'pgbackrest',
-                'pgpool',
-                'postgis',
                 'pgaudit13_set_user',
+                'pgbackrest',
                 'pgbadger',
                 'pgbouncer',
+                'pgpool',
                 'pgvector',
+                'postgis',
                 'wal2json'
             ]
         )
