@@ -268,6 +268,44 @@ def cve_sha(cves: list[str]) -> str:
     return hashlib.sha256("\n".join(cves).encode()).hexdigest()[:12]
 
 
+def cve_ids_from_csaf(data: dict[str, Any]) -> list[str]:
+    """Sorted CVE ids from a CSAF vulnerabilities list.
+
+    Raises ValueError when the document has no vulnerabilities list,
+    same as the bug map. An empty list is a real empty advisory.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("CSAF document is not a JSON object")
+    if "vulnerabilities" not in data or not isinstance(data.get("vulnerabilities"), list):
+        raise ValueError("CSAF document has no vulnerabilities list")
+    found: set[str] = set()
+    for vuln in data["vulnerabilities"]:
+        if not isinstance(vuln, dict):
+            continue
+        cve = str(vuln.get("cve") or "").upper()
+        if cve.startswith("CVE-"):
+            found.add(cve)
+    return sorted(found)
+
+
+def advisory_cves(
+    csaf_cves: list[str] | None,
+    previous: list[str] | None,
+    page_cves: list[str],
+) -> list[str]:
+    """CVE ids for one advisory.
+
+    A usable CSAF document supplies the set, including an empty list.
+    A failed CSAF keeps the previous set so an outage posts nothing.
+    The page regex is used only when there is no CSAF and no previous set.
+    """
+    if csaf_cves is not None:
+        return list(csaf_cves)
+    if previous is not None:
+        return list(previous)
+    return list(page_cves)
+
+
 def bug_map_from_csaf(data: dict[str, Any]) -> dict[str, list[str]]:
     """Map Oracle bug id to CVE ids.
 
@@ -439,13 +477,14 @@ def fetch_bug_map(
     html: str,
     notes: list[dict[str, Any]],
     slug: str,
-) -> tuple[dict[str, list[str]], dict[str, str]] | None:
-    """Return the bug map and MySQL CVE components, or None when CSAF is unusable.
+) -> tuple[dict[str, list[str]], dict[str, str], list[str]] | None:
+    """Return the bug map, MySQL components, and CVE ids, or None when CSAF is unusable.
 
-    None tells the caller to keep the previous bug map. A missing link
-    and a document that is not CSAF are both unavailable, not an empty map.
-    Recovered download attempts are informational. The exhausted failure
-    is a warning.
+    None tells the caller to keep the previous bug map and CVE set. A
+    missing link and a document that is not CSAF are both unavailable,
+    not an empty map. The CVE id list is every vulnerabilities[].cve,
+    and an empty list means the document names none. Recovered download
+    attempts are informational. The exhausted failure is a warning.
     """
     match = CSAF_RE.search(html)
     if not match:
@@ -480,6 +519,7 @@ def fetch_bug_map(
         data = json.loads(raw)
         bug_map = bug_map_from_csaf(data)
         components = mysql_cve_components(data)
+        cves = cve_ids_from_csaf(data)
     except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as exc:
         log.warning("WARNING cpu CSAF unusable url=%s err=%s", csaf_url, exc)
         notes.append(
@@ -494,8 +534,8 @@ def fetch_bug_map(
             )
         )
         return None
-    log.info("cpu CSAF url=%s bugs=%d", csaf_url, len(bug_map))
-    return bug_map, components
+    log.info("cpu CSAF url=%s cves=%d bugs=%d", csaf_url, len(cves), len(bug_map))
+    return bug_map, components, cves
 
 
 def merge_cve_lists(maps: list[dict[str, list[str]]]) -> dict[str, list[str]]:
@@ -619,8 +659,10 @@ class Collection(NamedTuple):
     """One Oracle poll. notes is the same list the caller passed in.
 
     advisories are flat records: slug, title, url, cves, bug_cves.
-    bug_cves is None when CSAF could not be used, and {} when the
-    document is valid and has no bug ids.
+    cves comes from the CSAF document when that document is usable.
+    csaf_cves is None when it is not, and page_cves is the HTML scrape
+    kept for the first-poll fallback. bug_cves is None when CSAF could
+    not be used, and {} when the document is valid and has no bug ids.
     """
 
     advisories: list[dict[str, Any]]
@@ -688,27 +730,30 @@ def collect(
             record_download(notes, area="page", slug=slug, label=slug, failed=failed, exc=exc)
             continue
         record_download(notes, area="page", slug=slug, label=slug, failed=failed, exc=None)
-        cves = parse_cves(page)
-        if not cves:
-            message = f"{slug} page has no CVE ids."
-            notes.append(
-                issue(
-                    level="warning",
-                    outcome="failed",
-                    area="page",
-                    slug=slug,
-                    message=message,
-                )
-            )
-            continue
-        stats["refreshed"] += 1
-        sha = cve_sha(cves)
+        page_cves = parse_cves(page)
         fetched = fetch_bug_map(url, page, notes, slug)
         if fetched is None:
             bug_cves = None
             cve_components = None
+            csaf_cves = None
+            if not page_cves:
+                message = f"{slug} page has no CVE ids."
+                notes.append(
+                    issue(
+                        level="warning",
+                        outcome="failed",
+                        area="page",
+                        slug=slug,
+                        message=message,
+                    )
+                )
+                continue
+            cves = page_cves
         else:
-            bug_cves, cve_components = fetched
+            bug_cves, cve_components, csaf_cves = fetched
+            cves = csaf_cves
+        stats["refreshed"] += 1
+        sha = cve_sha(cves)
         logged = -1 if bug_cves is None else len(bug_cves)
         log.info("cpu slug=%s cves=%d sha=%s bugs=%s", slug, len(cves), sha, logged)
         advisories.append(
@@ -717,6 +762,8 @@ def collect(
                 "title": title,
                 "url": url,
                 "cves": cves,
+                "page_cves": page_cves,
+                "csaf_cves": csaf_cves,
                 "bug_cves": bug_cves,
                 "cve_components": cve_components,
             }

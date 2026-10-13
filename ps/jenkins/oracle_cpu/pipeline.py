@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from oracle_cpu.core import (
+    advisory_cves,
     bug_map_from_advisories,
     collect,
     cve_sha,
@@ -72,11 +73,30 @@ def apply_state(
     changes: list[dict[str, Any]] = []
     for item in fresh:
         slug = str(item.get("slug") or "")
-        new = list(item.get("cves") or [])
-        if not slug or not new:
+        if not slug:
             log.info("cpu skip empty slug=%s", slug)
             continue
         saved = rows.get(slug) or {}
+        had_row = slug in rows
+        # Callers that pass cves directly, such as the unit tests, are
+        # already giving the advisory set. collect also passes csaf_cves.
+        if "csaf_cves" in item:
+            raw_csaf = item.get("csaf_cves")
+            csaf_cves = list(raw_csaf) if isinstance(raw_csaf, list) else None
+            page_cves = item.get("page_cves")
+            if not isinstance(page_cves, list):
+                page_cves = []
+            previous_cves = list(saved.get("cves") or []) if had_row else None
+            new = advisory_cves(csaf_cves, previous_cves, page_cves)
+        else:
+            csaf_cves = None
+            new = list(item.get("cves") or [])
+        # An empty CSAF list is a real empty advisory and must replace
+        # the saved ids. Any other empty set is "no data", so the saved
+        # row stays.
+        if not new and csaf_cves != []:
+            log.info("cpu skip empty slug=%s", slug)
+            continue
         bug_cves = item.get("bug_cves")
         if bug_cves is None:
             bug_cves = dict(saved.get("bug_cves") or {})

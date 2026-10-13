@@ -545,10 +545,130 @@ class OracleCpuTest(unittest.TestCase):
             )
         )
         row = advisories["cpuapr2026"]
-        self.assertEqual(row["cves"], ["CVE-2026-0001"])
+        # The empty CSAF document is the advisory set. The page id is only
+        # the fallback for a poll that has never had a CSAF document.
+        self.assertEqual(row["cves"], [])
+        self.assertEqual(row["csaf_cves"], [])
+        self.assertEqual(row["page_cves"], ["CVE-2026-0001"])
         self.assertIsNotNone(row["bug_cves"])
         self.assertEqual(row["bug_cves"], {})
         self.assertEqual(row["cve_components"], {})
+
+    def test_csaf_ids_are_the_advisory_set(self) -> None:
+        index = '<a href="https://www.oracle.com/security-alerts/cpuapr2026.html"></a>'
+        page = (
+            "<p>CVE-2026-0001</p>"
+            "<p>See CVE-2026-21992.</p>"
+            '<a href="cpuapr2026csaf.json"></a>'
+        )
+        csaf = json.dumps(
+            {
+                "product_tree": {
+                    "branches": [
+                        {
+                            "category": "product_family",
+                            "name": "Oracle MySQL",
+                            "branches": [
+                                {
+                                    "category": "product_name",
+                                    "name": "MySQL Server",
+                                    "product": {"product_id": "P-server", "name": "MySQL Server"},
+                                }
+                            ],
+                        }
+                    ]
+                },
+                "vulnerabilities": [
+                    {"cve": "CVE-2026-0001"},
+                    {
+                        "cve": "CVE-2026-0009",
+                        "product_status": {"known_affected": ["P-server"]},
+                        "notes": [
+                            {
+                                "category": "description",
+                                "text": (
+                                    "Vulnerability in the MySQL Server product of Oracle MySQL "
+                                    "(component: Server: Packaging (OpenSSL))."
+                                ),
+                            }
+                        ],
+                    },
+                ],
+            }
+        )
+
+        def fake_fetch(url: str, failed: list[str]) -> str:
+            failed.clear()
+            if url == INDEX:
+                return index
+            if url.endswith("cpuapr2026.html"):
+                return page
+            if url.endswith("csaf.json"):
+                return csaf
+            raise AssertionError(url)
+
+        with patch("oracle_cpu.core._fetch", fake_fetch):
+            collected = collect(10)
+        row = collected.advisories[0]
+        self.assertEqual(row["cves"], ["CVE-2026-0001", "CVE-2026-0009"])
+        self.assertNotIn("CVE-2026-21992", row["cves"])
+        self.assertEqual(
+            row["cve_components"],
+            {"CVE-2026-0009": "Server: Packaging (OpenSSL)"},
+        )
+
+    def test_failed_csaf_keeps_the_previous_cve_set(self) -> None:
+        previous = {
+            "cpuapr2026": {
+                "sha": "old",
+                "cves": ["CVE-2026-0001", "CVE-2026-0009"],
+                "bug_cves": {},
+                "cve_components": {"CVE-2026-0009": "Server: Packaging (OpenSSL)"},
+                "title": "CPU April 2026",
+                "url": "https://example.test/cpuapr2026.html",
+            }
+        }
+        outage = {
+            "slug": "cpuapr2026",
+            "title": "CPU April 2026",
+            "url": "https://example.test/cpuapr2026.html",
+            "cves": ["CVE-2026-0001", "CVE-2026-21992"],
+            "page_cves": ["CVE-2026-0001", "CVE-2026-21992"],
+            "csaf_cves": None,
+            "bug_cves": None,
+            "cve_components": None,
+        }
+        changes, rows = apply_state([outage], previous)
+        self.assertEqual(changes, [])
+        self.assertEqual(rows["cpuapr2026"]["cves"], ["CVE-2026-0001", "CVE-2026-0009"])
+
+        first = {
+            "slug": "cpuapr2026",
+            "title": "CPU April 2026",
+            "url": "https://example.test/cpuapr2026.html",
+            "cves": ["CVE-2026-0001"],
+            "page_cves": ["CVE-2026-0001"],
+            "csaf_cves": None,
+            "bug_cves": None,
+            "cve_components": None,
+        }
+        changes, rows = apply_state([first], None)
+        self.assertEqual(rows["cpuapr2026"]["cves"], ["CVE-2026-0001"])
+        self.assertEqual(changes[0]["added"], ["CVE-2026-0001"])
+
+        cleared = {
+            "slug": "cpuapr2026",
+            "title": "CPU April 2026",
+            "url": "https://example.test/cpuapr2026.html",
+            "cves": [],
+            "page_cves": ["CVE-2026-0001"],
+            "csaf_cves": [],
+            "bug_cves": {},
+            "cve_components": {},
+        }
+        changes, rows = apply_state([cleared], previous)
+        self.assertEqual(rows["cpuapr2026"]["cves"], [])
+        self.assertEqual(changes[0]["removed"], ["CVE-2026-0001", "CVE-2026-0009"])
 
     def test_non_https_redirect_fails_that_download(self) -> None:
         start = "https://www.oracle.com/security-alerts/cpuapr2026.html"
