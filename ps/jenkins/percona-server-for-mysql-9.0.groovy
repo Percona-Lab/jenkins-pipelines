@@ -406,8 +406,7 @@ parameters {
                     echo "MYSQL_VERSION_MAJOR=${MYSQL_VERSION_MAJOR}, MYSQL_VERSION_MINOR=${MYSQL_VERSION_MINOR}"
                     // sync packages
                     if ("${MYSQL_VERSION_MAJOR}" == "26") {
-                            sync2ProdAutoBuild(params.CLOUD, "ps-26x-innovation", COMPONENT)
-                        }
+                        sync2ProdAutoBuild(params.CLOUD, "ps-26x-innovation", COMPONENT)
                     } else if (env.FIPSMODE == 'YES') {
                         if ("${MYSQL_VERSION_MINOR}" == "7") {
                             sync2PrivateProdAutoBuild(params.CLOUD, "ps-97-pro", COMPONENT)
