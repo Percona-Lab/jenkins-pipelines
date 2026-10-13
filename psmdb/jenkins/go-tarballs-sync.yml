@@ -4,7 +4,7 @@
     description: |
         Do not edit this job through the web!
         Daily: mirror new Go releases (linux amd64/arm64) to downloads.percona.com/downloads/packaging/go
-        and post the fixed CVEs and Go versions used by PBM/PCSM/mongo-tools builders to #mongodb_autofeed.
+        and post release notes links and Go versions used by PBM/PCSM/mongo-tools builders to #mongodb_autofeed.
     pipeline-scm:
       scm:
         - git:
