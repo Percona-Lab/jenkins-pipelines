@@ -16,6 +16,12 @@ pipeline {
         DEPLOY_HOST = 'jenkins-deploy.jenkins-deploy.web.r.int.percona.com'
         GO_ARCHES = 'amd64 arm64'
     }
+    parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Treat the current stable Go releases as new: upload (existing files are kept), crawl, wait and post the Slack report again',
+            name: 'REPUBLISH_LATEST')
+    }
     options {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -43,7 +49,7 @@ pipeline {
                     while read -r f sha; do
                         # downloads.percona.com 302s unknown paths (and any *.sha256) to www.percona.com,
                         # which answers 200, so never follow redirects
-                        if wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}" && wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}.sha256sum"; then
+                        if [ "${REPUBLISH_LATEST:-false}" != true ] && wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}" && wget --spider -q --max-redirect=0 "${DOWNLOADS_URL}/${f}.sha256sum"; then
                             echo "already on downloads: ${f}"
                         else
                             echo "${f} ${sha}" >> todo.txt
@@ -96,6 +102,15 @@ pipeline {
                         ${SSH} rsync -avt --ignore-existing -e '"ssh -p 2222"' --bwlimit=50000 "--exclude='*.sha256sum'" "${STAGE_DIR}/" "${DEPLOY_HOST}:${DOWNLOADS_DIR}/"
                         ${SSH} rsync -avt --ignore-existing -e '"ssh -p 2222"' "--include='*.sha256sum'" "--exclude='*'" "${STAGE_DIR}/" "${DEPLOY_HOST}:${DOWNLOADS_DIR}/"
                         ${SSH} rm -rf "${STAGE_DIR}"
+
+                        # downloads.percona.com only picks up new files after a crawl;
+                        # called from repo.ci like in rel/jenkins/release-from-repository.groovy
+                        CRAWL_RESPONSE=$(${SSH} curl -sk https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory)
+                        echo "Crawl response: ${CRAWL_RESPONSE}"
+                        if ! grep -qE '"status":"(running|queued)"' <<< "${CRAWL_RESPONSE}"; then
+                            echo "ERROR: crawl_directory did not return running or queued status"
+                            exit 1
+                        fi
                     '''
                 }
             }
@@ -218,7 +233,8 @@ pipeline {
         aborted {
             slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Go tarballs sync aborted (timed out waiting for downloads.percona.com?): [${BUILD_URL}]")
         }
-        always {
+        // not always: it runs before success and would wipe the reports
+        cleanup {
             deleteDir()
         }
     }
