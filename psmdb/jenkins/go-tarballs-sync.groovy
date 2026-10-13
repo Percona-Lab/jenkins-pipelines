@@ -136,48 +136,6 @@ pipeline {
                 }
             }
         }
-        stage('Collect fixed CVEs') {
-            when { expression { return env.NEW_VERSIONS ? true : false } }
-            steps {
-                sh '''#!/bin/bash
-                    set -o errexit -o nounset -o pipefail
-                    osv_ids() {
-                        for pkg in stdlib toolchain; do
-                            curl -fsS --retry 3 -X POST https://api.osv.dev/v1/query -d "{\\"package\\":{\\"name\\":\\"${pkg}\\",\\"ecosystem\\":\\"Go\\"},\\"version\\":\\"$1\\"}" | jq -r '.vulns[]?.id'
-                        done | sort -u
-                    }
-
-                    # raw.tsv: key, CVE, Go vuln ID, version, summary
-                    : > raw.tsv
-                    for v in $(cat new_versions.txt); do
-                        patch=${v##*.}
-                        if [ "${patch}" = 0 ]; then
-                            printf 'go%s\\t-\\t-\\tgo%s\\tnew minor release, see https://go.dev/doc/go%s\\n' "${v}" "${v}" "${v%.*}" >> raw.tsv
-                            continue
-                        fi
-                        # what the previous patch was vulnerable to and this one is not
-                        prev="${v%.*}.$((patch - 1))"
-                        fixed=$(comm -23 <(osv_ids "${prev}") <(osv_ids "${v}"))
-                        if [ -z "${fixed}" ]; then
-                            printf 'go%s\\t-\\t-\\tgo%s\\tno security fixes in vuln.go.dev yet\\n' "${v}" "${v}" >> raw.tsv
-                            continue
-                        fi
-                        for id in ${fixed}; do
-                            curl -fsS --retry 3 "https://vuln.go.dev/ID/${id}.json" | jq -r --arg v "go${v}" '[.id, ([.aliases[]? | select(startswith("CVE-"))] | if length > 0 then join(",") else "-" end), .id, $v, (.summary // "-" | .[0:90])] | @tsv' >> raw.tsv
-                        done
-                    done
-
-                    # both branches usually get the same fixes, so one row per vuln with all versions in it
-                    awk -F '\\t' -v OFS='\\t' '
-                        BEGIN { print "CVE", "Go vuln ID", "Fixed in", "Summary" }
-                        !($1 in fixed) { order[++n] = $1; row[$1] = $2 OFS $3; summary[$1] = $5; fixed[$1] = $4; next }
-                        { fixed[$1] = fixed[$1] ", " $4 }
-                        END { for (i = 1; i <= n; i++) { k = order[i]; print row[k], fixed[k], summary[k] } }
-                    ' raw.tsv | column -t -s "$(printf '\\t')" > cve_report.txt
-                    cat cve_report.txt
-                '''
-            }
-        }
         stage('Check Go in our builders') {
             when { expression { return env.NEW_VERSIONS ? true : false } }
             steps {
@@ -185,17 +143,17 @@ pipeline {
                     set -o errexit -o nounset -o pipefail
                     # product, repo, branch, builder script with GO_VERSION=
                     builders=(
-                        'PBM percona/percona-backup-mongodb main packaging/scripts/mongodb-backup_builder.sh'
+                        'PBM percona/percona-backup-mongodb dev packaging/scripts/mongodb-backup_builder.sh'
                         'PCSM percona/percona-clustersync-mongodb main packaging/scripts/percona-clustersync-mongodb_builder.sh'
                         'mongo-tools Percona-Lab/percona-mongodb-tools-packaging main scripts/mongo_tools_builder.sh'
                     )
                     latest=$(jq -r '.[] | select(.stable) | .version | ltrimstr("go")' releases.json)
 
-                    printf 'Product\\tGo\\tStatus\\n' > builders.tsv
+                    printf 'Product\\tBranch\\tGo\\tStatus\\n' > builders.tsv
                     for b in "${builders[@]}"; do
                         read -r name repo branch path <<< "${b}"
                         if ! script=$(curl -fsSL --retry 3 "https://raw.githubusercontent.com/${repo}/${branch}/${path}"); then
-                            printf '%s\\t?\\tcannot fetch %s@%s:%s\\n' "${name}" "${repo}" "${branch}" "${path}" >> builders.tsv
+                            printf '%s\\t%s\\t?\\tcannot fetch %s:%s\\n' "${name}" "${branch}" "${repo}" "${path}" >> builders.tsv
                             continue
                         fi
                         have=$(sed -nE 's/^[[:space:]]*GO_VERSION="?([0-9.]+)"?.*/\\1/p' <<< "${script}" | head -n 1)
@@ -209,7 +167,7 @@ pipeline {
                         else
                             status="bump to ${want}"
                         fi
-                        printf '%s\\t%s\\t%s\\n' "${name}" "${have:-?}" "${status}" >> builders.tsv
+                        printf '%s\\t%s\\t%s\\t%s\\n' "${name}" "${branch}" "${have:-?}" "${status}" >> builders.tsv
                     done
                     column -t -s "$(printf '\\t')" builders.tsv > builders_report.txt
                     cat builders_report.txt
@@ -221,9 +179,13 @@ pipeline {
         success {
             script {
                 if (env.NEW_VERSIONS) {
-                    def report = readFile('cve_report.txt').trim()
                     def builders = readFile('builders_report.txt').trim()
-                    slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Go ${env.NEW_VERSIONS} (linux amd64/arm64) published to ${DOWNLOADS_URL}/\nFixed vulnerabilities (vs previous patch, from vuln.go.dev):\n```\n${report}\n```\nGo in our builders (main):\n```\n${builders}\n```\nRelease notes: https://go.dev/doc/devel/release")
+                    // release notes list the packages with security fixes for each patch
+                    def notes = []
+                    for (v in env.NEW_VERSIONS.split(' ')) {
+                        notes.add("<https://go.dev/doc/devel/release#go${v}|go${v}>")
+                    }
+                    slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Go ${env.NEW_VERSIONS} (linux amd64/arm64) published to ${DOWNLOADS_URL}/\nSecurity fixes: ${notes.join(', ')}, vulnerabilities: https://pkg.go.dev/vuln/list\nGo in our builders:\n```\n${builders}\n```")
                 }
             }
         }
