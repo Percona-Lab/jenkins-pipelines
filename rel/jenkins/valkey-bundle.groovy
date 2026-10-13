@@ -57,7 +57,7 @@ pipeline {
             description: 'URL for valkey-packaging repository (holds the bundle/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.0',
+            defaultValue: '9.1.2',
             description: 'Branch/Tag for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(

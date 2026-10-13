@@ -84,7 +84,7 @@ pipeline {
         // --- Versions / refs ---
         string(defaultValue: '9.1.1', description: 'Valkey server version (server RELEASE, Docker, tests)', name: 'VALKEY_VERSION')
         string(defaultValue: '9.1',   description: 'Upstream valkey-io/valkey tag/branch (server RELEASE)', name: 'GIT_BRANCH')
-        string(defaultValue: '9.1.1', description: 'valkey-packaging branch (modules, bundle, Docker, tests)', name: 'PACKAGING_BRANCH')
+        string(defaultValue: '9.1.2', description: 'valkey-packaging branch (modules, bundle, Docker, tests)', name: 'PACKAGING_BRANCH')
         string(defaultValue: '1',     description: 'Package release number applied to every package', name: 'RELEASE')
         string(defaultValue: '1.0.2', description: 'valkey-json version',   name: 'VALKEY_JSON_VERSION')
         string(defaultValue: '1.0.1', description: 'valkey-bloom version',  name: 'VALKEY_BLOOM_VERSION')

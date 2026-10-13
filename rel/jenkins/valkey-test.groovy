@@ -125,7 +125,7 @@ pipeline {
             description: 'Expected Valkey version to verify',
             name: 'VALKEY_VERSION')
         string(
-            defaultValue: 'main',
+            defaultValue: '9.1.2',
             description: 'Branch of valkey-packaging to checkout',
             name: 'PACKAGING_BRANCH')
         string(
