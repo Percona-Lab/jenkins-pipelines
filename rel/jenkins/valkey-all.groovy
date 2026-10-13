@@ -11,6 +11,39 @@ def trigger(String jobName, List jobParams) {
     }
 }
 
+// waitForPublished — poll the public apt index until every package in
+// [name: upstreamVersion] is listed at <version>-RELEASE, so the next stage
+// builds against packages repo.percona.com actually serves. Checks one dist
+// (noble, amd64): sync2ProdAutoBuild rsyncs yum and every apt dist before the
+// job finishes, so one index showing up means the whole publish is live.
+def waitForPublished(Map packages) {
+    String dist = 'noble'
+    int waitMinutes = 30
+    String index = "https://repo.percona.com/${params.VALKEY_REPO}/apt/dists/${dist}/${params.CHANNEL}/binary-amd64/Packages"
+    List expected = []
+    for (def entry : packages.entrySet()) {
+        expected << "/${entry.key}_${entry.value}-${params.RELEASE}.${dist}_"
+    }
+    echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} in ${index}"
+    int attempts = waitMinutes * 2
+    for (int i = 1; i <= attempts; i++) {
+        String listed = sh(returnStdout: true, script: "curl -fsS --max-time 60 '${index}' | grep '^Filename:' || true")
+        List missing = []
+        for (String file : expected) {
+            if (!listed.contains(file)) {
+                missing << file
+            }
+        }
+        if (!missing) {
+            echo "Published: ${packages.keySet().join(', ')}"
+            return
+        }
+        echo "Attempt ${i}/${attempts}: not served yet: ${missing.join(' ')}"
+        sleep(time: 30, unit: 'SECONDS')
+    }
+    error("Packages were not published to ${index} within ${waitMinutes} minutes")
+}
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
@@ -68,8 +101,28 @@ pipeline {
         timestamps()
     }
     stages {
-        stage('Build packages') {
-            when { expression { params.PKG_SERVER || params.PKG_JSON || params.PKG_BLOOM || params.PKG_SEARCH || params.PKG_LDAP || params.PKG_AUDIT || params.PKG_BUNDLE || params.PKG_ADMIN } }
+        // Packages are built in dependency order. Modules install percona-valkey-dev
+        // from the public repo, and percona-valkey-bundle depends on server + json +
+        // bloom + search + ldap, so each step waits until the previous one is served
+        // by repo.percona.com before starting.
+        stage('Build server package') {
+            when { expression { params.PKG_SERVER } }
+            steps {
+                script {
+                    trigger('hetzner-valkey-RELEASE', [
+                        string(name: 'CLOUD',          value: params.CLOUD),
+                        string(name: 'GIT_BRANCH',     value: params.GIT_BRANCH),
+                        string(name: 'VALKEY_VERSION', value: params.VALKEY_VERSION),
+                        string(name: 'VALKEY_RELEASE', value: params.RELEASE),
+                        string(name: 'VALKEY_REPO',    value: params.VALKEY_REPO),
+                        string(name: 'COMPONENT',      value: params.CHANNEL),
+                    ]).call()
+                    waitForPublished(['percona-valkey-server': params.VALKEY_VERSION])
+                }
+            }
+        }
+        stage('Build module packages') {
+            when { expression { params.PKG_JSON || params.PKG_BLOOM || params.PKG_SEARCH || params.PKG_LDAP || params.PKG_AUDIT || params.PKG_ADMIN } }
             steps {
                 script {
                     String cloud = params.CLOUD
@@ -77,16 +130,9 @@ pipeline {
                     String rel   = params.RELEASE
                     String pkgBr = params.PACKAGING_BRANCH
                     Map jobs = [:]
-                    if (params.PKG_SERVER) {
-                        jobs['server'] = trigger('hetzner-valkey-RELEASE', [
-                            string(name: 'CLOUD',          value: cloud),
-                            string(name: 'GIT_BRANCH',     value: params.GIT_BRANCH),
-                            string(name: 'VALKEY_VERSION', value: params.VALKEY_VERSION),
-                            string(name: 'VALKEY_RELEASE', value: rel),
-                            string(name: 'VALKEY_REPO',    value: params.VALKEY_REPO),
-                            string(name: 'COMPONENT',      value: ch),
-                        ])
-                    }
+                    // Published packages to wait for. valkey-admin is left out: its package
+                    // name is not known here and nothing in the package chain depends on it.
+                    Map published = [:]
                     if (params.PKG_JSON) {
                         jobs['json'] = trigger('hetzner-valkey-json-RELEASE', [
                             string(name: 'CLOUD',               value: cloud),
@@ -95,7 +141,9 @@ pipeline {
                             string(name: 'VALKEY_JSON_RELEASE', value: rel),
                             string(name: 'VALKEY_JSON_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',           value: ch),
+                            string(name: 'VALKEY_REPO_CHANNEL', value: ch),
                         ])
+                        published['percona-valkey-json'] = params.VALKEY_JSON_VERSION
                     }
                     if (params.PKG_BLOOM) {
                         jobs['bloom'] = trigger('hetzner-valkey-bloom-RELEASE', [
@@ -106,6 +154,7 @@ pipeline {
                             string(name: 'VALKEY_BLOOM_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
                         ])
+                        published['percona-valkey-bloom'] = params.VALKEY_BLOOM_VERSION
                     }
                     if (params.PKG_SEARCH) {
                         jobs['search'] = trigger('hetzner-valkey-search-RELEASE', [
@@ -116,6 +165,7 @@ pipeline {
                             string(name: 'VALKEY_SEARCH_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',             value: ch),
                         ])
+                        published['percona-valkey-search'] = params.VALKEY_SEARCH_VERSION
                     }
                     if (params.PKG_LDAP) {
                         jobs['ldap'] = trigger('hetzner-valkey-ldap-RELEASE', [
@@ -125,6 +175,7 @@ pipeline {
                             string(name: 'VALKEY_LDAP_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',           value: ch),
                         ])
+                        published['percona-valkey-ldap'] = params.VALKEY_LDAP_VERSION
                     }
                     if (params.PKG_AUDIT) {
                         jobs['audit'] = trigger('hetzner-valkey-audit-RELEASE', [
@@ -134,16 +185,7 @@ pipeline {
                             string(name: 'VALKEY_AUDIT_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
                         ])
-                    }
-                    if (params.PKG_BUNDLE) {
-                        jobs['bundle'] = trigger('hetzner-valkey-bundle-RELEASE', [
-                            string(name: 'CLOUD',                 value: cloud),
-                            string(name: 'PACKAGING_BRANCH',      value: pkgBr),
-                            string(name: 'VALKEY_BUNDLE_VERSION', value: params.VALKEY_BUNDLE_VERSION),
-                            string(name: 'VALKEY_BUNDLE_RELEASE', value: rel),
-                            string(name: 'VALKEY_BUNDLE_REPO',    value: params.VALKEY_REPO),
-                            string(name: 'COMPONENT',             value: ch),
-                        ])
+                        published['percona-valkey-audit'] = params.VALKEY_AUDIT_VERSION
                     }
                     if (params.PKG_ADMIN) {
                         jobs['admin'] = trigger('hetzner-valkey-admin-RELEASE', [
@@ -158,8 +200,27 @@ pipeline {
                             string(name: 'COMPONENT',            value: ch),
                         ])
                     }
-                    echo "Building packages: ${jobs.keySet().join(', ')}"
+                    echo "Building module packages: ${jobs.keySet().join(', ')}"
                     parallel(jobs)
+                    if (published) {
+                        waitForPublished(published)
+                    }
+                }
+            }
+        }
+        stage('Build bundle package') {
+            when { expression { params.PKG_BUNDLE } }
+            steps {
+                script {
+                    trigger('hetzner-valkey-bundle-RELEASE', [
+                        string(name: 'CLOUD',                 value: params.CLOUD),
+                        string(name: 'PACKAGING_BRANCH',      value: params.PACKAGING_BRANCH),
+                        string(name: 'VALKEY_BUNDLE_VERSION', value: params.VALKEY_BUNDLE_VERSION),
+                        string(name: 'VALKEY_BUNDLE_RELEASE', value: params.RELEASE),
+                        string(name: 'VALKEY_BUNDLE_REPO',    value: params.VALKEY_REPO),
+                        string(name: 'COMPONENT',             value: params.CHANNEL),
+                    ]).call()
+                    waitForPublished(['percona-valkey-bundle': params.VALKEY_BUNDLE_VERSION])
                 }
             }
         }
