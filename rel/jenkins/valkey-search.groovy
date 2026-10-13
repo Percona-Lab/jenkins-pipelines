@@ -390,7 +390,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, VALKEY_SEARCH_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, VALKEY_SEARCH_REPO, COMPONENT, true)
             }
         }
     }
