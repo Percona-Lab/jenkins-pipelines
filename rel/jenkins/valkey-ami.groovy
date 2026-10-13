@@ -29,7 +29,7 @@ pipeline {
             description: 'URL for valkey-packaging repository',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: 'main',
+            defaultValue: '9.1.2',
             description: 'Branch for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(
