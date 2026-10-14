@@ -42,8 +42,23 @@ pipeline {
         )
         string(
             defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-18.4/percona-postgresql-18.4-ssl1.1-linux-x86_64.tar.gz',
-            description: 'URL for tarball.',
+            description: 'URL for tarball. Leave empty and set OBS_PROJECT to test the tarball OBS built for this SSL variant.',
             name: 'TARBALL_URL'
+        )
+        string(
+            defaultValue: '',
+            description: 'OBS tarballs project to take the tarball from when TARBALL_URL is empty, e.g. isv:percona:ppg:staging:18:tarballs (or a PR project). Filled in by OBS QA.',
+            name: 'OBS_PROJECT'
+        )
+        string(
+            defaultValue: '',
+            description: 'OBS download host for OBS_PROJECT. Empty: download.opensuse.org.',
+            name: 'OBS_HOST'
+        )
+        text(
+            defaultValue: '',
+            description: 'Expected versions of the packages in the tarball, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA; overrides ppg-testing tables for this run. Leave empty to use the tables.',
+            name: 'EXPECTED_VERSIONS'
         )
         string(
             defaultValue: 'main',
