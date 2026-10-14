@@ -336,7 +336,6 @@ PATTERN_TAGS = [
     (r"mysql-test/suite/privacy/", "privacy"),
     (r"mysql-test/suite/thread_pool/", "thread_pool"),
     (r".*VERSION", "version"),
-    (r"ndb", "ndb"),
     (r"packaging/", "packaging"),
     (r"percona-xtradb-cluster-tests", "pxc-tests"),
     (r"plugin/", "plugin"),
@@ -385,6 +384,22 @@ PATTERN_TAGS = [
     (r"vio/", "vio"),
 ]
 
+OUT_OF_SCOPE_TAGS = {
+    "ndb",
+    "cmake",
+    "doc",
+    "license",
+    "version",
+    "mtr",
+    "third-party-libraries",
+}
+
+# The patterns below are used to identify files that should be checked first to
+# make sure that such files are not included for further pattern matching.
+# For example, an NDB MTR test will be matched for both "ndb" and "mtr" tags.
+# But, it should be skipped from investigation and marked as "ndb" only.
+IGNORED_PATTERNS = [r"mysql-test/suite/ndb.*", r"storage/ndb/.*"]
+
 COLUMN_HEADERS = [
     "Date",
     "Author",
@@ -425,37 +440,32 @@ for commit in commits:
     statline = git_show_stat_last_line(commit)
     ai_analysis = ""  # pylint: disable=invalid-name
 
-    tags = []
+    tags = set()
     changed = git_changed_files(commit)
 
-    for pattern_group, tag in PATTERN_TAGS:
-        # Ensure pattern_group is always iterable
-        if isinstance(pattern_group, str):
-            pattern_group = [pattern_group]
-        # Check if any pattern in the group matches a file
-        matched = any(
-            re.search(pattern, fn) for pattern in pattern_group for fn in changed
-        )
-        if matched:
-            tags.append(tag)
+    for changed_file in changed:
+        # NDB short-circuit: if this file matches NDB, skip remaining patterns for this file.
+        if any(re.search(p, changed_file) for p in IGNORED_PATTERNS):
+            tags.add("ndb")
+            continue
+
+        # Non-NDB files are matched against all remaining pattern groups.
+        for pattern_group, tag in PATTERN_TAGS:
+            if re.search(
+                "|".join(
+                    pattern_group
+                    if isinstance(pattern_group, list)
+                    else [pattern_group]
+                ),
+                changed_file,
+            ):
+                tags.add(tag)
 
     if git_is_merge_commit(commit):
-        tags.append("merge_commit")
+        tags.add("merge_commit")
 
-    # Check if title is empty or only out of scope tags are present
-    if not title or (
-        len(tags) == 1
-        and tags[0]
-        in (
-            "ndb",
-            "cmake",
-            "doc",
-            "license",
-            "version",
-            "third-party-libraries",
-        )
-    ):
-        tags.append("to be omitted")
+    if tags.issubset(OUT_OF_SCOPE_TAGS):
+        tags.add("to be omitted")
 
     # optionally generate AI analysis (boilerplate)
     if with_ai_analysis and "to be omitted" not in tags and "merge_commit" not in tags:
