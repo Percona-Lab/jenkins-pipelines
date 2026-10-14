@@ -412,6 +412,7 @@ COLUMN_HEADERS = [
     "Was it in upstream 5.7?",
     "Fix Owner",
     "Additional Info",
+    "MTR Added or not and Why",
     "Status",
 ]
 
