@@ -30,6 +30,9 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     sudo rm -rf ${PXC_ROOT_DIR}
 
+    if [[ "${GIT_REPO}" =~ private ]]; then
+        GIT_REPO=$(echo ${GIT_REPO} | sed -e "s|github|${PXC_SECRET_TOKEN}@github|")
+    fi
     git clone --depth 1 "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}" -b "${BRANCH}"
 
     pushd $PXC_ROOT_DIR
