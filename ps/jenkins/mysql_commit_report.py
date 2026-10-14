@@ -465,7 +465,9 @@ for commit in commits:
     if git_is_merge_commit(commit):
         tags.add("merge_commit")
 
-    if tags.issubset(OUT_OF_SCOPE_TAGS):
+    # An empty set is a subset of every set. A commit with no tag
+    # still needs a row. Only an all-out-of-scope tag set is omitted.
+    if tags and tags.issubset(OUT_OF_SCOPE_TAGS):
         tags.add("to be omitted")
 
     # optionally generate AI analysis (boilerplate)
