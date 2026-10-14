@@ -114,6 +114,12 @@ pipeline {
     }
     environment {
         PMM_HA_SUMMARY = "${WORKSPACE}/pmm-ha-summary.env"
+        // PMM-T2105 in @pmm-ha monitors an RDS instance.
+        PMM_QA_AWS_ACCESS_KEY_ID = credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY = credentials('PMM_QA_AWS_ACCESS_KEY')
+        PMM_QA_MYSQL_RDS_8_4_HOST = credentials('PMM_QA_MYSQL_RDS_8_4_HOST')
+        PMM_QA_MYSQL_RDS_8_4_USER = credentials('PMM_QA_MYSQL_RDS_8_4_USER')
+        PMM_QA_MYSQL_RDS_8_4_PASSWORD = credentials('PMM_QA_MYSQL_RDS_8_4_PASSWORD')
     }
     stages {
         stage('Prepare') {
