@@ -72,7 +72,7 @@ pipeline {
             description: 'Tag/Branch for the packaging repository',
             name: 'BUILD_GIT_BRANCH')
         string(
-            defaultValue: 'psmdb-70 psmdb-80 psmdb-83',
+            defaultValue: 'psmdb-70 psmdb-80 psmdb-83 psmdb-90',
             description: 'Space-separated PSMDB repos to push into. Each one is gated on its own server packages',
             name: 'PSMDB_REPO')
         choice(
