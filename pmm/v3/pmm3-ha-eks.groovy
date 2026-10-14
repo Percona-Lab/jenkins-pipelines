@@ -566,7 +566,7 @@ EOF
 
                         # The PG operator restarts the pg-db pods to add the pmm-client sidecar once pmm-token-init writes the
                         # PMM token; tests started during that restart hit PMM-15716, so wait until every pod has the sidecar.
-                        kubectl wait --for=condition=complete job/pmm-ha-pmm-token-init -n pmm --timeout=600s
+                        kubectl wait --for=condition=complete job -l app.kubernetes.io/instance=pmm-ha,app.kubernetes.io/component=pmm-token-init -n pmm --timeout=600s
                         PG_PODS='postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres'
                         for i in $(seq 90); do
                           pods=$(kubectl get pods -n pmm -l "$PG_PODS" -o jsonpath='{range .items[*]}{.spec.containers[*].name};{end}')
