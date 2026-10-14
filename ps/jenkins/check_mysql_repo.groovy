@@ -132,22 +132,6 @@ pipeline {
                         git clone --filter=blob:none ${ReposPathMap['MySQL']} mysql-server-repo
                     """
 
-                    // mysql-eol-dev is a private repo. Anonymous fetches from
-                    // raw.githubusercontent.com return 404. Use a Jenkins-stored
-                    // token; pinned SHA preserves reproducibility.
-                    withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
-                        // Intentionally no `set -o xtrace`. Jenkins masks
-                        // ${GITHUB_API_TOKEN} as **** in logs, but skipping trace
-                        // on this secret-bearing command keeps the Authorization
-                        // header out of the build console entirely.
-                        sh '''
-                            set -o errexit
-                            curl -fsSL -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -o mysql_commit_report.py \
-                                https://raw.githubusercontent.com/percona/mysql-eol-dev/b42ac69b49a6ed489f25400efc9f0b8d1ac1df68/scripts/mysql_commit_report.py
-                        '''
-                    }
-
                     // Create directory for CSV output
                     sh 'mkdir -p csv_output'
 
@@ -190,7 +174,7 @@ pipeline {
                                     set -o errexit
                                     set -o xtrace
 
-                                    python3 mysql_commit_report.py \
+                                    python3 ps/jenkins/mysql_commit_report.py \
                                         -i mysql-server-repo \
                                         -o csv_output \
                                         ${componentCsvFlag} \
