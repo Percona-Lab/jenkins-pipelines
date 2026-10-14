@@ -107,12 +107,6 @@ def nodeName(String name) {
     if (family == 'ui') {
         return "ui-tests ${leaf}"
     }
-    if (family == 'pkg amd64') {
-        return "package (amd) ${leaf}"
-    }
-    if (family == 'pkg arm64') {
-        return "package (arm) ${leaf}"
-    }
     if (family == 'upgrade') {
         return leaf.startsWith('ami ') ? "upgrade (ami) ${leaf.replace('ami ', '')}" : "upgrade ${leaf}"
     }
@@ -213,39 +207,6 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     def jobParams = (defaults + cfg).collect { k, v -> string(name: k, value: v.toString()) }
     jobParams << booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND)
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
-}
-
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersion, String installRepo, String tarball) {
-    // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
-    // they keep otherwise identical parameter sets from collapsing in the queue.
-    def variants = [
-        ['integration',          'pmm3-client_integration',                     '--help  '],
-        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
-        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
-        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
-        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
-        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
-        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
-        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
-    ]
-    variants.each { v ->
-        def label = v[0]
-        def tests = v[1]
-        def clients = v[2]
-        def name = "${prefix} / ${label}"
-        branches[name] = suite(name, jobName, [
-            string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
-            string(name: 'DOCKER_VERSION',  value: serverImage),
-            string(name: 'SERVER_ARCH',     value: serverArch),
-            string(name: 'PMM_VERSION',     value: pmmVersion),
-            string(name: 'TESTS',           value: tests),
-            string(name: 'INSTALL_REPO',    value: installRepo),
-            string(name: 'TARBALL',         value: tarball),
-            string(name: 'METRICS_MODE',    value: 'auto'),
-            string(name: 'CLIENTS',         value: clients),
-            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
-        ])
-    }
 }
 
 def supportsUiUpgrade(String version) {
@@ -350,9 +311,6 @@ timestamps {
         ])
     }
 
-    def packageVersion = isRc ? imageTag.tokenize('-')[0] : latestDevVersion
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL_ARM64)
     amiUpgradeBranches(branches, serverImage, latestDevVersion)
 
     branches['nightly / gssapi'] = suite('nightly / gssapi', 'pmm3-ui-tests-nightly-gssapi', [
