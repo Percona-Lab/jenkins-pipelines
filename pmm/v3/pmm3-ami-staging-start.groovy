@@ -123,6 +123,8 @@ pipeline {
                         # tagged subnet with a ladder of instance types. The primary subnet's
                         # AZ (us-east-1e) is a legacy AZ without t3/m5, so the ladder only
                         # uses previous-generation types that exist in every us-east-1 AZ.
+                        # Tag at launch, so the VM is never running while invisible to pmm3-ami-staging-stop-robot.
+                        TAGS="[{Key=Name,Value=${VM_NAME}},{Key=iit-billing-tag,Value=pmm},{Key=stop-after-days,Value=${DAYS}}]"
                         INSTANCE_ID=""
                         for SUBNET_ID in $SUBNET_IDS; do
                             for INSTANCE_TYPE in t2.large m4.large t2.xlarge; do
@@ -138,6 +140,7 @@ pipeline {
                                         --query 'Instances[].InstanceId' \
                                         --block-device-mappings \
                                         '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]' \
+                                        --tag-specifications "ResourceType=instance,Tags=$TAGS" "ResourceType=volume,Tags=$TAGS" \
                                         --output text
                                 ); then
                                     break 2
@@ -154,14 +157,6 @@ pipeline {
 
                         echo "$INSTANCE_ID" > INSTANCE_ID
                         echo "INSTANCE_ID: $INSTANCE_ID"
-
-                        aws ec2 create-tags  \
-                            --resources $INSTANCE_ID \
-                            --region $AWS_DEFAULT_REGION \
-                            --tags Key=Name,Value=${VM_NAME} \
-                            Key=iit-billing-tag,Value=pmm \
-                            Key=stop-after-days,Value=${DAYS}
-
 
                         aws ec2 describe-instances \
                             --instance-ids $INSTANCE_ID \
@@ -264,9 +259,12 @@ pipeline {
                 }
             }
         }
-        failure {
+        unsuccessful {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
+                    # read the file, not the env var: that is only set after `wait instance-running`,
+                    # so a build aborted mid-launch would leave nothing to clean up
+                    INSTANCE_ID=$(cat INSTANCE_ID 2>/dev/null || true)
                     if [ -n "${INSTANCE_ID}" ]; then
                         aws ec2 --region us-east-1 terminate-instances --instance-ids ${INSTANCE_ID}
                     fi
