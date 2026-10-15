@@ -515,6 +515,7 @@ timestamps {
         // One notification for the whole night: most lanes never reach GitHub
         // Actions, and this is the only place that sees all of them.
         // Only main's nightly wakes the Investigator; a branch run is someone's experiment.
+        def investigatorFired = false
         if (totalBad > 0 && params.PMM_QA_GIT_BRANCH == 'main') {
             def failed = []
             results.each { name, r ->
@@ -533,7 +534,11 @@ timestamps {
                               "from a percona/pmm-qa checkout:\n" +
                               "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<not reproduced|not a bug|test fix|product bug>\" " +
                               "\"<one-sentence summary>\" <fix PR or Jira URL, or -> \"<group>\" [\"<group>\" ...]\n" +
-                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json.",
+                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json." +
+                              (isRc ? "\n\nThis is release candidate ${imageTag} testing. Once every finding is published, " +
+                                      "post one short message to #qa-automation as the @pmm-ai bot " +
+                                      "(\"\${CLAUDE_PLUGIN_ROOT}/scripts/slack-bot.sh\" post '#qa-automation' -): " +
+                                      "RC ${imageTag} testing is finished, the verdict count per group, and the report link ${reportUrl}" : ''),
                     ]).toString()
                     withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
                         sh '''
@@ -547,6 +552,7 @@ timestamps {
                                 --data @investigator.json
                         '''
                     }
+                    investigatorFired = true
                 } catch (ignored) {
                     // A nightly that failed and could not say so is still a nightly
                     // that failed; never turn the report red over the messenger.
@@ -554,6 +560,19 @@ timestamps {
                 } finally {
                     deleteDir()
                 }
+            }
+        }
+
+        // RC testing is done when the Investigator is: it posts the message itself.
+        // With nothing for it to investigate, the RC is done now.
+        if (isRc && !investigatorFired) {
+            try {
+                slackSend botUser: true, channel: '#qa-automation',
+                          color: totalBad > 0 ? '#FF0000' : '#00FF00',
+                          message: "PMM ${imageTag} RC testing finished: ${results.size() - totalBad - totalWarn} ok, " +
+                                   "${totalBad} failed, ${totalWarn} unstable. Report: ${reportUrl}"
+            } catch (ignored) {
+                echo 'Could not post the RC testing result to Slack.'
             }
         }
     }
