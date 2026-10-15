@@ -145,6 +145,8 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    // molecule.yml is generated from pg_tde/core/scenario.yml (not stored in git)
+                    sh "python3 tools/render.py --group ${env.MOLECULE_DIR}"
                 }
             }
         }
