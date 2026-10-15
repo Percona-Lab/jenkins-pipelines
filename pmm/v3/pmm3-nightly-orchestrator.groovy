@@ -241,6 +241,7 @@ timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
     def imageTag = serverImage.split(':')[1]
     def isRc = imageTag.contains('-rc')
+    def version = imageTag.split('-rc')[0]
     def installRepo = isRc ? 'testing' : 'experimental'
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
@@ -505,7 +506,7 @@ timestamps {
                 echo "Nightly report: ${reportUrl}"
                 if (isRc) {
                     slackSend botUser: true, channel: '#qa-automation', color: totalBad > 0 ? '#FF0000' : '#00FF00',
-                              message: "PMM ${imageTag} RC testing finished: ${totalBad} failed of ${results.size()}. Report: ${reportUrl}"
+                              message: "PMM ${version} RC testing finished: ${totalBad} failed of ${results.size()}. Report: ${reportUrl}"
                 }
             } catch (ignored) {
                 // Same rule as the notification below: the report is a view of
@@ -538,9 +539,9 @@ timestamps {
                               "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<not reproduced|not a bug|test fix|product bug>\" " +
                               "\"<one-sentence summary>\" <fix PR or Jira URL, or -> \"<group>\" [\"<group>\" ...]\n" +
                               "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json." +
-                              (isRc ? "\n\nThis is RC ${imageTag} testing. When every finding is published, post exactly this one line, " +
+                              (isRc ? "\n\nThis is PMM ${version} RC testing. When every finding is published, post exactly this one line, " +
                                       "nothing else, with \"\${CLAUDE_PLUGIN_ROOT}/scripts/slack-bot.sh\" post '#qa-automation' -\n" +
-                                      "  RC ${imageTag} investigation finished: <N> test fix, <N> product bug, <N> not a bug, " +
+                                      "  PMM ${version} RC investigation finished: <N> test fix, <N> product bug, <N> not a bug, " +
                                       "<N> not reproduced. Report: ${reportUrl}" : ''),
                     ]).toString()
                     withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
