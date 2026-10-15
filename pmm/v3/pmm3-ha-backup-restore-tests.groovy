@@ -13,32 +13,19 @@
 // Backup and restore ship in the pmm-ha chart (files/pmm-backup.sh), so point
 // HELM_CHART_REPO / HELM_CHART_BRANCH at a chart PR to test it before it merges.
 
-void runEKSClusterCreate(String k8sVersion) {
-    def clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
-        string(name: 'K8S_VERSION', value: k8sVersion),
-        string(name: 'WORKER_COUNT', value: params.EKS_WORKER_COUNT),
+void provisionCluster() {
+    def eks = params.CLUSTER_TYPE == 'EKS'
+    def jobName = eks ? 'pmm3-ha-eks' : 'pmm3-ha-rosa'
+    def clusterCreateJob = build job: jobName, parameters: [
+        string(name: eks ? 'K8S_VERSION' : 'OCP_VERSION', value: eks ? params.K8S_VERSION : params.OCP_VERSION),
+        string(name: 'WORKER_COUNT', value: eks ? params.EKS_WORKER_COUNT : params.WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: false),
         string(name: 'RETENTION_DAYS', value: '1'),
     ]
 
-    env.PLATFORM = 'eks'
-    env.CLUSTER_JOB_NAME = 'pmm3-ha-eks'
-    env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
-    env.CLUSTER_BUILD_NUMBER = clusterCreateJob.number.toString()
-}
-
-void runOpenShiftClusterCreate(String ocpVersion) {
-    def clusterCreateJob = build job: 'pmm3-ha-rosa', parameters: [
-        string(name: 'OCP_VERSION', value: ocpVersion),
-        string(name: 'WORKER_COUNT', value: params.WORKER_COUNT),
-        booleanParam(name: 'DEPLOY_PMM', value: false),
-        booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: false),
-        string(name: 'RETENTION_DAYS', value: '1'),
-    ]
-
-    env.PLATFORM = 'openshift'
-    env.CLUSTER_JOB_NAME = 'pmm3-ha-rosa'
+    env.PLATFORM = eks ? 'eks' : 'openshift'
+    env.CLUSTER_JOB_NAME = jobName
     env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
     env.CLUSTER_BUILD_NUMBER = clusterCreateJob.number.toString()
 }
@@ -63,8 +50,8 @@ pipeline {
             description: 'Worker nodes for the OpenShift cluster. 6 is the size the restore was validated on.',
             name: 'WORKER_COUNT')
         choice(
-            choices: ['7', '8', '9', '6'],
-            description: 'Worker nodes for the EKS cluster. Used only when CLUSTER_TYPE = EKS.',
+            choices: ['12', '11', '10', '9'],
+            description: 'Worker nodes for the EKS cluster. Used only when CLUSTER_TYPE = EKS. 12 is what pmm3-ha-eks gives the unmodified chart values. EKS has not been run end to end yet, and its workers are spot instances that can be reclaimed while the restore has PMM down.',
             name: 'EKS_WORKER_COUNT')
         choice(
             choices: ['4.21', '4.20', '4.19', '4.18'],
@@ -109,7 +96,9 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 3, unit: 'HOURS')
+        // Covers post too, and a job timeout that fires during post leaks the cluster: this leaves
+        // room for pmm3-ha-rosa's own 2h, a stage running to its timeout, and the deletion.
+        timeout(time: 6, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '30'))
     }
     environment {
@@ -144,22 +133,23 @@ pipeline {
                 '''
             }
         }
-        stage('Create Kubernetes cluster') {
+        stage('Create the cluster and install dependencies') {
             parallel {
-                stage('Provision EKS Cluster') {
-                    when {
-                        expression { params.CLUSTER_TYPE == 'EKS' }
-                    }
+                stage('Create Kubernetes cluster') {
                     steps {
-                        runEKSClusterCreate(K8S_VERSION)
+                        script {
+                            provisionCluster()
+                        }
                     }
                 }
-                stage('Provision OpenShift Cluster') {
-                    when {
-                        expression { params.CLUSTER_TYPE == 'OpenShift' }
-                    }
+                stage('Install dependencies') {
                     steps {
-                        runOpenShiftClusterCreate(OCP_VERSION)
+                        sh '''
+                            pushd /srv/pmm-qa/e2e_tests
+                                npm ci
+                                npx playwright install chromium
+                            popd
+                        '''
                     }
                 }
             }
@@ -205,7 +195,9 @@ pipeline {
         stage('Verify the cluster has no PMM') {
             steps {
                 sh '''
-                    if helm list --namespace pmm --filter '^pmm-ha$' -q 2>/dev/null | grep -q .; then
+                    # Its own command, so a helm failure fails the stage rather than reading as no release.
+                    releases=$(helm list --namespace pmm --filter '^pmm-ha$' -q)
+                    if [ -n "${releases}" ]; then
                         echo "ERROR: pmm-ha is already installed on this cluster." >&2
                         echo "This job needs a bare cluster - check that the create job ran with DEPLOY_PMM=false." >&2
                         helm list --namespace pmm >&2
@@ -221,7 +213,13 @@ pipeline {
             }
             steps {
                 script {
-                    withEnv(["PMM_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}", "CHART_REPO=${params.HELM_CHART_REPO}"]) {
+                    // The client follows the server image, as in pmm3-ha-rosa and pmm3-ha-eks (PMM-15633).
+                    def clientImage = params.DOCKER_VERSION.replace('pmm-server', 'pmm-client')
+                    withEnv([
+                        "PMM_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
+                        "CHART_REPO=${params.HELM_CHART_REPO}",
+                        "PMM_CLIENT_IMAGE=${clientImage}",
+                    ]) {
                         sh '''
                             /srv/pmm-qa/k8s/install_pmm_ha.sh \
                                 --platform "${PLATFORM}" \
@@ -229,6 +227,8 @@ pipeline {
                                 --chart-branch "${HELM_CHART_BRANCH}" \
                                 --backup-minio \
                                 --external-access \
+                                --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
+                                --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}" \
                                 --summary-file "${PMM_HA_SUMMARY}" \
                                 --debug-dir "${WORKSPACE}/pmm-ha-debug"
                         '''
@@ -243,7 +243,7 @@ pipeline {
                     }
                     env.PMM_UI_URL = "${pmmAddress}/"
                     env.PMM_SERVER_ADDRESS = pmmAddress.split('//')[1]
-                    env.PMM_URL = "https://admin:${params.ADMIN_PASSWORD}@${pmmAddress.split('//')[1]}"
+                    env.PMM_URL = "https://admin:${params.ADMIN_PASSWORD}@${env.PMM_SERVER_ADDRESS}"
                     echo "PMM HA serving on ${env.PMM_UI_URL}"
                 }
             }
@@ -268,19 +268,10 @@ pipeline {
                 '''
             }
         }
-        stage('Install dependencies') {
-            steps {
-                sh '''
-                    pushd /srv/pmm-qa/e2e_tests
-                        npm ci
-                        npx playwright install chromium
-                    popd
-                '''
-            }
-        }
         stage('Run backup and restore tests') {
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                // Past Playwright's 60m globalTimeout, so Playwright times out and reports first.
+                timeout(time: 75, unit: 'MINUTES')
             }
             steps {
                 sh '''
@@ -297,11 +288,15 @@ pipeline {
                 expression { params.HA_TAGS }
             }
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                timeout(time: 75, unit: 'MINUTES')
             }
             steps {
                 sh '''
                     pushd /srv/pmm-qa/e2e_tests
+                        # Each run replaces output/junit.xml and playwright-report/.
+                        mv output/junit.xml output/junit-backup-restore.xml
+                        mv playwright-report playwright-report-backup-restore
+
                         export CI=true
                         export CHROMIUM_PATH=/usr/bin/chromium
                         npx playwright test --grep "${HA_TAGS}"
@@ -311,40 +306,44 @@ pipeline {
         }
     }
     post {
-        failure {
+        // Everything that reads the cluster is in always, which runs before the other
+        // conditions and deletes the cluster; unsuccessful also covers ABORTED.
+        unsuccessful {
             archiveArtifacts artifacts: 'pmm-ha-debug/**', allowEmptyArchive: true
         }
         always {
-            // In always, not failure: always runs first and deletes the cluster. The tests
-            // delete their backup and restore Jobs, so the runs' logs survive only on the
-            // backup-tools volume.
+            script {
+                if (env.KUBECONFIG && currentBuild.currentResult != 'SUCCESS') {
+                    sh '''
+                        {
+                            timeout 60 kubectl get pods,statefulsets,deployments,jobs --namespace pmm -o wide
+                            timeout 60 kubectl get events --namespace pmm --sort-by=.lastTimestamp
+                            for pod in $(timeout 60 kubectl get pods --namespace pmm --no-headers \
+                                    | awk '{ split($2, ready, "/"); if (ready[1] != ready[2] && $3 != "Completed") print $1 }'); do
+                                timeout 60 kubectl describe pod --namespace pmm "${pod}"
+                            done
+                        } > cluster-state.txt 2>&1 || true
+                    '''
+                }
+            }
             sh '''
                 if [ -n "${PMM_URL:-}" ]; then
-                    curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                    kubectl exec --namespace pmm deployment/pmm-ha-backup-tools -- \
-                        sh -c 'cd /backups && tar -czf - logs' > pmm-backup-logs.tar.gz || true
+                    curl --fail --max-time 120 --insecure "${PMM_URL}/logs.zip" --output logs.zip || rm -f logs.zip
                 fi
-                tar -zcvf playwright-report.tar.gz -C /srv/pmm-qa/e2e_tests playwright-report || true
+                tar -zcvf playwright-report.tar.gz -C /srv/pmm-qa/e2e_tests \
+                    playwright-report-backup-restore playwright-report || true
 
                 # The suite runs out of /srv/pmm-qa, but the junit step globs relative
-                # to the workspace, so the report has to come back here.
+                # to the workspace, so the reports have to come back here.
                 mkdir -p ${WORKSPACE}/output
-                cp /srv/pmm-qa/e2e_tests/output/junit.xml ${WORKSPACE}/output/ || true
+                cp /srv/pmm-qa/e2e_tests/output/junit*.xml ${WORKSPACE}/output/ || true
             '''
-            archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
-            archiveArtifacts artifacts: 'pmm-backup-logs.tar.gz', allowEmptyArchive: true
-            archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
-            junit testResults: 'output/junit.xml', keepLongStdio: true, allowEmptyResults: true,
+            archiveArtifacts artifacts: 'cluster-state.txt, logs.zip, playwright-report.tar.gz', allowEmptyArchive: true
+            junit testResults: 'output/junit*.xml', keepLongStdio: true, allowEmptyResults: true,
                 skipPublishingChecks: true
             script {
-                if (env.CLUSTER_NAME && params.CLUSTER_TYPE == 'EKS') {
-                    build job: 'pmm3-ha-eks-cleanup', parameters: [
-                        string(name: 'ACTION', value: 'DELETE_CLUSTER'),
-                        string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
-                    ]
-                }
-                if (env.CLUSTER_NAME && params.CLUSTER_TYPE == 'OpenShift') {
-                    build job: 'pmm3-ha-rosa-cleanup', parameters: [
+                if (env.CLUSTER_NAME) {
+                    build job: "${env.CLUSTER_JOB_NAME}-cleanup", parameters: [
                         string(name: 'ACTION', value: 'DELETE_CLUSTER'),
                         string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
                     ]
