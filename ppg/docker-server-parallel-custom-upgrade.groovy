@@ -33,13 +33,17 @@ pipeline {
         string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18-17-16', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         string(name: 'REPOSITORY', defaultValue: 'perconalab', description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.')
+        string(name: 'OLD_REPOSITORY', defaultValue: '', description: 'Image prefix of the OLD version image, if not REPOSITORY (on OBS each PG major is its own project, e.g. registry.opensuse.org/isv/percona/ppg/staging/17/containers/ubi9). Empty: REPOSITORY.')
+        string(name: 'NEW_REPOSITORY', defaultValue: '', description: 'Image prefix of the NEW version image, if not REPOSITORY. Empty: REPOSITORY.')
+        string(name: 'UPGRADE_REPOSITORY', defaultValue: '', description: 'Image prefix of the pg_upgrade mediator image, if not REPOSITORY (on OBS: registry.opensuse.org/isv/percona/ppg/staging/containers/ubi9). Empty: REPOSITORY.')
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
         string(name: 'RUN_LABELS', defaultValue: 'Manual', description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.')
     }
 
     environment {
         PATH = "/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${env.HOME}/.local/bin"
-        MOLECULE_DIR = "docker/ppg-docker-custom-upgrade"
+        MOLECULE_DIR = "docker/ppg-docker-custom"
+        DOCKER_TEST_TYPE = "upgrade"
     }
 
     options {
@@ -69,7 +73,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
-                    sh "python3 tools/render.py --group docker/ppg-docker-custom-upgrade"
+                    sh "python3 tools/render.py --group docker/ppg-docker-custom"
                 }
             }
         }

@@ -60,6 +60,11 @@ pipeline {
             defaultValue: 'percona',
             description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.'
         )
+        string(
+            name: 'SERVER_REPOSITORY',
+            defaultValue: '',
+            description: 'Image prefix of the PostgreSQL server image, if not REPOSITORY (on OBS the component images are in ppg:staging:common:tools:containers, the server images in ppg:staging:<major>:containers, e.g. registry.opensuse.org/isv/percona/ppg/staging/18/containers/ubi9). Empty: REPOSITORY.'
+        )
         booleanParam(
             name: 'DESTROY_ENV',
             defaultValue: true,

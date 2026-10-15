@@ -27,6 +27,7 @@ pipeline {
         string(name: 'SERVER_VERSION', defaultValue: '18.4', description: 'Docker PG version to test.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         string(name: 'REPOSITORY', defaultValue: 'perconalab', description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.')
+        text(name: 'EXPECTED_VERSIONS', defaultValue: '', description: 'Expected versions of the packages in the image, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing tables for this run. Leave empty to use the tables.')
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
         string(name: 'RUN_LABELS', defaultValue: 'Manual', description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.')
     }
