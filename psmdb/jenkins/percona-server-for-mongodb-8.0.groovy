@@ -177,7 +177,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
         // passing the path here lets the helper find it.
         dockerEnvFlags = "-e PSMDB_RBE_JENKINS_TOKEN -e PSMDB_RBE_JENKINS_TOKEN_FILE -e PSMDB_RBE_OIDC_ISSUER -e PSMDB_RBE_OIDC_CONNECTOR_ID -e PSMDB_RBE_BAZEL_FLAGS"
     }
-    sh """
+    // retry only rbe infra failures (action timeout, grpc errors), not real compile errors
+    int attempts = RBE_ENABLED ? 3 : 1
+    for (int attempt = 1; attempt <= attempts; attempt++) {
+        int rc = sh(returnStatus: true, script: """#!/bin/bash
+        set -e -o pipefail
         set -o xtrace
         ls -laR ./
         # Backup properties file if it exists
@@ -199,8 +203,17 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
             cd \${build_dir}
             ls -laR ./
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} ${STAGE_PARAM}"
-    """
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} ${STAGE_PARAM}" 2>&1 | tee rbe_build.log
+        """)
+        if (rc == 0) {
+            return
+        }
+        boolean infra = sh(returnStatus: true, script: "grep -qE 'failed due to timeout after|DEADLINE_EXCEEDED|UNAVAILABLE' rbe_build.log") == 0
+        if (!infra || attempt == attempts) {
+            error("build failed, exit code ${rc}")
+        }
+        echo "rbe infra failure, retry ${attempt}/${attempts}"
+    }
 }
 
 void cleanUpWS() {
