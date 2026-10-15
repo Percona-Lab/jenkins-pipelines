@@ -126,15 +126,11 @@ def withRBE(Closure body) {
             parallel(
                 'token-refresh': {
                     timeout(time: 24, unit: 'HOURS') {
-                        // PSMDB-2057: plain while + sleep instead of waitUntil.
-                        // waitUntil ignores initialRecurrencePeriod on this
-                        // Jenkins and spins with a ≤15s backoff, flooding the
-                        // stage log with writeFile/chmod/fileExists triples for
-                        // the whole multi-hour build. A while loop with an
-                        // explicit sleep(50 MINUTES) emits one sh + one Sleep
-                        // step per cycle (~3 over a 2h build). The exit-42
-                        // sentinel doubles as the done-check, dropping the
-                        // separate fileExists step.
+                        // one sh step per 50 min: write the token, then poll the done
+                        // flag inside the shell. jenkins steps in the loop (waitUntil,
+                        // sleep+fileExists) flood the log and bury the build output.
+                        // the shebang drops jenkins' default -x, so the loop prints
+                        // nothing. exit 42 = done, picked up within 30s.
                         boolean done = false
                         while (!done) {
                             withCredentials([
@@ -143,17 +139,19 @@ def withRBE(Closure body) {
                                     variable: 'TOK'
                                 )
                             ]) {
-                                int rc = sh(returnStatus: true, script: """
-                                    set -e
-                                    if [ -f '${doneFlag}' ]; then exit 42; fi
+                                int rc = sh(returnStatus: true, script: """#!/bin/sh
+                                    [ -f '${doneFlag}' ] && exit 42
                                     umask 077
-                                    printf '%s' "\$TOK" > '${tokenFile}.tmp'
-                                    mv '${tokenFile}.tmp' '${tokenFile}'
+                                    printf '%s' "\$TOK" > '${tokenFile}.tmp' && mv '${tokenFile}.tmp' '${tokenFile}'
+                                    i=0
+                                    while [ \$i -lt 100 ]; do
+                                        [ -f '${doneFlag}' ] && exit 42
+                                        sleep 30
+                                        i=\$((i + 1))
+                                    done
+                                    exit 0
                                 """)
-                                done = (rc == 42) // )))
-                            }
-                            if (!done) {
-                                sleep(time: 50, unit: 'MINUTES')
+                                done = (rc == 42)
                             }
                         }
                     }
