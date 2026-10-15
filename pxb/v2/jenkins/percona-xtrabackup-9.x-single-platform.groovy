@@ -28,11 +28,11 @@ pipeline {
             description: 'MySQL server flavour for QA run (both runs innodb9x then xtradb9x)',
             name: 'XTRABACKUP_TARGET')
         string(
-            defaultValue: '9.6.0',
+            defaultValue: '9.7.2',
             description: 'Version of MySQL InnoDB which will be used for bootstrap.sh script',
             name: 'INNODB9X_VERSION')
         string(
-            defaultValue: '9.6.0-1',
+            defaultValue: '9.7.2-2',
             description: 'Version of Percona XtraDB which will be used for bootstrap.sh script',
             name: 'XTRADB9X_VERSION')
         string(
@@ -71,6 +71,10 @@ pipeline {
             name: 'WITH_KMIP_TESTS',
             defaultValue: false,
             description: 'Run kmip tests')
+        booleanParam(
+            name: 'WITH_KEYCLOAK_TESTS',
+            defaultValue: false,
+            description: 'Run OIDC tests against a Keycloak container (xtradb targets only)')
         choice(
             choices: 'Hetzner\nAWS',
             description: 'Host provider for Jenkins workers',

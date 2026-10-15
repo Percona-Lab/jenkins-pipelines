@@ -13,11 +13,11 @@ pipeline {
             description: 'MySQL version for QA run',
             name: 'XTRABACKUP_TARGET')
         string(
-            defaultValue: '8.3.0',
+            defaultValue: '8.4.11',
             description: 'Version of MySQL InnoDB80 which will be used for bootstrap.sh script',
             name: 'INNODB80_VERSION')
         string(
-            defaultValue: '8.3.0.1',
+            defaultValue: '8.4.11-11',
             description: 'Version of Percona XtraDB80 which will be used for bootstrap.sh script',
             name: 'XTRADB80_VERSION')
         string(
@@ -44,6 +44,10 @@ pipeline {
             name: 'WITH_KMIP_TESTS',
             defaultValue: false,
             description: 'Run kmip tests')
+        booleanParam(
+            name: 'WITH_KEYCLOAK_TESTS',
+            defaultValue: false,
+            description: 'Run OIDC tests against a Keycloak container (xtradb targets only)')
         choice(
             choices: 'docker-32gb\ndocker',
             description: 'Run build on specified instance type',
