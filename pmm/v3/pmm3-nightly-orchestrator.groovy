@@ -544,11 +544,14 @@ timestamps {
                                       "  PMM ${version} RC investigation finished: <N> test fix, <N> product bug, <N> not a bug, " +
                                       "<N> not reproduced. Report: ${reportUrl}" : ''),
                     ]).toString()
-                    withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
+                    withCredentials([
+                        string(credentialsId: 'INVESTIGATOR_ROUTINE_ID', variable: 'ROUTINE_ID'),
+                        string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')
+                    ]) {
                         sh '''
                             set -euo pipefail
                             curl -fsS --connect-timeout 10 --max-time 60 -X POST \
-                                "https://api.anthropic.com/v1/claude_code/routines/trig_01P2LXxvVmuqKJG1eaJb7j5m/fire" \
+                                "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
                                 -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
                                 -H "anthropic-version: 2023-06-01" \
                                 -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
