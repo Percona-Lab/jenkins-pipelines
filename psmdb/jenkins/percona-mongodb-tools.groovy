@@ -269,6 +269,26 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute(26.04)(x86_64)') {
+                    agent { label params.CLOUD == 'AWS' ? 'docker-32gb' : 'docker-x64' }
+                    steps {
+                        cleanUpWS()
+                        unstash 'tools-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04)(aarch64)') {
+                    agent { label params.CLOUD == 'AWS' ? 'docker-32gb-aarch64' : 'docker-aarch64' }
+                    steps {
+                        cleanUpWS()
+                        unstash 'tools-properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_deb=1")
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm(12)(x86_64)') {
                     agent { label params.CLOUD == 'AWS' ? 'docker-32gb' : 'docker-x64' }
                     steps {
@@ -357,6 +377,16 @@ pipeline {
                         unstash 'tools-properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_tarball=1")
+                        pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04) binary tarball') {
+                    agent { label params.CLOUD == 'AWS' ? 'docker-32gb' : 'docker-x64' }
+                    steps {
+                        cleanUpWS()
+                        unstash 'tools-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:resolute", "--build_tarball=1")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
