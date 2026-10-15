@@ -340,6 +340,12 @@ timestamps {
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
     ])
 
+    branches['ha backup-restore'] = suite('ha backup-restore', 'pmm3-ha-backup-restore-tests', [
+        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+        string(name: 'DOCKER_VERSION',    value: serverImage),
+        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+    ])
+
     if (params.RUN_GH_NIGHTLY_SUITE) {
         branches['github nightly-test-suite'] = {
             stage('github nightly-test-suite') {
