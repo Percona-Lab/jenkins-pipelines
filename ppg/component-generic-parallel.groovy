@@ -142,6 +142,11 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ${PRODUCT}/setup"
+                    // The parallel stages are named after the Molecule scenarios (amd, arm);
+                    // show which OS each runs on (set per component in <PRODUCT>/setup/scenario.yml).
+                    def platforms = sh(returnStdout: true, script: """python3 -c "import yaml; s = yaml.safe_load(open('${PRODUCT}/setup/scenario.yml'))['scenarios']; print(', '.join(k + ': ' + v['os'] for k, v in s.items()))" """).trim()
+                    currentBuild.description = "Platforms: ${platforms}"
+                    echo "Platforms: ${platforms}"
                 }
             }
         }
