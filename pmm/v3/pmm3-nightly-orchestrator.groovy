@@ -537,7 +537,11 @@ timestamps {
                               "from a percona/pmm-qa checkout:\n" +
                               "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<not reproduced|not a bug|test fix|product bug>\" " +
                               "\"<one-sentence summary>\" <fix PR or Jira URL, or -> \"<group>\" [\"<group>\" ...]\n" +
-                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json.",
+                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json." +
+                              (isRc ? "\n\nThis is RC ${imageTag} testing. When every finding is published, post exactly this one line, " +
+                                      "nothing else, with \"\${CLAUDE_PLUGIN_ROOT}/scripts/slack-bot.sh\" post '#qa-automation' -\n" +
+                                      "  RC ${imageTag} investigation finished: <N> test fix, <N> product bug, <N> not a bug, " +
+                                      "<N> not reproduced. Report: ${reportUrl}" : ''),
                     ]).toString()
                     withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
                         sh '''
