@@ -244,14 +244,28 @@ void doTestWorkerJobWithGuard(Integer WORKER_ID, String SUITES, String STANDALON
 
 void checkoutSources(String COMPONENT) {
     echo "Checkout ${COMPONENT} sources"
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf sources
-        ./pxc/local/checkout ${COMPONENT}
-    """
+
+    if (COMPONENT == 'PXC80') {
+        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
+            sh """
+                # sudo is needed for better node recovery after compilation failure
+                # if building failed on compilation stage directory will have files owned by docker user
+                sudo git reset --hard
+                sudo git clean -xdf
+                sudo rm -rf sources
+                ./pxc/local/checkout ${COMPONENT}
+            """
+        } // withCredentials
+    } else {
+        sh """
+            # sudo is needed for better node recovery after compilation failure
+            # if building failed on compilation stage directory will have files owned by docker user
+            sudo git reset --hard
+            sudo git clean -xdf
+            sudo rm -rf sources
+            ./pxc/local/checkout ${COMPONENT}
+        """
+    }
 }
 
 void build(String SCRIPT) {
@@ -271,8 +285,15 @@ void build(String SCRIPT) {
 void setupTestSuitesSplit() {
     def split_script = """#!/bin/bash
         if [[ "${FULL_MTR}" == "yes" ]]; then
+
+            GIT_REPO_LINK=\${GIT_REPO}
+            if [[ \${GIT_REPO} =~ "private" ]]; then
+                echo "Private branch detected"
+                GIT_REPO_LINK=\$(echo \${GIT_REPO} | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|g")
+            fi
+
             # Try to get suites split from PS repo. If not present, fallback to hardcoded.
-            RAW_VERSION_LINK=\$(echo \${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+            RAW_VERSION_LINK=\$(echo \${GIT_REPO_LINK%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
             REPLY=\$(curl -Is \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh | head -n 1 | awk '{print \$2}')
             CUSTOM_SPLIT=0
             if [[ \${REPLY} != 200 ]]; then
@@ -281,11 +302,11 @@ void setupTestSuitesSplit() {
                 cp ./pxc/jenkins/suites-groups.sh ${WORKSPACE}/suites-groups.sh
             else
                 echo "Using custom MTR suites split"
-                wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh -O ${WORKSPACE}/suites-groups.sh
+                curl \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh -o ${WORKSPACE}/suites-groups.sh
                 CUSTOM_SPLIT=1
             fi
             # Check if split contain all suites
-            wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/mysql-test-run.pl -O ${WORKSPACE}/mysql-test-run.pl
+            curl \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/mysql-test-run.pl -o ${WORKSPACE}/mysql-test-run.pl
             chmod +x ${WORKSPACE}/suites-groups.sh
             set +e
             echo "Check if suites list is consistent with the one specified in mysql-test-run.pl"
@@ -347,7 +368,7 @@ void setupTestSuitesSplit() {
 
 void validatePxcBranch() {
     echo "Validating PXC branch version"
-    sh """#!/bin/bash
+    sh """#!/bin/bash -x
         MY_BRANCH_BASE_MAJOR=8
         MY_BRANCH_BASE_MINOR=0
 
@@ -355,12 +376,16 @@ void validatePxcBranch() {
             sudo apt-get update
         fi
 
-        RAW_VERSION_LINK=\$(echo \${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+        GIT_REPO_LINK=\${GIT_REPO}
+        if [[ "\${GIT_REPO}" =~ private ]]; then
+            GIT_REPO_LINK=\$(echo \${GIT_REPO} | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|g")
+        fi
+        RAW_VERSION_LINK=\$(echo \${GIT_REPO_LINK%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
         REPLY=\$(curl -Is \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print \$2}')
-        if [[ \${REPLY} != 200 ]]; then
-            wget \${RAW_VERSION_LINK}/\${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+        if [[ \${REPLY} != "200" ]]; then
+            curl \${RAW_VERSION_LINK}/\${BRANCH}/VERSION -o ${WORKSPACE}/VERSION-${BUILD_NUMBER}
         else
-            wget \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+            curl \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION -o ${WORKSPACE}/VERSION-${BUILD_NUMBER}
         fi
         source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
         if [[ \${MYSQL_VERSION_MAJOR} -lt \${MY_BRANCH_BASE_MAJOR} ]] ; then
@@ -490,8 +515,10 @@ pipeline {
 
                 sh 'echo Prepare: $(date -u "+%s")'
 
-                validatePxcBranch()
-                setupTestSuitesSplit()
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
+                    validatePxcBranch()
+                    setupTestSuitesSplit()
+                }
                 checkIfPxbPackagesDownloadable()
 
                 script{

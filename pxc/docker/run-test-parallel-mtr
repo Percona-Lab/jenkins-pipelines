@@ -38,6 +38,7 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
     export MTR_STANDALONE_TESTS_PARALLEL='${MTR_STANDALONE_TESTS_PARALLEL}'
     export CI_FS_MTR='${CI_FS_MTR}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
+    export GIT_REPO='${GIT_REPO}'
     export WORKER_NO='${WORKER_NO}'
 
     mkdir /tmp/results
