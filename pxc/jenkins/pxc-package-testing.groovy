@@ -183,10 +183,41 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                         } else{
                             echo "Not setting the secret variables for molecule use as EOL not selected"
                         }
+                    }else if ("${product_to_test}" == "pxc80"){
+                        if ("${MIN_UPGRADE_TEST}" == "PXC80_EOL_MAIN_TO_EOL_TESTING"){
+                            // EOL minor upgrade: install from the EOL "release" repo on
+                            // converge, then upgrade to the EOL "testing" repo on side-effect.
+                            if(action == "converge"){
+                                sh """
+                                    echo 'eol: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'install_repo_eol: "main"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                """
+                                echo "INSIDE PXC80 CONVERGE AND PXC80_EOL_MAIN_TO_EOL_TESTING"
+                            }
+                            else {
+                                sh """
+                                    echo 'eol: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'install_repo_eol: "testing"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                """
+                                echo "INSIDE PXC80 SIDE-EFFECT AND PXC80_EOL_MAIN_TO_EOL_TESTING"
+                            }
+
+                            echo "Setting the secret variables for molecule use"
+                            withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
+                                sh """
+                                    echo 'USERNAME: "${USERNAME}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'PASSWORD: "${PASSWORD}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                """
+                            }
+                        } else{
+                            echo "PXC80 min_upgrade without EOL, skipping EOL value assignment"
+                        }
                     }else{
-                        echo "Product is not pxc57 so skipping value assignment to it"
+                        echo "Product is not pxc57 or pxc80 so skipping value assignment to it"
                     }
-                    
+
                 }else{
                     echo "Not setting up VARS as in create or destroy stage"
                 }
@@ -954,7 +985,7 @@ properties([
             choiceType: 'PT_SINGLE_SELECT',
             description: 'Test type based on product selection',
             name: 'test_type',
-            referencedParameters: 'product_to_test,pxc57_repo',
+            referencedParameters: 'product_to_test,pxc57_repo,EOL',
             script: [
                 $class: 'GroovyScript',
                 script: [
@@ -969,8 +1000,12 @@ properties([
                             }
                         } 
                         else if (product_to_test == "pxc80") {
-                            result.add("min_upgrade_pxc_80")
-                        } 
+                            if (EOL == "yes") {
+                                result.add("min_upgrade_pxc80_eol_main_to_eol_testing")
+                            } else {
+                                result.add("min_upgrade_pxc_80")
+                            }
+                        }
                         else if (product_to_test == "pxc84") {
                             result.add("min_upgrade_pxc_84")
                         }
@@ -1129,6 +1164,45 @@ pipeline {
                                 JENWORKSPACE = "${env.WORKSPACE}"
 
                                 MIN_UPGRADE_TEST = "PXC80_MINOR_UPGRADE"
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+
+                            steps {
+                                setup()
+                                upgrade("min_upgrade")
+                            }
+                            post{
+                                always {
+                                    post_upgrade("min_upgrade")
+                                }
+                            }
+                }
+
+                stage("MIN_UPGRADE_PXC80_EOL_MAIN_TO_EOL_TESTING") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "min_upgrade_pxc80_eol_main_to_eol_testing"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc80" }
+                                    expression{params.EOL == "yes" }
+                                }
+                            }
+
+                            environment {
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                                MIN_UPGRADE_TEST = "PXC80_EOL_MAIN_TO_EOL_TESTING"
                             }
 
                             options {
