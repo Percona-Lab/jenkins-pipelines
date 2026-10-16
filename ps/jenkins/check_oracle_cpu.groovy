@@ -135,21 +135,24 @@ pipeline {
     stages {
         stage('Fetch scripts') {
             steps {
+                // Drop a reused workspace before any download. post { always }
+                // archives cpu-state.json if it is still present, and curl -o
+                // leaves an existing file untouched when the GET fails.
+                sh "rm -rf ${STATE} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json check_oracle_cpu.py oracle_cpu tests"
                 // mysql-sandbox is a private repo. Anonymous fetches from
                 // raw.githubusercontent.com return 404. Use a Jenkins-stored
                 // token. main is not a pinned SHA, so each build downloads
                 // the current scripts.
                 withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
-                    // Intentionally no `set -o xtrace`. Jenkins masks
-                    // ${GITHUB_API_TOKEN} as **** in logs, but skipping trace
-                    // on this secret-bearing command keeps the Authorization
-                    // header out of the build console entirely.
+                    // Jenkins runs sh with tracing on. set +x keeps the token header out of the log.
                     sh '''
+                        set +x
                         set -o errexit
                         base=https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins
                         fetch() {
                             mkdir -p "$(dirname "$1")"
-                            curl -fsSL -H "Authorization: token ${GITHUB_API_TOKEN}" -o "$1" "$base/$2"
+                            curl -fsSL --retry 3 --retry-all-errors --max-time 60 \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" -o "$1" "$base/$2"
                         }
                         fetch check_oracle_cpu.py check_oracle_cpu.py
                         fetch oracle_cpu/__init__.py oracle_cpu/__init__.py
