@@ -130,9 +130,10 @@ def call(Map args = [:]) {
         def fipsFl      = s.fipsFlags
         def _skipInFips = s.skipInFips
 
-        def agentLabel = arch == 'aarch64'
-            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64')
-            : (cloud == 'Hetzner' ? 'docker-x64'     : 'docker-32gb')
+       // aarch64: always use docker-32gb-aarch64 (was: Hetzner -> docker-aarch64)
+       def agentLabel = arch == 'aarch64'
+           ? 'docker-32gb-aarch64'
+           : (cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb')
 
         def sourceFolder = sourceFolders[buildType]
         def targetFolder = targetFolders[buildType]
