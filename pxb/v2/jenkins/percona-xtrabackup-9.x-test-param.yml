@@ -29,11 +29,11 @@
         description: Specific percona-xtrabackup-9.x-compile-param build id to use binaries from.
     - string:
         name: INNODB9X_VERSION
-        default: "9.6.0"
+        default: "9.7.2"
         description: Version of MySQL InnoDB which will be used for bootstrap.sh script
     - string:
         name: XTRADB9X_VERSION
-        default: "9.6.0-1"
+        default: "9.7.2-2"
         description: Version of Percona XtraDB which will be used for bootstrap.sh script
     - string:
         name: XBTR_ARGS
@@ -55,6 +55,10 @@
         name: WITH_KMIP_TESTS
         default: true
         description: "Run kmip tests"
+    - bool:
+        name: WITH_KEYCLOAK_TESTS
+        default: true
+        description: "Run OIDC tests against a Keycloak container (xtradb targets only)"
     - choice:
         name: CLOUD
         choices:
