@@ -77,6 +77,7 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
+                                rm -f ${repoName}.seeded
 
                                 if [ -f ${repoName}.last ]; then
                                     # Get current tags
@@ -97,6 +98,7 @@ pipeline {
                                     # First run - just save current state
                                     git ls-remote --tags --refs ${repoUrl} | awk -F'/' '{print \$3}' | sort > ${repoName}.last
                                     touch ${repoName}.newtags
+                                    touch ${repoName}.seeded
                                 fi
                             """
                             if (params.FORCE_LATEST_84) {
@@ -111,9 +113,20 @@ pipeline {
                                 """
                             }
                         }
+                        def newTagCount = 0
+                        def seeded = false
+                        ReposPathMap.each { repoName, repoUrl ->
+                            if (fileExists("${repoName}.seeded")) {
+                                seeded = true
+                            }
+                            def tagText = fileExists("${repoName}.newtags") ? readFile("${repoName}.newtags") : ''
+                            newTagCount += tagText.readLines().findAll { it.trim() }.size()
+                        }
+                        env.MYSQL_NEW_TAG_COUNT = newTagCount.toString()
+                        env.MYSQL_SEEDED = seeded ? '1' : '0'
                     }
                     }
-                stash allowEmpty: true, includes: '*.newtags, *.last, *.current', name: 'TagFiles'
+                stash allowEmpty: true, includes: '*.newtags, *.last, *.current, *.seeded', name: 'TagFiles'
             }
         }
         stage('Process New Tags') {
@@ -152,17 +165,12 @@ pipeline {
                     // raw.githubusercontent.com return 404. Use a Jenkins-stored
                     // token. main is not a pinned SHA, so each build downloads
                     // the current script.
-                    sh 'rm -f check_mysql_repo.py'
                     withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
-                        // Jenkins runs sh with tracing on. set +x keeps the token header out of the log.
-                        sh '''
-                            set +x
-                            set -o errexit
-                            curl -fsSL --retry 3 --retry-all-errors --max-time 60 \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -o check_mysql_repo.py \
-                                https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins/check_mysql_repo.py
-                        '''
+                        def sandboxFetch = load 'ps/jenkins/sandbox_fetch.groovy'
+                        sandboxFetch.fetch(
+                            'https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins',
+                            ['check_mysql_repo.py']
+                        )
                     }
 
                     // Create directory for CSV output
@@ -288,10 +296,37 @@ CSV Reports: ${artifactUrl}"""
                 }
             }
         }
+        stage('Report status') {
+            steps {
+                script {
+                    def countText = env.MYSQL_NEW_TAG_COUNT ?: '0'
+                    def count = countText.isInteger() ? countText.toInteger() : 0
+                    def result = currentBuild.currentResult ?: 'SUCCESS'
+                    def text
+                    if (count == 0 && env.MYSQL_SEEDED == '1') {
+                        text = 'Seeded tag baseline. No CSV.'
+                    } else if (count == 0) {
+                        text = 'No new tags.'
+                    } else {
+                        def csvs = sh(
+                            script: "find csv_output -maxdepth 1 -type f \\( -name '*_no_ai.csv' -o -name '*_ai_*.csv' \\) -printf '%f\\n' | sort | paste -sd, -",
+                            returnStdout: true
+                        ).trim()
+                        text = csvs ? "CSV written: ${csvs}" : "New tags: ${count}. No CSV."
+                    }
+                    if (count == 0 && result == 'SUCCESS') {
+                        currentBuild.result = 'NOT_BUILT'
+                    }
+                    currentBuild.description = text
+                    writeFile file: 'mysql-status.txt', text: text + '\n'
+                    echo text
+                }
+            }
+        }
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.newtags, csv_output/**/*.csv', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'mysql-status.txt, *.newtags, csv_output/**/*.csv', allowEmptyArchive: true
             sh '''
                 sudo rm -rf ./* || true
             '''
