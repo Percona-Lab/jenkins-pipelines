@@ -177,9 +177,19 @@ pipeline {
                     sh 'mkdir -p csv_output'
 
                     // Define version patterns to track
+                    def newTagText = ''
+                    ReposPathMap.each { repoName, repoUrl ->
+                        if (fileExists("${repoName}.newtags")) {
+                            newTagText += readFile("${repoName}.newtags")
+                        }
+                    }
                     def versionPatterns = ['mysql-8.0', 'mysql-8.4']
 
                     versionPatterns.each { versionPattern ->
+                        if (!newTagText.readLines().any { it.contains("/${versionPattern}.") }) {
+                            echo "No new tags for ${versionPattern}"
+                            return
+                        }
                         echo "Processing version series: ${versionPattern}"
 
                         // Get latest two tags for this version series
