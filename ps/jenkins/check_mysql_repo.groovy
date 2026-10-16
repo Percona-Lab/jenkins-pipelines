@@ -54,6 +54,11 @@ pipeline {
             defaultValue: false,
             description: 'Treat the newest mysql-8.4 tag as new and generate its CSV even when the saved baseline already contains it.'
         )
+        string(
+            name: 'BUG_MAP_JOB',
+            defaultValue: 'check-oracle-cpu',
+            description: 'Jenkins job that archives cpu-bug-cve.json. Blank skips the CVE column.'
+        )
     }
     triggers {
         // Hourly every month from 2nd week to 4th week (days 8-28)
@@ -176,6 +181,29 @@ pipeline {
                     // Create directory for CSV output
                     sh 'mkdir -p csv_output'
 
+                    // cpu-bug-cve.json is the bug-id to CVE map archived by the
+                    // Oracle monitor. An anonymous GET of the artifact URL is
+                    // 403. That job allows every job to copy its artifacts.
+                    // Blank BUG_MAP_JOB leaves the CVE column out.
+                    // null means this build started before the parameter
+                    // existed, so use the default job.
+                    def bugMapJob = params.BUG_MAP_JOB
+                    if (bugMapJob == null) {
+                        bugMapJob = 'check-oracle-cpu'
+                    }
+                    bugMapJob = bugMapJob.trim()
+                    if (bugMapJob) {
+                        sh 'rm -f cpu-bug-cve.json'
+                        copyArtifacts(
+                            projectName: bugMapJob,
+                            selector: lastSuccessful(),
+                            filter: 'cpu-bug-cve.json',
+                            optional: false,
+                            flatten: true,
+                            fingerprintArtifacts: false
+                        )
+                    }
+
                     // Define version patterns to track
                     def newTagText = ''
                     ReposPathMap.each { repoName, repoUrl ->
@@ -230,6 +258,7 @@ pipeline {
                                         -o csv_output \
                                         ${componentCsvFlag} \
                                         ${aiFlags} \
+                                        ${bugMapJob ? '--cve-json cpu-bug-cve.json' : ''} \
                                         ${oldTag} ${newTag}
 
                                     # Validate CSV output
