@@ -18,7 +18,7 @@ def cpuNote(Map event) {
     def reportPath = event.reportPath
     try {
         writeFile file: 'cpu-note.json', text: groovy.json.JsonOutput.toJson(event)
-        sh "python3 ps/jenkins/cpu_cves.py note ${reportPath} cpu-note.json"
+        sh "python3 check_oracle_cpu.py note ${reportPath} cpu-note.json"
     } catch (Exception err) {
         if (err instanceof InterruptedException) {
             throw err
@@ -133,12 +133,45 @@ pipeline {
         copyArtifactPermission('*')
     }
     stages {
+        stage('Fetch scripts') {
+            steps {
+                // Drop a reused workspace before any download. post { always }
+                // archives cpu-state.json if it is still present, and curl -o
+                // leaves an existing file untouched when the GET fails.
+                sh "rm -rf ${STATE} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json check_oracle_cpu.py oracle_cpu tests"
+                // mysql-sandbox is a private repo. Anonymous fetches from
+                // raw.githubusercontent.com return 404. Use a Jenkins-stored
+                // token. main is not a pinned SHA, so each build downloads
+                // the current scripts.
+                withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
+                    // Jenkins runs sh with tracing on. set +x keeps the token header out of the log.
+                    sh '''
+                        set +x
+                        set -o errexit
+                        base=https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins
+                        fetch() {
+                            mkdir -p "$(dirname "$1")"
+                            curl -fsSL --retry 3 --retry-all-errors --max-time 60 \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" -o "$1" "$base/$2"
+                        }
+                        fetch check_oracle_cpu.py check_oracle_cpu.py
+                        fetch oracle_cpu/__init__.py oracle_cpu/__init__.py
+                        fetch oracle_cpu/core.py oracle_cpu/core.py
+                        fetch oracle_cpu/diagnostics.py oracle_cpu/diagnostics.py
+                        fetch oracle_cpu/pipeline.py oracle_cpu/pipeline.py
+                        fetch oracle_cpu/state.py oracle_cpu/state.py
+                        fetch tests/__init__.py tests/__init__.py
+                        fetch tests/test_oracle_cpu.py tests/test_oracle_cpu.py
+                    '''
+                }
+            }
+        }
         stage('Test') {
             steps {
                 // post reads these files. A failed test must not summarize
                 // the previous build's workspace copy.
                 sh "rm -rf ${STATE} ${BUGS} ${MANIFEST} ${REPORT} ${STATUS} ${POLL_RC} cpu-description.txt cpu-note.json cpu-thread.json"
-                sh 'python3 -m unittest discover -s ps/jenkins/tests -t ps/jenkins -p test_oracle_cpu.py'
+                sh 'python3 -m unittest discover -s tests -t . -p test_oracle_cpu.py'
             }
         }
         stage('Check advisories') {
@@ -174,7 +207,7 @@ pipeline {
                 }
                 sh """
                     set +e
-                    python3 ps/jenkins/cpu_cves.py \\
+                    python3 check_oracle_cpu.py \\
                         --state ${STATE} \\
                         --bugs ${BUGS} \\
                         --notify-manifest ${MANIFEST} \\
@@ -333,7 +366,7 @@ pipeline {
                                 recorded = true
                                 unstable(failMessage)
                             } else {
-                                def ackCmd = "python3 ps/jenkins/cpu_cves.py ack ${STATE}"
+                                def ackCmd = "python3 check_oracle_cpu.py ack ${STATE}"
                                 if (!threadId) {
                                     writeFile file: 'cpu-thread.json', text: groovy.json.JsonOutput.toJson([
                                         channelId: response.channelId,
@@ -407,7 +440,7 @@ pipeline {
             script {
                 try {
                     def result = currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS'
-                    sh "python3 ps/jenkins/cpu_cves.py status ${REPORT} ${STATE} ${STATUS} cpu-description.txt ${result}"
+                    sh "python3 check_oracle_cpu.py status ${REPORT} ${STATE} ${STATUS} cpu-description.txt ${result}"
                 } catch (Exception err) {
                     if (err instanceof InterruptedException) {
                         throw err
