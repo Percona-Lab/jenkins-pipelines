@@ -49,6 +49,11 @@ pipeline {
             defaultValue: false,
             description: 'Generate per-component CSV breakdown in addition to the main report'
         )
+        booleanParam(
+            name: 'FORCE_LATEST_84',
+            defaultValue: false,
+            description: 'Treat the newest mysql-8.4 tag as new and generate its CSV even when the saved baseline already contains it.'
+        )
     }
     triggers {
         // Hourly every month from 2nd week to 4th week (days 8-28)
@@ -94,6 +99,17 @@ pipeline {
                                     touch ${repoName}.newtags
                                 fi
                             """
+                            if (params.FORCE_LATEST_84) {
+                                sh """
+                                    set -o errexit
+                                    latest=\$(git ls-remote --tags --refs ${repoUrl} | awk -F'/' '{print \$3}' | grep '^mysql-8\\.4\\.' | sort -V | tail -1)
+                                    if [ -n "\$latest" ]; then
+                                        line="${repoUrl}/tree/\$latest"
+                                        touch ${repoName}.newtags
+                                        grep -Fxq "\$line" ${repoName}.newtags || echo "\$line" >> ${repoName}.newtags
+                                    fi
+                                """
+                            }
                         }
                     }
                     }
@@ -132,19 +148,20 @@ pipeline {
                         git clone --filter=blob:none ${ReposPathMap['MySQL']} mysql-server-repo
                     """
 
-                    // mysql-eol-dev is a private repo. Anonymous fetches from
+                    // mysql-sandbox is a private repo. Anonymous fetches from
                     // raw.githubusercontent.com return 404. Use a Jenkins-stored
-                    // token; pinned SHA preserves reproducibility.
+                    // token. main is not a pinned SHA, so each build downloads
+                    // the current script.
+                    sh 'rm -f check_mysql_repo.py'
                     withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
-                        // Intentionally no `set -o xtrace`. Jenkins masks
-                        // ${GITHUB_API_TOKEN} as **** in logs, but skipping trace
-                        // on this secret-bearing command keeps the Authorization
-                        // header out of the build console entirely.
+                        // Jenkins runs sh with tracing on. set +x keeps the token header out of the log.
                         sh '''
+                            set +x
                             set -o errexit
-                            curl -fsSL -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -o mysql_commit_report.py \
-                                https://raw.githubusercontent.com/percona/mysql-eol-dev/b42ac69b49a6ed489f25400efc9f0b8d1ac1df68/scripts/mysql_commit_report.py
+                            curl -fsSL --retry 3 --retry-all-errors --max-time 60 \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                -o check_mysql_repo.py \
+                                https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins/check_mysql_repo.py
                         '''
                     }
 
@@ -182,15 +199,15 @@ pipeline {
                                 // AI analysis: parameter takes precedence, then env var
                                 def enableAI = params.ENABLE_AI_ANALYSIS ?: (env.ENABLE_AI_ANALYSIS == 'true')
                                 def llmModel = params.LLM_MODEL ?: env.LLM_MODEL ?: 'gemini-3-pro'
-                                def aiFlags = enableAI ? "-a -m ${llmModel}" : '-m no-ai'
-                                def csvSuffix = enableAI ? "_${llmModel}" : '_no-ai'
+                                def aiFlags = enableAI ? "-a -m ${llmModel}" : ''
+                                def csvSuffix = enableAI ? "_ai_${llmModel}" : '_no_ai'
                                 def componentCsvFlag = params.GENERATE_PER_COMPONENT_CSV ? '-g' : ''
 
                                 sh """
                                     set -o errexit
                                     set -o xtrace
 
-                                    python3 mysql_commit_report.py \
+                                    python3 check_mysql_repo.py \
                                         -i mysql-server-repo \
                                         -o csv_output \
                                         ${componentCsvFlag} \
