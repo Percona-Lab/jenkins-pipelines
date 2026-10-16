@@ -121,31 +121,25 @@ def mirrorChild(String name, String jobName, def run) {
         echo "[${name}] child stages unavailable (${err.message}); rendering the suite as one stage"
     }
 
-    def blue = "${env.JENKINS_URL}blue/organizations/jenkins/${jobName}/detail/${jobName}/${run.number}/pipeline"
+    // The child run's Pipeline Overview; a stage's flow node id after it selects that stage.
+    def overview = "${run.absoluteUrl}stages/?selected-node="
 
     int i = 0
     while (i < stages.size()) {
         def child = stages[i]
         if (child.status == 'NOT_EXECUTED') {
-            // A declarative child still runs its post actions after a failure, so
-            // never-run stages can sit in the middle; each run of them is one node.
-            int j = i
-            while (j < stages.size() && stages[j].status == 'NOT_EXECUTED') {
-                j++
-            }
-            def names = stages[i..<j].collect { it.name }
-            stage(names.size() == 1 ? names[0] : "${names.size()} stages skipped") {
-                catchError(buildResult: null, stageResult: 'NOT_BUILT') {
-                    error("never ran in ${jobName} #${run.number}: ${names.join(', ')}")
-                }
-            }
-            i = j
+            // A stage that never ran gets no node, only this line in the suite's log.
+            // Marked NOT_BUILT, it outranks FAILURE: Pipeline Graph View then draws the
+            // whole lane as not built and hides its stages. The skip marker
+            // (Utils.markStageSkippedForConditional) finds its stage by name from the
+            // run's heads, a lookup that can miss a lane once others have finished.
+            echo "[${name}] never ran in ${jobName} #${run.number}: ${child.name} — ${overview}${child.id}"
+            i++
             continue
         }
         stage("${child.name} · ${humanMs(child.durationMillis)}") {
-            // Blue Ocean draws a stage with no steps as never run (hollow), whatever
-            // its status, so every mirrored stage carries at least this echo.
-            echo "${child.name}: ${child.status} in ${humanMs(child.durationMillis)} — ${blue}/${child.id}"
+            // Links the child's own stage, selected in its Pipeline Overview.
+            echo "${child.name}: ${child.status} in ${humanMs(child.durationMillis)} — ${overview}${child.id}"
             // buildResult stays null on purpose: the suite's own verdict above
             // owns the build result, and a mirrored step must not raise it.
             if (child.status == 'FAILED') {
