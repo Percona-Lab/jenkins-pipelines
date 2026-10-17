@@ -507,7 +507,6 @@ timestamps {
                 }
                 echo "Nightly report: ${reportUrl}"
                 if (isRc) {
-                    // A GitHub lane is one entry in results but hundreds of jobs in the report.
                     slackSend botUser: true, channel: '#qa-automation', color: totalBad > 0 ? '#FF0000' : '#00FF00',
                               message: "PMM ${version} RC testing finished: ${readFile('job-count.txt').trim()}. Report: ${reportUrl}"
                 }
