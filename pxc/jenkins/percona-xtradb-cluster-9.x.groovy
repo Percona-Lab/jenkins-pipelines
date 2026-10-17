@@ -49,6 +49,7 @@ void cleanUpWS() {
 }
 
 def AWS_STASH_PATH
+def FAILED_BUILD_STAGES = []
 
 pipeline {
     agent {
@@ -210,7 +211,7 @@ pipeline {
                 // but the other platforms finish and the pipeline continues.
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', message: 'One or more PXC package builds failed') {
                     script {
-                        pxc9xBuildMatrix(
+                        FAILED_BUILD_STAGES = pxc9xBuildMatrix(
                             cloud:            params.CLOUD,
                             awsStashPath:     AWS_STASH_PATH,
                             fipsMode:         env.FIPSMODE,
@@ -328,6 +329,17 @@ pipeline {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ 🔒 [${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
                 } else {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ [${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+                }
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                def failedList = FAILED_BUILD_STAGES ? FAILED_BUILD_STAGES.join(', ') : 'none (see build log)'
+                if (env.FIPSMODE == 'YES') {
+                    slackNotify("${SLACKNOTIFY}", "#FFA500", "⚠️ 🔒 [${JOB_NAME}]: PRO build has been finished with failures for ${GIT_BRANCH}. Failed stages: ${failedList} - [${BUILD_URL}]")
+                } else {
+                    slackNotify("${SLACKNOTIFY}", "#FFA500", "⚠️ [${JOB_NAME}]: build has been finished with failures for ${GIT_BRANCH}. Failed stages: ${failedList} - [${BUILD_URL}]")
                 }
             }
             deleteDir()
