@@ -88,7 +88,7 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'OFF\nON',
+            choices: 'ON\nOFF',
             description: 'Enable SBOM generation',
             name: 'ENABLE_SBOM')
         booleanParam(
@@ -206,14 +206,18 @@ pipeline {
         } // stage
         stage('Build PXC RPMs/DEBs/Binary tarballs') {
             steps {
-                script {
-                    pxc9xBuildMatrix(
-                        cloud:            params.CLOUD,
-                        awsStashPath:     AWS_STASH_PATH,
-                        fipsMode:         env.FIPSMODE,
-                        experimentalMode: env.EXPERIMENTALMODE,
-                        onlyStages:       params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
-                    )
+                // A failed platform build marks its stage red and the job UNSTABLE,
+                // but the other platforms finish and the pipeline continues.
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', message: 'One or more PXC package builds failed') {
+                    script {
+                        pxc9xBuildMatrix(
+                            cloud:            params.CLOUD,
+                            awsStashPath:     AWS_STASH_PATH,
+                            fipsMode:         env.FIPSMODE,
+                            experimentalMode: env.EXPERIMENTALMODE,
+                            onlyStages:       params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                        )
+                    }
                 }
             }
         }
