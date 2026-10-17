@@ -492,6 +492,8 @@ timestamps {
                             pmm-qa/nightly/ci/build_report.sh results.json > report.json
                             export PAGES_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/percona/pmm-qa.git"
                             pmm-qa/nightly/ci/publish_report.sh report.json
+                            jq -r '"\\(.jobs | map(select(.result == "failure" or .result == "cancelled" or .result == "timed_out")) | length) failed of \\(.jobs | map(select(.result != "skipped")) | length) jobs"' \
+                                report.json > job-count.txt
                             # The Investigator is fired below for every red group; claim them so
                             # nobody starts a second investigation on the same group.
                             jq --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{run_id, claims: [
@@ -505,8 +507,9 @@ timestamps {
                 }
                 echo "Nightly report: ${reportUrl}"
                 if (isRc) {
+                    // A GitHub lane is one entry in results but hundreds of jobs in the report.
                     slackSend botUser: true, channel: '#qa-automation', color: totalBad > 0 ? '#FF0000' : '#00FF00',
-                              message: "PMM ${version} RC testing finished: ${totalBad} failed of ${results.size()}. Report: ${reportUrl}"
+                              message: "PMM ${version} RC testing finished: ${readFile('job-count.txt').trim()}. Report: ${reportUrl}"
                 }
             } catch (ignored) {
                 // Same rule as the notification below: the report is a view of
