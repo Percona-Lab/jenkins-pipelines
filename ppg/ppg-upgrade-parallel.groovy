@@ -13,6 +13,16 @@ def sendSlackNotification(scenario, fromVersion, toVersion) {
     }
 }
 
+// FROM_VERSION actually used: the parameter, or the scenario's default.
+def fromVersion = ''
+
+// 'pg-18-minor-upgrade' -> ['pg-18', 'minor']; null for other scenarios.
+@NonCPS
+def upgradeScenarioParts(String scenario) {
+    def m = (scenario =~ /^(.+)-(minor|major)-upgrade$/)
+    return m.matches() ? [m.group(1), m.group(2)] : null
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -57,8 +67,8 @@ pipeline {
             name: 'EXPECTED_VERSIONS'
         )
         string(
-            defaultValue: 'ppg-18.3',
-            description: 'From this version PPG will be updated',
+            defaultValue: '',
+            description: 'From this version PPG will be updated. Empty: the scenario\'s default_from_version in ppg-testing ppg/versions.yml (the latest released version to upgrade from).',
             name: 'FROM_VERSION'
         )
         string(
@@ -110,13 +120,27 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ppg/${SCENARIO}"
+                    fromVersion = (params.FROM_VERSION ?: '').trim()
+                    if (!fromVersion) {
+                        def parts = upgradeScenarioParts(env.SCENARIO)
+                        if (parts == null) {
+                            error("FROM_VERSION is empty and ${env.SCENARIO} is not a minor/major upgrade scenario")
+                        }
+                        fromVersion = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${parts[0]}']['${parts[1]}-upgrade']['default_from_version'])" """).trim()
+                        echo "FROM_VERSION is empty: using ${fromVersion}, the default for ${env.SCENARIO} in ppg/versions.yml"
+                    }
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${fromVersion}-to-${env.VERSION}"
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    // Build parameters win over env.X assignments, so pass the resolved
+                    // FROM_VERSION to Molecule (tasks, verifier tests) explicitly.
+                    withEnv(["FROM_VERSION=${fromVersion}"]) {
+                        moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    }
                 }
             }
         }
@@ -125,7 +149,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.SCENARIO, env.FROM_VERSION, env.VERSION)
+                sendSlackNotification(env.SCENARIO, fromVersion ?: env.FROM_VERSION, env.VERSION)
             }
         }
     }
