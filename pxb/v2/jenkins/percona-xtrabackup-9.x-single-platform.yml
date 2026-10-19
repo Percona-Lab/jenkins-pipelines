@@ -41,11 +41,11 @@
         description: MySQL server flavour for QA run (both runs innodb9x then xtradb9x)
     - string:
         name: INNODB9X_VERSION
-        default: "9.6.0"
+        default: "9.7.2"
         description: Version of MySQL InnoDB which will be used for bootstrap.sh script
     - string:
         name: XTRADB9X_VERSION
-        default: "9.6.0-1"
+        default: "9.7.2-2"
         description: Version of Percona XtraDB which will be used for bootstrap.sh script
     - string:
         name: BOOTSTRAP_URL
@@ -85,6 +85,10 @@
         name: WITH_KMIP_TESTS
         default: false
         description: "Run kmip tests"
+    - bool:
+        name: WITH_KEYCLOAK_TESTS
+        default: false
+        description: "Run OIDC tests against a Keycloak container (xtradb targets only)"
     - choice:
         name: CLOUD
         choices:
