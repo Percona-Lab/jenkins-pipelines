@@ -201,7 +201,7 @@ pipeline {
             description: 'Dex connector_id form field for the token-exchange grant. Must match `connectors[].id` in dex.yaml.',
             name: 'PSMDB_RBE_OIDC_CONNECTOR_ID')
         string(
-            defaultValue: '--config=psmdb_buildfarm --remote_executor=grpcs://bb.psmdb.percona.com:8981 --remote_cache=grpcs://bb.psmdb.percona.com:8981 --bes_backend=grpcs://bb.psmdb.percona.com:1985 --bes_results_url=https://bb.psmdb.percona.com:7986/bazel-invocations/ --credential_helper=bb.psmdb.percona.com=%workspace%/bazel/wrapper_hook/credential_helper.py --jobs=72',
+            defaultValue: '--config=psmdb_buildfarm --remote_executor=grpcs://bb.psmdb.percona.com:8981 --remote_cache=grpcs://bb.psmdb.percona.com:8981 --bes_backend=grpcs://bb.psmdb.percona.com:1985 --bes_results_url=https://bb.psmdb.percona.com:7986/bazel-invocations/ --credential_helper=bb.psmdb.percona.com=%workspace%/bazel/wrapper_hook/credential_helper.py --jobs=132',
             description: 'Bazel flags injected by percona-packaging into the bazel build command line. Leave empty to disable RBE.',
             name: 'PSMDB_RBE_BAZEL_FLAGS')
     }
