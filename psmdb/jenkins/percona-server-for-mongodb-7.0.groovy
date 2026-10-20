@@ -17,7 +17,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -54,10 +54,6 @@ pipeline {
             defaultValue: '1',
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
-        string(
-            defaultValue: '100.13.0',
-            description: 'https://docs.mongodb.com/database-tools/installation/',
-            name: 'MONGO_TOOLS_TAG')
         string(
             defaultValue: 'psmdb-70',
             description: 'PSMDB repo name',

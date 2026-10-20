@@ -1,0 +1,16 @@
+- job:
+    name: hetzner-go-tarballs-sync
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Daily: mirror new Go releases (linux amd64/arm64) to downloads.percona.com/downloads/packaging/go
+        and post release notes links and Go versions used by PBM/PCSM/mongo-tools builders to #mongodb_autofeed.
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/jenkins/go-tarballs-sync.groovy

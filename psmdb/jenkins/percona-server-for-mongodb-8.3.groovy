@@ -53,8 +53,11 @@ def withRBE(Closure body) {
             parallel(
                 'token-refresh': {
                     timeout(time: 24, unit: 'HOURS') {
-                        // while+sleep, not waitUntil — waitUntil ignores the period
-                        // here and spins, flooding the log. exit 42 = done.
+                        // one sh step per 50 min: write the token, then poll the done
+                        // flag inside the shell. jenkins steps in the loop (waitUntil,
+                        // sleep+fileExists) flood the log and bury the build output.
+                        // the shebang drops jenkins' default -x, so the loop prints
+                        // nothing. exit 42 = done, picked up within 30s.
                         boolean done = false
                         while (!done) {
                             withCredentials([
@@ -63,17 +66,19 @@ def withRBE(Closure body) {
                                     variable: 'TOK'
                                 )
                             ]) {
-                                int rc = sh(returnStatus: true, script: """
-                                    set -e
-                                    if [ -f '${doneFlag}' ]; then exit 42; fi
+                                int rc = sh(returnStatus: true, script: """#!/bin/sh
+                                    [ -f '${doneFlag}' ] && exit 42
                                     umask 077
-                                    printf '%s' "\$TOK" > '${tokenFile}.tmp'
-                                    mv '${tokenFile}.tmp' '${tokenFile}'
+                                    printf '%s' "\$TOK" > '${tokenFile}.tmp' && mv '${tokenFile}.tmp' '${tokenFile}'
+                                    i=0
+                                    while [ \$i -lt 100 ]; do
+                                        [ -f '${doneFlag}' ] && exit 42
+                                        sleep 30
+                                        i=\$((i + 1))
+                                    done
+                                    exit 0
                                 """)
-                                done = (rc == 42) // )))
-                            }
-                            if (!done) {
-                                sleep(time: 50, unit: 'MINUTES')
+                                done = (rc == 42)
                             }
                         }
                     }
@@ -96,7 +101,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
     if (RBE_ENABLED) {
         dockerEnvFlags = "-e PSMDB_RBE_JENKINS_TOKEN -e PSMDB_RBE_JENKINS_TOKEN_FILE -e PSMDB_RBE_OIDC_ISSUER -e PSMDB_RBE_OIDC_CONNECTOR_ID -e PSMDB_RBE_BAZEL_FLAGS"
     }
-    sh """
+    // retry only rbe infra failures (action timeout, grpc errors), not real compile errors
+    int attempts = RBE_ENABLED ? 3 : 1
+    for (int attempt = 1; attempt <= attempts; attempt++) {
+        int rc = sh(returnStatus: true, script: """#!/bin/bash
+        set -e -o pipefail
         set -o xtrace
         ls -laR ./
         # save the props file before wiping test/
@@ -118,8 +127,17 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = fals
             cd \${build_dir}
             ls -laR ./
             bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
-    """
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} ${STAGE_PARAM}" 2>&1 | tee rbe_build.log
+        """)
+        if (rc == 0) {
+            return
+        }
+        boolean infra = sh(returnStatus: true, script: "grep -qE 'failed due to timeout after|DEADLINE_EXCEEDED|UNAVAILABLE' rbe_build.log") == 0
+        if (!infra || attempt == attempts) {
+            error("build failed, exit code ${rc}")
+        }
+        echo "rbe infra failure, retry ${attempt}/${attempts}"
+    }
 }
 
 void cleanUpWS() {
@@ -156,10 +174,6 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.18.0',
-            description: 'https://docs.mongodb.com/database-tools/installation/',
-            name: 'MONGO_TOOLS_TAG')
-        string(
             defaultValue: 'psmdb-83',
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
@@ -187,7 +201,7 @@ pipeline {
             description: 'Dex connector_id form field for the token-exchange grant. Must match `connectors[].id` in dex.yaml.',
             name: 'PSMDB_RBE_OIDC_CONNECTOR_ID')
         string(
-            defaultValue: '--config=psmdb_buildfarm --remote_executor=grpcs://bb.psmdb.percona.com:8981 --remote_cache=grpcs://bb.psmdb.percona.com:8981 --bes_backend=grpcs://bb.psmdb.percona.com:1985 --bes_results_url=https://bb.psmdb.percona.com:7986/bazel-invocations/ --credential_helper=bb.psmdb.percona.com=%workspace%/bazel/wrapper_hook/credential_helper.py --jobs=72',
+            defaultValue: '--config=psmdb_buildfarm --remote_executor=grpcs://bb.psmdb.percona.com:8981 --remote_cache=grpcs://bb.psmdb.percona.com:8981 --bes_backend=grpcs://bb.psmdb.percona.com:1985 --bes_results_url=https://bb.psmdb.percona.com:7986/bazel-invocations/ --credential_helper=bb.psmdb.percona.com=%workspace%/bazel/wrapper_hook/credential_helper.py --jobs=132',
             description: 'Bazel flags injected by percona-packaging into the bazel build command line. Leave empty to disable RBE.',
             name: 'PSMDB_RBE_BAZEL_FLAGS')
     }
@@ -721,7 +735,6 @@ pipeline {
                         cat > branch_commit_id_83.last_successful <<EOF
 BRANCH_NAME=${GIT_BRANCH}
 COMMIT_ID=\${BUILT_COMMIT}
-MONGO_TOOLS_TAG=${MONGO_TOOLS_TAG}
 EOF
                         AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_83.last_successful s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                         echo "Recorded last_successful: ${GIT_BRANCH}@\${BUILT_COMMIT}"

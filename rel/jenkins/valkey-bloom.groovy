@@ -60,7 +60,7 @@ pipeline {
             description: 'URL for valkey-packaging repository (holds the bloom/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.0',
+            defaultValue: '9.1.2',
             description: 'Branch/Tag for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(
@@ -317,32 +317,6 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Bullseye(11)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_bloom_deb")
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Bullseye(11) ARM') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_bloom_deb")
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Debian Bookworm(12)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
@@ -407,7 +381,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, VALKEY_BLOOM_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, VALKEY_BLOOM_REPO, COMPONENT, true)
             }
         }
     }

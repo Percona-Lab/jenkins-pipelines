@@ -30,7 +30,7 @@ pipeline {
         )
 
         string(
-            defaultValue: 'main',
+            defaultValue: '9.1.2',
             description: 'Branch for valkey-packaging repository',
             name: 'PACKAGING_BRANCH'
         )

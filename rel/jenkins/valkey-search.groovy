@@ -63,7 +63,7 @@ pipeline {
             description: 'URL for valkey-packaging repository (holds the search/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.0',
+            defaultValue: '9.1.2',
             description: 'Branch/Tag for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(
@@ -320,11 +320,12 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                // NOTE: Debian Bullseye (11) is intentionally NOT built for
-                // valkey-search. The module requires a C++20 compiler (g++ >= 12),
-                // and bullseye has no g++ >= 12 in base or backports (newest is
-                // g++-11) and its clang is < 16. json/bloom/server still build on
-                // bullseye; only search needs >= 12, so it starts at bookworm.
+                // NOTE: Debian Bullseye (11) is not built here. valkey-search
+                // requires a C++20 compiler (g++ >= 12), and bullseye never had
+                // one in base or backports (newest is g++-11, and its clang is
+                // < 16), so this job has always started at bookworm. Bullseye is
+                // no longer built by any valkey job -- it is not installable any
+                // more, its packages having gone 404 on deb.debian.org.
                 stage('Debian Bookworm(12)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
@@ -389,7 +390,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, VALKEY_SEARCH_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, VALKEY_SEARCH_REPO, COMPONENT, true)
             }
         }
     }

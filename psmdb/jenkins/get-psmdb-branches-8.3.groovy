@@ -33,9 +33,7 @@ pipeline {
                     sh """
                         set -euo pipefail
 
-                        # pick the newest release-8.3.x branch; stop if there's none.
-                        # otherwise the branch name is empty, the MONGO_TOOLS_TAG url
-                        # breaks, and the redirect page gets saved into .properties
+                        # pick the newest release-8.3.x branch; stop if there is none
                         LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-8.3\\* | tail -1)
                         if [ -z "\${LATEST_RELEASE_BRANCH}" ]; then
                             echo "WARN: no release-8.3.* branch found on ${GIT_REPO}; skipping build trigger"
@@ -47,10 +45,6 @@ pipeline {
                         fi
                         LATEST_BRANCH_NAME=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d "/" -f 3)
                         LATEST_COMMIT_ID=\$(echo \${LATEST_RELEASE_BRANCH} | cut -d " " -f 1)
-                        MONGO_TOOLS_TAG_LINK=\$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')
-                        # use -fsSL flags, so curl fails on http errors + follows redirects,
-                        # otherwise curl writes 307 html into .properties
-                        MONGO_TOOLS_TAG=\$(curl -fsSL \${MONGO_TOOLS_TAG_LINK}/\${LATEST_BRANCH_NAME}/MONGO_TOOLS_TAG_VERSION)
 
                         # last_successful holds the branch+commit of the last green build.
                         # if it equals the latest release branch+commit found above, we
@@ -91,7 +85,6 @@ pipeline {
                         # refresh the detected-state file every run
                         echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_83.properties
                         echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_83.properties
-                        echo "MONGO_TOOLS_TAG=\${MONGO_TOOLS_TAG}" >> branch_commit_id_83.properties
                         AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id_83.properties s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                     """
                 }
@@ -100,7 +93,6 @@ pipeline {
                     COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id_83.properties; echo \${COMMIT_ID}").trim()
                     VERSION = sh(returnStdout: true, script: "source branch_commit_id_83.properties; echo \${BRANCH_NAME} | cut -d - -f 2 ").trim()
                     RELEASE = sh(returnStdout: true, script: "source branch_commit_id_83.properties; echo \${BRANCH_NAME} | cut -d - -f 3 ").trim()
-                    MONGO_TOOLS_TAG = sh(returnStdout: true, script: "source branch_commit_id_83.properties; echo \${MONGO_TOOLS_TAG}").trim()
                 }
 
             }
@@ -117,7 +109,7 @@ pipeline {
                     """
                 }
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'hetzner-psmdb83-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'MONGO_TOOLS_TAG', value: MONGO_TOOLS_TAG), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'hetzner-psmdb83-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'COMPONENT', value: 'testing')]
             }
         }
         stage('Build skipped') {

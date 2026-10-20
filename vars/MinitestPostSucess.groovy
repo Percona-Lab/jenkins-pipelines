@@ -42,6 +42,7 @@ def call(Map args = [:]) {
                 set -e -x
                 git clone https://jenkins-pxc-cd:\${TOKEN}@github.com/Percona-QA/package-testing.git
                 cd package-testing
+                git checkout testing-branch
                 git config user.name "jenkins-pxc-cd"
                 git config user.email "it+jenkins-pxc-cd@percona.com"
                 echo "${PS_VERSION_SHORT} is the VALUE!!@!"
@@ -63,7 +64,7 @@ def call(Map args = [:]) {
                     git add -A
                     git commit -m "Autocommit: add ${PS_REVISION} and ${PS_RELEASE} for ${PS_VERSION_SHORT} package testing VERSIONS file."
                     git remote set-url origin https://jenkins-pxc-cd:\${TOKEN}@github.com/Percona-QA/package-testing.git
-                    git push
+                    git push origin HEAD:testing-branch
                 fi
             """
         }
