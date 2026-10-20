@@ -226,6 +226,8 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                 def check_version="${version_check}"
                 def upgrade_repo="main"
                 def pxc57repo = "${params.pxc57_repo}"
+                def MAJ_UPGRADE_TEST = env.MAJ_UPGRADE_TEST
+                echo "MAJ UPGRADE TYPE: ${MAJ_UPGRADE_TEST}"
 
                 if(action != "create" && action != "destroy"){
                     def UPMaj_PXC1_IP = sh(
@@ -253,17 +255,27 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
                     if ("${product_to_test}" == "pxc57"){
 
-                        if(action == "converge"){
-                            sh """
-                                echo 'pxc57repo: "pxc57"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
-                            """
-                        }
-                        else {
+                        if ("${MAJ_UPGRADE_TEST}" == "PXC57_EOL_TO_PXC80_EOL_TESTING"){
+                            // EOL major upgrade: install PXC 5.7 from the EOL "release" repo on
+                            // converge, then major-upgrade to PXC 8.0 from the EOL "testing" repo
+                            // on side-effect (reuses playbooks/pxc80_upgrade_bootstrap.yml).
+                            if(action == "converge"){
                                 sh """
-                                    echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    echo 'pxc57repo: "EOL"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    echo 'install_repo_eol: "main"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
                                 """
-                        }
-                        if ("${pxc57repo}" == "EOL"){
+                                echo "INSIDE PXC57 CONVERGE AND PXC57_EOL_TO_PXC80_EOL_TESTING"
+                            }
+                            else {
+                                sh """
+                                    echo 'eol: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    echo 'install_repo_eol: "testing"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                """
+                                echo "INSIDE PXC57 SIDE-EFFECT AND PXC57_EOL_TO_PXC80_EOL_TESTING"
+                            }
+
                             echo "Setting the secret variables for molecule use"
                             withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
                                 sh """
@@ -271,8 +283,29 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                                     echo 'PASSWORD: "${PASSWORD}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
                                 """
                             }
-                        } else{
-                            echo "Not setting the secret variables for molecule use as EOL not selected"
+                        }
+                        else {
+                            if(action == "converge"){
+                                sh """
+                                    echo 'pxc57repo: "pxc57"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                """
+                            }
+                            else {
+                                    sh """
+                                        echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    """
+                            }
+                            if ("${pxc57repo}" == "EOL"){
+                                echo "Setting the secret variables for molecule use"
+                                withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
+                                    sh """
+                                        echo 'USERNAME: "${USERNAME}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                        echo 'PASSWORD: "${PASSWORD}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                    """
+                                }
+                            } else{
+                                echo "Not setting the secret variables for molecule use as EOL not selected"
+                            }
                         }
                     }else{
                         echo "Product is not pxc57 so skipping value assignment to it"
@@ -997,8 +1030,9 @@ properties([
                         if (product_to_test == "pxc57") {
                             if (pxc57_repo == "EOL") {
                                 result.add("min_upgrade_pxc57_eol_main_to_eol_testing")
+                                result.add("maj_upgrade_pxc57_eol_to_pxc80_eol_testing")
                             }
-                        } 
+                        }
                         else if (product_to_test == "pxc80") {
                             if (EOL == "yes") {
                                 result.add("min_upgrade_pxc80_eol_main_to_eol_testing")
@@ -1407,12 +1441,77 @@ pipeline {
                             }
                 }
 
+                stage("MAJ_UPGRADE_PXC57_EOL_TO_PXC80_EOL") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "maj_upgrade_pxc57_eol_to_pxc80_eol_testing"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc57"}
+                                    expression{params.pxc57_repo == "EOL"}
+                                }
+                            }
+
+                            environment {
+
+                                UPGRADE_MAJ_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/maj_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_MAJ_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/maj_upgrade/common_instance_private_ip.json"
+
+                                UPGRADE_MAJ_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/maj_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_MAJ_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/maj_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                                MAJ_UPGRADE_TEST = "PXC57_EOL_TO_PXC80_EOL_TESTING"
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+                            steps {
+                                setup()
+
+                                script{
+                                    echo "maj_upgrade STAGE INSIDE (PXC57 EOL -> PXC80 EOL testing)"
+                                    def param_test_type = "maj_upgrade"
+                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "maj_upgrade", "main", "no")
+                                    setInventories("maj_upgrade")
+                                    echo "2. Install PXC 5.7 from EOL release repo.. Molecule converge step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "maj_upgrade", "main", "no")
+                                        }
+                                    echo "3. Major upgrade to PXC 8.0 EOL testing repo.. Molecule side-effect step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "maj_upgrade", params.test_repo, "yes")
+                                        }
+                                }
+                            }
+                            post{
+                                always{
+                                    script{
+                                        def param_test_type = "maj_upgrade"
+                                        echo "4. Take Backups of the Logs.. for PXC maj_upgrade tests"
+                                        setInventories("maj_upgrade")
+                                        runlogsbackup(params.product_to_test, "maj_upgrade")
+                                        echo "5. Destroy the Molecule instances for PXC maj_upgrade tests.."
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "maj_upgrade", params.test_repo, "yes")
+                                    }
+
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+                                    }
+
+                                }
+                            }
+                }
+
                 stage("MAJOR UPGRADE pxc57") {
                             when {
                                 allOf{
                                     expression{params.test_type == "install_and_upgrade" || params.test_type == "maj_upgrade" }
                                     expression{params.test_repo != "main"}
-                                    expression{params.product_to_test == "pxc57"}                
+                                    expression{params.product_to_test == "pxc57"}
                                 }
                             }
 
