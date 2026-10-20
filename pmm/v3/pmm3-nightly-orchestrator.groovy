@@ -107,12 +107,6 @@ def nodeName(String name) {
     if (family == 'ui') {
         return "ui-tests ${leaf}"
     }
-    if (family == 'pkg amd64') {
-        return "package (amd) ${leaf}"
-    }
-    if (family == 'pkg arm64') {
-        return "package (arm) ${leaf}"
-    }
     if (family == 'upgrade') {
         return leaf.startsWith('ami ') ? "upgrade (ami) ${leaf.replace('ami ', '')}" : "upgrade ${leaf}"
     }
@@ -127,31 +121,25 @@ def mirrorChild(String name, String jobName, def run) {
         echo "[${name}] child stages unavailable (${err.message}); rendering the suite as one stage"
     }
 
-    def blue = "${env.JENKINS_URL}blue/organizations/jenkins/${jobName}/detail/${jobName}/${run.number}/pipeline"
+    // The child run's Pipeline Overview; a stage's flow node id after it selects that stage.
+    def overview = "${run.absoluteUrl}stages/?selected-node="
 
     int i = 0
     while (i < stages.size()) {
         def child = stages[i]
         if (child.status == 'NOT_EXECUTED') {
-            // A declarative child still runs its post actions after a failure, so
-            // never-run stages can sit in the middle; each run of them is one node.
-            int j = i
-            while (j < stages.size() && stages[j].status == 'NOT_EXECUTED') {
-                j++
-            }
-            def names = stages[i..<j].collect { it.name }
-            stage(names.size() == 1 ? names[0] : "${names.size()} stages skipped") {
-                catchError(buildResult: null, stageResult: 'NOT_BUILT') {
-                    error("never ran in ${jobName} #${run.number}: ${names.join(', ')}")
-                }
-            }
-            i = j
+            // A stage that never ran gets no node, only this line in the suite's log.
+            // Marked NOT_BUILT, it outranks FAILURE: Pipeline Graph View then draws the
+            // whole lane as not built and hides its stages. The skip marker
+            // (Utils.markStageSkippedForConditional) finds its stage by name from the
+            // run's heads, a lookup that can miss a lane once others have finished.
+            echo "[${name}] never ran in ${jobName} #${run.number}: ${child.name} — ${overview}${child.id}"
+            i++
             continue
         }
         stage("${child.name} · ${humanMs(child.durationMillis)}") {
-            // Blue Ocean draws a stage with no steps as never run (hollow), whatever
-            // its status, so every mirrored stage carries at least this echo.
-            echo "${child.name}: ${child.status} in ${humanMs(child.durationMillis)} — ${blue}/${child.id}"
+            // Links the child's own stage, selected in its Pipeline Overview.
+            echo "${child.name}: ${child.status} in ${humanMs(child.durationMillis)} — ${overview}${child.id}"
             // buildResult stays null on purpose: the suite's own verdict above
             // owns the build result, and a mirrored step must not raise it.
             if (child.status == 'FAILED') {
@@ -215,39 +203,6 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
     return suite(name, 'pmm3-ui-tests-nightly-gha', jobParams)
 }
 
-def packageBranches(Map branches, String prefix, String jobName, String serverArch, String serverImage, String pmmVersion, String installRepo, String tarball) {
-    // TESTS is the playbook; the trailing spaces in CLIENTS are load-bearing —
-    // they keep otherwise identical parameter sets from collapsing in the queue.
-    def variants = [
-        ['integration',          'pmm3-client_integration',                     '--help  '],
-        ['auth config',          'pmm3-client_integration_auth_config',         '--help   '],
-        ['auth register',        'pmm3-client_integration_auth_register',       ' --help'],
-        ['custom path',          'pmm3-client_integration_custom_path',         '  --help'],
-        ['custom port',          'pmm3-client_integration_custom_port',         '   --help'],
-        ['upgrade',              'pmm3-client_integration_upgrade',             '    --help'],
-        ['upgrade custom path',  'pmm3-client_integration_upgrade_custom_path', '    --help '],
-        ['upgrade custom port',  'pmm3-client_integration_upgrade_custom_port', '    --help  '],
-    ]
-    variants.each { v ->
-        def label = v[0]
-        def tests = v[1]
-        def clients = v[2]
-        def name = "${prefix} / ${label}"
-        branches[name] = suite(name, jobName, [
-            string(name: 'GIT_BRANCH',      value: params.PMM_QA_GIT_BRANCH),
-            string(name: 'DOCKER_VERSION',  value: serverImage),
-            string(name: 'SERVER_ARCH',     value: serverArch),
-            string(name: 'PMM_VERSION',     value: pmmVersion),
-            string(name: 'TESTS',           value: tests),
-            string(name: 'INSTALL_REPO',    value: installRepo),
-            string(name: 'TARBALL',         value: tarball),
-            string(name: 'METRICS_MODE',    value: 'auto'),
-            string(name: 'CLIENTS',         value: clients),
-            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
-        ])
-    }
-}
-
 def supportsUiUpgrade(String version) {
     def parts = version.tokenize('.')
     def major = parts[0].toInteger()
@@ -255,7 +210,7 @@ def supportsUiUpgrade(String version) {
     return major < 3 || (major == 3 && minor < 9)
 }
 
-def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion) {
+def amiUpgradeBranches(Map branches, String serverImage, String expectedVersion) {
     // Docker and UI upgrades run in the GitHub nightly-test-suite (upgrade-pmm.yml);
     // AMI has no GitHub equivalent. pmm3-upgrade-ami-test fanned these five out
     // itself, on an executor, behind a retry(2), and reported them as one box.
@@ -269,7 +224,7 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
             string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
             string(name: 'CLIENT_VERSION',                value: ver),
             string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
-            string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
+            string(name: 'PMM_SERVER_LATEST',             value: expectedVersion),
             string(name: 'UPGRADE_TYPE',                  value: supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
@@ -280,6 +235,7 @@ timestamps {
     def serverImage = params.DOCKER_VERSION.trim()
     def imageTag = serverImage.split(':')[1]
     def isRc = imageTag.contains('-rc')
+    def version = imageTag.split('-rc')[0]
     def installRepo = isRc ? 'testing' : 'experimental'
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
@@ -350,10 +306,9 @@ timestamps {
         ])
     }
 
-    def packageVersion = isRc ? imageTag.tokenize('-')[0] : latestDevVersion
-    packageBranches(branches, 'pkg amd64', 'nightly-package-testing-amd64', 'amd64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL)
-    packageBranches(branches, 'pkg arm64', 'nightly-package-testing-arm64', 'arm64', serverImage, packageVersion, installRepo, params.PMM_CLIENT_TARBALL_ARM64)
-    amiUpgradeBranches(branches, serverImage, latestDevVersion)
+    // The runner asserts the upgraded server reports PMM_SERVER_LATEST. An RC image
+    // carries its release version, while v3/VERSION has already moved to the next one.
+    amiUpgradeBranches(branches, serverImage, isRc ? version : latestDevVersion)
 
     branches['nightly / gssapi'] = suite('nightly / gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
@@ -382,6 +337,12 @@ timestamps {
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
     ])
 
+    branches['ha backup-restore'] = suite('ha backup-restore', 'pmm3-ha-backup-restore-tests', [
+        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+        string(name: 'DOCKER_VERSION',    value: serverImage),
+        string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+    ])
+
     if (params.RUN_GH_NIGHTLY_SUITE) {
         branches['github nightly-test-suite'] = {
             stage('github nightly-test-suite') {
@@ -392,14 +353,16 @@ timestamps {
                         writeFile file: 'gh-dispatch.json', text: new JsonBuilder([
                             ref   : params.PMM_QA_GIT_BRANCH,
                             inputs: [
-                                pmm_image_tag          : imageTag,
-                                pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8,
-                                pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9,
-                                pmm_qa_branch          : params.PMM_QA_GIT_BRANCH,
-                                pxc_version            : '8.0',
-                                pxc_glibc              : '2.35',
-                                pdpgsql_version        : '17',
-                                skip_compatibility     : false,
+                                pmm_image_tag            : imageTag,
+                                pmm_client_tarball_amd64 : params.PMM_CLIENT_TARBALL,
+                                pmm_client_tarball_arm64 : params.PMM_CLIENT_TARBALL_ARM64,
+                                pmm_client_tarball_ol8   : params.PMM_CLIENT_TARBALL_OL8,
+                                pmm_client_tarball_ol9   : params.PMM_CLIENT_TARBALL_OL9,
+                                pmm_qa_branch            : params.PMM_QA_GIT_BRANCH,
+                                pxc_version              : '8.0',
+                                pxc_glibc                : '2.35',
+                                pdpgsql_version          : '17',
+                                skip_compatibility       : false,
                             ],
                         ]).toString()
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN')]) {
@@ -531,6 +494,8 @@ timestamps {
                             pmm-qa/nightly/ci/build_report.sh results.json > report.json
                             export PAGES_REMOTE="https://x-access-token:${GH_TOKEN}@github.com/percona/pmm-qa.git"
                             pmm-qa/nightly/ci/publish_report.sh report.json
+                            jq -r '"\\(.jobs | map(select(.result == "failure" or .result == "cancelled" or .result == "timed_out")) | length) failed of \\(.jobs | map(select(.result != "skipped")) | length) jobs"' \
+                                report.json > job-count.txt
                             # The Investigator is fired below for every red group; claim them so
                             # nobody starts a second investigation on the same group.
                             jq --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{run_id, claims: [
@@ -543,6 +508,10 @@ timestamps {
                     }
                 }
                 echo "Nightly report: ${reportUrl}"
+                if (isRc) {
+                    slackSend botUser: true, channel: '#qa-automation', color: totalBad > 0 ? '#FF0000' : '#00FF00',
+                              message: "PMM ${version} RC testing finished: ${readFile('job-count.txt').trim()}. Report: ${reportUrl}"
+                }
             } catch (ignored) {
                 // Same rule as the notification below: the report is a view of
                 // the night, never a reason to change its result.
@@ -573,13 +542,20 @@ timestamps {
                               "from a percona/pmm-qa checkout:\n" +
                               "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<not reproduced|not a bug|test fix|product bug>\" " +
                               "\"<one-sentence summary>\" <fix PR or Jira URL, or -> \"<group>\" [\"<group>\" ...]\n" +
-                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json.",
+                              "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json." +
+                              (isRc ? "\n\nThis is PMM ${version} RC testing. When every finding is published, post exactly this one line, " +
+                                      "nothing else, with \"\${CLAUDE_PLUGIN_ROOT}/scripts/slack-bot.sh\" post '#qa-automation' -\n" +
+                                      "  PMM ${version} RC investigation finished: <N> test fix, <N> product bug, <N> not a bug, " +
+                                      "<N> not reproduced. Report: ${reportUrl}" : ''),
                     ]).toString()
-                    withCredentials([string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')]) {
+                    withCredentials([
+                        string(credentialsId: 'INVESTIGATOR_ROUTINE_ID', variable: 'ROUTINE_ID'),
+                        string(credentialsId: 'INVESTIGATOR_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')
+                    ]) {
                         sh '''
                             set -euo pipefail
                             curl -fsS --connect-timeout 10 --max-time 60 -X POST \
-                                "https://api.anthropic.com/v1/claude_code/routines/trig_01P2LXxvVmuqKJG1eaJb7j5m/fire" \
+                                "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
                                 -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
                                 -H "anthropic-version: 2023-06-01" \
                                 -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
