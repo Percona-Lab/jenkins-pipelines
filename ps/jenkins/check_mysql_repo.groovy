@@ -104,6 +104,7 @@ pipeline {
                             if (params.FORCE_LATEST_84) {
                                 sh """
                                     set -o errexit
+                                    set -o pipefail
                                     latest=\$(git ls-remote --tags --refs ${repoUrl} | awk -F'/' '{print \$3}' | grep '^mysql-8\\.4\\.' | sort -V | tail -1)
                                     if [ -n "\$latest" ]; then
                                         line="${repoUrl}/tree/\$latest"
