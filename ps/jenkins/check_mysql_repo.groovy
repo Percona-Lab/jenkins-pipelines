@@ -107,9 +107,8 @@ pipeline {
                                     set -o pipefail
                                     latest=\$(git ls-remote --tags --refs ${repoUrl} | awk -F'/' '{print \$3}' | grep '^mysql-8\\.4\\.' | sort -V | tail -1)
                                     if [ -n "\$latest" ]; then
-                                        line="${repoUrl}/tree/\$latest"
-                                        touch ${repoName}.newtags
-                                        grep -Fxq "\$line" ${repoName}.newtags || echo "\$line" >> ${repoName}.newtags
+                                        # Not MySQL.newtags: that file is what Slack posts.
+                                        echo "${repoUrl}/tree/\$latest" > ${repoName}.forcetags
                                     fi
                                 """
                             }
@@ -120,7 +119,13 @@ pipeline {
                             if (fileExists("${repoName}.seeded")) {
                                 seeded = true
                             }
-                            def tagText = fileExists("${repoName}.newtags") ? readFile("${repoName}.newtags") : ''
+                            def tagText = ''
+                            if (fileExists("${repoName}.newtags")) {
+                                tagText += readFile("${repoName}.newtags")
+                            }
+                            if (fileExists("${repoName}.forcetags")) {
+                                tagText += readFile("${repoName}.forcetags")
+                            }
                             newTagCount += tagText.readLines().findAll { it.trim() }.size()
                         }
                         env.MYSQL_NEW_TAG_COUNT = newTagCount.toString()
@@ -137,7 +142,7 @@ pipeline {
                     ReposPathMap.each { repoName, repoUrl ->
                         try {
                             def tags = sh(
-                                script: "cat ${repoName}.newtags 2>/dev/null | grep -v '^\\s*\$' || echo ''",
+                                script: "cat ${repoName}.newtags ${repoName}.forcetags 2>/dev/null | grep -v '^\\s*\$' || echo ''",
                                 returnStdout: true
                             ).trim()
                             if (tags) {
@@ -182,6 +187,9 @@ pipeline {
                     ReposPathMap.each { repoName, repoUrl ->
                         if (fileExists("${repoName}.newtags")) {
                             newTagText += readFile("${repoName}.newtags")
+                        }
+                        if (fileExists("${repoName}.forcetags")) {
+                            newTagText += readFile("${repoName}.forcetags")
                         }
                     }
                     def versionPatterns = ['mysql-8.0', 'mysql-8.4']
