@@ -19,3 +19,4 @@
 
 /ps/jenkins/*mysql_repo* @marcinbabij @varunnagaraju
 /ps/jenkins/*oracle_cpu* @marcinbabij @varunnagaraju
+/ps/jenkins/sandbox_fetch.groovy @marcinbabij @varunnagaraju
