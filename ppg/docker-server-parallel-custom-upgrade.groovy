@@ -36,6 +36,8 @@ pipeline {
         string(name: 'OLD_REPOSITORY', defaultValue: '', description: 'Image prefix of the OLD version image, if not REPOSITORY (on OBS each PG major is its own project, e.g. registry.opensuse.org/isv/percona/ppg/staging/17/containers/ubi9). Empty: REPOSITORY.')
         string(name: 'NEW_REPOSITORY', defaultValue: '', description: 'Image prefix of the NEW version image, if not REPOSITORY. Empty: REPOSITORY.')
         string(name: 'UPGRADE_REPOSITORY', defaultValue: '', description: 'Image prefix of the pg_upgrade mediator image, if not REPOSITORY (on OBS: registry.opensuse.org/isv/percona/ppg/staging/containers/ubi9). Empty: REPOSITORY.')
+        text(name: 'EXPECTED_VERSIONS', defaultValue: '', description: 'Expected versions of the packages in the NEW image (post-upgrade checks), one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.60.0). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing tables for this run. Leave empty to use the tables.')
+        text(name: 'OLD_EXPECTED_VERSIONS', defaultValue: '', description: 'Expected versions of the packages in the OLD image (pre-upgrade checks), same format as EXPECTED_VERSIONS. Filled automatically by OBS QA. Leave empty to use the tables.')
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
         string(name: 'RUN_LABELS', defaultValue: 'Manual', description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.')
     }
