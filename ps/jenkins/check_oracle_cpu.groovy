@@ -143,21 +143,23 @@ pipeline {
                 // raw.githubusercontent.com return 404. Use a Jenkins-stored
                 // token. main is not a pinned SHA, so each build downloads
                 // the current scripts.
-                withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
-                    def sandboxFetch = load 'ps/jenkins/sandbox_fetch.groovy'
-                    sandboxFetch.fetch(
-                        'https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins',
-                        [
-                            'check_oracle_cpu.py',
-                            'oracle_cpu/__init__.py',
-                            'oracle_cpu/core.py',
-                            'oracle_cpu/diagnostics.py',
-                            'oracle_cpu/pipeline.py',
-                            'oracle_cpu/state.py',
-                            'tests/__init__.py',
-                            'tests/test_oracle_cpu.py',
-                        ]
-                    )
+                script {
+                    withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
+                        def sandboxFetch = load 'ps/jenkins/sandbox_fetch.groovy'
+                        sandboxFetch.fetch(
+                            'https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins',
+                            [
+                                'check_oracle_cpu.py',
+                                'oracle_cpu/__init__.py',
+                                'oracle_cpu/core.py',
+                                'oracle_cpu/diagnostics.py',
+                                'oracle_cpu/pipeline.py',
+                                'oracle_cpu/state.py',
+                                'tests/__init__.py',
+                                'tests/test_oracle_cpu.py',
+                            ]
+                        )
+                    }
                 }
             }
         }
