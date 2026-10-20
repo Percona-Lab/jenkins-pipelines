@@ -295,7 +295,7 @@ def call(Map args) {
                 } else {
                     buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1')
                 }
-                pushArtifactFolder(cloud, 'deb/', awsStashPath)
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }
@@ -400,7 +400,7 @@ def call(Map args) {
                 } else {
                     buildStage('ubuntu:resolute', '--build_deb=1 --with_zenfs=1')
                 }
-                pushArtifactFolder(cloud, 'deb/', awsStashPath)
+                if (experimentalMode == 'NO') { pushArtifactFolder(cloud, 'deb/', awsStashPath) }
             }
         }
     }

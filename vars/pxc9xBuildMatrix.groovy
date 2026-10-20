@@ -12,6 +12,9 @@
  *       experimentalMode: env.EXPERIMENTALMODE,
  *       onlyStages:      params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
  *   )
+ *
+ * Returns the list of stage names that failed (empty when all succeeded).
+ * A failed stage does not stop the other stages; the build is marked UNSTABLE.
  */
 
 void cleanUpWS() {
@@ -120,6 +123,7 @@ def call(Map args = [:]) {
     def targetFolders = [rpm: 'rpm/',  deb: 'deb/',        tarball: 'test/tarball/']
 
     def branches = [:]
+    def failedStages = []
 
     stages.each { s ->
         def stageName   = s.name
@@ -130,9 +134,10 @@ def call(Map args = [:]) {
         def fipsFl      = s.fipsFlags
         def _skipInFips = s.skipInFips
 
-        def agentLabel = arch == 'aarch64'
-            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64')
-            : (cloud == 'Hetzner' ? 'docker-x64'     : 'docker-32gb')
+       // aarch64: always use docker-32gb-aarch64 (was: Hetzner -> docker-aarch64)
+       def agentLabel = arch == 'aarch64'
+           ? 'docker-32gb-aarch64'
+           : (cloud == 'Hetzner' ? 'docker-x64' : 'docker-32gb')
 
         def sourceFolder = sourceFolders[buildType]
         def targetFolder = targetFolders[buildType]
@@ -147,27 +152,37 @@ def call(Map args = [:]) {
                     echo "Skipping '${stageName}' (not supported in FIPS mode)"
                     return
                 }
-                node(agentLabel) {
-                    cleanUpWS()
-                    unstash 'pxc-9x.properties'
-                    popArtifactFolder(cloud, sourceFolder, awsStashPath)
-                    def buildFlags = (fipsMode == 'YES' && fipsFl != null) ? fipsFl : flags
-                    buildStage(image, buildFlags)
-                    stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                    if (experimentalMode == 'NO') {
-                        pushArtifactFolder(cloud, targetFolder, awsStashPath)
-                        if (buildType == 'rpm') {
-                            uploadRPMfromAWS(cloud, targetFolder, awsStashPath)
-                        } else if (buildType == 'deb') {
-                            uploadDEBfromAWS(cloud, targetFolder, awsStashPath)
-                        } else {
-                            uploadTarballfromAWS(cloud, targetFolder, awsStashPath, 'binary')
+                // Don't abort the other platforms: mark this stage FAILURE, the build UNSTABLE,
+                // and remember the stage name so the caller can report it.
+                def stageOk = false
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', catchInterruptions: false) {
+                    node(agentLabel) {
+                        cleanUpWS()
+                        unstash 'pxc-9x.properties'
+                        popArtifactFolder(cloud, sourceFolder, awsStashPath)
+                        def buildFlags = (fipsMode == 'YES' && fipsFl != null) ? fipsFl : flags
+                        buildStage(image, buildFlags)
+                        stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                        if (experimentalMode == 'NO') {
+                            pushArtifactFolder(cloud, targetFolder, awsStashPath)
+                            if (buildType == 'rpm') {
+                                uploadRPMfromAWS(cloud, targetFolder, awsStashPath)
+                            } else if (buildType == 'deb') {
+                                uploadDEBfromAWS(cloud, targetFolder, awsStashPath)
+                            } else {
+                                uploadTarballfromAWS(cloud, targetFolder, awsStashPath, 'binary')
+                            }
                         }
                     }
+                    stageOk = true
+                }
+                if (!stageOk) {
+                    failedStages << stageName
                 }
             }
         }
     }
 
     parallel branches
+    return failedStages
 }

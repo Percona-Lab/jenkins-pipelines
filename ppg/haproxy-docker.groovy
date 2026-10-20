@@ -103,6 +103,19 @@ parameters {
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             cd haproxy
+                            # pin exact percona-haproxy package version
+                            sed -i -E "s/^([[:space:]]+)percona-haproxy[^[:space:]]*([[:space:]])/\\1percona-haproxy-${VERSION}-${RPM_RELEASE}.el9\\2/" ${Dockerfile}
+                            if ! grep -q "percona-haproxy-${VERSION}-${RPM_RELEASE}.el9" ${Dockerfile}; then
+                                echo "ERROR: failed to pin percona-haproxy-${VERSION}-${RPM_RELEASE}.el9 in ${Dockerfile}"
+                                exit 1
+                            fi
+                            # use repository component selected by COMPONENT parameter
+                            sed -i -E "s/(percona-release enable [^[:space:]]+)[[:space:]]+[[:alpha:]]+/\\1 ${COMPONENT}/" ${Dockerfile}
+                            if ! grep -qE "percona-release enable [^[:space:]]+ ${COMPONENT}" ${Dockerfile}; then
+                                echo "ERROR: failed to set repository component ${COMPONENT} in ${Dockerfile}"
+                                exit 1
+                            fi
+                            grep -n -E "percona-haproxy|percona-release enable" ${Dockerfile}
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af

@@ -40,6 +40,55 @@ void cleanUpWS() {
     """
 }
 
+void installSbomTools() {
+    sh """
+        set -e
+        ORAS_VERSION=1.2.3
+
+        if ! command -v syft >/dev/null 2>&1; then
+            for i in 1 2 3; do
+                curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+                    | sudo sh -s -- -b /usr/local/bin && break
+                sleep 10
+            done
+            command -v syft >/dev/null || { echo "ERROR: syft install failed" >&2; exit 1; }
+        fi
+
+        if ! command -v oras >/dev/null 2>&1; then
+            UNAME=\$(uname -m)
+            case "\$UNAME" in
+                x86_64)         ORAS_ARCH=amd64 ;;
+                aarch64|arm64)  ORAS_ARCH=arm64 ;;
+                *) echo "ERROR: unsupported arch \$UNAME for oras" >&2; exit 1 ;;
+            esac
+            for i in 1 2 3; do
+                curl -fsSL "https://github.com/oras-project/oras/releases/download/v\${ORAS_VERSION}/oras_\${ORAS_VERSION}_linux_\${ORAS_ARCH}.tar.gz" \
+                        -o /tmp/oras.tar.gz \
+                    && sudo tar -xzf /tmp/oras.tar.gz -C /usr/local/bin oras \
+                    && rm -f /tmp/oras.tar.gz && break
+                sleep 10
+            done
+            command -v oras >/dev/null || { echo "ERROR: oras install failed" >&2; exit 1; }
+        fi
+
+        if ! command -v jq >/dev/null 2>&1; then
+            if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update && sudo apt-get install -y jq
+            elif command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y jq
+            elif command -v yum >/dev/null 2>&1; then
+                sudo yum install -y jq
+            else
+                echo "ERROR: no supported package manager for jq" >&2; exit 1
+            fi
+        fi
+
+        syft version | head -1
+        oras version | head -1
+        jq --version
+    """
+}
+
 def installDependencies(def nodeName) {
     def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
@@ -200,12 +249,6 @@ parameters {
                                 PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                                 if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                     MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                    if [ ${PS_RELEASE} = "8.4.11-11" ]; then
-                                        MYSQL_SHELL_RELEASE="8.4.10"
-                                    fi
-                                    if [ ${PS_RELEASE} = "9.7.2-2" ]; then
-                                        MYSQL_SHELL_RELEASE="9.7.1"
-                                    fi
                                 else
                                     MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                                 fi
@@ -221,6 +264,12 @@ parameters {
                                 PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
                                 MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                             fi
+                            if [ ${PS_RELEASE} = "8.4.11-11" ]; then
+                                MYSQL_SHELL_RELEASE="8.4.10"
+                            fi
+                            if [ ${PS_RELEASE} = "9.7.2-2" ]; then
+                                MYSQL_SHELL_RELEASE="9.7.1"
+                            fi
                             MYSQL_ROUTER_RELEASE=${PS_RELEASE}
 
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -231,7 +280,7 @@ parameters {
                             sudo apt-get install -y docker-ce docker-ce-cli containerd.io
                             export DOCKER_CLI_EXPERIMENTAL=enabled
                             sudo mkdir -p /usr/libexec/docker/cli-plugins/
-                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.37.2/buildx-v0.37.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                             sudo systemctl restart docker
                             sudo apt-get install -y qemu-system binfmt-support qemu-user-static
@@ -436,6 +485,102 @@ parameters {
                            fi
                        '''
                        }
+                }
+            }
+        }
+        stage('Attach SBOMs') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            when {
+                expression {
+                    // Container-image SBOM generation/attach only applies to
+                    // PS releases newer than 9.7
+                    def rel = sh(returnStdout: true, script: """
+                        if echo '${BRANCH}' | grep -Eq '^release-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+\$'; then
+                            echo '${BRANCH}' | sed 's/release-//g'
+                        else
+                            TMP=\$(mktemp)
+                            curl -fsSL "https://github.com/percona/percona-server/raw/refs/heads/${BRANCH}/MYSQL_VERSION" -o "\${TMP}"
+                            VER_MAJOR=\$(awk -F= '/^MYSQL_VERSION_MAJOR/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            VER_MINOR=\$(awk -F= '/^MYSQL_VERSION_MINOR/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            VER_PATCH=\$(awk -F= '/^MYSQL_VERSION_PATCH/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            VER_EXTRA=\$(awk -F= '/^MYSQL_VERSION_EXTRA/{gsub(/[ \\r\\t]/,"",\$2); print \$2}' "\${TMP}")
+                            rm -f "\${TMP}"
+                            echo "\${VER_MAJOR}.\${VER_MINOR}.\${VER_PATCH}\${VER_EXTRA}"
+                        fi
+                    """).trim()
+
+                    env.PS_RELEASE = rel
+                    def (majorStr, minorStr) = rel.tokenize('.')[0..1]
+                    int major = majorStr as int
+                    int minor = minorStr as int
+
+                    return (major > 9) || (major == 9 && minor >= 7)
+                }
+            }
+            steps {
+                script {
+                    installSbomTools()
+
+                    def FR_BUILD = (params.COMPONENT == 'experimental') ? '-fr' : ''
+                    def RPM_RELEASE = params.RPM_RELEASE
+                    def PS_RELEASE = env.PS_RELEASE
+                    def ORGANIZATION = params.ORGANIZATION
+
+                    def images = [
+                        'percona-server': "${ORGANIZATION}/percona-server${FR_BUILD}"
+                    ]
+
+                    withCredentials([usernamePassword(credentialsId: 'hub.docker.com',
+                                                      passwordVariable: 'PASS',
+                                                      usernameVariable: 'USER')]) {
+                        sh 'echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin'
+                        sh 'echo "${PASS}" | oras login -u "${USER}" --password-stdin docker.io'
+
+                        images.each { name, repo ->
+                            sh """
+                                set -e
+                                MANIFEST_TAG="${repo}:${PS_RELEASE}.${RPM_RELEASE}"
+                                ORAS_REF="docker.io/${repo}"
+                                INSPECT=\$(oras manifest fetch "\${ORAS_REF}:${PS_RELEASE}.${RPM_RELEASE}")
+
+                                for ARCH in amd64 arm64; do
+                                    DIGEST=\$(echo "\${INSPECT}" \
+                                        | jq -r --arg a "\${ARCH}" '.manifests[] | select(.platform.architecture==\$a) | .digest')
+                                    [ -n "\${DIGEST}" ] || { echo "ERROR: failed to resolve \${ARCH} digest for ${name}" >&2; exit 1; }
+
+                                    SBOM_FILE="${name}-${PS_RELEASE}.${RPM_RELEASE}-\${ARCH}.cdx.json"
+                                    PURL="pkg:oci/${name}@\${DIGEST}?repository_url=${repo}"
+
+                                    echo "Generating CycloneDX 1.6 SBOM for ${name} (\${ARCH})..."
+                                    syft scan "registry:\${MANIFEST_TAG}-\${ARCH}" \
+                                        --source-name "${name}" \
+                                        --source-version "${PS_RELEASE}" \
+                                        -o "cyclonedx-json@1.6=\${SBOM_FILE}"
+
+                                    jq --arg purl "\${PURL}" --arg ver "${PS_RELEASE}" '.metadata.component = {
+                                        "bom-ref": \$purl,
+                                        "type": "application",
+                                        "name": "${name}",
+                                        "version": \$ver,
+                                        "purl": \$purl
+                                    }' "\${SBOM_FILE}" > "\${SBOM_FILE}.tmp" && mv "\${SBOM_FILE}.tmp" "\${SBOM_FILE}"
+
+                                    COMPONENT_COUNT=\$(jq '.components | length' "\${SBOM_FILE}")
+                                    [ "\${COMPONENT_COUNT}" -ge 10 ] || { echo "ERROR: ${name}/\${ARCH} SBOM has only \${COMPONENT_COUNT} components" >&2; exit 1; }
+
+                                    oras attach --artifact-type application/vnd.cyclonedx+json \
+                                        "\${ORAS_REF}@\${DIGEST}" "\${SBOM_FILE}"
+
+                                    echo "SBOM attached for ${name} (\${ARCH}):"
+                                    oras discover --format tree "\${ORAS_REF}@\${DIGEST}"
+                                done
+                            """
+                        }
+                    }
+
+                    archiveArtifacts artifacts: '*.cdx.json', allowEmptyArchive: false, fingerprint: true
                 }
             }
         }

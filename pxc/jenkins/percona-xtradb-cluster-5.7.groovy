@@ -61,15 +61,15 @@ pipeline {
             description: 'URL for percona-xtradb-cluster repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '5.7',
+            defaultValue: 'release-5.7.44.13',
             description: 'Tag/Branch for percona-xtradb-cluster repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1',
+            defaultValue: '13',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '1',
+            defaultValue: '13',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
@@ -77,7 +77,7 @@ pipeline {
             description: 'XB Version value',
             name: 'XB_VERSION')
         string(
-            defaultValue: '1',
+            defaultValue: '13',
             description: 'BIN release value',
             name: 'BIN_RELEASE')
         string(
@@ -87,7 +87,7 @@ pipeline {
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(

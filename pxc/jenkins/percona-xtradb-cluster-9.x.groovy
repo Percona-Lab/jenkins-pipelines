@@ -49,6 +49,7 @@ void cleanUpWS() {
 }
 
 def AWS_STASH_PATH
+def FAILED_BUILD_STAGES = []
 
 pipeline {
     agent {
@@ -88,7 +89,7 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'OFF\nON',
+            choices: 'ON\nOFF',
             description: 'Enable SBOM generation',
             name: 'ENABLE_SBOM')
         booleanParam(
@@ -206,14 +207,18 @@ pipeline {
         } // stage
         stage('Build PXC RPMs/DEBs/Binary tarballs') {
             steps {
-                script {
-                    pxc9xBuildMatrix(
-                        cloud:            params.CLOUD,
-                        awsStashPath:     AWS_STASH_PATH,
-                        fipsMode:         env.FIPSMODE,
-                        experimentalMode: env.EXPERIMENTALMODE,
-                        onlyStages:       params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
-                    )
+                // A failed platform build marks its stage red and the job UNSTABLE,
+                // but the other platforms finish and the pipeline continues.
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE', message: 'One or more PXC package builds failed') {
+                    script {
+                        FAILED_BUILD_STAGES = pxc9xBuildMatrix(
+                            cloud:            params.CLOUD,
+                            awsStashPath:     AWS_STASH_PATH,
+                            fipsMode:         env.FIPSMODE,
+                            experimentalMode: env.EXPERIMENTALMODE,
+                            onlyStages:       params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                        )
+                    }
                 }
             }
         }
@@ -293,6 +298,29 @@ pipeline {
                 }
             }
         }
+        stage('Build docker containers') {
+            when {
+                expression { env.FIPSMODE != 'YES' }
+            }
+            agent {
+                label 'launcher-x64'
+            }
+            steps {
+                sleep time: 20, unit: 'MINUTES'
+                script {
+                    build job: 'hetzner-pxc8.0-docker-build',
+                          parameters: [
+                              string(name: 'CLOUD', value: 'Hetzner'),
+                              string(name: 'ORGANIZATION', value: 'perconalab'),
+                              string(name: 'GIT_REPO', value: "${GIT_REPO}"),
+                              string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),
+                              string(name: 'RPM_RELEASE', value: "${RPM_RELEASE}"),
+                              string(name: 'COMPONENT', value: "${COMPONENT}")
+                          ],
+                          wait: false
+                }
+            }
+        }
     }
     post {
         success {
@@ -301,6 +329,17 @@ pipeline {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ 🔒 [${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
                 } else {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ [${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+                }
+            }
+            deleteDir()
+        }
+        unstable {
+            script {
+                def failedList = FAILED_BUILD_STAGES ? FAILED_BUILD_STAGES.join(', ') : 'none (see build log)'
+                if (env.FIPSMODE == 'YES') {
+                    slackNotify("${SLACKNOTIFY}", "#FFA500", "⚠️ 🔒 [${JOB_NAME}]: PRO build has been finished with failures for ${GIT_BRANCH}. Failed stages: ${failedList} - [${BUILD_URL}]")
+                } else {
+                    slackNotify("${SLACKNOTIFY}", "#FFA500", "⚠️ [${JOB_NAME}]: build has been finished with failures for ${GIT_BRANCH}. Failed stages: ${failedList} - [${BUILD_URL}]")
                 }
             }
             deleteDir()

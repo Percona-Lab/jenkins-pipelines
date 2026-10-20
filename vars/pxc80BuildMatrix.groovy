@@ -223,7 +223,7 @@ def call(Map args = [:]) {
 
     // Kill all other running branches as soon as any single branch
     // fails or is aborted, instead of waiting for the rest to finish.
-    branches.failFast = true
+    // branches.failFast = true
 
     parallel branches
 }
