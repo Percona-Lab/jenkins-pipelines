@@ -19,5 +19,3 @@
 
 /ps/jenkins/*mysql_repo* @marcinbabij @varunnagaraju
 /ps/jenkins/*oracle_cpu* @marcinbabij @varunnagaraju
-/ps/jenkins/oracle_cpu/ @marcinbabij @varunnagaraju
-/ps/jenkins/tests/*oracle_cpu* @marcinbabij @varunnagaraju
