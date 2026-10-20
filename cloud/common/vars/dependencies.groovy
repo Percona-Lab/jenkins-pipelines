@@ -118,7 +118,7 @@ void installPxcTools() {
     '''
 }
 
-void installKuttl(String version = '0.25.0') {
+void installKuttl(String version = '0.27.0') {
     sh """
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
         command -v kubectl-krew >/dev/null || {
@@ -186,7 +186,7 @@ void installAzureCLI() {
     '''
 }
 
-void installTrivy(String version = '0.74.0') {
+void installTrivy(String version = '0.76.0') {
     withEnv(["TRIVY_VERSION=${version}"]) {
         sh '''
             set -eu
