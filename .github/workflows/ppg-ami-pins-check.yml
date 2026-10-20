@@ -22,7 +22,7 @@ env:
 jobs:
   check-pins:
     name: master pins vs newest promoted AMIs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -64,7 +64,7 @@ jobs:
   notify:
     needs: check-pins
     if: failure()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
     steps:

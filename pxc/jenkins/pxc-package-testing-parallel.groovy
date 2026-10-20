@@ -143,7 +143,9 @@ List pxc57_nodes = [
                 'debian-12',
                 'debian-11',
                 'ol-8',
-                'ol-9'
+                'ol-9',
+                'centos-7',
+                'amazon-2'
 ]
 
 List all_possible_nodes = (pro_pxc80 + pro_pxc84 + non_pro_pxc80 + non_pro_pxc84 + pxc_innovation + pxc57_nodes + non_pro_pxc97).unique()

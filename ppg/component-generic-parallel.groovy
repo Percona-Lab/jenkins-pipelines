@@ -3,6 +3,21 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def defaultComponentRepo = [
+    credcheck         : 'https://github.com/HexaCluster/credcheck.git',
+    patroni           : 'https://github.com/zalando/patroni.git',
+    pg_audit          : 'https://github.com/pgaudit/pgaudit.git',
+    pg_repack         : 'https://github.com/reorg/pg_repack.git',
+    pgaudit13_set_user: 'https://github.com/pgaudit/set_user.git',
+    pgbackrest        : 'https://github.com/pgbackrest/pgbackrest.git',
+    pgbadger          : 'https://github.com/darold/pgbadger.git',
+    pgbouncer         : 'https://github.com/pgbouncer/pgbouncer.git',
+    pgpool            : 'https://github.com/pgpool/pgpool2.git',
+    pgvector          : 'https://github.com/pgvector/pgvector.git',
+    postgis           : 'https://github.com/postgis/postgis.git',
+    wal2json          : 'https://github.com/eulerto/wal2json.git',
+]
+
 def sendSlackNotification(componentName, ppgVersion, componentVersion) {
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
@@ -21,48 +36,63 @@ pipeline {
     parameters {
         choice(
             name: 'REPO',
-            description: 'PPG repo for testing',
+            description: 'Package repo channel, passed to percona-release enable-only &lt;VERSION&gt; &lt;REPO&gt;. With USE_OBS_REPO it selects the OBS channel instead.',
             choices: [
                 'testing',
                 'experimental',
                 'release'
             ]
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            defaultValue: false,
+            description: 'Install PPG packages from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel; the major version is taken from VERSION.'
+        )
+        string(
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
+        )
+        string(
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
+        )
         string(
             defaultValue: 'main',
-            description: 'Branch for tests',
+            description: 'Branch of the ppg-testing repo to run the tests from',
             name: 'TEST_BRANCH'
         )
         string(
-            defaultValue: 'https://github.com/pgaudit/pgaudit.git',
-            description: 'Component repo for test',
+            defaultValue: '',
+            description: 'Git URL of the upstream PRODUCT source whose test suite runs against the installed package. Leave empty to auto-select from PRODUCT.',
             name: 'COMPONENT_REPO'
         )
         string(
             defaultValue: 'master',
-            description: 'Component version for test',
-            name: 'COMPONENT_VERSION'
+            description: 'Git ref (tag, branch or commit) of COMPONENT_REPO to check out for the test suite, e.g. release/2.59.2 for pgbackrest; should be the ref the package was built from.',
+            name: 'COMPONENT_REF'
         )
         string(
             defaultValue: 'ppg-18.3',
-            description: 'PPG version for test',
+            description: 'PPG version to install, as ppg-&lt;major&gt;.&lt;minor&gt; (e.g. ppg-18.3). Selects the percona-release repo and the PG major.',
             name: 'VERSION'
         )
         choice(
             name: 'PRODUCT',
-            description: 'Product to test',
+            description: 'Component to test: runs the &lt;PRODUCT&gt;/setup scenario and picks the default COMPONENT_REPO.',
             choices: [
-                'pg_contrib',
+                'credcheck',
+                'patroni',
                 'pg_audit',
                 'pg_repack',
-                'patroni',
-                'pgbackrest',
-                'pgpool',
-                'postgis',
                 'pgaudit13_set_user',
+                'pgbackrest',
                 'pgbadger',
                 'pgbouncer',
+                'pgpool',
                 'pgvector',
+                'postgis',
                 'wal2json'
             ]
         )
@@ -70,6 +100,11 @@ pipeline {
             name: 'DESTROY_ENV',
             defaultValue: true,
             description: 'Destroy VM after tests'
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {
@@ -89,7 +124,10 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-${env.COMPONENT_VERSION}-parallel"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PRODUCT}-${env.COMPONENT_REF}-parallel"
+                    if (!params.COMPONENT_REPO?.trim()) {
+                        env.COMPONENT_REPO = defaultComponentRepo[params.PRODUCT]
+                    }
                 }
             }
         }
@@ -104,6 +142,11 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ${PRODUCT}/setup"
+                    // The parallel stages are named after the Molecule scenarios (amd, arm);
+                    // show which OS each runs on (set per component in <PRODUCT>/setup/scenario.yml).
+                    def platforms = sh(returnStdout: true, script: """python3 -c "import yaml; s = yaml.safe_load(open('${PRODUCT}/setup/scenario.yml'))['scenarios']; print(', '.join(k + ': ' + v['os'] for k, v in s.items()))" """).trim()
+                    currentBuild.description = "Platforms: ${platforms}"
+                    echo "Platforms: ${platforms}"
                 }
             }
         }
@@ -124,7 +167,7 @@ pipeline {
                 } else {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
-                sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
+                sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_REF)
             }
             archiveArtifacts(
                 artifacts: "${env.MOLECULE_DIR}/artifacts/**/*.tar.gz",

@@ -33,13 +33,15 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
-        choice(
+        string(
             name: 'REPOSITORY',
-            description: 'Docker hub repository to use for docker images.',
-            choices: [
-                'percona',
-                'perconalab'
-            ]
+            defaultValue: 'percona',
+            description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.'
+        )
+        text(
+            defaultValue: '',
+            description: 'Expected versions of the packages in the image, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing tables for this run. Leave empty to use the tables.',
+            name: 'EXPECTED_VERSIONS'
         )
         booleanParam(
             name: 'WITH_POSTGIS',
@@ -49,6 +51,11 @@ pipeline {
             name: 'DESTROY_ENV',
             defaultValue: true,
             description: 'Destroy VM after tests'
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {

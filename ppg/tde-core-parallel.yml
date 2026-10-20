@@ -1,5 +1,5 @@
 - job:
-    name: tarball-multiOS-ssl1
+    name: tde-core-parallel
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
               - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/tarball-multiOS-ssl1.groovy
+      script-path: ppg/tde-core-parallel.groovy

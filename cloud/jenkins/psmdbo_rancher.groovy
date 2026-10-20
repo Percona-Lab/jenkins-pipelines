@@ -5,7 +5,7 @@ import groovy.transform.Field
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
 @Field String sourceRepo = 'https://github.com/percona/percona-server-mongodb-operator'
-@Field String operatorImage = 'docker.io/perconalab/percona-server-mongodb-operator'
+@Field String operatorImage = 'perconalab/percona-server-mongodb-operator'
 
 def getLibraries() {
     def loader = load('cloud/common/libraries.groovy')

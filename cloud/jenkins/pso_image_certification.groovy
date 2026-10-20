@@ -15,7 +15,8 @@ def certifiableImages = [
     'IMAGE_HAPROXY',
     'IMAGE_ORCHESTRATOR',
     'IMAGE_TOOLKIT',
-    'IMAGE_PMM_CLIENT'
+    'IMAGE_PMM_CLIENT',
+    'IMAGE_LOGCOLLECTOR'
 ]
 
 def imageTag(image) {
@@ -72,6 +73,9 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_PMM_CLIENT':
             return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
 
+        case 'IMAGE_LOGCOLLECTOR':
+            return target(image, projectId, "${params.RELEASE}-logcollector-${imageTag(image)}", credentials)
+
         default:
             echo "Skipping ${key}"
             return null
@@ -108,6 +112,7 @@ pipeline {
         booleanParam(name: 'IMAGE_ORCHESTRATOR', defaultValue: true, description: 'Certify IMAGE_ORCHESTRATOR')
         booleanParam(name: 'IMAGE_TOOLKIT', defaultValue: true, description: 'Certify IMAGE_TOOLKIT')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
+        booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }

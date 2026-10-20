@@ -348,6 +348,7 @@ def get_image_tasks(op):
             "orchestrator": (D, "percona/percona-orchestrator"),
             "haproxy": (D, "percona/haproxy"),
             "toolkit": (D, "percona/percona-toolkit"),
+            "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
         },
     }.get(op, {})
@@ -410,6 +411,7 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("ORCHESTRATOR", "percona-orchestrator", versions.get("orchestrator")),
             ("TOOLKIT", "percona-toolkit", versions.get("toolkit")),
+            ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
             ("PMM3_CLIENT", "pmm-client", pmm3),
             ("PMM3_SERVER", "pmm-server", pmm3),
         ],

@@ -1263,6 +1263,8 @@ void publishPytestReports(Map config) {
     }
 
     try {
+        normalizeReports(tests, sourceDir)
+
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
@@ -1274,6 +1276,7 @@ void publishPytestReports(Map config) {
             formatReportDuration(reportHtml)
         }
 
+        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
         archiveArtifacts artifacts: "${reportXml}, ${reportHtml}", allowEmptyArchive: true
 
         if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {

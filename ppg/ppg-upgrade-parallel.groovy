@@ -13,6 +13,16 @@ def sendSlackNotification(scenario, fromVersion, toVersion) {
     }
 }
 
+// FROM_VERSION actually used: the parameter, or the scenario's default.
+def fromVersion = ''
+
+// 'pg-18-minor-upgrade' -> ['pg-18', 'minor']; null for other scenarios.
+@NonCPS
+def upgradeScenarioParts(String scenario) {
+    def m = (scenario =~ /^(.+)-(minor|major)-upgrade$/)
+    return m.matches() ? [m.group(1), m.group(2)] : null
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -36,9 +46,29 @@ pipeline {
                 'release'
             ]
         )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            defaultValue: false,
+            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. OBS only ever carries the latest minor of each major, so the FROM version always installs from repo.percona.com regardless of this setting.'
+        )
         string(
-            defaultValue: 'ppg-18.3',
-            description: 'From this version PPG will be updated',
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
+        )
+        string(
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
+        )
+        text(
+            defaultValue: '',
+            description: 'Expected versions of the packages for the version upgraded to, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing versions/*.py for this run. Leave empty to use the tables.',
+            name: 'EXPECTED_VERSIONS'
+        )
+        string(
+            defaultValue: '',
+            description: 'From this version PPG will be updated. Empty: the scenario\'s default_from_version in ppg-testing ppg/versions.yml (the latest released version to upgrade from).',
             name: 'FROM_VERSION'
         )
         string(
@@ -55,6 +85,11 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {
@@ -85,13 +120,27 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ppg/${SCENARIO}"
+                    fromVersion = (params.FROM_VERSION ?: '').trim()
+                    if (!fromVersion) {
+                        def parts = upgradeScenarioParts(env.SCENARIO)
+                        if (parts == null) {
+                            error("FROM_VERSION is empty and ${env.SCENARIO} is not a minor/major upgrade scenario")
+                        }
+                        fromVersion = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${parts[0]}']['${parts[1]}-upgrade']['default_from_version'])" """).trim()
+                        echo "FROM_VERSION is empty: using ${fromVersion}, the default for ${env.SCENARIO} in ppg/versions.yml"
+                    }
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${fromVersion}-to-${env.VERSION}"
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    // Build parameters win over env.X assignments, so pass the resolved
+                    // FROM_VERSION to Molecule (tasks, verifier tests) explicitly.
+                    withEnv(["FROM_VERSION=${fromVersion}"]) {
+                        moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    }
                 }
             }
         }
@@ -100,7 +149,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.SCENARIO, env.FROM_VERSION, env.VERSION)
+                sendSlackNotification(env.SCENARIO, fromVersion ?: env.FROM_VERSION, env.VERSION)
             }
         }
     }

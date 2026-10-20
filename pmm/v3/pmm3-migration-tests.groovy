@@ -106,7 +106,7 @@ pipeline {
                 sh '''
                     docker network create pmm-qa || true
                     cd pmm-ui-tests-v2
-                    PWD=$(pwd) PMM_SERVER_IMAGE=${DOCKER_VERSION} docker-compose up -d
+                    PWD=$(pwd) PMM_SERVER_IMAGE=${DOCKER_VERSION} docker compose up -d
 
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -340,7 +340,7 @@ pipeline {
                 tar -zcvf srv-logs.tar.gz srv-logs
 
                 # stop the containers (V2 stack from pmm-ui-tests clone)
-                cd pmm-ui-tests-v2 && docker-compose down || true
+                cd pmm-ui-tests-v2 && docker compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true

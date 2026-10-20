@@ -146,12 +146,12 @@ pipeline {
 
     // --- DB VERSIONS ---
     choice(name: 'PXC_VERSION', choices: ['8.0', '8.4', '5.7'], description: 'Version for PXC nodes')
-    choice(name: 'PS_VERSION', choices: ['8.4', '8.0', '5.7', '5.7.30', '5.6'], description: 'Version for PS nodes')
-    choice(name: 'MS_VERSION', choices: ['8.4', '8.0', '5.7', '5.6'], description: 'Version for MySQL nodes')
-    choice(name: 'PGSQL_VERSION', choices: ['17', '18', '16', '15', '14', '13'], description: 'Version for PGSQL nodes')
-    choice(name: 'PDPGSQL_VERSION', choices: ['17', '18', '16', '15', '14', '13'], description: 'Version for Percona Dist PGSQL nodes')
-    choice(name: 'PSMDB_VERSION', choices: ['8.0', '7.0', '6.0', '5.0', '4.4'], description: 'Version for PSMDB nodes')
-    choice(name: 'MODB_VERSION', choices: ['8.0', '7.0', '6.0', '5.0', '4.4'], description: 'Version for MongoDB nodes')
+    choice(name: 'PS_VERSION', choices: ['8.4', '8.0', '5.7'], description: 'Version for PS nodes')
+    choice(name: 'MS_VERSION', choices: ['8.4', '8.0', '5.7'], description: 'Version for MySQL nodes')
+    choice(name: 'PGSQL_VERSION', choices: ['17', '18', '16', '15', '14'], description: 'Version for PGSQL nodes')
+    choice(name: 'PDPGSQL_VERSION', choices: ['17', '18', '16', '15', '14'], description: 'Version for Percona Dist PGSQL nodes')
+    choice(name: 'PSMDB_VERSION', choices: ['8.0', '7.0', '6.0'], description: 'Version for PSMDB nodes')
+    choice(name: 'MODB_VERSION', choices: ['8.0', '7.0', '6.0'], description: 'Version for MongoDB nodes')
 
     // --- HELM/HA SPECIFIC ---
     string(name: 'HELM_CHART_BRANCH', defaultValue: 'pmmha-v3', description: '[HA Only] Helm chart branch')

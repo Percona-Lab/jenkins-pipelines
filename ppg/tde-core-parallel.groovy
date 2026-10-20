@@ -1,0 +1,174 @@
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+])
+
+def sendSlackNotification(psp_repo, psp_branch, version, io_method, tde_branch) {
+    if (currentBuild.result == "SUCCESS") {
+        buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+        slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
+    } else {
+        buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+        slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
+    }
+}
+
+// The operating systems to test: every supported one, or the PLATFORMS subset.
+// An unknown name fails the build instead of silently testing nothing.
+def selectedOperatingSystems() {
+    def all = ppgOperatingSystemsALL()
+    def wanted = (params.PLATFORMS ?: '').tokenize()
+    if (!wanted) {
+        return all
+    }
+    def unknown = wanted.findAll { !all.contains(it) }
+    if (unknown) {
+        error("Unknown PLATFORMS: ${unknown.join(' ')}. Supported: ${all.join(' ')}")
+    }
+    return all.findAll { wanted.contains(it) }
+}
+
+pipeline {
+    agent {
+        label 'min-ol-9-x64'
+    }
+    parameters {
+        string(
+            defaultValue: 'ppg-18.6',
+            description: 'Server PG version for test, including major and minor version, e.g ppg-18.6, ppg-17.9',
+            name: 'VERSION'
+        )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: ['sync', 'worker', 'io_uring']
+        )
+        string(
+            defaultValue: 'main',
+            description: 'Branch for ppg-testing testing repository',
+            name: 'TESTING_BRANCH'
+        )
+        booleanParam(
+            name: 'INSTALL_FROM_PACKAGES',
+            description: "Enable if want to install the PSP and pg_tde from the packages, intead of building from sources."
+        )
+        choice(
+            name: 'REPO',
+            description: 'Repo for testing. ONLY applicable with INSTALL_FROM_PACKAGES enabled.',
+            choices: [
+                'testing',
+                'release',
+                'experimental'
+            ]
+        )
+        booleanParam(
+            name: 'USE_OBS_REPO',
+            description: "Install packages from the OBS (openSUSE Build Service) repo instead of repo.percona.com. REPO above still selects the channel (testing/release/experimental -> staging/releases/devel). ONLY applicable with INSTALL_FROM_PACKAGES enabled."
+        )
+        string(
+            defaultValue: '',
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
+        )
+        string(
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
+        )
+        string(
+            defaultValue: '',
+            description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
+            name: 'PLATFORMS'
+        )
+        string(
+            defaultValue: 'https://github.com/percona/postgres',
+            description: 'PSP repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'PSP_REPO'
+        )
+        string(
+            defaultValue: 'PSP_REL_18_STABLE',
+            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'PSP_BRANCH'
+        )
+        string(
+            defaultValue: 'https://github.com/percona/pg_tde.git',
+            description: 'pg_tde repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'TDE_REPO'
+        )
+        string(
+            defaultValue: 'release-2.2.0',
+            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'TDE_BRANCH'
+        )
+        choice(
+            name: 'TEST_SUITE',
+            description: 'Which pytest suite to run.',
+            choices: [
+                'Sanity',
+                'All'
+            ]
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
+        )
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "pg_tde/core"
+    }
+    options {
+        withCredentials(moleculeDistributionJenkinsCreds())
+        buildDiscarder(logRotator(
+            daysToKeepStr: '30',
+            numToKeepStr: '100',
+            artifactNumToKeepStr: '10'
+        ))
+        retry(conditions: [agent()], count: 2)
+    }
+    stages {
+        stage('Set build name') {
+            steps {
+                script {
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-core-${env.VERSION}-${env.IO_METHOD}"
+                }
+            }
+        }
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
+            }
+        }
+        stage('Prepare') {
+            steps {
+                script {
+                    installMoleculePython39()
+                    // molecule.yml is generated from pg_tde/core/scenario.yml (not stored in git)
+                    sh "python3 tools/render.py --group ${env.MOLECULE_DIR}"
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                script {
+                    moleculeParallelTestPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
+                }
+            }
+        }
+    }
+    post {
+        always {
+            script {
+                moleculeParallelPostDestroyPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
+                // Slack notifications disabled for now.
+                // sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.IO_METHOD, env.TDE_BRANCH)
+            }
+            archiveArtifacts(
+                artifacts: 'pg_tde/core/artifacts/**/*.tar.gz',
+                allowEmptyArchive: true
+            )
+        }
+    }
+}
