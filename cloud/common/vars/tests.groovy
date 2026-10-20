@@ -75,7 +75,7 @@ String getDbTag(Map testVariables) {
 }
 
 String getMongoVersionFromPillar(String pillarVersion, String imageMongod = '') {
-    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase("none")) {
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase('none')) {
         def matcher = pillarVersion =~ /^(\d+)(\d)$/
         if (matcher) {
             return "${matcher[0][1]}.${matcher[0][2]}"
@@ -87,11 +87,11 @@ String getMongoVersionFromPillar(String pillarVersion, String imageMongod = '') 
         return "${imageMatcher[0][1]}.${imageMatcher[0][2]}"
     }
 
-    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase("none")) {
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase('none')) {
         error("Unable to detect MongoDB version from PILLAR_VERSION: ${pillarVersion} or IMAGE_MONGOD: ${imageMongod}")
     }
 
-    return ""
+    return ''
 }
 
 String getDbVersion(Map testVariables) {

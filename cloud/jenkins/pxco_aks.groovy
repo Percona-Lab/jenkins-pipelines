@@ -16,12 +16,8 @@ String jenkinsAgentLabel() {
     return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
 }
 
-String getLocation(String job_name) {
-    if ("$job_name" == 'pxco-aks-1') {
-        return 'eastus'
-    } else {
-        return 'norwayeast'
-    }
+String getLocation(String jobName) {
+    return jobName == 'pxco-aks-1' ? 'eastus' : 'norwayeast'
 }
 
 pipeline {

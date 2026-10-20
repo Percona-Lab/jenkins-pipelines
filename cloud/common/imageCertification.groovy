@@ -26,13 +26,19 @@ def loadReleaseVersions() {
 
     readFile('source/e2e-tests/release_versions').readLines().each { line ->
         def releaseItem = line.trim()
-        if (!releaseItem || releaseItem.startsWith('#')) return
+        if (!releaseItem || releaseItem.startsWith('#')) {
+            return
+        }
 
         def releaseParts = releaseItem.split('=', 2)
-        if (releaseParts.size() != 2) return
+        if (releaseParts.size() != 2) {
+            return
+        }
 
         def imageName = releaseParts[0].trim()
-        if (!imageName.startsWith('IMAGE_')) return
+        if (!imageName.startsWith('IMAGE_')) {
+            return
+        }
 
         images[imageName] = releaseParts[1].trim().replace('"', '')
     }
