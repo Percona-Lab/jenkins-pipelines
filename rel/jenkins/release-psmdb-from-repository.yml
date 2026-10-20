@@ -1,0 +1,18 @@
+- job:
+    name: hetzner-RELEASE-PSMDB-from-repository
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Pushes PSMDB server, mongo-tools and mongosh builds into the psmdb-* repos.
+        Tools and mongosh go only where the server is already in the same repo/component
+        (tools also only when the server no longer pins the tools version). Nothing is removed.
+        Check repo.percona.com/index.html and update it if needed
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: rel/jenkins/release-psmdb-from-repository.groovy
