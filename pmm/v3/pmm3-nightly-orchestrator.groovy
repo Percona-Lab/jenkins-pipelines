@@ -210,7 +210,7 @@ def supportsUiUpgrade(String version) {
     return major < 3 || (major == 3 && minor < 9)
 }
 
-def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion) {
+def amiUpgradeBranches(Map branches, String serverImage, String expectedVersion) {
     // Docker and UI upgrades run in the GitHub nightly-test-suite (upgrade-pmm.yml);
     // AMI has no GitHub equivalent. pmm3-upgrade-ami-test fanned these five out
     // itself, on an executor, behind a retry(2), and reported them as one box.
@@ -224,7 +224,7 @@ def amiUpgradeBranches(Map branches, String serverImage, String latestDevVersion
             string(name: 'DOCKER_TAG_UPGRADE',            value: serverImage),
             string(name: 'CLIENT_VERSION',                value: ver),
             string(name: 'CLIENT_REPOSITORY',             value: 'experimental'),
-            string(name: 'PMM_SERVER_LATEST',             value: latestDevVersion),
+            string(name: 'PMM_SERVER_LATEST',             value: expectedVersion),
             string(name: 'UPGRADE_TYPE',                  value: supportsUiUpgrade(ver) ? params.UPGRADE_TYPE : 'DOCKER'),
             booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         ])
@@ -306,7 +306,9 @@ timestamps {
         ])
     }
 
-    amiUpgradeBranches(branches, serverImage, latestDevVersion)
+    // The runner asserts the upgraded server reports PMM_SERVER_LATEST. An RC image
+    // carries its release version, while v3/VERSION has already moved to the next one.
+    amiUpgradeBranches(branches, serverImage, isRc ? version : latestDevVersion)
 
     branches['nightly / gssapi'] = suite('nightly / gssapi', 'pmm3-ui-tests-nightly-gssapi', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
