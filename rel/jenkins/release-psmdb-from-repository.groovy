@@ -65,6 +65,39 @@ def secondsUntil(String startAt) {
     return secs
 }
 
+// Tools and mongosh on downloads (RELEASE only).
+// They go into the release directory of the server, next to the server packages, and only for
+// the OS and arch that directory already has.
+// - With PSMDB_PATH in the run, that is the directory of this server build.
+// - Without it, SERVER_RELEASE names the server release, e.g. percona-server-mongodb-7.0.45-24,
+//   and it is required, so the run never depends on what the operator remembers.
+//   It must be the release that <product>/LATEST points to: a release that is out already is
+//   never changed, an older one is refused before anything is pushed.
+// - On TESTING, EXPERIMENTAL and LABORATORY, or with SKIP_PACKAGES_SYNC, downloads are not touched
+//   at all, only the repos get the packages. That is the safe way to put a new tools or mongosh
+//   build into the repos only.
+def downloadsTargets(List builds) {
+    def targets = []
+    def server = builds.find { it.gate == 'none' }
+    if (server) {
+        def parts = server.path.tokenize('/')
+        targets << "${parts[2]}/${parts[3]}"
+    } else {
+        for (release in params.SERVER_RELEASE.tokenize(' ,')) {
+            // percona-server-mongodb-7.0.45-24 is in percona-server-mongodb-7.0
+            targets << release.replaceAll('\\.[0-9]+-[0-9]+$', '') + '/' + release
+        }
+    }
+    return targets.unique().join(' ')
+}
+
+// tools or mongosh go to downloads without a server build in this run
+def needsServerRelease() {
+    def builds = buildsToPush()
+    return params.COMPONENT == 'RELEASE' && !params.SKIP_PACKAGES_SYNC &&
+        builds.any { it.gate != 'none' } && !builds.any { it.gate == 'none' }
+}
+
 pipeline {
     // the stages that need a node ask for it themselves, so waiting for START_AT holds no executor
     agent none
@@ -107,14 +140,22 @@ pipeline {
             name: 'PUSHRESOLUTE')
         string(
             defaultValue: '',
+            description: 'Needed for RELEASE when tools or mongosh are pushed without PSMDB_PATH: the server release on downloads they go into, e.g. percona-server-mongodb-7.0.45-24 (space-separated for several products). It has to be the latest release of its product, a release that is out already is not changed. Not used on other components: only the repos get the packages',
+            name: 'SERVER_RELEASE')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Add the empty telemetry-enhanced.json to the server release on downloads (RELEASE only)',
+            name: 'COPY_TELEMETRY')
+        string(
+            defaultValue: '',
             description: 'Optional start time in UTC, YYYY-MM-DD HH:MM, e.g. 2026-10-21 04:00. The build waits for it without holding an executor, then pushes. Empty = now. The gates are checked when it starts',
             name: 'START_AT')
         booleanParam(name: 'REMOVE_BEFORE_PUSH', defaultValue: false, description: 'replace DEB packages of the same version that are already in the repo, not allowed for RELEASE')
         booleanParam(name: 'REMOVE_LOCKFILE', defaultValue: false, description: 'remove the reprepro lockfile after an unsuccessful DEB push')
-        booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository')
+        booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository. With SKIP_DEB_PUSH too the run only syncs downloads (RELEASE)')
         booleanParam(name: 'SKIP_DEB_PUSH', defaultValue: false, description: 'Skip push to DEB repository')
         booleanParam(name: 'SKIP_REPO_SYNC', defaultValue: false, description: 'Skip sync repos to production')
-        booleanParam(name: 'SKIP_PACKAGES_SYNC', defaultValue: false, description: 'Skip sync packages to production download and the crawl (RELEASE only). For tools and mongosh only what passed the repo gate is published there')
+        booleanParam(name: 'SKIP_PACKAGES_SYNC', defaultValue: false, description: 'Skip sync packages to production download and the crawl (RELEASE only). Tools and mongosh go into the server release directory there, and only for the OS and arch the server has')
     }
     options {
         skipDefaultCheckout()
@@ -147,8 +188,24 @@ pipeline {
                     if (params.COMPONENT == 'RELEASE' && params.REMOVE_BEFORE_PUSH) {
                         error('it is not allowed to remove packages from RELEASE repository')
                     }
-                    if (params.SKIP_RPM_PUSH && params.SKIP_DEB_PUSH) {
-                        error('both pushes are skipped, nothing to do')
+                    if (needsServerRelease()) {
+                        if (!params.SERVER_RELEASE.trim()) {
+                            error('tools/mongosh without PSMDB_PATH need SERVER_RELEASE, the server release on downloads they go into (the latest one). Or tick SKIP_PACKAGES_SYNC to push to the repos only')
+                        }
+                    }
+                    if (params.SERVER_RELEASE.trim()) {
+                        if (builds.any { it.gate == 'none' }) {
+                            error('SERVER_RELEASE is for runs without PSMDB_PATH, the server build here has its own directory')
+                        }
+                        for (release in params.SERVER_RELEASE.tokenize(' ,')) {
+                            if (!(release ==~ '^percona-server-mongodb-[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$')) {
+                                error("SERVER_RELEASE must look like percona-server-mongodb-7.0.45-24, got: ${release}")
+                            }
+                        }
+                    }
+                    // both skipped is a run for downloads only, e.g. packages that are in the repos already
+                    if (params.SKIP_RPM_PUSH && params.SKIP_DEB_PUSH && (params.COMPONENT != 'RELEASE' || params.SKIP_PACKAGES_SYNC)) {
+                        error('both pushes are skipped and there is no downloads sync (RELEASE), nothing to do')
                     }
                     def startAt = params.START_AT.trim()
                     if (startAt && !(startAt ==~ '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$')) {
@@ -180,9 +237,31 @@ pipeline {
                 }
             }
         }
+        stage('Check server release on downloads') {
+            agent {
+                label 'jenkins'
+            }
+            when {
+                beforeAgent true
+                expression { return needsServerRelease() }
+            }
+            steps {
+                script {
+                    // before any repo is touched: the release must exist and be the latest one
+                    def rc = runOnRepoCi('sync-downloads.sh', [MODE: 'check', TARGETS: downloadsTargets(buildsToPush())])
+                    if (rc != 0) {
+                        error("SERVER_RELEASE ${params.SERVER_RELEASE} is not usable (rc=${rc}), see the REFUSED and n/a lines")
+                    }
+                }
+            }
+        }
         stage('Push to repositories') {
             agent {
                 label 'jenkins'
+            }
+            when {
+                beforeAgent true
+                expression { return !(params.SKIP_RPM_PUSH && params.SKIP_DEB_PUSH) }
             }
             steps {
                 script {
@@ -198,7 +277,6 @@ pipeline {
                                 COMPONENT: params.COMPONENT,
                                 PATH_TO_BUILD: b.path,
                                 GATE: b.gate,
-                                RUN_ID: "build-${env.BUILD_NUMBER}",
                                 PUSHRHEL10: params.PUSHRHEL10,
                                 PUSHFOCAL: params.PUSHFOCAL,
                                 PUSHTRIXIE: params.PUSHTRIXIE,
@@ -272,11 +350,26 @@ pipeline {
             }
             steps {
                 script {
-                    for (b in buildsToPush()) {
-                        def rc = runOnRepoCi('sync-downloads.sh', [PATH_TO_BUILD: b.path, GATED: b.gate != 'none', RUN_ID: "build-${env.BUILD_NUMBER}"])
-                        if (rc != 0) {
+                    def builds = buildsToPush()
+                    def held = []
+                    for (b in builds) {
+                        def vars = [PATH_TO_BUILD: b.path, COPY_TELEMETRY: params.COPY_TELEMETRY]
+                        if (b.gate == 'none') {
+                            vars.MODE = 'server'
+                        } else {
+                            vars.MODE = 'merge'
+                            vars.TARGETS = downloadsTargets(builds)
+                        }
+                        def rc = runOnRepoCi('sync-downloads.sh', vars)
+                        if (rc == 42 || rc == 43) {
+                            // the script's own codes, a part of the targets (or all of them) has no server directory
+                            held << "${b.kind}: ${rc == 43 ? 'nothing' : 'not everything'} was published to downloads, see the n/a lines"
+                        } else if (rc != 0) {
                             error("sync of ${b.path} to downloads failed, rc=${rc}")
                         }
+                    }
+                    if (held) {
+                        unstable(held.join('; '))
                     }
                 }
             }
