@@ -638,8 +638,28 @@ DockerRegistry createDockerRegistry(CpsScript script, String imageType) {
 def buildImage(Version v,
                String arch,
                String imageType,
-               String debug) {
+               String debug,
+               String mongoToolsVersion,
+               String mongoshVersion) {
     String dockerfile = 'Dockerfile' + (arch == 'arm64' ? '.aarch64' : '')
+
+    // Tools and mongosh are versioned separately from the server in the
+    // Dockerfiles. An empty value keeps whatever the Dockerfile has. Older
+    // Dockerfiles (e.g. 6.0) lack these variables, so fail loudly rather than
+    // let `sed` silently do nothing.
+    String extraSed = ''
+    String requireVars = ''
+    if (mongoToolsVersion) {
+        extraSed += "-e \"s/^ENV MONGO_TOOLS_VERSION (.+)/ENV MONGO_TOOLS_VERSION ${mongoToolsVersion}/\" "
+        requireVars += "grep -q '^ENV MONGO_TOOLS_VERSION ' \"${dockerfile}\" " +
+            "|| { echo 'MONGO_TOOLS_VERSION is not defined in ${dockerfile}' >&2; exit 1; }\n"
+    }
+    if (mongoshVersion) {
+        extraSed += "-e \"s/^ENV MONGOSH_VERSION (.+)/ENV MONGOSH_VERSION ${mongoshVersion}/\" "
+        requireVars += "grep -q '^ENV MONGOSH_VERSION ' \"${dockerfile}\" " +
+            "|| { echo 'MONGOSH_VERSION is not defined in ${dockerfile}' >&2; exit 1; }\n"
+    }
+
     sh """
         # Clone the latest revision of the only necessary directory
         git clone --no-checkout --depth 1 'https://github.com/percona/percona-docker'
@@ -649,7 +669,8 @@ def buildImage(Version v,
         git checkout
         cd percona-server-mongodb-${v.feature}
 
-        sed -E \\
+        ${requireVars}
+        sed -E ${extraSed}\\
             -e "s/ENV PSMDB_VERSION (.+)/ENV PSMDB_VERSION ${v}/" \\
             -e "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO ${imageType}/" \\
             -e "/^ENV IMAGE_TYPE/d" \\
@@ -809,19 +830,27 @@ def checkSbom(String sbomFile, String arch) {
  *                      parameter for details.
  * @param debug         Whether the image with debug info must also be created.
  *                      Specify "yes" or "no"
+ * @param mongoToolsVersion  The version of MongoDB database tools to install,
+ *                           e.g. `100.19.1-1`. Empty string keeps the version
+ *                           pinned in the Dockerfile.
+ * @param mongoshVersion     The version of `mongosh` to install, e.g.
+ *                           `2.13.0-1`. Empty string keeps the version pinned
+ *                           in the Dockerfile.
  *
  * @return nothing
  */
 def buildStage(String psmdbVersion,
                String arch,
                String imageType,
-               String debug) {
+               String debug,
+               String mongoToolsVersion,
+               String mongoshVersion) {
     deleteDir()
 
     Version v = new Version(psmdbVersion)
     DockerRegistry reg = createDockerRegistry(this, imageType)
 
-    buildImage(v, arch, imageType, debug)
+    buildImage(v, arch, imageType, debug, mongoToolsVersion, mongoshVersion)
 
     def sbomFile = createSbom(v, arch)
 
@@ -925,6 +954,12 @@ pipeline {
                              + "testing images -- to the 'PerconaLab' namespace on DockerHub, "
                              + "release images -- to the 'Percona' namespace on DockerHub")
         string(name: 'PSMDB_VERSION', defaultValue: '8.0.26-11', description: 'PSMDB version')
+        string(name: 'MONGO_TOOLS_VERSION', defaultValue: '',
+               description: 'MongoDB database tools version, e.g. 100.19.1-1. '
+                             + 'Leave empty to keep the version pinned in the Dockerfile')
+        string(name: 'MONGOSH_VERSION', defaultValue: '',
+               description: 'mongosh version, e.g. 2.13.0-1. '
+                             + 'Leave empty to keep the version pinned in the Dockerfile')
         choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
         choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
@@ -940,6 +975,22 @@ pipeline {
             }
         }
 
+        stage('Validate parameters') {
+            steps {
+                script {
+                    // This only validates `PSMDB_VERSION` validity
+                    new Version("${params.PSMDB_VERSION}")
+                    [MONGO_TOOLS_VERSION: params.MONGO_TOOLS_VERSION,
+                     MONGOSH_VERSION: params.MONGOSH_VERSION].each { name, value ->
+                        String val = (value ?: '').trim()
+                        if (val && !(val ==~ /^\d+\.\d+\.\d+-\d+$/)) {
+                            error "Invalid ${name}: '${val}', expected e.g. 100.19.1-1"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Build image and SBOM') {
             parallel {
                 stage('amd64') {
@@ -949,7 +1000,9 @@ pipeline {
                             buildStage("${params.PSMDB_VERSION}",
                                        'amd64',
                                        "${params.IMAGE_TYPE}",
-                                       "${params.DEBUG}")
+                                       "${params.DEBUG}",
+                                       "${params.MONGO_TOOLS_VERSION}".trim(),
+                                       "${params.MONGOSH_VERSION}".trim())
                         }
                     }
                     post {
@@ -971,7 +1024,9 @@ pipeline {
                             buildStage("${params.PSMDB_VERSION}",
                                        'arm64',
                                        "${params.IMAGE_TYPE}",
-                                       "${params.DEBUG}")
+                                       "${params.DEBUG}",
+                                       "${params.MONGO_TOOLS_VERSION}".trim(),
+                                       "${params.MONGOSH_VERSION}".trim())
                         }
                     }
                     post {
