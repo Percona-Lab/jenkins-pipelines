@@ -227,6 +227,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 doctl kubernetes cluster create "\$cluster" \
                     --region "$DO_REGION" \
                     --version "\$cluster_version" \
+                    --tag "delete-cluster-after-hours:6" \
                     --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
 
                 doctl kubernetes cluster kubeconfig save "\$cluster"
