@@ -1,6 +1,6 @@
 import groovy.transform.Field
 
-@Field Integer numClusters = 5
+@Field Integer numClusters = 8
 @Field List clusters = []
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
@@ -151,7 +151,7 @@ pipeline {
 
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             steps {
                 script {
