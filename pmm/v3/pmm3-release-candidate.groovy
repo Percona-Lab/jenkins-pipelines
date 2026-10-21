@@ -250,9 +250,16 @@ pipeline {
                             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
                             git config user.email "noreply@percona.com"
                             git config user.name "PMM Jenkins"
-                            documentation/resources/bin/release-notes.sh rc "${VERSION}"
-                            git add documentation
-                            if ! git diff --cached --quiet; then
+                            notes=documentation/docs/release-notes
+                            # A rerun after a dry run finds the page already there.
+                            if [ ! -f "${notes}/${VERSION}.md" ]; then
+                                sed "s/{{VERSION}}/${VERSION}/g" "${notes}/next.md" > "${notes}/${VERSION}.md"
+                                cp documentation/resources/release-notes-template.md "${notes}/next.md"
+                                sed -i "/^# Release notes$/a - [Percona Monitoring and Management ${VERSION}](${VERSION}.md)" "${notes}/index.md"
+                                awk -v v="${VERSION}" '{ print } index($0, "- Release notes index: release-notes/index.md") { print sprintf("      - %cPMM %s%c: release-notes/%s.md", 34, v, 34, v) }' \
+                                    documentation/mkdocs-base.yml > mkdocs-base.yml.new
+                                mv mkdocs-base.yml.new documentation/mkdocs-base.yml
+                                git add documentation
                                 git commit -m "chore(rc): PMM ${VERSION} release notes"
                                 git push origin main
                             fi
