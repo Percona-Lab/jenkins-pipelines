@@ -224,7 +224,7 @@ void installExecutorDependencies(String testExecutorType) {
 }
 
 Boolean needsGoogleAuth(String operator, String provider) {
-    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb'
+    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb' || operator == 'pxc'
 }
 
 Boolean needsAzureCli(String operator, String provider) {
@@ -260,11 +260,8 @@ void installProviderDependencies(Map libraries, String operator, String provider
         installPxcTools()
     }
 
-    if (needsGoogleAuth(operator, provider) || operator == 'pxc') {
-        installGoogleCLI()
-    }
-
     if (needsGoogleAuth(operator, provider)) {
+        installGoogleCLI()
         libraries.gcloud.auth()
     }
 
