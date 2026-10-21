@@ -745,19 +745,17 @@ void runTest(Map testConfig) {
 
             def exitCode = 1
             try {
-                timeout(time: 90, unit: 'MINUTES') {
-                    def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
-                    def command = defineTestCommand(testVariables, testName)
+                def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
+                def command = defineTestCommand(testVariables, testName)
 
-                    exitCode = sh(
-                        script: """
-                            cd source
-                            ${exports}
-                            ${command}
-                        """,
-                        returnStatus: true
-                    )
-                }
+                exitCode = sh(
+                    script: """
+                        cd source
+                        ${exports}
+                        ${command}
+                    """,
+                    returnStatus: true
+                )
             } catch (exc) {
                 echo "Error occurred while running test ${testName}: ${exc}"
             }
