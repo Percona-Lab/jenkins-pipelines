@@ -34,11 +34,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             # disagrees with the repodata-advertised size, which makes dnf abort
             # with "Inconsistent server data ... please report to repository maintainer".
             # The mismatch usually clears within a minute, so retry a few times.
+            # pmm-client comes from the Percona repos only, so an unreachable EPEL
+            # mirror (bad TLS chain, stale repomd checksum) must not fail the install.
             retry_dnf_install() {
                 local n=3
                 local i
                 for i in $(seq 1 $n); do
-                    if sudo dnf -y install "$@"; then
+                    if sudo dnf -y --setopt=skip_if_unavailable=True install "$@"; then
                         return 0
                     fi
                     if [ "$i" -lt "$n" ]; then
@@ -83,7 +85,11 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only pmm3-client release
                 fi
 
-                export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}' | sort -V | tail -1)
+                export FULL_CLIENT_VERSION=$(dnf list --setopt=skip_if_unavailable=True pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}' | sort -V | tail -1)
+                if [ -z "${FULL_CLIENT_VERSION}" ]; then
+                    echo "Fatal: pmm-client ${CLIENT_VERSION} not found in the enabled pmm3-client repo"
+                    exit 1
+                fi
                 retry_dnf_install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else
