@@ -236,53 +236,38 @@ pipeline {
                 }
             }
         }
+        stage('Prepare release notes') {
+            when {
+                expression { env.EXIST.toInteger() == 0 && env.REMOVE_RELEASE_BRANCH == 'no' && params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH }
+            }
+            steps {
+                // Turns release-notes/next.md into ${VERSION}.md on main, so the release branch is cut with it.
+                dir('release-notes') {
+                    git branch: 'main', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
+                    withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                        sh '''
+                            set -ex
+                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                            git config user.email "noreply@percona.com"
+                            git config user.name "PMM Jenkins"
+                            documentation/resources/bin/release-notes.sh rc "${VERSION}"
+                            git add documentation
+                            if ! git diff --cached --quiet; then
+                                git commit -m "chore(rc): PMM ${VERSION} release notes"
+                                git push origin main
+                            fi
+                        '''
+                    }
+                    deleteDir()
+                }
+            }
+        }
         stage('Create Release branches') {
             when {
                 expression { env.EXIST.toInteger() == 0 }
             }
             steps {
                 setupReleaseBranches(VERSION)
-            }
-        }
-        stage('Bump to the next patch') {
-            when {
-                expression { env.EXIST.toInteger() == 0 && env.REMOVE_RELEASE_BRANCH == 'no' && params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH }
-            }
-            steps {
-                script {
-                    // A minor bump stays a human decision: a PR to VERSION here and one renaming the page in percona/pmm.
-                    env.NEXT_VERSION = sh(script: "echo ${VERSION} | awk -F. '{ print \$1 \".\" \$2 \".\" \$3 + 1 }'", returnStdout: true).trim()
-                }
-                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-                    dir('next-submodules') {
-                        git branch: DEFAULT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                        sh '''
-                            set -ex
-                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-                            # A recut release branch finds VERSION already bumped.
-                            if [ "$(cat VERSION)" = "${VERSION}" ]; then
-                                echo "${NEXT_VERSION}" > VERSION
-                                git commit -am "Bump version from ${VERSION} to ${NEXT_VERSION}"
-                                git push origin HEAD:''' + DEFAULT_BRANCH + '''
-                            fi
-                        '''
-                        deleteDir()
-                    }
-                    dir('next-pmm') {
-                        git branch: 'main', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
-                        sh '''
-                            set -ex
-                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-                            documentation/resources/bin/release-notes.sh new "${NEXT_VERSION}"
-                            git add documentation
-                            if ! git diff --cached --quiet; then
-                                git commit -m "chore(rc): add the PMM ${NEXT_VERSION} release notes page"
-                                git push origin main
-                            fi
-                        '''
-                        deleteDir()
-                    }
-                }
             }
         }
         stage('Rewind Release Submodule') {
