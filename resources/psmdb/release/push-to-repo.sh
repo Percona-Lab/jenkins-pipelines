@@ -1,7 +1,7 @@
 #!/bin/bash
 # Pushes one UPLOAD build (server, tools or mongosh) into one PSMDB repo/component.
 # Runs on repo.ci; the pipeline exports the inputs and feeds this file to `bash -s`:
-#   REPO COMPONENT PATH_TO_BUILD GATE RUN_ID SIGN_PASSWORD
+#   REPO COMPONENT PATH_TO_BUILD GATE SIGN_PASSWORD
 #   PUSHRHEL10 PUSHFOCAL PUSHTRIXIE PUSHRESOLUTE
 #   REMOVE_BEFORE_PUSH REMOVE_LOCKFILE SKIP_RPM_PUSH SKIP_DEB_PUSH
 #
@@ -10,8 +10,6 @@
 # GATE=tools  same, and that percona-server-mongodb must not pin the tools version,
 #             otherwise yum update fails on every machine that has PSMDB installed
 # Nothing is ever removed from the repo.
-# What a gated push let through is listed in <build>/.pushed-<RUN_ID> ("rpm 9 x86_64",
-# "deb jammy amd64"), sync-downloads.sh publishes only that part of the build.
 #
 # exit: 0 everything pushed, 42 something held back, 43 nothing pushed
 
@@ -25,10 +23,6 @@ RC_NONE=43
 pushed=0
 skipped=0
 na=0
-
-record() {
-    [ "${GATE}" = none ] || echo "$*" >> "${build_dir}/.pushed-${RUN_ID}"
-}
 
 sign_repo() {
     createrepo --update --no-database "$1"
@@ -85,7 +79,6 @@ push_rpms() {
             sign_repo "${dir}"
             pushed=$((pushed + 1))
             rhel_pushed=1
-            record rpm "${rhel}" "${arch}"
         done
         # no SRPM where no binary went in
         [ "${rhel_pushed}" = 1 ] || continue
@@ -172,7 +165,6 @@ push_debs() {
         repopush --gpg-pass="${SIGN_PASSWORD}" --package="${deb}" --repo-path="${apt_root}" \
             --component="${deb_comp}" --codename="${dist}" --verbose ${args}
         pushed=$((pushed + 1))
-        record deb "${dist}" "$(basename "${deb}" | sed -E 's/.*_([a-z0-9]+)\.u?deb$/\1/')"
     done
     rm -f "${list}"
 }
@@ -199,8 +191,6 @@ main() {
         echo "ERROR: ${build_dir}/binary does not exist"
         exit 1
     fi
-
-    find "${build_dir}" -maxdepth 1 -name '.pushed-*' -mtime +7 -delete
 
     # same lock file as vars/sync2ProdAutoBuild*.groovy, so autobuilds and this job queue up
     mkdir -p "${REPO_ROOT}/.publish-locks"
