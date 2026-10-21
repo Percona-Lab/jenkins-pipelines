@@ -19,13 +19,14 @@ void createCluster(Map clusterCfg) {
     def clusterFullName = "${clusterCfg.clusterName}-${clusterCfg.clusterSuffix}"
 
     timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
             sh """
                 set -euo pipefail
 
                 export KUBECONFIG=/tmp/${clusterFullName}
                 cluster="${clusterFullName}"
                 cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "${clusterCfg.platformVersion}" '.[] | select(.kubernetes_version==\$v) | .slug')
+                project_id=\$(doctl projects list --output json | jq -er 'first(.[] | select(.name == "cloud-team") | .id)')
 
                 create_cluster() {
                     doctl kubernetes cluster create "\$cluster" \
@@ -41,7 +42,7 @@ void createCluster(Map clusterCfg) {
                     cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
                     urn="do:kubernetes:\$cluster_id"
 
-                    doctl projects resources assign "\$PROJECT" --resource "\$urn"
+                    doctl projects resources assign "\$project_id" --resource "\$urn"
                 }
 
                 max_retries=15
@@ -62,7 +63,7 @@ void shutdownCluster(Map clusterCfg) {
     def clusterFullName = "${clusterCfg.clusterName}-${clusterCfg.clusterSuffix}"
 
     timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
             sh """
                 doctl kubernetes cluster delete ${clusterFullName} --force || true
             """
