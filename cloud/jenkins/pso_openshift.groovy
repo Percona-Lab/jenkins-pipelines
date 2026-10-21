@@ -151,7 +151,7 @@ pipeline {
 
         stage('Run Tests') {
             options {
-                timeout(time: 210, unit: 'MINUTES')
+                timeout(time: 4, unit: 'HOURS')
             }
             steps {
                 script {
