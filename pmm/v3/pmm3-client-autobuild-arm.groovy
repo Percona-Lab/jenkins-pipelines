@@ -83,9 +83,12 @@ pipeline {
                         ls -la "results/tarball" || :
                         aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
                             s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz
-                        aws s3 cp --only-show-errors --acl public-read --copy-props none \
-                            s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz
+                        # An RC build must not replace the dev tarball the nightly tests
+                        if [ "${DESTINATION}" = experimental ]; then
+                            aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz \
+                                s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz
+                        fi
                     '''
                 }
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'

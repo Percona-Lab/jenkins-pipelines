@@ -84,9 +84,12 @@ pipeline {
                                 ls -la "results/tarball" || :
                                 aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
                                     s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz
-                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
-                                  s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz \
-                                  s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz
+                                # An RC build must not replace the dev tarball the nightly tests
+                                if [ "${DESTINATION}" = experimental ]; then
+                                    aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                      s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz \
+                                      s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz
+                                fi
                             '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
@@ -107,9 +110,12 @@ pipeline {
                                 aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*-dynamic-ol8.tar.gz \
                                     s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz
 
-                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest.tar.gz
+                                # An RC build must not replace the dev tarball the nightly tests
+                                if [ "${DESTINATION}" = experimental ]; then
+                                    aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                        s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz \
+                                        s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest.tar.gz
+                                fi
                             '''
                         }
                         stash includes: 'results/tarball/pmm-client-*-dynamic-ol8.tar.gz', name: 'binary.ol8.tarball'
@@ -130,9 +136,12 @@ pipeline {
                                 aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*-dynamic-ol9.tar.gz \
                                     s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz
 
-                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest.tar.gz
+                                # An RC build must not replace the dev tarball the nightly tests
+                                if [ "${DESTINATION}" = experimental ]; then
+                                    aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                        s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz \
+                                        s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest.tar.gz
+                                fi
                             '''
                         }
                         stash includes: 'results/tarball/pmm-client-*-dynamic-ol9.tar.gz', name: 'binary.ol9.tarball'
