@@ -541,7 +541,7 @@ timestamps {
                               "\n\nWhen you finish, publish each root cause to the nightly report, one call per cause, " +
                               "from a percona/pmm-qa checkout:\n" +
                               "  nightly/ci/finding.sh ${reportId} \"Investigator routine\" \"<test bug|setup bug|product bug|unstable>\" " +
-                              "\"<one-sentence summary>\" <fix PR, Jira or green re-run URL, or -> \"<group>\" [\"<group>\" ...]\n" +
+                              "\"<one-sentence summary>\" <green re-run URL for unstable, fix PR for setup bug, else fix PR, Jira URL or -> \"<group>\" [\"<group>\" ...]\n" +
                               "Each job's group is in https://percona.github.io/pmm-qa/nightly/reports/${reportId}.json." +
                               (isRc ? "\n\nThis is PMM ${version} RC testing. When every finding is published, post exactly this one line, " +
                                       "nothing else, with \"\${CLAUDE_PLUGIN_ROOT}/scripts/slack-bot.sh\" post '#qa-automation' -\n" +
