@@ -45,7 +45,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
-        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_LOG_COLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
 
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
@@ -140,7 +140,7 @@ pipeline {
                             IMAGE_PMM3_CLIENT  : IMAGE_PMM3_CLIENT,
                             IMAGE_PMM3_SERVER  : IMAGE_PMM3_SERVER,
                             IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER,
-                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR
+                            IMAGE_LOG_COLLECTOR: IMAGE_LOG_COLLECTOR
                         ]
                     ])
 
