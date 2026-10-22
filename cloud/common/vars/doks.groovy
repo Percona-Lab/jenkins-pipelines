@@ -32,7 +32,7 @@ void createCluster(Map clusterCfg) {
                     doctl kubernetes cluster create "\$cluster" \
                         --region "${clusterCfg.region}" \
                         --version "\$cluster_version" \
-                        --tag "delete-cluster-after-hours:8" \
+                        --tag "delete-cluster-after-hours:6" \
                         --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
 
                     doctl kubernetes cluster kubeconfig save "\$cluster"
