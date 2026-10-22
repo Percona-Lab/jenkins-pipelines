@@ -189,7 +189,7 @@ def categorize_ps(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
         (lambda k: "ORCHESTRATOR" in k, "orchestrator"),
         (lambda k: "ROUTER" in k, "router"),
         (lambda k: "TOOLKIT" in k, "toolkit"),
-        (lambda k: "LOGCOLLECTOR" in k, "log_collector"),
+        (lambda k: "LOG_COLLECTOR" in k, "log_collector"),
     ]
     categories = [
         "mysql",
