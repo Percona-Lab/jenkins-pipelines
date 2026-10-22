@@ -161,11 +161,14 @@ pipeline {
                     sh '''
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/xbtr.output.gz ./ || true
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/junit.xml.gz ./ || true
-                        aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/test_results.subunit.gz ./ || true
+                        # Older run.sh versions write test_results.subunit, current ones write junit.xml
+                        if aws s3 ls s3://pxb-build-cache/${BUILD_TAG}/test_results.subunit.gz > /dev/null; then
+                            aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/test_results.subunit.gz ./
+                            gunzip < test_results.subunit.gz > test_results.subunit
+                        fi
                         aws s3 cp --no-progress s3://pxb-build-cache/${BUILD_TAG}/results.tar.gz ./ || true
                         gunzip < xbtr.output.gz > xbtr.output || true
                         gunzip < junit.xml.gz > junit.xml || true
-                        gunzip < test_results.subunit.gz > test_results.subunit || true
                     '''
                 }
                 archiveArtifacts allowEmptyArchive: true, followSymlinks: false, onlyIfSuccessful: true, artifacts: 'xbtr.output,junit.xml,test_results.subunit,results.tar.gz'
