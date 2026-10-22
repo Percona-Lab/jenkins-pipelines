@@ -125,8 +125,26 @@ deb_allowed() {
     return 0
 }
 
+# prints the first file of a source package (.dsc) that is in the pool already under the same
+# name with other contents, and returns 0. That is a rebuild of the same upstream version whose
+# orig tarball is not the same: reprepro refuses it, and a failed repopush leaves its lock behind.
+dsc_conflict() {
+    local dsc=$1 sum name existing files
+    files=$(awk '/^Checksums-Sha256:/ {f=1; next} /^[^ ]/ {f=0} f {print $1, $3}' "${dsc}")
+    [ -n "${files}" ] || return 1
+    while read -r sum name; do
+        existing=$(find "${apt_root}/pool" -name "${name}" 2>/dev/null | head -1)
+        [ -n "${existing}" ] || continue
+        if [ "$(sha256sum "${existing}" | cut -d' ' -f1)" != "${sum}" ]; then
+            echo "${name}"
+            return 0
+        fi
+    done <<< "${files}"
+    return 1
+}
+
 push_debs() {
-    local dist deb dsc line list args=""
+    local dist dists deb dsc line list conflict args=""
     [ -d "${build_dir}/binary/debian" ] || return 0
     list=$(mktemp)
     [ "${REMOVE_BEFORE_PUSH}" = true ] && args="--remove-package"
@@ -146,12 +164,25 @@ push_debs() {
 
     # sources go into the release repo only, and only for the dists that get binaries
     if [ "${comp}" = release ] && [ -d "${build_dir}/source/debian" ]; then
-        for dist in $(awk '{print $1}' "${list}" | sort -u); do
-            for dsc in $(find "${build_dir}/source/debian" -type f -name '*.dsc'); do
+        dists=$(awk '{print $1}' "${list}" | sort -u)
+        for dsc in $(find "${build_dir}/source/debian" -type f -name '*.dsc'); do
+            # the pool is shared by all dists, so a conflict holds for all of them
+            if conflict=$(dsc_conflict "${dsc}"); then
+                echo "SKIP source $(basename "${dsc}"): ${conflict} is in ${REPO} with other contents (same upstream version rebuilt), the source stays on downloads and in the SRPM"
+                skipped=$((skipped + 1))
+                continue
+            fi
+            for dist in ${dists}; do
                 echo "dsc ${dsc} -> ${dist}"
                 repopush --gpg-pass="${SIGN_PASSWORD}" --package="${dsc}" --repo-path="${apt_root}" \
-                    --component="${deb_comp}" --codename="${dist}" --verbose ${args} \
-                    || echo "WARN: ${dsc} was not pushed to ${dist}, already there?"
+                    --component="${deb_comp}" --codename="${dist}" --verbose ${args} || {
+                    # a failed push that left the reprepro lock would break every push after it
+                    if [ -e "${apt_root}/db/lockfile" ]; then
+                        echo "ERROR: ${dsc} failed and left ${apt_root}/db/lockfile, run again with REMOVE_LOCKFILE"
+                        exit 1
+                    fi
+                    echo "WARN: ${dsc} was not pushed to ${dist}, already there?"
+                }
             done
         done
     fi
