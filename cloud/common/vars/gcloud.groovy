@@ -37,11 +37,11 @@ void createCluster(Map clusterCfg) {
                 "CLUSTER_NAME=${clusterCfg.clusterName}",
                 "GKE_RELEASE_CHANNEL=${clusterCfg.platformChannel}",
                 "GKE_REGION=${clusterCfg.zone}",
+                "KUBECONFIG=${clusterCfg.kubeconfig}",
                 "PLATFORM_VER=${clusterCfg.platformVersion}",
                 "MACHINE_TYPE=${clusterCfg.machineType}"
             ]) {
                 sh '''
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
                     maxRetries=15
                     exitCode=1
 
