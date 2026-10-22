@@ -117,8 +117,8 @@ void installPxcTools() {
         sudo yum install -y percona-xtrabackup-84
     '''
 }
- 
-void installKuttl(String version = '0.25.0') {
+
+void installKuttl(String version = '0.27.0') {
     sh """
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
         command -v kubectl-krew >/dev/null || {
@@ -186,7 +186,7 @@ void installAzureCLI() {
     '''
 }
 
-void installTrivy(String version = '0.74.0') {
+void installTrivy(String version = '0.76.0') {
     withEnv(["TRIVY_VERSION=${version}"]) {
         sh '''
             set -eu
@@ -223,35 +223,54 @@ void installExecutorDependencies(String testExecutorType) {
     }
 }
 
-void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
-    // PSMDB requires Google and Azure CLIs, regardless of the provider.
-    // Rancher requires Google CLI to create cluster as GCE instances are used.
+Boolean needsGoogleAuth(String operator, String provider) {
+    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb' || operator == 'pxc'
+}
 
-    if (provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb-operator') {
-        installGoogleCLI()
-        libraries.gcloud.auth()
-    }
+Boolean needsAzureCli(String operator, String provider) {
+    return provider == 'azure' || operator == 'psmdb' || operator == 'pxc'
+}
 
-    if (provider == 'azure' || operator == 'psmdb-operator') {
-        installAzureCLI()
-        libraries.azure.auth()
-    }
-
+void installClusterProviderTools(String provider, String platformVersion) {
     if (provider == 'eks') {
         installEksctl()
+        return
     }
 
     if (provider == 'doks') {
         installDoctl()
+        return
     }
 
     if (provider == 'minikube') {
         installMinikube()
+        return
     }
 
     if (provider == 'openshift') {
         installOpenshiftClient(platformVersion ?: 'latest')
     }
+}
+
+void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
+    // PSMDB and PXC require Google and Azure CLIs on every provider.
+    // Rancher uses Google CLI because clusters run on GCE.
+
+    if (operator == 'pxc') {
+        installPxcTools()
+    }
+
+    if (needsGoogleAuth(operator, provider)) {
+        installGoogleCLI()
+        libraries.gcloud.auth()
+    }
+
+    if (needsAzureCli(operator, provider)) {
+        installAzureCLI()
+        libraries.azure.auth()
+    }
+
+    installClusterProviderTools(provider, platformVersion)
 }
 
 void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
