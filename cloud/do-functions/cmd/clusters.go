@@ -26,11 +26,11 @@ type cluster struct {
 	CreatedAt string   `json:"created_at"`
 }
 
-func cleanClusters(ctx context.Context, client *apiClient, clusters []cluster, projectClusterIDs map[string]struct{}, now time.Time, dryRun bool, cleanupErrors *[]string) ResourceSummary {
+func cleanClusters(ctx context.Context, client *apiClient, clusters []cluster, projectResourceURNs map[string]struct{}, now time.Time, dryRun bool, cleanupErrors *[]string) ResourceSummary {
 	summary := ResourceSummary{Scanned: len(clusters)}
 	for _, cluster := range clusters {
-		_, belongsToCleanupProject := projectClusterIDs[cluster.ID]
-		shouldDelete, reason, err := shouldDeleteCluster(cluster, belongsToCleanupProject, now)
+		inCleanupScope := isCleanupResource(cluster.Tags, "do:kubernetes:"+cluster.ID, projectResourceURNs)
+		shouldDelete, reason, err := shouldDeleteCluster(cluster, inCleanupScope, now)
 		if err != nil {
 			*cleanupErrors = append(*cleanupErrors, fmt.Sprintf("cluster %s: %v", cluster.Name, err))
 			continue
@@ -49,9 +49,20 @@ func cleanClusters(ctx context.Context, client *apiClient, clusters []cluster, p
 	return summary
 }
 
-func shouldDeleteCluster(cluster cluster, belongsToCleanupProject bool, now time.Time) (bool, string, error) {
+func shouldDeleteCluster(cluster cluster, inCleanupScope bool, now time.Time) (bool, string, error) {
 	if hasTag(cluster.Tags, skipDeletionTag) {
 		return false, fmt.Sprintf("tag %s is present", skipDeletionTag), nil
+	}
+	if !inCleanupScope {
+		return false, fmt.Sprintf("does not match %s tag or %s project", defaultCleanupTag, defaultCleanupProject), nil
+	}
+
+	ttl, found, err := ttlFromTags(cluster.Tags)
+	if err != nil {
+		return false, "", err
+	}
+	if !found {
+		return true, fmt.Sprintf("missing %s tag and matches %s tag or %s project", strings.TrimSuffix(ttlTagPrefix, ":"), defaultCleanupTag, defaultCleanupProject), nil
 	}
 
 	createdAt, err := time.Parse(time.RFC3339, cluster.CreatedAt)
@@ -61,17 +72,6 @@ func shouldDeleteCluster(cluster cluster, belongsToCleanupProject bool, now time
 	age := now.Sub(createdAt)
 	if age < 0 {
 		return false, "", errors.New("created_at is in the future")
-	}
-
-	ttl, found, err := ttlFromTags(cluster.Tags)
-	if err != nil {
-		return false, "", err
-	}
-	if !found {
-		if !hasTag(cluster.Tags, defaultCleanupTag) && !belongsToCleanupProject {
-			return false, fmt.Sprintf("missing %s tag and does not match %s tag or %s project", strings.TrimSuffix(ttlTagPrefix, ":"), defaultCleanupTag, defaultCleanupProject), nil
-		}
-		return true, fmt.Sprintf("missing %s tag and matches %s tag or %s project; age %.1f hours", strings.TrimSuffix(ttlTagPrefix, ":"), defaultCleanupTag, defaultCleanupProject, age.Hours()), nil
 	}
 	if age >= ttl {
 		return true, fmt.Sprintf("age %.1f hours reached TTL %.1f hours", age.Hours(), ttl.Hours()), nil

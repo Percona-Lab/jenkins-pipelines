@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	defaultAPIURL     = "https://api.digitalocean.com"
-	skipDeletionTag   = "skip-cluster-deletion"
-	orphanGracePeriod = time.Hour
+	defaultAPIURL   = "https://api.digitalocean.com"
+	skipDeletionTag = "skip-cluster-deletion"
 )
 
 type Event struct{}
@@ -70,36 +69,36 @@ func Main(ctx context.Context, _ Event) Response {
 
 func cleanup(ctx context.Context, client *apiClient, now time.Time, dryRun bool) Result {
 	result := Result{DryRun: dryRun}
-	projectClusterIDs, err := client.listProjectClusterIDs(ctx, defaultCleanupProject)
+	projectResourceURNs, err := client.listProjectResourceURNs(ctx, defaultCleanupProject)
 	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("list clusters from project %s: %v", defaultCleanupProject, err))
+		result.Errors = append(result.Errors, fmt.Sprintf("list resources from project %s: %v", defaultCleanupProject, err))
 	}
 
 	clusters, err := client.listClusters(ctx)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("list clusters: %v", err))
 	} else {
-		result.Clusters = cleanClusters(ctx, client, clusters, projectClusterIDs, now, dryRun, &result.Errors)
+		result.Clusters = cleanClusters(ctx, client, clusters, projectResourceURNs, now, dryRun, &result.Errors)
 	}
 
 	loadBalancers, err := client.listLoadBalancers(ctx)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("list load balancers: %v", err))
 	} else {
-		result.LoadBalancers = cleanLoadBalancers(ctx, client, loadBalancers, now, dryRun, &result.Errors)
+		result.LoadBalancers = cleanLoadBalancers(ctx, client, loadBalancers, projectResourceURNs, dryRun, &result.Errors)
 	}
 
 	volumes, err := client.listVolumes(ctx)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("list volumes: %v", err))
 	} else {
-		result.Volumes = cleanVolumes(ctx, client, volumes, now, dryRun, &result.Errors)
+		result.Volumes = cleanVolumes(ctx, client, volumes, projectResourceURNs, dryRun, &result.Errors)
 
 		snapshots, err := client.listVolumeSnapshots(ctx)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("list volume snapshots: %v", err))
 		} else {
-			result.VolumeSnapshots = cleanVolumeSnapshots(ctx, client, snapshots, volumes, now, dryRun, &result.Errors)
+			result.VolumeSnapshots = cleanVolumeSnapshots(ctx, client, snapshots, volumes, projectResourceURNs, dryRun, &result.Errors)
 		}
 	}
 
@@ -132,9 +131,12 @@ func hasTag(tags []string, expected string) bool {
 	return false
 }
 
-func olderThan(createdAt string, now time.Time, minimumAge time.Duration) bool {
-	created, err := time.Parse(time.RFC3339, createdAt)
-	return err == nil && now.Sub(created) >= minimumAge
+func isCleanupResource(tags []string, urn string, projectResourceURNs map[string]struct{}) bool {
+	if hasTag(tags, defaultCleanupTag) {
+		return true
+	}
+	_, belongsToCleanupProject := projectResourceURNs[urn]
+	return belongsToCleanupProject
 }
 
 func errorResponse(message string) Response {

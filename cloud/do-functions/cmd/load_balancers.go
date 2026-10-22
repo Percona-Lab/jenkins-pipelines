@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
-	"time"
 )
 
 type loadBalancer struct {
@@ -17,14 +16,10 @@ type loadBalancer struct {
 	CreatedAt  string `json:"created_at"`
 }
 
-func cleanLoadBalancers(ctx context.Context, client *apiClient, loadBalancers []loadBalancer, now time.Time, dryRun bool, cleanupErrors *[]string) ResourceSummary {
+func cleanLoadBalancers(ctx context.Context, client *apiClient, loadBalancers []loadBalancer, projectResourceURNs map[string]struct{}, dryRun bool, cleanupErrors *[]string) ResourceSummary {
 	summary := ResourceSummary{Scanned: len(loadBalancers)}
 	for _, loadBalancer := range loadBalancers {
-		if loadBalancer.Type == "GLOBAL" || len(loadBalancer.DropletIDs) > 0 || loadBalancer.Tag != "" {
-			summary.Skipped = append(summary.Skipped, loadBalancer.Name)
-			continue
-		}
-		if !olderThan(loadBalancer.CreatedAt, now, orphanGracePeriod) {
+		if !isCleanupResource([]string{loadBalancer.Tag}, "do:loadbalancer:"+loadBalancer.ID, projectResourceURNs) || loadBalancer.Type == "GLOBAL" || len(loadBalancer.DropletIDs) > 0 || loadBalancer.Tag != "" {
 			summary.Skipped = append(summary.Skipped, loadBalancer.Name)
 			continue
 		}

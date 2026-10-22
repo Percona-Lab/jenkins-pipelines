@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
-	"time"
 )
 
 type snapshot struct {
@@ -17,7 +16,7 @@ type snapshot struct {
 	CreatedAt    string   `json:"created_at"`
 }
 
-func cleanVolumeSnapshots(ctx context.Context, client *apiClient, snapshots []snapshot, volumes []volume, now time.Time, dryRun bool, cleanupErrors *[]string) ResourceSummary {
+func cleanVolumeSnapshots(ctx context.Context, client *apiClient, snapshots []snapshot, volumes []volume, projectResourceURNs map[string]struct{}, dryRun bool, cleanupErrors *[]string) ResourceSummary {
 	volumeIDs := make(map[string]struct{}, len(volumes))
 	for _, volume := range volumes {
 		volumeIDs[volume.ID] = struct{}{}
@@ -26,7 +25,7 @@ func cleanVolumeSnapshots(ctx context.Context, client *apiClient, snapshots []sn
 	summary := ResourceSummary{Scanned: len(snapshots)}
 	for _, snapshot := range snapshots {
 		_, volumeExists := volumeIDs[snapshot.ResourceID]
-		if hasTag(snapshot.Tags, skipDeletionTag) || volumeExists || !olderThan(snapshot.CreatedAt, now, orphanGracePeriod) {
+		if !isCleanupResource(snapshot.Tags, "do:volume-snapshot:"+snapshot.ID, projectResourceURNs) || hasTag(snapshot.Tags, skipDeletionTag) || volumeExists {
 			summary.Skipped = append(summary.Skipped, snapshot.Name)
 			continue
 		}

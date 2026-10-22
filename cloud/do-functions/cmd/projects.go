@@ -19,7 +19,7 @@ type projectResource struct {
 	URN string `json:"urn"`
 }
 
-func (client *apiClient) listProjectClusterIDs(ctx context.Context, projectName string) (map[string]struct{}, error) {
+func (client *apiClient) listProjectResourceURNs(ctx context.Context, projectName string) (map[string]struct{}, error) {
 	projects, err := client.listProjects(ctx)
 	if err != nil {
 		return nil, err
@@ -41,14 +41,11 @@ func (client *apiClient) listProjectClusterIDs(ctx context.Context, projectName 
 		return nil, err
 	}
 
-	const clusterURNPrefix = "do:kubernetes:"
-	clusterIDs := make(map[string]struct{})
+	resourceURNs := make(map[string]struct{}, len(resources))
 	for _, resource := range resources {
-		if strings.HasPrefix(resource.URN, clusterURNPrefix) {
-			clusterIDs[strings.TrimPrefix(resource.URN, clusterURNPrefix)] = struct{}{}
-		}
+		resourceURNs[resource.URN] = struct{}{}
 	}
-	return clusterIDs, nil
+	return resourceURNs, nil
 }
 
 func (client *apiClient) listProjects(ctx context.Context) ([]project, error) {

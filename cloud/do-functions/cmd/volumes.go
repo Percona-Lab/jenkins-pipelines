@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
-	"time"
 )
 
 type volume struct {
@@ -16,10 +15,10 @@ type volume struct {
 	CreatedAt  string   `json:"created_at"`
 }
 
-func cleanVolumes(ctx context.Context, client *apiClient, volumes []volume, now time.Time, dryRun bool, cleanupErrors *[]string) ResourceSummary {
+func cleanVolumes(ctx context.Context, client *apiClient, volumes []volume, projectResourceURNs map[string]struct{}, dryRun bool, cleanupErrors *[]string) ResourceSummary {
 	summary := ResourceSummary{Scanned: len(volumes)}
 	for _, volume := range volumes {
-		if hasTag(volume.Tags, skipDeletionTag) || len(volume.DropletIDs) > 0 || !olderThan(volume.CreatedAt, now, orphanGracePeriod) {
+		if !isCleanupResource(volume.Tags, "do:volume:"+volume.ID, projectResourceURNs) || hasTag(volume.Tags, skipDeletionTag) || len(volume.DropletIDs) > 0 {
 			summary.Skipped = append(summary.Skipped, volume.Name)
 			continue
 		}
