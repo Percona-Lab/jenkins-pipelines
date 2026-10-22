@@ -99,7 +99,7 @@ def fetch_dockerhub_tag(repo, prefix=None, allow_rc=False):
     return max(versions)[1] if versions else None
 
 
-def fetch_97_pxb_tag(repo, prefix=None):
+def fetch_rc_pxb_tag(repo, prefix=None):
     return fetch_dockerhub_tag(repo, prefix, allow_rc=True)
 
 
@@ -361,7 +361,7 @@ def get_image_tasks(op):
             "9.7": (D, "percona/percona-server", "9.7"),
             "8.4": (D, "percona/percona-server", "8.4"),
             "8.0": (D, "percona/percona-server", "8.0"),
-            "backup97": (fetch_97_pxb_tag, "percona/percona-xtrabackup", "9.7"),
+            "backup97": (fetch_rc_pxb_tag, "percona/percona-xtrabackup", "9.7"),
             "backup84": (D, "percona/percona-xtrabackup", "8.4"),
             "backup80": (D, "percona/percona-xtrabackup", "8.0"),
             "orchestrator": (D, "percona/percona-orchestrator"),
