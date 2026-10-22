@@ -16,3 +16,8 @@
 /pdpxc/ @kaushikpuneet07 @nogueiraanderson @adivinho
 /pml/ @olexandr-havryliak @sandraromanchenko @keithquinnpercona @Percona-Lab/build-engineers
 /resources/psmdb @olexandr-havryliak @sandraromanchenko @keithquinnpercona @Percona-Lab/build-engineers
+
+/ps/jenkins/*mysql_repo* @marcinbabij @varunnagaraju
+/ps/jenkins/*oracle_cpu* @marcinbabij @varunnagaraju
+/ps/jenkins/oracle_cpu/ @marcinbabij @varunnagaraju
+/ps/jenkins/tests/*oracle_cpu* @marcinbabij @varunnagaraju
