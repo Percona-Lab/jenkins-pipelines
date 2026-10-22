@@ -431,8 +431,8 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("ORCHESTRATOR", "percona-orchestrator", versions.get("orchestrator")),
             ("TOOLKIT", "percona-toolkit", versions.get("toolkit")),
             ("LOG_COLLECTOR", "fluentbit", versions.get("logcollector")),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
         ],
     }.get(op, [])
 
