@@ -7,7 +7,7 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for Minikube: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {

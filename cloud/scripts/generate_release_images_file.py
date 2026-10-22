@@ -60,7 +60,22 @@ def fetch_pg_upgrade_tag():
     return max(tags, key=lambda t: [int(p) for p in t.replace("-", ".").split(".")])
 
 
-def fetch_dockerhub_tag(repo, prefix=None):
+# rc sorts below a later numeric Percona release: 9.7.1-1.1 > 9.7.1-rc1.1 > 9.7.1
+_XTRABACKUP_RC_RE = re.compile(r"^(\d+(?:\.\d+)*)-rc(\d+)(?:\.(\d+))?$")
+
+
+def _parse_docker_tag(name, allow_rc=False):
+    normalized = name.lstrip("v")
+    if allow_rc and (match := _XTRABACKUP_RC_RE.match(normalized)):
+        base, rc_num, image_rev = match.groups()
+        parts = [base, "0", rc_num]
+        if image_rev is not None:
+            parts.append(image_rev)
+        return parse_version(".".join(parts))
+    return parse_version(normalized.replace("-", "."))
+
+
+def fetch_dockerhub_tag(repo, prefix=None, allow_rc=False):
     params = {"page_size": 100}
     if prefix:
         params["name"] = str(prefix)
@@ -76,12 +91,16 @@ def fetch_dockerhub_tag(repo, prefix=None):
         if prefix and not name.startswith(f"{prefix}."):
             continue
         try:
-            parsed = parse_version(name.lstrip("v").replace("-", "."))
+            parsed = _parse_docker_tag(name, allow_rc=allow_rc)
             if not parsed.is_prerelease:
                 versions.append((parsed, name))
         except Exception:
             continue
     return max(versions)[1] if versions else None
+
+
+def fetch_rc_pxb_tag(repo, prefix=None):
+    return fetch_dockerhub_tag(repo, prefix, allow_rc=True)
 
 
 def fetch_community_dockerhub_tags(repo, name=None):
@@ -342,7 +361,7 @@ def get_image_tasks(op):
             "9.7": (D, "percona/percona-server", "9.7"),
             "8.4": (D, "percona/percona-server", "8.4"),
             "8.0": (D, "percona/percona-server", "8.0"),
-            "backup97": (D, "percona/percona-xtrabackup", "9.7"),
+            "backup97": (fetch_rc_pxb_tag, "percona/percona-xtrabackup", "9.7"),
             "backup84": (D, "percona/percona-xtrabackup", "8.4"),
             "backup80": (D, "percona/percona-xtrabackup", "8.0"),
             "orchestrator": (D, "percona/percona-orchestrator"),
@@ -411,9 +430,9 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("ORCHESTRATOR", "percona-orchestrator", versions.get("orchestrator")),
             ("TOOLKIT", "percona-toolkit", versions.get("toolkit")),
-            ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            ("LOG_COLLECTOR", "fluentbit", versions.get("logcollector")),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
         ],
     }.get(op, [])
 
