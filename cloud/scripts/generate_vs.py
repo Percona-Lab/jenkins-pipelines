@@ -354,7 +354,7 @@ PXC_VERSION_LIMITS = {
 
 PSMDB_VERSION_LIMITS = {
     "mongod": {"8.0": 5, "7.0": 5, "6.0": 5},
-    "pmm": {"2": 1, "3": 1},
+    "pmm": 1,
     "backup": 1,
     "log_collector": 1,
     "operator": 1,
