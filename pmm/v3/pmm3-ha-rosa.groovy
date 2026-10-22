@@ -234,8 +234,8 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'PMM-HA-GA',
-            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. PMM-HA-GA or a branch based on it.'
+            defaultValue: 'main',
+            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. main or a branch based on it.'
         )
         choice(
             name: 'RESOURCE_PROFILE',
