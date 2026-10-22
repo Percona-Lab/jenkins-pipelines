@@ -3,6 +3,31 @@ library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+// One job per PSMDB major version keeps each job's test history to one version, so the
+// JUnit plugin finds a test's previous result in the previous build instead of walking
+// the whole history. The job name suffix selects the defaults for that version.
+// The quick job and the original job keep the core/unittests/dbtest defaults.
+def STREAM = (env.JOB_NAME ?: '').replaceFirst(/^.*hetzner-psmdb-regression-?/, '')
+def SUITES = 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/refs/heads/main/regression-tests/suites/'
+def EXCLUDE_80 = '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer'
+def STREAM_DEFAULTS = [
+    '7.0': [branch: 'v7.0', version: '7.0.45', toolchain: ['v4','v3','v5'], platform: ['scons','bazel'], executors: '18',
+            testsuites: '', listsuites: SUITES + 'resmoke_psmdb_7.0.txt', integration: true, os: 'debian:12',
+            resmoke: EXCLUDE_80 + ',featureFlagBulkWriteCommand'],
+    '8.0': [branch: 'v8.0', version: '8.0.34', toolchain: ['v4','v3','v5'], platform: ['bazel','scons'], executors: '18',
+            testsuites: '', listsuites: SUITES + 'resmoke_psmdb_8.0.txt', integration: true, os: 'debian:12',
+            resmoke: EXCLUDE_80],
+    '8.3': [branch: 'v8.3', version: '8.3.13', toolchain: ['v5','v4','v3'], platform: ['bazel','scons'], executors: '23',
+            testsuites: '', listsuites: SUITES + 'resmoke_psmdb_8.3.txt', integration: true, os: 'ubuntu:24.04',
+            resmoke: '--excludeWithAnyTags=serverless,does_not_support_config_fuzzer,requires_latch_analyzer'],
+    '9.0': [branch: 'v9.0', version: '9.0.4', toolchain: ['v5','v4','v3'], platform: ['bazel','scons'], executors: '23',
+            testsuites: '', listsuites: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/refs/heads/PSMDB-2297/regression-tests/suites/resmoke_psmdb_9.0.txt',
+            integration: true, os: 'ubuntu:24.04', resmoke: ''],
+]
+def D = STREAM_DEFAULTS.get(STREAM, [branch: 'v8.0', version: '8.0.4', toolchain: ['v4','v3','v5'], platform: ['bazel','scons'],
+            executors: '1', testsuites: 'core,unittests,dbtest', listsuites: '', integration: false, os: 'ubuntu:24.04',
+            resmoke: EXCLUDE_80])
+
 pipeline {
     agent {
         label 'launcher-x64'
@@ -13,25 +38,26 @@ pipeline {
     parameters {
         choice(name: 'image', choices: ['build','predefined'], description: 'Build image from sources or use predefined docker image for tests')
         string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/refs/heads/main/regression-tests/build_image/Dockerfile_gcc_from_scratch', description: 'Dockerfile for image')
-        string(name: 'branch', defaultValue: 'v8.0', description: 'Repo branch for build image from sources')
-        string(name: 'version', defaultValue: '8.0.4', description: 'Version for build tag (psm_ver) to build image from sources')
+        string(name: 'branch', defaultValue: D.branch, description: 'Repo branch for build image from sources')
+        string(name: 'version', defaultValue: D.version, description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '1', description: 'Release for build tag (psm_release) to build image from sources')
-        choice(name: 'toolchain_version', choices: ['v4','v3','v5'], description: 'Toolchain version: v3 for PSMDB 5.0/6.0 contains GCC 8.5.0 and Python 3.8.19; v4 for PSMDB 7.0/8.0 contains GCC 11.3.0 and Python 3.10.14; v5 for master branch (GCC 14.2.0 and Python 3.13.11)')
-        choice(name: 'build_platform', choices: ['bazel','scons'], description: 'Build platform bazel or scons')
-        string(name: 'tag', defaultValue: '8.0.4', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
-        string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
-        string(name: 'testsuites', defaultValue: 'core,unittests,dbtest', description: 'Comma-separated list of testuites')
-        string(name: 'listsuites', defaultValue: '', description: 'URL with list of testuites')
+        choice(name: 'toolchain_version', choices: D.toolchain, description: 'Toolchain version: v3 for PSMDB 5.0/6.0 contains GCC 8.5.0 and Python 3.8.19; v4 for PSMDB 7.0/8.0 contains GCC 11.3.0 and Python 3.10.14; v5 for master branch (GCC 14.2.0 and Python 3.13.11)')
+        choice(name: 'build_platform', choices: D.platform, description: 'Build platform bazel or scons')
+        string(name: 'tag', defaultValue: D.version, description: 'Docker image tag to push/pull to/from registry, should be defined manually')
+        string(name: 'parallelexecutors', defaultValue: D.executors, description: 'Number of parallel executors')
+        string(name: 'testsuites', defaultValue: D.testsuites, description: 'Comma-separated list of testuites')
+        string(name: 'listsuites', defaultValue: D.listsuites, description: 'URL with list of testuites')
         choice(name: 'instance', choices: ['docker-x64','docker-aarch64'], description: 'Hetzner instance type for running suites')
         string(name: 'paralleljobs', defaultValue: '4', description: 'Number of parallel jobs passed to resmoke.py')
         booleanParam(name: 'unittests',defaultValue: true, description: 'Check if list of suites contains unittests')
-        booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
+        booleanParam(name: 'integrationtests',defaultValue: D.integration, description: 'Check if list of suites contains integration tests')
         booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
-        string(name: 'OS', defaultValue: 'ubuntu:24.04', description: 'Base OS, can be changed to build the image for PBM tests')
-        string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer', description: 'Extra params passed to resmoke.py')
+        string(name: 'OS', defaultValue: D.os, description: 'Base OS, can be changed to build the image for PBM tests')
+        string(name: 'resmoke_params', defaultValue: D.resmoke, description: 'Extra params passed to resmoke.py')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
     stages {
         stage('Set build name'){
