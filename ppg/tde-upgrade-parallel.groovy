@@ -49,6 +49,20 @@ Build Report: ${env.BUILD_URL}"""
     slackSend color: color, message: summary, channel: '#postgresql-test'
 }
 
+// FROM_VERSION actually used: the parameter, or the default for this upgrade.
+def fromVersion = ''
+
+// ['pg-18', 'minor'] for TO_VERSION ppg-18.6 and UPGRADE_TYPE server_minor
+// (psp-16.x -> 'psp-16'); null when there is no versions.yml default.
+@NonCPS
+def upgradeDefaultKey(String toVersion, String upgradeType) {
+    def m = (toVersion =~ /^(ppg|psp)-(\d+)\./)
+    if (!m.find()) { return null }
+    def instance = (m.group(1) == 'psp' ? 'psp-' : 'pg-') + m.group(2)
+    def kind = [server_minor: 'minor', server_major: 'major'][upgradeType]
+    return kind ? [instance, kind] : null
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -57,8 +71,8 @@ pipeline {
     parameters {
         string(
             name: 'FROM_VERSION',
-            defaultValue: 'ppg-17.10',
-            description: 'PostgreSQL version to install before the upgrade, e.g. ppg-17.10, ppg-18.3'
+            defaultValue: '',
+            description: 'PostgreSQL version to install before the upgrade, e.g. ppg-17.10, ppg-18.3 Empty: server_minor/server_major use the default_from_version of pg-<N>/psp-<N> (N = TO_VERSION\'s major) in ppg-testing ppg/versions.yml; tde_only uses TO_VERSION.'
         )
         string(
             name: 'TO_VERSION',
@@ -225,13 +239,30 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group pg_tde/upgrade"
+                    fromVersion = (params.FROM_VERSION ?: '').trim()
+                    if (!fromVersion && env.UPGRADE_TYPE == 'tde_only') {
+                        fromVersion = env.TO_VERSION
+                        echo "FROM_VERSION is empty: tde_only keeps the server version, using ${fromVersion}"
+                    } else if (!fromVersion) {
+                        def key = upgradeDefaultKey(env.TO_VERSION ?: '', env.UPGRADE_TYPE ?: '')
+                        if (key == null) {
+                            error("FROM_VERSION is empty and no default exists for TO_VERSION=${env.TO_VERSION}, UPGRADE_TYPE=${env.UPGRADE_TYPE}")
+                        }
+                        fromVersion = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${key[0]}']['${key[1]}-upgrade']['default_from_version'])" """).trim()
+                        echo "FROM_VERSION is empty: using ${fromVersion}, the ${key[1]}-upgrade default of ${key[0]} in ppg/versions.yml"
+                    }
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-upgrade-${fromVersion}-to-${env.TO_VERSION}-${env.UPGRADE_TYPE}"
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    // Build parameters win over env.X assignments, so pass the resolved
+                    // FROM_VERSION to Molecule (tasks and checks) explicitly.
+                    withEnv(["FROM_VERSION=${fromVersion}"]) {
+                        moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    }
                 }
             }
         }
@@ -241,7 +272,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH, env.FROM_PKG_RELEASE, env.TO_PKG_RELEASE, env.FROM_TDE_PKG_VERSION, env.TO_TDE_PKG_VERSION, env.FROM_PERCONA_SERVER_VERSION, env.TO_PERCONA_SERVER_VERSION)
+                sendSlackNotification(fromVersion ?: env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH, env.FROM_PKG_RELEASE, env.TO_PKG_RELEASE, env.FROM_TDE_PKG_VERSION, env.TO_TDE_PKG_VERSION, env.FROM_PERCONA_SERVER_VERSION, env.TO_PERCONA_SERVER_VERSION)
             }
             archiveArtifacts(
                 artifacts: 'pg_tde/upgrade/artifacts/**/*.tar.gz',

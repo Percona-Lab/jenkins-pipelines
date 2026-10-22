@@ -98,7 +98,7 @@ pipeline {
             description: 'Published pmm-ha chart version to install before the upgrade. Empty installs the latest published chart.',
             name: 'CHART_VERSION')
         string(
-            defaultValue: 'PMM-HA-GA',
+            defaultValue: 'main',
             description: 'percona-helm-charts branch whose pmm-ha chart the upgrade installs; the script clones it. The install always comes from the published chart. "latest" upgrades from the published chart too, making it an image-only upgrade.',
             name: 'HELM_CHART_BRANCH')
         string(

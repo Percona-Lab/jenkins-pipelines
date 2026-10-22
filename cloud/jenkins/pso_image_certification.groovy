@@ -16,7 +16,7 @@ def certifiableImages = [
     'IMAGE_ORCHESTRATOR',
     'IMAGE_TOOLKIT',
     'IMAGE_PMM_CLIENT',
-    'IMAGE_LOGCOLLECTOR'
+    'IMAGE_LOG_COLLECTOR'
 ]
 
 def imageTag(image) {
@@ -73,7 +73,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_PMM_CLIENT':
             return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
 
-        case 'IMAGE_LOGCOLLECTOR':
+        case 'IMAGE_LOG_COLLECTOR':
             return target(image, projectId, "${params.RELEASE}-logcollector-${imageTag(image)}", credentials)
 
         default:
@@ -112,7 +112,7 @@ pipeline {
         booleanParam(name: 'IMAGE_ORCHESTRATOR', defaultValue: true, description: 'Certify IMAGE_ORCHESTRATOR')
         booleanParam(name: 'IMAGE_TOOLKIT', defaultValue: true, description: 'Certify IMAGE_TOOLKIT')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
-        booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
+        booleanParam(name: 'IMAGE_LOG_COLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOG_COLLECTOR')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
