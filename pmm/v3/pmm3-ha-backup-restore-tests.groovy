@@ -70,7 +70,7 @@ pipeline {
             description: 'percona-helm-charts repository to clone the chart from; a fork for a chart PR opened from one',
             name: 'HELM_CHART_REPO')
         string(
-            defaultValue: 'PMM-HA-GA',
+            defaultValue: 'main',
             description: 'Branch of HELM_CHART_REPO whose pmm-ha and pmm-ha-dependencies charts are installed. It must carry backup support (PMM-13858). A fork PR\'s owner:branch label, e.g. theTibi:PMM-13858, clones that owner\'s fork instead.',
             name: 'HELM_CHART_BRANCH')
         string(
