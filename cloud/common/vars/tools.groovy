@@ -1,6 +1,6 @@
 void dockerBuildAndPush(Map cfg) {
     if (env.IMAGE_OPERATOR) {
-        echo "SKIP: Build and push are not needed, operator image was set!"
+        echo 'SKIP: Build and push are not needed, operator image was set!'
         return
     }
 
@@ -58,7 +58,7 @@ void dockerBuildOperatorImage(String operator, String image, String tag, String 
             docker buildx use multiarch 2>/dev/null || docker buildx create --name multiarch --use
             export IMAGE=${image}:${tag}
 
-            if [[ "${operator}" == "pg-operator" ]]; then
+            if [[ "${operator}" == "pg" || "${operator}" == "pg-operator" ]]; then
                 DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 make build
             else
                 DOCKER_DEFAULT_PLATFORM=linux/amd64,linux/arm64 e2e-tests/build
@@ -70,9 +70,9 @@ void dockerBuildOperatorImage(String operator, String image, String tag, String 
 }
 
 void dockerCleanupVolumes() {
-    sh """
+    sh '''
         sudo docker system prune --volumes -af
-    """
+    '''
 }
 
 void dockerPushImage(String image, String tag) {
@@ -116,7 +116,7 @@ void gitClone(Map cfg, String source = 'source') {
         error("Invalid Git source directory: ${source}")
     }
 
-    echo "=========================[ Cloning sources ]========================="
+    echo '=========================[ Cloning sources ]========================='
     echo "Using branch: ${branch}"
     echo "Source directory: ${source}"
 
