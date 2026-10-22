@@ -21,7 +21,7 @@ def STREAM_DEFAULTS = [
             testsuites: '', listsuites: SUITES + 'resmoke_psmdb_8.3.txt', integration: true, os: 'ubuntu:24.04',
             resmoke: '--excludeWithAnyTags=serverless,does_not_support_config_fuzzer,requires_latch_analyzer'],
     '9.0': [branch: 'v9.0', version: '9.0.4', toolchain: ['v5','v4','v3'], platform: ['bazel','scons'], executors: '23',
-            testsuites: '', listsuites: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/refs/heads/PSMDB-2297/regression-tests/suites/resmoke_psmdb_9.0.txt',
+            testsuites: '', listsuites: SUITES + 'resmoke_psmdb_9.0.txt',
             integration: true, os: 'ubuntu:24.04', resmoke: ''],
 ]
 def D = STREAM_DEFAULTS.get(STREAM, [branch: 'v8.0', version: '8.0.4', toolchain: ['v4','v3','v5'], platform: ['bazel','scons'],
