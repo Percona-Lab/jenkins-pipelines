@@ -365,7 +365,8 @@ void makeReport() {
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            DOKS_CLUSTER_NAME="${CLUSTER_NAME}-${CLUSTER_SUFFIX}"
+            export KUBECONFIG="/tmp/\$DOKS_CLUSTER_NAME"
             namespaces=\$(kubectl get ns -o json 2>/dev/null || echo '{}')
             echo "\$namespaces" \
             | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
@@ -378,7 +379,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete svc --all -n "\$ns" || true
             done
 
-            doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
+            doctl kubernetes cluster delete "\$DOKS_CLUSTER_NAME" --force --dangerous || true
         """
     }
     clusters.remove("$CLUSTER_SUFFIX")

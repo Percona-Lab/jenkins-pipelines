@@ -65,7 +65,7 @@ void shutdownCluster(Map clusterCfg) {
     timeout(time: 30, unit: 'MINUTES') {
         withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
             sh """
-                doctl kubernetes cluster delete ${clusterFullName} --force || true
+                doctl kubernetes cluster delete ${clusterFullName} --force --dangerous || true
             """
         }
     }
