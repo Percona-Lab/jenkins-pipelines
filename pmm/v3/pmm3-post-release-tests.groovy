@@ -20,7 +20,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //                        upgrade with the @post-release specs run before it
 //   Helm                 k8s/helm-post-release.bats from pmm-qa on minikube: released
 //                        chart install, previous -> latest chart upgrade
-//   HA                   pmm3-ha-helm-upgrade-tests with RUN_UPGRADE=false: released
+//   HA                   pmm3-ha-upgrade-tests with RUN_UPGRADE=false: released
 //                        pmm-ha chart on EKS. HA upgrade is not supported yet.
 
 void startPmmServer(String name, String image, String volume) {
@@ -427,7 +427,7 @@ ENDSSH
                 }
                 stage('HA') {
                     steps {
-                        build job: 'pmm3-ha-helm-upgrade-tests', parameters: [
+                        build job: 'pmm3-ha-upgrade-tests', parameters: [
                             string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
                             string(name: 'CLUSTER_TYPE', value: 'EKS'),
                             string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
