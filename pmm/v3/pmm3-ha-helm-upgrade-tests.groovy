@@ -13,7 +13,7 @@
 //   7. @pmm-ha - failover and the rest of the HA suite, on the upgraded cluster
 //
 // RUN_UPGRADE=false stops after step 2 and runs HA_TAGS on the released cluster: a
-// check of the released install alone, as pmm3-post-release-testing uses it.
+// check of the released install alone. pmm3-post-release-testing runs it both ways.
 //
 // Every helm step is k8s/install_pmm_ha.sh from pmm-qa, on the branch PMM_QA_GIT_BRANCH
 // points at; this job only sequences it and runs the tests.

@@ -20,8 +20,8 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //                        upgrade with the @post-release specs run before it
 //   Helm                 k8s/helm-post-release.bats from pmm-qa on minikube: released
 //                        chart install, previous -> latest chart upgrade
-//   HA                   pmm3-ha-upgrade-tests with RUN_UPGRADE=false: released
-//                        pmm-ha chart on EKS. HA upgrade is not supported yet.
+//   HA                   two pmm3-ha-upgrade-tests builds on EKS: the released pmm-ha chart
+//                        installed, and the previous release's chart upgraded to it
 
 void startPmmServer(String name, String image, String volume) {
     sh """
@@ -100,6 +100,7 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                     def prevVersion = tags[-2]
                     def latestVersion = tags[-1]
                     env.PMM_SERVER_LATEST = latestVersion
+                    env.PMM_SERVER_PREVIOUS = prevVersion
                     env.DOCKER_TAG = "percona/pmm-server:${prevVersion}"
                     env.DOCKER_TAG_UPGRADE = "percona/pmm-server:${latestVersion}"
                     currentBuild.description = "Post-release tests: ${prevVersion} -> ${latestVersion}"
@@ -427,14 +428,44 @@ ENDSSH
                 }
                 stage('HA') {
                     steps {
-                        build job: 'pmm3-ha-upgrade-tests', parameters: [
-                            string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-                            string(name: 'CLUSTER_TYPE', value: 'EKS'),
-                            string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
-                            booleanParam(name: 'RUN_UPGRADE', value: false),
-                            string(name: 'CLIENTS', value: ''),
-                            string(name: 'HA_TAGS', value: ''),
-                        ]
+                        script {
+                            def previousChart = sh(returnStdout: true, script: '''
+                                bash /srv/pmm-qa/k8s/install_k8s_tools.sh --helm --sudo > /dev/null
+                                helm repo add percona https://percona.github.io/percona-helm-charts/ --force-update > /dev/null
+                                helm search repo percona/pmm-ha --versions --output json \
+                                    | jq -r --arg v "${PMM_SERVER_PREVIOUS}" \
+                                        'map(select(.name == "percona/pmm-ha" and .app_version == $v))[0].version // empty'
+                            ''').trim()
+                            if (!previousChart) {
+                                error "No published pmm-ha chart ships ${env.PMM_SERVER_PREVIOUS}"
+                            }
+                            echo "HA upgrade: pmm-ha ${previousChart} (${env.DOCKER_TAG}) -> latest published chart (${env.DOCKER_TAG_UPGRADE})"
+                            parallel(
+                                'HA install': {
+                                    build job: 'pmm3-ha-upgrade-tests', parameters: [
+                                        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+                                        string(name: 'CLUSTER_TYPE', value: 'EKS'),
+                                        string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
+                                        booleanParam(name: 'RUN_UPGRADE', value: false),
+                                        string(name: 'CLIENTS', value: ''),
+                                        string(name: 'HA_TAGS', value: ''),
+                                    ]
+                                },
+                                'HA upgrade': {
+                                    // "latest" upgrades both charts from the published repo.
+                                    build job: 'pmm3-ha-upgrade-tests', parameters: [
+                                        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+                                        string(name: 'CLUSTER_TYPE', value: 'EKS'),
+                                        string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG),
+                                        string(name: 'CHART_VERSION', value: previousChart),
+                                        string(name: 'DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
+                                        string(name: 'HELM_CHART_BRANCH', value: 'latest'),
+                                        booleanParam(name: 'RUN_UPGRADE', value: true),
+                                        string(name: 'HA_TAGS', value: ''),
+                                    ]
+                                },
+                            )
+                        }
                     }
                 }
             }
