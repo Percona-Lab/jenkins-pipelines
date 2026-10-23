@@ -61,9 +61,13 @@ void verifyPmmVersion(String expected, String password = '${ADMIN_PASSWORD}') {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
+        booleanParam(
+            defaultValue: true,
+            description: 'Use on-demand agents instead of spot, here and in the HA builds',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'admin',
             description: 'PMM Server admin password.',
@@ -395,7 +399,7 @@ ENDSSH
                 }
                 stage('Helm') {
                     agent {
-                        label 'agent-amd64'
+                        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
                     }
                     options {
                         timeout(time: 60, unit: 'MINUTES')
@@ -447,6 +451,7 @@ ENDSSH
                                         string(name: 'CLUSTER_TYPE', value: 'EKS'),
                                         string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
                                         booleanParam(name: 'RUN_UPGRADE', value: false),
+                                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
                                         string(name: 'CLIENTS', value: ''),
                                         string(name: 'HA_TAGS', value: ''),
                                     ]
@@ -461,6 +466,7 @@ ENDSSH
                                         string(name: 'DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
                                         string(name: 'HELM_CHART_BRANCH', value: 'latest'),
                                         booleanParam(name: 'RUN_UPGRADE', value: true),
+                                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
                                         string(name: 'HA_TAGS', value: ''),
                                     ]
                                 },

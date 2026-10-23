@@ -24,6 +24,7 @@
 
 void runEKSClusterCreate(String k8sVersion) {
     def clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND ?: false),
         string(name: 'K8S_VERSION', value: k8sVersion),
         string(name: 'WORKER_COUNT', value: params.EKS_WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
@@ -56,9 +57,13 @@ void runOpenShiftClusterCreate(String ocpVersion) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand agents instead of spot (for RC/Release testing). The EKS worker nodes stay spot.',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
