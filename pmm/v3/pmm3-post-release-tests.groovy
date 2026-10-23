@@ -13,9 +13,11 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //
 //   Release notes        docs release notes and the percona/pmm GitHub release
 //   Downloads and repos  percona.com/downloads files and the pmm3-client yum/apt repos
-//   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs and their checksums
-//   Docker               fresh install of the release, then previous -> latest upgrade
-//                        with the @post-release specs run before it
+//   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs: checksums, then a
+//                        smoke run of their binaries on Oracle Linux 8 and 9
+//   Docker               fresh install through percona.com/get/pmm, then waits for the
+//                        release in the PROD Version Service, then previous -> latest
+//                        upgrade with the @post-release specs run before it
 //   Helm                 k8s/helm-post-release.bats from pmm-qa on minikube: released
 //                        chart install, previous -> latest chart upgrade
 //   HA                   pmm3-ha-helm-upgrade-tests with RUN_UPGRADE=false: released
@@ -46,9 +48,9 @@ void waitForPmmReady(String name) {
     """
 }
 
-void verifyPmmVersion(String expected) {
+void verifyPmmVersion(String expected, String password = '${ADMIN_PASSWORD}') {
     sh """
-        VERSION=\$(curl -sk --user admin:\${ADMIN_PASSWORD} https://127.0.0.1/v1/server/version | jq -r '.version' | awk -F "-" '{print \$1}')
+        VERSION=\$(curl -sk --user admin:${password} https://127.0.0.1/v1/server/version | jq -r '.version' | awk -F "-" '{print \$1}')
         echo "PMM Server version: \${VERSION}, expected: ${expected}"
         if [[ "\${VERSION}" != "${expected}" ]]; then
             echo "Version mismatch" >&2
@@ -70,11 +72,15 @@ pipeline {
             defaultValue: 'main',
             description: 'pmm-qa git branch.',
             name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: '180',
+            description: 'Minutes the Docker upgrade waits for the release to appear in the PROD Version Service (check.percona.com). Its PR is merged once the smoke checks of this job pass.',
+            name: 'VERSION_SERVICE_WAIT_MINUTES')
     }
     options {
         skipDefaultCheckout()
-        // HA builds an EKS cluster before it installs anything.
-        timeout(time: 4, unit: 'HOURS')
+        // HA builds an EKS cluster, and the Docker upgrade waits for the Version Service.
+        timeout(time: 6, unit: 'HOURS')
     }
     stages {
         stage('Prepare') {
@@ -211,24 +217,85 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                                     done
                                     exit ${failed}
 ENDSSH
+
+                                for os in ol8 ol9; do
+                                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                        "ssh -p 2222 -o StrictHostKeyChecking=no jenkins-deploy.jenkins-deploy.web.r.int.percona.com 'cat /data/downloads/private/pmm3-client-gssapi-tarballs/pmm-client-${PMM_SERVER_LATEST}-*${os}*.tar.gz'" \
+                                        > gssapi-${os}.tar.gz
+                                done
                             '''
+                        }
+                        sh '''
+                            for os in ol8 ol9; do
+                                echo "--- ${os} ---"
+                                docker run --rm \
+                                    -e VERSION="${PMM_SERVER_LATEST}" \
+                                    -v "$(pwd)/gssapi-${os}.tar.gz:/tmp/client.tar.gz:ro" \
+                                    "oraclelinux:${os#ol}" bash -ec '
+                                        dnf install -y -q tar gzip findutils krb5-libs cyrus-sasl-lib cyrus-sasl-gssapi >/dev/null
+                                        mkdir /tmp/client
+                                        tar -xzf /tmp/client.tar.gz -C /tmp/client
+                                        bin=$(dirname "$(find /tmp/client -path "*/bin/pmm-agent" | head -1)")
+                                        command -v ldd > /dev/null
+                                        missing=$(for b in "${bin}"/*; do ldd "${b}" 2>/dev/null | grep "not found" | sed "s|^|$(basename "${b}"): |"; done)
+                                        if [ -n "${missing}" ]; then
+                                            echo "Unresolved shared libraries:" >&2
+                                            echo "${missing}" >&2
+                                            exit 1
+                                        fi
+                                        for b in pmm-admin pmm-agent; do
+                                            out=$("${bin}/${b}" --version 2>&1)
+                                            echo "${out}"
+                                            echo "${out}" | grep -qF "${VERSION}" || { echo "${b} does not report ${VERSION}" >&2; exit 1; }
+                                        done
+                                    '
+                            done
+                        '''
+                    }
+                    post {
+                        always {
+                            sh 'rm -f gssapi-ol8.tar.gz gssapi-ol9.tar.gz'
                         }
                     }
                 }
                 stage('Docker') {
                     stages {
-                        stage('Fresh install of the release') {
+                        stage('Fresh install through get/pmm') {
                             steps {
                                 sh 'docker network create pmm-qa'
                                 // A failure here must not stop the upgrade check below.
                                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                                    sh 'docker volume create pmm-fresh-volume'
-                                    startPmmServer('pmm-server-fresh', env.DOCKER_TAG_UPGRADE, 'pmm-fresh-volume')
+                                    sh '''
+                                        served() { curl -fsSL https://www.percona.com/get/pmm | sha256sum | awk '{print $1}'; }
+                                        expected=$(curl -fsSL https://raw.githubusercontent.com/percona/pmm/main/get-pmm.sh | sha256sum | awk '{print $1}')
+                                        if [ "$(served)" != "${expected}" ]; then
+                                            echo "percona.com/get/pmm serves a stale get-pmm.sh, refreshing its cache"
+                                            curl -fsS https://percona.com/get/make.php > /dev/null
+                                            if [ "$(served)" != "${expected}" ]; then
+                                                echo "percona.com/get/pmm still differs from get-pmm.sh on percona/pmm main" >&2
+                                                exit 1
+                                            fi
+                                        fi
+
+                                        # get-pmm.sh installs the floating :3 tag, which the release moves.
+                                        hub=https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags
+                                        floating=$(curl -fsS "${hub}/3" | jq -r .digest)
+                                        released=$(curl -fsS "${hub}/${PMM_SERVER_LATEST}" | jq -r .digest)
+                                        echo "percona/pmm-server:3 ${floating}, :${PMM_SERVER_LATEST} ${released}"
+                                        if [ "${floating}" != "${released}" ]; then
+                                            echo "percona/pmm-server:3 does not point at ${PMM_SERVER_LATEST}" >&2
+                                            exit 1
+                                        fi
+
+                                        curl -fsSL https://www.percona.com/get/pmm -o get-pmm.sh
+                                        bash get-pmm.sh --no-color --name pmm-server-fresh --volume-name pmm-fresh-volume --network-name pmm-qa
+                                    '''
                                     waitForContainer('pmm-server-fresh', 'pmm-managed entered RUNNING state')
                                     waitForPmmReady('pmm-server-fresh')
-                                    verifyPmmVersion(env.PMM_SERVER_LATEST)
+                                    // get-pmm.sh leaves the default admin password.
+                                    verifyPmmVersion(env.PMM_SERVER_LATEST, 'admin')
                                     sh '''
-                                        updates=$(curl -sk --user admin:${ADMIN_PASSWORD} "https://127.0.0.1/v1/server/updates?force=true")
+                                        updates=$(curl -sk --user admin:admin "https://127.0.0.1/v1/server/updates?force=true")
                                         echo "${updates}" | jq '{update_available, installed: .installed.version, latest: .latest.version}'
                                         if ! echo "${updates}" | jq -e '.update_available == false' >/dev/null; then
                                             echo "A fresh ${PMM_SERVER_LATEST} install should have no update available" >&2
@@ -245,6 +312,36 @@ ENDSSH
                                         docker volume rm pmm-fresh-volume || true
                                     '''
                                 }
+                            }
+                        }
+                        stage('Wait for the PROD Version Service') {
+                            steps {
+                                // percona-version-service's production PR is merged after the smoke checks
+                                // pass; PMM-T2200 finds the update through it, so the upgrade waits for it.
+                                timeout(time: (params.VERSION_SERVICE_WAIT_MINUTES ?: '180').toInteger(), unit: 'MINUTES') {
+                                    waitUntil(initialRecurrencePeriod: 60000, quiet: true) {
+                                        sh(returnStatus: true, script: '''
+                                            curl -fsS https://check.percona.com/metadata/v2/pmm-server \
+                                                | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
+                                        ''') == 0
+                                    }
+                                }
+                                sh '''
+                                    entry=$(curl -fsS https://check.percona.com/metadata/v2/pmm-server \
+                                        | jq -c --arg v "${PMM_SERVER_LATEST}" '.versions[] | select(.version == $v) | .imageInfo')
+                                    echo "${entry}" | jq .
+                                    digest=$(curl -fsS "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags/${PMM_SERVER_LATEST}" | jq -r .digest)
+                                    if ! echo "${entry}" | jq -e --arg image "${DOCKER_TAG_UPGRADE}" --arg digest "${digest}" \
+                                        '.imagePath == $image and .imageHash == $digest' > /dev/null; then
+                                        echo "Version Service entry does not match ${DOCKER_TAG_UPGRADE} ${digest} on Docker Hub" >&2
+                                        exit 1
+                                    fi
+                                    code=$(curl -s -o /dev/null -w "%{http_code}" "https://check.percona.com/release-notes/v1/pmm/${PMM_SERVER_LATEST}")
+                                    if [ "${code}" != "200" ]; then
+                                        echo "Version Service has no release notes for ${PMM_SERVER_LATEST} (HTTP ${code})" >&2
+                                        exit 1
+                                    fi
+                                '''
                             }
                         }
                         stage('Start previous release') {
