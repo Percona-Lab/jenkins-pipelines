@@ -385,15 +385,7 @@ ENDSSH
                                     // The Routine runs pmm-ai's pmm-release plugin; until its credentials
                                     // exist in Jenkins, the PR is opened by hand and the wait below covers it.
                                     try {
-                                        // 3.10.0's notes reached main only, not the tag.
-                                        def notes = sh(returnStdout: true, script: '''
-                                            for ref in "v${PMM_SERVER_LATEST}" main; do
-                                                url="https://raw.githubusercontent.com/percona/pmm/${ref}/documentation/docs/release-notes/${PMM_SERVER_LATEST}.md"
-                                                if curl -fsS -o /dev/null "${url}"; then echo "${url}"; exit 0; fi
-                                            done
-                                            echo "No ${PMM_SERVER_LATEST}.md release notes on percona/pmm v${PMM_SERVER_LATEST} or main" >&2
-                                            exit 1
-                                        ''').trim()
+                                        def notes = "https://raw.githubusercontent.com/percona/pmm/v${env.PMM_SERVER_LATEST}/documentation/docs/release-notes/${env.PMM_SERVER_LATEST}.md"
                                         writeFile file: 'version-service.json', text: groovy.json.JsonOutput.toJson([
                                             text: "/pmm-release:version-pr-ga ${env.PMM_SERVER_LATEST} ${notes}",
                                         ])
