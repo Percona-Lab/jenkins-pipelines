@@ -499,6 +499,22 @@ ENDSSH
                 }
             }
         }
+        stage('Start post-release tests') {
+            steps {
+                script {
+                    // Queued, not awaited: it waits for the docs, charts and Version Service
+                    // that people publish after this job, and its result must not fail the release.
+                    try {
+                        build job: 'pmm3-post-release-testing', wait: false, propagate: false, parameters: [
+                            string(name: 'PMM_VERSION', value: env.VERSION),
+                        ]
+                        echo "[post-release] pmm3-post-release-testing queued for ${env.VERSION}."
+                    } catch (Throwable e) {
+                        echo "[post-release] Could not queue pmm3-post-release-testing: ${e.message}"
+                    }
+                }
+            }
+        }
         stage('Scan Image for Vulnerabilities') {
             steps {
                 script {
