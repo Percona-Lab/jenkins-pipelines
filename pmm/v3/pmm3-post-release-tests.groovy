@@ -8,8 +8,10 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-// Checks what users get after a PMM 3 release, against the newest percona/pmm-server
-// tag on Docker Hub. Each branch of 'Post-release checks' reports on its own:
+// Checks what users get after a PMM 3 release: PMM_VERSION, which pmm3-release passes when
+// it starts this job, or the newest percona/pmm-server tag on Docker Hub. What people publish
+// after the GA job is waited for, up to PUBLISH_WAIT_MINUTES, before it is checked.
+// Each branch of 'Post-release checks' reports on its own:
 //
 //   Release notes        docs release notes and the percona/pmm GitHub release
 //   Downloads and repos  percona.com/downloads files and the pmm3-client yum/apt repos
@@ -18,10 +20,12 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //   Docker               fresh install through percona.com/get/pmm, then waits for the
 //                        release in the PROD Version Service, then previous -> latest
 //                        upgrade with the @post-release specs run before it
-//   Helm                 k8s/helm-post-release.bats from pmm-qa on minikube: released
-//                        chart install, previous -> latest chart upgrade
-//   HA                   two pmm3-ha-upgrade-tests builds on EKS: the released pmm-ha chart
-//                        installed, and the previous release's chart upgraded to it
+//   Helm                 waits for the bumped pmm and pmm-ha charts, then runs
+//                        k8s/helm-post-release.bats from pmm-qa on minikube: released chart
+//                        install, previous -> latest chart upgrade
+//   HA                   waits for the bumped charts, then two pmm3-ha-upgrade-tests builds on
+//                        CLUSTER_TYPE: the released pmm-ha chart installed, and the previous
+//                        release's chart upgraded to it
 
 void startPmmServer(String name, String image, String volume) {
     sh """
@@ -46,6 +50,31 @@ void waitForPmmReady(String name) {
             exit 1
         fi
     """
+}
+
+// Polls a check script every 5 minutes; the GitHub API allows 60 unauthenticated calls an hour.
+void waitForPublication(String what, String check) {
+    echo "Waiting up to ${params.PUBLISH_WAIT_MINUTES ?: '240'} minutes for ${what}"
+    timeout(time: (params.PUBLISH_WAIT_MINUTES ?: '240').toInteger(), unit: 'MINUTES') {
+        waitUntil(quiet: true) {
+            if (sh(returnStatus: true, script: check) == 0) {
+                return true
+            }
+            sleep(time: 5, unit: 'MINUTES')
+            return false
+        }
+    }
+}
+
+void waitForReleasedCharts() {
+    waitForPublication("percona/pmm and percona/pmm-ha charts that ship ${env.PMM_SERVER_LATEST}", '''
+        helm repo update percona > /dev/null
+        for chart in pmm pmm-ha; do
+            helm search repo "percona/${chart}" --versions --output json \
+                | jq -e --arg name "percona/${chart}" --arg v "${PMM_SERVER_LATEST}" \
+                    'any(.[]; .name == $name and .app_version == $v)' > /dev/null || exit 1
+        done
+    ''')
 }
 
 void verifyPmmVersion(String expected, String password = '${ADMIN_PASSWORD}') {
@@ -73,18 +102,26 @@ pipeline {
             description: 'PMM Server admin password.',
             name: 'ADMIN_PASSWORD')
         string(
+            defaultValue: '',
+            description: 'Released PMM version to check, e.g. 3.11.0. Empty takes the newest 3.x.y percona/pmm-server tag on Docker Hub; pmm3-release passes its VERSION.',
+            name: 'PMM_VERSION')
+        string(
             defaultValue: 'main',
             description: 'pmm-qa git branch.',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: '180',
-            description: 'Minutes the Docker upgrade waits for the release to appear in the PROD Version Service (check.percona.com). Its PR is merged once the smoke checks of this job pass.',
-            name: 'VERSION_SERVICE_WAIT_MINUTES')
+            defaultValue: '240',
+            description: 'Minutes each check waits for what people publish after the GA job: the docs release notes and GitHub release, the bumped pmm and pmm-ha charts, and the PROD Version Service entry, whose PR is merged once the smoke checks of this job pass.',
+            name: 'PUBLISH_WAIT_MINUTES')
+        choice(
+            choices: ['OpenShift', 'EKS'],
+            description: 'Kubernetes platform of the HA builds',
+            name: 'CLUSTER_TYPE')
     }
     options {
         skipDefaultCheckout()
-        // HA builds an EKS cluster, and the Docker upgrade waits for the Version Service.
-        timeout(time: 6, unit: 'HOURS')
+        // The waits for publications, then the HA clusters.
+        timeout(time: 8, unit: 'HOURS')
     }
     stages {
         stage('Prepare') {
@@ -98,11 +135,12 @@ echo "$json" | jq -e '.results' >/dev/null
 echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort -V || true''',
                         returnStdout: true
                     ).trim().split('\n').findAll { it }
-                    if (tags.size() < 2) {
-                        error('Need at least two released PMM 3.x.y percona/pmm-server tags on Docker Hub after filtering semver tags')
+                    def latestVersion = params.PMM_VERSION?.trim() ?: tags[-1]
+                    def latestIndex = tags.indexOf(latestVersion)
+                    if (latestIndex < 1) {
+                        error("percona/pmm-server:${latestVersion} and a release before it must be on Docker Hub; found ${tags}")
                     }
-                    def prevVersion = tags[-2]
-                    def latestVersion = tags[-1]
+                    def prevVersion = tags[latestIndex - 1]
                     env.PMM_SERVER_LATEST = latestVersion
                     env.PMM_SERVER_PREVIOUS = prevVersion
                     env.DOCKER_TAG = "percona/pmm-server:${prevVersion}"
@@ -117,6 +155,9 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                         sudo chown -R ec2-user:ec2-user .
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium || :
+
+                    bash /srv/pmm-qa/k8s/install_k8s_tools.sh --helm --sudo > /dev/null
+                    helm repo add percona https://percona.github.io/percona-helm-charts/ --force-update
                 '''
             }
         }
@@ -124,6 +165,12 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
             parallel {
                 stage('Release notes') {
                     steps {
+                        waitForPublication('the release notes and the GitHub release', '''
+                            curl -sf "https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${PMM_SERVER_LATEST}.html" \
+                                | grep -qF "<title>PMM ${PMM_SERVER_LATEST} " || exit 1
+                            curl -sf "https://api.github.com/repos/percona/pmm/releases/tags/v${PMM_SERVER_LATEST}" \
+                                | jq -e '.draft == false and .prerelease == false and (.body // "" | length) > 0' > /dev/null
+                        ''')
                         sh '''
                             notes="https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${PMM_SERVER_LATEST}.html"
                             # No -L: a missing page redirects to a 404 page that answers 200.
@@ -323,14 +370,10 @@ ENDSSH
                             steps {
                                 // percona-version-service's production PR is merged after the smoke checks
                                 // pass; PMM-T2200 finds the update through it, so the upgrade waits for it.
-                                timeout(time: (params.VERSION_SERVICE_WAIT_MINUTES ?: '180').toInteger(), unit: 'MINUTES') {
-                                    waitUntil(initialRecurrencePeriod: 60000, quiet: true) {
-                                        sh(returnStatus: true, script: '''
-                                            curl -fsS https://check.percona.com/metadata/v2/pmm-server \
-                                                | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
-                                        ''') == 0
-                                    }
-                                }
+                                waitForPublication('the release in the PROD Version Service', '''
+                                    curl -fsS https://check.percona.com/metadata/v2/pmm-server \
+                                        | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
+                                ''')
                                 sh '''
                                     entry=$(curl -fsS https://check.percona.com/metadata/v2/pmm-server \
                                         | jq -c --arg v "${PMM_SERVER_LATEST}" '.versions[] | select(.version == $v) | .imageInfo')
@@ -398,44 +441,52 @@ ENDSSH
                     }
                 }
                 stage('Helm') {
-                    agent {
-                        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
-                    }
-                    options {
-                        timeout(time: 60, unit: 'MINUTES')
-                    }
-                    steps {
-                        deleteDir()
-                        dir('pmm-qa') {
-                            git poll: false, branch: params.PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                    stages {
+                        stage('Wait for the bumped charts') {
+                            steps {
+                                waitForReleasedCharts()
+                            }
                         }
-                        sh '''
-                            git clone --depth 1 https://github.com/bats-core/bats-core.git bats-core
+                        stage('Helm on minikube') {
+                            agent {
+                                label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
+                            }
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            steps {
+                                deleteDir()
+                                dir('pmm-qa') {
+                                    git poll: false, branch: params.PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                                }
+                                sh '''
+                                    git clone --depth 1 https://github.com/bats-core/bats-core.git bats-core
 
-                            cd pmm-qa/k8s
-                            ./setup_bats_libs.sh
-                            bash -x ./install_k8s_tools.sh --kubectl --helm --minikube --sudo
+                                    cd pmm-qa/k8s
+                                    ./setup_bats_libs.sh
+                                    bash -x ./install_k8s_tools.sh --kubectl --helm --minikube --sudo
 
-                            minikube start --driver=docker
-                            kubectl wait --for=condition=Ready node --all --timeout=180s
+                                    minikube start --driver=docker
+                                    kubectl wait --for=condition=Ready node --all --timeout=180s
 
-                            export BATS_LIB_PATH="$(pwd)/lib"
-                            ${WORKSPACE}/bats-core/bin/bats --tap helm-post-release.bats
-                        '''
-                    }
-                    post {
-                        always {
-                            sh 'minikube delete || true'
-                            deleteDir()
+                                    export BATS_LIB_PATH="$(pwd)/lib"
+                                    ${WORKSPACE}/bats-core/bin/bats --tap helm-post-release.bats
+                                '''
+                            }
+                            post {
+                                always {
+                                    sh 'minikube delete || true'
+                                    deleteDir()
+                                }
+                            }
                         }
                     }
                 }
                 stage('HA') {
                     steps {
+                        waitForReleasedCharts()
                         script {
                             def previousChart = sh(returnStdout: true, script: '''
-                                bash /srv/pmm-qa/k8s/install_k8s_tools.sh --helm --sudo > /dev/null
-                                helm repo add percona https://percona.github.io/percona-helm-charts/ --force-update > /dev/null
                                 helm search repo percona/pmm-ha --versions --output json \
                                     | jq -r --arg v "${PMM_SERVER_PREVIOUS}" \
                                         'map(select(.name == "percona/pmm-ha" and .app_version == $v))[0].version // empty'
@@ -448,7 +499,7 @@ ENDSSH
                                 'HA install': {
                                     build job: 'pmm3-ha-upgrade-tests', parameters: [
                                         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-                                        string(name: 'CLUSTER_TYPE', value: 'EKS'),
+                                        string(name: 'CLUSTER_TYPE', value: params.CLUSTER_TYPE ?: 'OpenShift'),
                                         string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
                                         booleanParam(name: 'RUN_UPGRADE', value: false),
                                         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
@@ -460,7 +511,7 @@ ENDSSH
                                     // "latest" upgrades both charts from the published repo.
                                     build job: 'pmm3-ha-upgrade-tests', parameters: [
                                         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-                                        string(name: 'CLUSTER_TYPE', value: 'EKS'),
+                                        string(name: 'CLUSTER_TYPE', value: params.CLUSTER_TYPE ?: 'OpenShift'),
                                         string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG),
                                         string(name: 'CHART_VERSION', value: previousChart),
                                         string(name: 'DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
