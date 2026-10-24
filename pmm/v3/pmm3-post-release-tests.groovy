@@ -18,7 +18,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs: checksums, then a
 //                        smoke run of their binaries on Oracle Linux 8 and 9
 //   Docker               fresh install through percona.com/get/pmm; when it passes, fires the
-//                        VERSION_SERVICE_ROUTINE_ID Routine to open the Version Service PR,
+//                        RELEASE_PRS_ROUTINE_ID Routine to open the release PRs,
 //                        then waits for the release in the PROD Version Service, then
 //                        previous -> latest upgrade with the @post-release specs run before it
 //
@@ -370,42 +370,45 @@ ENDSSH
                                 }
                             }
                         }
-                        stage('Open the Version Service PR') {
+                        stage('Open the release PRs') {
                             when { expression { env.FRESH_INSTALL_OK == 'true' } }
                             steps {
                                 script {
-                                    def published = sh(returnStatus: true, script: '''
+                                    // Each command runs a pmm-ai skill in the RELEASE_PRS_ROUTINE Routine, the way
+                                    // people opened these PRs together once the GA images were public. Without its
+                                    // credentials in Jenkins the PRs are opened by hand; the waits cover both.
+                                    // The Helm bump command joins this list once its skill exists.
+                                    def commands = []
+                                    def inVersionService = sh(returnStatus: true, script: '''
                                         curl -fsS https://check.percona.com/metadata/v2/pmm-server \
                                             | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
                                     ''') == 0
-                                    if (published) {
-                                        echo "${env.PMM_SERVER_LATEST} is already in the PROD Version Service"
-                                        return
-                                    }
-                                    // The Routine runs pmm-ai's pmm-release plugin; until its credentials
-                                    // exist in Jenkins, the PR is opened by hand and the wait below covers it.
-                                    try {
+                                    if (!inVersionService) {
                                         def notes = "https://raw.githubusercontent.com/percona/pmm/v${env.PMM_SERVER_LATEST}/documentation/docs/release-notes/${env.PMM_SERVER_LATEST}.md"
-                                        writeFile file: 'version-service.json', text: groovy.json.JsonOutput.toJson([
-                                            text: "/pmm-release:version-pr-ga ${env.PMM_SERVER_LATEST} ${notes}",
-                                        ])
-                                        withCredentials([
-                                            string(credentialsId: 'VERSION_SERVICE_ROUTINE_ID', variable: 'ROUTINE_ID'),
-                                            string(credentialsId: 'VERSION_SERVICE_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')
-                                        ]) {
-                                            sh '''
-                                                set -euo pipefail
-                                                curl -fsS --connect-timeout 10 --max-time 60 -X POST \
-                                                    "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
-                                                    -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
-                                                    -H "anthropic-version: 2023-06-01" \
-                                                    -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
-                                                    -H "Content-Type: application/json" \
-                                                    --data @version-service.json
-                                            '''
+                                        commands.add("/pmm-release:version-pr-ga ${env.PMM_SERVER_LATEST} ${notes}")
+                                    }
+                                    commands.each { command ->
+                                        try {
+                                            writeFile file: 'release-pr.json', text: groovy.json.JsonOutput.toJson([text: command])
+                                            withCredentials([
+                                                string(credentialsId: 'RELEASE_PRS_ROUTINE_ID', variable: 'ROUTINE_ID'),
+                                                string(credentialsId: 'RELEASE_PRS_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')
+                                            ]) {
+                                                sh '''
+                                                    set -euo pipefail
+                                                    curl -fsS --connect-timeout 10 --max-time 60 -X POST \
+                                                        "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
+                                                        -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
+                                                        -H "anthropic-version: 2023-06-01" \
+                                                        -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+                                                        -H "Content-Type: application/json" \
+                                                        --data @release-pr.json
+                                                '''
+                                            }
+                                            echo "Started: ${command}"
+                                        } catch (Throwable e) {
+                                            echo "Could not start '${command}', open that PR by hand: ${e.message}"
                                         }
-                                    } catch (Throwable e) {
-                                        echo "Could not start the Version Service routine, open the PR by hand: ${e.message}"
                                     }
                                 }
                             }
