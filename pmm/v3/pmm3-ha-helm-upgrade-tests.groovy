@@ -41,6 +41,7 @@ void runEKSClusterCreate(String k8sVersion) {
 
 void runOpenShiftClusterCreate(String ocpVersion) {
     def clusterCreateJob = build job: 'pmm3-ha-rosa', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND ?: false),
         string(name: 'OCP_VERSION', value: ocpVersion),
         string(name: 'WORKER_COUNT', value: params.WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
@@ -62,7 +63,7 @@ pipeline {
     parameters {
         booleanParam(
             defaultValue: false,
-            description: 'Use on-demand agents instead of spot (for RC/Release testing). The EKS worker nodes stay spot.',
+            description: 'Use on-demand agents instead of spot (for RC/Release testing), here and in the cluster job. EKS worker nodes stay spot; ROSA workers are on-demand.',
             name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
