@@ -17,9 +17,12 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //   Downloads and repos  percona.com/downloads files and the pmm3-client yum/apt repos
 //   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs: checksums, then a
 //                        smoke run of their binaries on Oracle Linux 8 and 9
-//   Docker               fresh install through percona.com/get/pmm, then waits for the
-//                        release in the PROD Version Service, then previous -> latest
-//                        upgrade with the @post-release specs run before it
+//   Docker               fresh install through percona.com/get/pmm; when it passes, fires the
+//                        VERSION_SERVICE_ROUTINE_ID Routine to open the Version Service PR,
+//                        then waits for the release in the PROD Version Service, then
+//                        previous -> latest upgrade with the @post-release specs run before it
+//
+// Ends with a one-line result in #pmm-internal.
 //   Helm                 waits for the bumped pmm and pmm-ha charts, then runs
 //                        k8s/helm-post-release.bats from pmm-qa on minikube: released chart
 //                        install, previous -> latest chart upgrade
@@ -354,6 +357,7 @@ ENDSSH
                                             exit 1
                                         fi
                                     '''
+                                    env.FRESH_INSTALL_OK = 'true'
                                 }
                             }
                             post {
@@ -363,6 +367,54 @@ ENDSSH
                                         docker rm -f pmm-server-fresh || true
                                         docker volume rm pmm-fresh-volume || true
                                     '''
+                                }
+                            }
+                        }
+                        stage('Open the Version Service PR') {
+                            when { expression { env.FRESH_INSTALL_OK == 'true' } }
+                            steps {
+                                script {
+                                    def published = sh(returnStatus: true, script: '''
+                                        curl -fsS https://check.percona.com/metadata/v2/pmm-server \
+                                            | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
+                                    ''') == 0
+                                    if (published) {
+                                        echo "${env.PMM_SERVER_LATEST} is already in the PROD Version Service"
+                                        return
+                                    }
+                                    // The Routine runs pmm-ai's pmm-release plugin; until its credentials
+                                    // exist in Jenkins, the PR is opened by hand and the wait below covers it.
+                                    try {
+                                        // 3.10.0's notes reached main only, not the tag.
+                                        def notes = sh(returnStdout: true, script: '''
+                                            for ref in "v${PMM_SERVER_LATEST}" main; do
+                                                url="https://raw.githubusercontent.com/percona/pmm/${ref}/documentation/docs/release-notes/${PMM_SERVER_LATEST}.md"
+                                                if curl -fsS -o /dev/null "${url}"; then echo "${url}"; exit 0; fi
+                                            done
+                                            echo "No ${PMM_SERVER_LATEST}.md release notes on percona/pmm v${PMM_SERVER_LATEST} or main" >&2
+                                            exit 1
+                                        ''').trim()
+                                        writeFile file: 'version-service.json', text: groovy.json.JsonOutput.toJson([
+                                            text: "/pmm-release:version-pr-ga ${env.PMM_SERVER_LATEST} ${notes}",
+                                        ])
+                                        withCredentials([
+                                            string(credentialsId: 'VERSION_SERVICE_ROUTINE_ID', variable: 'ROUTINE_ID'),
+                                            string(credentialsId: 'VERSION_SERVICE_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')
+                                        ]) {
+                                            sh '''
+                                                set -euo pipefail
+                                                curl -fsS --connect-timeout 10 --max-time 60 -X POST \
+                                                    "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
+                                                    -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
+                                                    -H "anthropic-version: 2023-06-01" \
+                                                    -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+                                                    -H "Content-Type: application/json" \
+                                                    --data @version-service.json
+                                            '''
+                                        }
+                                    } catch (Throwable e) {
+                                        echo "Could not start the Version Service routine, open the PR by hand: ${e.message}"
+                                    }
                                 }
                             }
                         }
@@ -542,6 +594,9 @@ ENDSSH
                 archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'pmm-server-fresh.log', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
+                def result = currentBuild.currentResult
+                slackSend botUser: true, channel: '#pmm-internal', color: result == 'SUCCESS' ? '#00FF00' : '#FF0000',
+                          message: "PMM ${env.PMM_SERVER_LATEST ?: params.PMM_VERSION} post-release tests: ${result}. ${env.BUILD_URL}"
             }
             deleteDir()
         }
