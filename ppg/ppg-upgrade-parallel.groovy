@@ -130,6 +130,9 @@ pipeline {
                         echo "FROM_VERSION is empty: using ${fromVersion}, the default for ${env.SCENARIO} in ppg/versions.yml"
                     }
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${fromVersion}-to-${env.VERSION}"
+                    // Carried to the Test stage through env: a parameter of the same name
+                    // (FROM_VERSION) cannot be overridden, a variable of its own can.
+                    env.RESOLVED_FROM_VERSION = fromVersion
                 }
             }
         }
@@ -138,7 +141,12 @@ pipeline {
                 script {
                     // Build parameters win over env.X assignments, so pass the resolved
                     // FROM_VERSION to Molecule (tasks, verifier tests) explicitly.
-                    withEnv(["FROM_VERSION=${fromVersion}"]) {
+                    def resolvedFrom = (env.RESOLVED_FROM_VERSION ?: '').trim()
+                    if (!resolvedFrom) {
+                        error("FROM_VERSION is empty and was not resolved in the Prepare stage")
+                    }
+                    echo "Running the upgrade tests with FROM_VERSION=${resolvedFrom}"
+                    withEnv(["FROM_VERSION=${resolvedFrom}"]) {
                         moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                     }
                 }
@@ -149,7 +157,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.SCENARIO, fromVersion ?: env.FROM_VERSION, env.VERSION)
+                sendSlackNotification(env.SCENARIO, env.RESOLVED_FROM_VERSION ?: env.FROM_VERSION, env.VERSION)
             }
         }
     }

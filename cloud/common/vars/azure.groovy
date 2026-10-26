@@ -19,7 +19,7 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for AKS: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {
@@ -27,7 +27,7 @@ void createCluster(Map clusterCfg) {
 
     timeout(time: 30, unit: 'MINUTES') {
         sh """
-            export KUBECONFIG=/tmp/${clusterFullName}
+            export KUBECONFIG=${clusterCfg.kubeconfig}
             az aks create -n ${clusterFullName} \
                 -g percona-operators \
                 --subscription eng-cloud-dev \
@@ -39,7 +39,7 @@ void createCluster(Map clusterCfg) {
                 --generate-ssh-keys \
                 --outbound-type loadbalancer \
                 --kubernetes-version ${clusterCfg.platformVersion} \
-                --tags team=cloud delete-cluster-after-hours=8 creation-time=\$(date -u +%s) \
+                --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
                 -l ${clusterCfg.region}
             az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name ${clusterFullName} --overwrite-existing
         """

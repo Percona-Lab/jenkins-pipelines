@@ -3,50 +3,41 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, installFromPackages, fromRepo, toRepo, fromTdeBranch, toTdeBranch, fromPkgRelease, toPkgRelease, fromTdePkgVersion, toTdePkgVersion, fromPerconaServerVersion, toPerconaServerVersion) {
+def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, fromSource, toSource) {
     def status = currentBuild.result == 'SUCCESS' ? '*SUCCESS*' : '*FAILURE*'
     def color  = currentBuild.result == 'SUCCESS' ? 'good'     : 'danger'
 
-    def tdeOn = (tdeUpgrade.toString() == 'true')
-
-    // Derived, human-readable upgrade-type label.
-    // tde_only always upgrades pg_tde, so its label is the same regardless of TDE_UPGRADE.
+    // Human-readable upgrade-type label; tde_only always upgrades pg_tde.
     def upgradeTypeLabel
     if (upgradeType == 'tde_only') {
         upgradeTypeLabel = 'same_server_with_tde_upgrade_only'
-    } else if (tdeOn) {
+    } else if (tdeUpgrade.toString() == 'true') {
         upgradeTypeLabel = "${upgradeType}_upgrade_with_tde_upgrade"
     } else {
         upgradeTypeLabel = "${upgradeType}_upgrade"
     }
 
-    // Show repo channels when installing pg_tde from packages, otherwise the source branches.
-    def sourceLines
-    if (installFromPackages.toString() == 'true') {
-        sourceLines = """FROM_REPO: ${fromRepo}
-TO_REPO: ${toRepo}"""
-    } else {
-        sourceLines = """FROM_TDE_BRANCH: ${fromTdeBranch}
-TO_TDE_BRANCH: ${toTdeBranch}"""
-    }
-
-    // Surface any package pins (patched-release upgrades) so the run is self-describing.
-    def pinLines = ""
-    if (fromPkgRelease)            { pinLines += "\nFROM_PKG_RELEASE: ${fromPkgRelease}" }
-    if (toPkgRelease)              { pinLines += "\nTO_PKG_RELEASE: ${toPkgRelease}" }
-    if (fromTdePkgVersion)         { pinLines += "\nFROM_TDE_PKG_VERSION: ${fromTdePkgVersion}" }
-    if (toTdePkgVersion)           { pinLines += "\nTO_TDE_PKG_VERSION: ${toTdePkgVersion}" }
-    if (fromPerconaServerVersion)  { pinLines += "\nFROM_PERCONA_SERVER_VERSION: ${fromPerconaServerVersion}" }
-    if (toPerconaServerVersion)    { pinLines += "\nTO_PERCONA_SERVER_VERSION: ${toPerconaServerVersion}" }
-
     def summary = """Job: ${env.JOB_NAME}
-FROM_VERSION: ${fromVersion}
-TO_VERSION: ${toVersion}
+FROM: ${fromVersion} (${fromSource})
+TO: ${toVersion} (${toSource})
 UPGRADE_TYPE: ${upgradeTypeLabel}
-${sourceLines}${pinLines}
 Status: ${status}
 Build Report: ${env.BUILD_URL}"""
     slackSend color: color, message: summary, channel: '#postgresql-test'
+}
+
+// FROM_VERSION actually used: the parameter, or the default for this upgrade.
+def fromVersion = ''
+
+// ['pg-18', 'minor'] for TO_VERSION ppg-18.6 and UPGRADE_TYPE server_minor
+// (psp-16.x -> 'psp-16'); null when there is no versions.yml default.
+@NonCPS
+def upgradeDefaultKey(String toVersion, String upgradeType) {
+    def m = (toVersion =~ /^(ppg|psp)-(\d+)\./)
+    if (!m.find()) { return null }
+    def instance = (m.group(1) == 'psp' ? 'psp-' : 'pg-') + m.group(2)
+    def kind = [server_minor: 'minor', server_major: 'major'][upgradeType]
+    return kind ? [instance, kind] : null
 }
 
 pipeline {
@@ -55,134 +46,64 @@ pipeline {
     }
 
     parameters {
-        string(
-            name: 'FROM_VERSION',
-            defaultValue: 'ppg-17.10',
-            description: 'PostgreSQL version to install before the upgrade, e.g. ppg-17.10, ppg-18.3'
-        )
-        string(
-            name: 'TO_VERSION',
-            defaultValue: 'ppg-18.4',
-            description: 'PostgreSQL version to upgrade to, e.g. ppg-18.4 (minor) or ppg-19.0 (major)'
-        )
         choice(
             name: 'UPGRADE_TYPE',
-            description: 'Type of upgrade to perform. ' +
-                         'server_minor: PostgreSQL minor-version update within the same major (e.g. ppg-17.4 -> ppg-17.5), via package update + restart. ' +
-                         'server_major: PostgreSQL major-version upgrade (e.g. ppg-17.x -> ppg-18.x), via pg_tde_upgrade --link. ' +
-                         'tde_only: keep FROM_VERSION == TO_VERSION and upgrade only pg_tde. ' +
-                         'For server_minor/server_major, whether pg_tde is also upgraded is controlled by TDE_UPGRADE.',
-            choices: [
-                'server_minor',
-                'server_major',
-                'tde_only'
-            ]
+            choices: ['server_minor', 'server_major', 'tde_only'],
+            description: 'server_minor: same major, newer minor (package update + restart). ' +
+                         'server_major: previous major to this major (pg_tde_upgrade). ' +
+                         'tde_only: same server version, newer pg_tde.'
         )
         booleanParam(
             name: 'TDE_UPGRADE',
             defaultValue: true,
-            description: 'Also upgrade pg_tde during a server_minor/server_major upgrade. ' +
-                         'Packages path: updates pg_tde package to latest. ' +
-                         'Source path: rebuilds pg_tde from TO_TDE_BRANCH. ' +
-                         'Ignored when UPGRADE_TYPE=tde_only (that mode always upgrades pg_tde).'
-        )
-        booleanParam(
-            name: 'INSTALL_FROM_PACKAGES',
-            defaultValue: true,
-            description: 'Controls how pg_tde is installed; the PostgreSQL server is always installed from Percona packages regardless of this setting. ' +
-                         'When enabled, pg_tde is installed from Percona packages (FROM_REPO/TO_REPO channel). ' +
-                         'When disabled, pg_tde is built from source using FROM_TDE_BRANCH / TO_TDE_BRANCH.'
-        )
-        choice(
-            name: 'FROM_REPO',
-            description: 'Percona repository channel for the FROM version. Always used for the PostgreSQL server packages; also used for pg_tde packages when INSTALL_FROM_PACKAGES is enabled.',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
-        )
-        choice(
-            name: 'TO_REPO',
-            description: 'Percona repository channel for the TO version. Always used for the PostgreSQL server packages; also used for pg_tde packages when INSTALL_FROM_PACKAGES is enabled.',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
-        )
-        booleanParam(
-            name: 'USE_OBS_REPO',
-            description: "Install the TO version from the OBS (openSUSE Build Service) repo instead of repo.percona.com. OBS only carries the latest minor, so the FROM version always comes from percona-release. TO_REPO still selects the channel (testing/release/experimental -> staging/releases/devel)."
+            description: 'Also upgrade pg_tde during a server_minor/server_major upgrade (tde_only always does).'
         )
         string(
-            name: 'OBS_HOST',
+            name: 'TO_VERSION',
             defaultValue: '',
-            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).'
+            description: 'Required. Version under test, from OBS, e.g. ppg-18.6 (OBS QA sets it).'
         )
         string(
             name: 'OBS_PROJECT',
             defaultValue: '',
-            description: 'Full OBS project for the TO version when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from TO_REPO and TO_VERSION.'
+            description: 'OBS project of the TO version, e.g. isv:percona:ppg:staging:18 or a pull request project. ' +
+                         'Empty: derived from TO_VERSION (isv:percona:ppg:staging:<major>).'
+        )
+        string(
+            name: 'FROM_VERSION',
+            defaultValue: '',
+            description: 'Version to upgrade from. Empty: server_minor uses the minor-upgrade and server_major the ' +
+                         'major-upgrade default_from_version in ppg-testing ppg/versions.yml (by TO_VERSION\'s major); ' +
+                         'tde_only uses TO_VERSION.'
+        )
+        string(
+            name: 'FROM_OBS_PROJECT',
+            defaultValue: '',
+            description: 'server_major only: OBS project of the FROM version. Empty: OBS_PROJECT with the major replaced ' +
+                         '(...:staging:18 -> ...:staging:17), or derived from FROM_VERSION.'
+        )
+        choice(
+            name: 'FROM_REPO',
+            choices: ['release', 'testing', 'experimental'],
+            description: 'server_minor and tde_only: repo.percona.com channel of the FROM version (OBS keeps only the ' +
+                         'newest minor, so an older version comes from repo.percona.com).'
+        )
+        string(
+            name: 'OBS_HOST',
+            defaultValue: '',
+            description: 'OBS download host. Empty: download.opensuse.org.'
+        )
+        text(
+            name: 'EXPECTED_VERSIONS',
+            defaultValue: '',
+            description: 'Expected versions of the OBS-built packages, one package=version per line (OBS QA sets it). ' +
+                         'After the upgrade the server (percona-postgresql) and pg_tde (percona-pg_tde) versions are ' +
+                         'checked against it. Empty: no version check.'
         )
         string(
             name: 'TESTING_BRANCH',
             defaultValue: 'main',
             description: 'Branch of ppg-testing to check out.'
-        )
-        string(
-            name: 'TDE_REPO',
-            defaultValue: 'https://github.com/percona/pg_tde.git',
-            description: 'pg_tde git repository. Only applicable when INSTALL_FROM_PACKAGES is disabled.'
-        )
-        string(
-            name: 'FROM_TDE_BRANCH',
-            defaultValue: 'main',
-            description: 'pg_tde branch/tag to build for the initial (FROM) installation. ' +
-                         'Only applicable when INSTALL_FROM_PACKAGES is disabled.'
-        )
-        string(
-            name: 'TO_TDE_BRANCH',
-            defaultValue: 'main',
-            description: 'pg_tde branch/tag to build after the upgrade when TDE_UPGRADE is enabled. ' +
-                         'Only applicable when INSTALL_FROM_PACKAGES is disabled and TDE_UPGRADE is enabled.'
-        )
-        string(
-            name: 'FROM_PKG_RELEASE',
-            defaultValue: '',
-            description: 'Optional Percona server build increment to pin for the FROM install ' +
-                         '(e.g. "1" -> 18.4-1, "2" -> 18.4-2). Empty installs the latest build in FROM_REPO. ' +
-                         'Use to model patched-release upgrades (18.4.1 -> 18.4.2). Packages path only.'
-        )
-        string(
-            name: 'TO_PKG_RELEASE',
-            defaultValue: '',
-            description: 'Optional Percona server build increment to pin for the TO install ' +
-                         '(e.g. "2" -> 18.4-2). Empty installs the latest build in TO_REPO. Packages path only.'
-        )
-        string(
-            name: 'FROM_TDE_PKG_VERSION',
-            defaultValue: '',
-            description: 'Optional pg_tde package version to pin for the FROM install (e.g. "2.2.0"). ' +
-                         'Empty installs the latest pg_tde in FROM_REPO. Packages path only (source path uses FROM_TDE_BRANCH).'
-        )
-        string(
-            name: 'TO_TDE_PKG_VERSION',
-            defaultValue: '',
-            description: 'Optional pg_tde package version to pin for the TO install (e.g. "2.2.1"). ' +
-                         'Empty installs the latest pg_tde in TO_REPO. Packages path only (source path uses TO_TDE_BRANCH).'
-        )
-        string(
-            name: 'FROM_PERCONA_SERVER_VERSION',
-            defaultValue: '',
-            description: 'Optional expected Percona Server patch version for the FROM cluster (e.g. "18.4.1"). ' +
-                         'When set, the test asserts SELECT version() reports it before the upgrade and fails otherwise.'
-        )
-        string(
-            name: 'TO_PERCONA_SERVER_VERSION',
-            defaultValue: '',
-            description: 'Optional expected Percona Server patch version for the TO cluster (e.g. "18.4.2"). ' +
-                         'When set, the test asserts SELECT version() reports it after the upgrade and fails otherwise.'
         )
         string(
             name: 'RUN_LABELS',
@@ -224,14 +145,42 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    if (!(env.TO_VERSION ?: '').trim()) {
+                        error("TO_VERSION is required, e.g. ppg-18.6 (OBS QA sets it)")
+                    }
                     sh "python3 tools/render.py --group pg_tde/upgrade"
+                    fromVersion = (params.FROM_VERSION ?: '').trim()
+                    if (!fromVersion && env.UPGRADE_TYPE == 'tde_only') {
+                        fromVersion = env.TO_VERSION
+                        echo "FROM_VERSION is empty: tde_only keeps the server version, using ${fromVersion}"
+                    } else if (!fromVersion) {
+                        def key = upgradeDefaultKey(env.TO_VERSION ?: '', env.UPGRADE_TYPE ?: '')
+                        if (key == null) {
+                            error("FROM_VERSION is empty and no default exists for TO_VERSION=${env.TO_VERSION}, UPGRADE_TYPE=${env.UPGRADE_TYPE}")
+                        }
+                        fromVersion = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${key[0]}']['${key[1]}-upgrade']['default_from_version'])" """).trim()
+                        echo "FROM_VERSION is empty: using ${fromVersion}, the ${key[1]}-upgrade default of ${key[0]} in ppg/versions.yml"
+                    }
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-upgrade-${fromVersion}-to-${env.TO_VERSION}-${env.UPGRADE_TYPE}"
+                    // Carried to the Test stage through env: a parameter of the same name
+                    // (FROM_VERSION) cannot be overridden, a variable of its own can.
+                    env.RESOLVED_FROM_VERSION = fromVersion
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    // Build parameters win over env.X assignments, so pass the resolved
+                    // FROM_VERSION to Molecule (tasks and checks) explicitly.
+                    def resolvedFrom = (env.RESOLVED_FROM_VERSION ?: '').trim()
+                    if (!resolvedFrom) {
+                        error("FROM_VERSION is empty and was not resolved in the Prepare stage")
+                    }
+                    echo "Running the upgrade tests with FROM_VERSION=${resolvedFrom}"
+                    withEnv(["FROM_VERSION=${resolvedFrom}"]) {
+                        moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    }
                 }
             }
         }
@@ -241,7 +190,11 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, env.INSTALL_FROM_PACKAGES, env.FROM_REPO, env.TO_REPO, env.FROM_TDE_BRANCH, env.TO_TDE_BRANCH, env.FROM_PKG_RELEASE, env.TO_PKG_RELEASE, env.FROM_TDE_PKG_VERSION, env.TO_TDE_PKG_VERSION, env.FROM_PERCONA_SERVER_VERSION, env.TO_PERCONA_SERVER_VERSION)
+                def fromSource = env.UPGRADE_TYPE == 'server_major' ?
+                    "OBS ${env.FROM_OBS_PROJECT ?: 'previous major project'}" :
+                    "repo.percona.com ${env.FROM_REPO}"
+                def toSource = "OBS ${env.OBS_PROJECT ?: 'project of TO_VERSION'}"
+                sendSlackNotification(env.RESOLVED_FROM_VERSION ?: env.FROM_VERSION, env.TO_VERSION, env.UPGRADE_TYPE, env.TDE_UPGRADE, fromSource, toSource)
             }
             archiveArtifacts(
                 artifacts: 'pg_tde/upgrade/artifacts/**/*.tar.gz',

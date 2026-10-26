@@ -38,7 +38,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
-        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
+        string(name: 'IMAGE_LOG_COLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {
@@ -72,7 +72,7 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'minikube'
                     )
                 }
@@ -96,7 +96,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
+                        operator              : 'ps',
                         platform              : 'minikube',
                         platform_provider     : 'minikube',
                         platform_version      : PLATFORM_VER,
@@ -124,7 +124,7 @@ pipeline {
                             IMAGE_PMM_CLIENT   : IMAGE_PMM_CLIENT,
                             IMAGE_PMM_SERVER   : IMAGE_PMM_SERVER,
                             IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER,
-                            IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR
+                            IMAGE_LOG_COLLECTOR: IMAGE_LOG_COLLECTOR
                         ]
                     ])
 
