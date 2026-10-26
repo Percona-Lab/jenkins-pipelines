@@ -203,6 +203,10 @@ pipeline {
 
                             sudo dnf -y install podman-docker
 
+                            echo PMM_ENABLE_TELEMETRY=0 >> /home/admin/.config/systemd/user/pmm-server.env
+                            systemctl --user restart pmm-server
+                            timeout 300 bash -c 'until curl -ksf -o /dev/null https://127.0.0.1/v1/server/readyz; do sleep 5; done'
+
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
                             sudo mkdir -p /srv/pmm-qa || :
