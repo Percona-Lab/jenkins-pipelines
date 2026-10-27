@@ -15,6 +15,7 @@ def getMachineType(String arch) {
 
 void createCluster(Map clusterCfg) {
     def clusterSuffix = clusterCfg.clusterSuffix
+    def workerType = clusterCfg.machineType ?: 'm5.xlarge'
 
     timeout(time: 60, unit: 'MINUTES') {
         withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
@@ -33,7 +34,7 @@ compute:
   name: worker
   platform:
     aws:
-      type: m5.xlarge
+      type: ${workerType}
   replicas: 3
 controlPlane:
   architecture: amd64
