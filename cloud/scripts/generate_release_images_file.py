@@ -381,10 +381,8 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("MONGOD70", "percona-server-mongodb", versions.get("7.0")),
             ("MONGOD60", "percona-server-mongodb", versions.get("6.0")),
             ("BACKUP", "percona-backup-mongodb", versions.get("backup")),
-            ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            ("PMM_SERVER", "pmm-server", PMM_SERVER),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
             ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
         ],
         "pxc": [
