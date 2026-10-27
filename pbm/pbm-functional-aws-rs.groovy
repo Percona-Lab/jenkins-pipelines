@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@molecule_upgrade", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -56,7 +56,7 @@ pipeline {
         stage ('Install molecule') {
             steps {
                 script {
-                    installMoleculeBookworm()
+                    installMoleculeBookwormMongo()
                 }
             }
         }
@@ -125,7 +125,7 @@ pipeline {
     }
     post {
         always {
-            junit testResults: "**/report.xml", keepLongStdio: true
+            junit testResults: "**/report.xml", keepLongStdio: true, allowEmptyResults: true
             script {
                 sh """
                     rm -f /tmp/pbm-agent-storage-aws.yaml
