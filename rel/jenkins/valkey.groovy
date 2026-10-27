@@ -7,9 +7,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        git clone https://github.com/EvgeniyPatlan/valkey-packaging.git valkey-packaging
+        git clone ${PACKAGING_REPO} valkey-packaging
         cd valkey-packaging
-        git checkout ${GIT_BRANCH}
+        git checkout ${PACKAGING_BRANCH}
         cd ..
         pwd -P
         ls -laR
@@ -44,17 +44,25 @@ pipeline {
             description: 'URL for valkey repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '9.0.3',
+            defaultValue: '9.1.3',
             description: 'Tag/Branch for valkey repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '9.0.3',
+            defaultValue: '9.1.3',
             description: 'valkey release value',
             name: 'VALKEY_VERSION')
         string(
             defaultValue: '1',
             description: 'VALKEY release value',
             name: 'VALKEY_RELEASE')
+        string(
+            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            description: 'URL for the valkey-packaging repository',
+            name: 'PACKAGING_REPO')
+        string(
+            defaultValue: '9.1.3',
+            description: 'valkey-packaging branch (no longer tied to GIT_BRANCH)',
+            name: 'PACKAGING_BRANCH')
         string(
             defaultValue: 'valkey',
             description: 'valkey repo name',

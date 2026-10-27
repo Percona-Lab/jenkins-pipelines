@@ -121,11 +121,11 @@ pipeline {
             description: 'Repo channel to test packages from',
             name: 'COMPONENT')
         string(
-            defaultValue: '9.0.3',
+            defaultValue: '9.1.3',
             description: 'Expected Valkey version to verify',
             name: 'VALKEY_VERSION')
         string(
-            defaultValue: '9.1.2',
+            defaultValue: '9.1.3',
             description: 'Branch of valkey-packaging to checkout',
             name: 'PACKAGING_BRANCH')
         string(

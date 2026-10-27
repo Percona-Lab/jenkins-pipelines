@@ -32,7 +32,7 @@ pipeline {
             description: 'URL for valkey-packaging repository',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.2',
+            defaultValue: '9.1.3',
             description: 'Branch for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(
@@ -48,7 +48,7 @@ pipeline {
             description: 'DockerHub image prefix; each module is pushed as <prefix>-<module>',
             name: 'IMAGE_PREFIX')
         string(
-            defaultValue: 'perconalab/valkey:9.1.0',
+            defaultValue: 'perconalab/valkey:9.1.3',
             description: 'Stock server image used to verify each module loads',
             name: 'SERVER_IMAGE')
         booleanParam(
