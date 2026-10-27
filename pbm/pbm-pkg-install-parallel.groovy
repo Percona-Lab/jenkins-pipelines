@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@molecule_upgrade", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -49,7 +49,7 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormMongo()
                 }
             }
         }
