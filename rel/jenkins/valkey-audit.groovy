@@ -48,7 +48,7 @@ pipeline {
             description: 'Tag/Branch for valkey-audit repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '0.2.2',
+            defaultValue: '1.0.0',
             description: 'valkey-audit version value',
             name: 'VALKEY_AUDIT_VERSION')
         string(

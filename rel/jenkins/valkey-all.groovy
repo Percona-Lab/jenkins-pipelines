@@ -12,7 +12,7 @@ def trigger(String jobName, List jobParams) {
 }
 
 // waitForPublished — poll the public apt index until every package in
-// [name: upstreamVersion] is listed at <version>-RELEASE, so the next stage
+// [name: "<version>-<release>"] is listed, so the next stage
 // builds against packages repo.percona.com actually serves. Checks one dist
 // (noble, amd64): sync2ProdAutoBuild rsyncs yum and every apt dist before the
 // job finishes, so one index showing up means the whole publish is live.
@@ -22,7 +22,7 @@ def waitForPublished(Map packages) {
     String index = "https://repo.percona.com/${params.VALKEY_REPO}/apt/dists/${dist}/${params.CHANNEL}/binary-amd64/Packages"
     List expected = []
     for (def entry : packages.entrySet()) {
-        expected << "/${entry.key}_${entry.value}-${params.RELEASE}.${dist}_"
+        expected << "/${entry.key}_${entry.value}.${dist}_"
     }
     echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} in ${index}"
     int attempts = waitMinutes * 2
@@ -74,7 +74,8 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-ldap',            name: 'PKG_LDAP')
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-audit',           name: 'PKG_AUDIT')
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-bundle',          name: 'PKG_BUNDLE')
-        booleanParam(defaultValue: true, description: 'Package: percona-valkey-admin',          name: 'PKG_ADMIN')
+        // valkey-admin does not depend on the server; rebuild it only when its version changes.
+        booleanParam(defaultValue: false, description: 'Package: percona-valkey-admin',         name: 'PKG_ADMIN')
         booleanParam(defaultValue: true, description: 'Docker image: valkey (server)',           name: 'IMG_VALKEY')
         booleanParam(defaultValue: true, description: 'Docker image: valkey-bundle',             name: 'IMG_BUNDLE')
         booleanParam(defaultValue: true, description: 'Docker image: valkey modules',            name: 'IMG_MODULE')
@@ -82,17 +83,28 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Run the package test suite (final stage)', name: 'RUN_TESTS')
 
         // --- Versions / refs ---
-        string(defaultValue: '9.1.1', description: 'Valkey server version (server RELEASE, Docker, tests)', name: 'VALKEY_VERSION')
-        string(defaultValue: '9.1',   description: 'Upstream valkey-io/valkey tag/branch (server RELEASE)', name: 'GIT_BRANCH')
-        string(defaultValue: '9.1.2', description: 'valkey-packaging branch (modules, bundle, Docker, tests)', name: 'PACKAGING_BRANCH')
-        string(defaultValue: '1',     description: 'Package release number applied to every package', name: 'RELEASE')
-        string(defaultValue: '1.0.2', description: 'valkey-json version',   name: 'VALKEY_JSON_VERSION')
+        string(defaultValue: '9.1.3', description: 'Valkey server version (server RELEASE, Docker, tests)', name: 'VALKEY_VERSION')
+        string(defaultValue: '9.1.3', description: 'Upstream valkey-io/valkey tag/branch (server RELEASE)', name: 'GIT_BRANCH')
+        string(defaultValue: '9.1.3', description: 'valkey-packaging branch (every package, Docker, tests)', name: 'PACKAGING_BRANCH')
+        // --- Package versions and release numbers ---
+        // Each package has its own release number: a rebuild of an unchanged
+        // version has to go above what the repo already serves, while a new
+        // upstream version starts again at 1.
+        string(defaultValue: '1',     description: 'percona-valkey (server) release number', name: 'SERVER_RELEASE')
+        string(defaultValue: '1.0.3', description: 'valkey-json version',   name: 'VALKEY_JSON_VERSION')
+        string(defaultValue: '1',     description: 'valkey-json release number',   name: 'JSON_RELEASE')
         string(defaultValue: '1.0.1', description: 'valkey-bloom version',  name: 'VALKEY_BLOOM_VERSION')
-        string(defaultValue: '1.2.0', description: 'valkey-search version', name: 'VALKEY_SEARCH_VERSION')
+        string(defaultValue: '4',     description: 'valkey-bloom release number',  name: 'BLOOM_RELEASE')
+        string(defaultValue: '1.2.1', description: 'valkey-search version', name: 'VALKEY_SEARCH_VERSION')
+        string(defaultValue: '1',     description: 'valkey-search release number', name: 'SEARCH_RELEASE')
         string(defaultValue: '1.1.1', description: 'valkey-ldap version',   name: 'VALKEY_LDAP_VERSION')
-        string(defaultValue: '0.2.2', description: 'valkey-audit version',  name: 'VALKEY_AUDIT_VERSION')
-        string(defaultValue: '9.1.0', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
+        string(defaultValue: '4',     description: 'valkey-ldap release number',   name: 'LDAP_RELEASE')
+        string(defaultValue: '1.0.0', description: 'valkey-audit version',  name: 'VALKEY_AUDIT_VERSION')
+        string(defaultValue: '4',     description: 'valkey-audit release number',  name: 'AUDIT_RELEASE')
+        string(defaultValue: '9.1.3', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
+        string(defaultValue: '1',     description: 'valkey-bundle release number', name: 'BUNDLE_RELEASE')
         string(defaultValue: '1.2.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
+        string(defaultValue: '1',     description: 'valkey-admin release number',  name: 'ADMIN_RELEASE')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
     }
     options {
@@ -110,14 +122,15 @@ pipeline {
             steps {
                 script {
                     trigger('hetzner-valkey-RELEASE', [
-                        string(name: 'CLOUD',          value: params.CLOUD),
-                        string(name: 'GIT_BRANCH',     value: params.GIT_BRANCH),
-                        string(name: 'VALKEY_VERSION', value: params.VALKEY_VERSION),
-                        string(name: 'VALKEY_RELEASE', value: params.RELEASE),
+                        string(name: 'CLOUD',            value: params.CLOUD),
+                        string(name: 'GIT_BRANCH',       value: params.GIT_BRANCH),
+                        string(name: 'PACKAGING_BRANCH', value: params.PACKAGING_BRANCH),
+                        string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
+                        string(name: 'VALKEY_RELEASE',   value: params.SERVER_RELEASE),
                         string(name: 'VALKEY_REPO',    value: params.VALKEY_REPO),
                         string(name: 'COMPONENT',      value: params.CHANNEL),
                     ]).call()
-                    waitForPublished(['percona-valkey-server': params.VALKEY_VERSION])
+                    waitForPublished(['percona-valkey-server': "${params.VALKEY_VERSION}-${params.SERVER_RELEASE}"])
                 }
             }
         }
@@ -127,7 +140,6 @@ pipeline {
                 script {
                     String cloud = params.CLOUD
                     String ch    = params.CHANNEL
-                    String rel   = params.RELEASE
                     String pkgBr = params.PACKAGING_BRANCH
                     Map jobs = [:]
                     // Published packages to wait for. valkey-admin is left out: its package
@@ -138,54 +150,54 @@ pipeline {
                             string(name: 'CLOUD',               value: cloud),
                             string(name: 'PACKAGING_BRANCH',    value: pkgBr),
                             string(name: 'VALKEY_JSON_VERSION', value: params.VALKEY_JSON_VERSION),
-                            string(name: 'VALKEY_JSON_RELEASE', value: rel),
+                            string(name: 'VALKEY_JSON_RELEASE', value: params.JSON_RELEASE),
                             string(name: 'VALKEY_JSON_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',           value: ch),
                             string(name: 'VALKEY_REPO_CHANNEL', value: ch),
                         ])
-                        published['percona-valkey-json'] = params.VALKEY_JSON_VERSION
+                        published['percona-valkey-json'] = "${params.VALKEY_JSON_VERSION}-${params.JSON_RELEASE}"
                     }
                     if (params.PKG_BLOOM) {
                         jobs['bloom'] = trigger('hetzner-valkey-bloom-RELEASE', [
                             string(name: 'CLOUD',                value: cloud),
                             string(name: 'PACKAGING_BRANCH',     value: pkgBr),
                             string(name: 'VALKEY_BLOOM_VERSION', value: params.VALKEY_BLOOM_VERSION),
-                            string(name: 'VALKEY_BLOOM_RELEASE', value: rel),
+                            string(name: 'VALKEY_BLOOM_RELEASE', value: params.BLOOM_RELEASE),
                             string(name: 'VALKEY_BLOOM_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
                         ])
-                        published['percona-valkey-bloom'] = params.VALKEY_BLOOM_VERSION
+                        published['percona-valkey-bloom'] = "${params.VALKEY_BLOOM_VERSION}-${params.BLOOM_RELEASE}"
                     }
                     if (params.PKG_SEARCH) {
                         jobs['search'] = trigger('hetzner-valkey-search-RELEASE', [
                             string(name: 'CLOUD',                 value: cloud),
                             string(name: 'PACKAGING_BRANCH',      value: pkgBr),
                             string(name: 'VALKEY_SEARCH_VERSION', value: params.VALKEY_SEARCH_VERSION),
-                            string(name: 'VALKEY_SEARCH_RELEASE', value: rel),
+                            string(name: 'VALKEY_SEARCH_RELEASE', value: params.SEARCH_RELEASE),
                             string(name: 'VALKEY_SEARCH_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',             value: ch),
                         ])
-                        published['percona-valkey-search'] = params.VALKEY_SEARCH_VERSION
+                        published['percona-valkey-search'] = "${params.VALKEY_SEARCH_VERSION}-${params.SEARCH_RELEASE}"
                     }
                     if (params.PKG_LDAP) {
                         jobs['ldap'] = trigger('hetzner-valkey-ldap-RELEASE', [
                             string(name: 'CLOUD',               value: cloud),
                             string(name: 'VALKEY_LDAP_VERSION', value: params.VALKEY_LDAP_VERSION),
-                            string(name: 'VALKEY_LDAP_RELEASE', value: rel),
+                            string(name: 'VALKEY_LDAP_RELEASE', value: params.LDAP_RELEASE),
                             string(name: 'VALKEY_LDAP_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',           value: ch),
                         ])
-                        published['percona-valkey-ldap'] = params.VALKEY_LDAP_VERSION
+                        published['percona-valkey-ldap'] = "${params.VALKEY_LDAP_VERSION}-${params.LDAP_RELEASE}"
                     }
                     if (params.PKG_AUDIT) {
                         jobs['audit'] = trigger('hetzner-valkey-audit-RELEASE', [
                             string(name: 'CLOUD',                value: cloud),
                             string(name: 'VALKEY_AUDIT_VERSION', value: params.VALKEY_AUDIT_VERSION),
-                            string(name: 'VALKEY_AUDIT_RELEASE', value: rel),
+                            string(name: 'VALKEY_AUDIT_RELEASE', value: params.AUDIT_RELEASE),
                             string(name: 'VALKEY_AUDIT_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
                         ])
-                        published['percona-valkey-audit'] = params.VALKEY_AUDIT_VERSION
+                        published['percona-valkey-audit'] = "${params.VALKEY_AUDIT_VERSION}-${params.AUDIT_RELEASE}"
                     }
                     if (params.PKG_ADMIN) {
                         jobs['admin'] = trigger('hetzner-valkey-admin-RELEASE', [
@@ -195,7 +207,7 @@ pipeline {
                             // derived from the version rather than being a separate knob.
                             string(name: 'GIT_BRANCH',           value: "v${params.VALKEY_ADMIN_VERSION}"),
                             string(name: 'VALKEY_ADMIN_VERSION', value: params.VALKEY_ADMIN_VERSION),
-                            string(name: 'VALKEY_ADMIN_RELEASE', value: rel),
+                            string(name: 'VALKEY_ADMIN_RELEASE', value: params.ADMIN_RELEASE),
                             string(name: 'VALKEY_ADMIN_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
                         ])
@@ -216,11 +228,11 @@ pipeline {
                         string(name: 'CLOUD',                 value: params.CLOUD),
                         string(name: 'PACKAGING_BRANCH',      value: params.PACKAGING_BRANCH),
                         string(name: 'VALKEY_BUNDLE_VERSION', value: params.VALKEY_BUNDLE_VERSION),
-                        string(name: 'VALKEY_BUNDLE_RELEASE', value: params.RELEASE),
+                        string(name: 'VALKEY_BUNDLE_RELEASE', value: params.BUNDLE_RELEASE),
                         string(name: 'VALKEY_BUNDLE_REPO',    value: params.VALKEY_REPO),
                         string(name: 'COMPONENT',             value: params.CHANNEL),
                     ]).call()
-                    waitForPublished(['percona-valkey-bundle': params.VALKEY_BUNDLE_VERSION])
+                    waitForPublished(['percona-valkey-bundle': "${params.VALKEY_BUNDLE_VERSION}-${params.BUNDLE_RELEASE}"])
                 }
             }
         }
