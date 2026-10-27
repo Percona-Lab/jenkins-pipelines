@@ -7,7 +7,6 @@ def certifiableImages = [
     'IMAGE_MONGOD80',
     'IMAGE_BACKUP',
     'IMAGE_PMM_CLIENT',
-    'IMAGE_PMM3_CLIENT',
     'IMAGE_LOGCOLLECTOR',
     'IMAGE_CLUSTERSYNC'
 ]
@@ -46,9 +45,6 @@ def buildTargetImage(key, image, params) {
             return target(image, projectId, "${params.RELEASE}-backup", credentials)
 
         case 'IMAGE_PMM_CLIENT':
-            return target(image, projectId, "${params.RELEASE}-pmm", credentials)
-
-        case 'IMAGE_PMM3_CLIENT':
             return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
 
         case 'IMAGE_LOGCOLLECTOR':
@@ -85,7 +81,6 @@ pipeline {
         booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Certify IMAGE_MONGOD83')
         booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Certify IMAGE_BACKUP')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
-        booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
         booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
         booleanParam(name: 'IMAGE_CLUSTERSYNC', defaultValue: true, description: 'Certify IMAGE_CLUSTERSYNC')
 
