@@ -16,7 +16,8 @@ def call() {
                 "pytest==9.1.1" \
                 "pytest-testinfra==10.2.2" \
                 "boto3==1.43.53" \
-                "botocore==1.43.53"
+                "botocore==1.43.53" \
+                "requests==2.34.2"
             sudo apt install -y jq git unzip
         """
 }
