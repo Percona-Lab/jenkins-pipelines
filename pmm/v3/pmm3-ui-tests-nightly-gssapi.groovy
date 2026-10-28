@@ -226,22 +226,14 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
-                dir('codeceptjs-e2e') {
+                dir('e2e_tests') {
                     sh '''
                         curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
-                        sudo apt-get install -y gettext
-                        npm ci
-                        npx playwright install
-                        sudo npx playwright install-deps
-                        envsubst < env.list > env.generated.list
-                    '''
-                }
-                dir('e2e_tests') {
-                    sh '''
                         npm ci
                         npx playwright install chromium
+                        sudo npx playwright install-deps chromium
                     '''
                 }
             }
@@ -262,21 +254,6 @@ pipeline {
         }
         stage('Run UI Tests') {
             options {
-                timeout(time: 150, unit: "MINUTES")
-            }
-            steps {
-                dir('codeceptjs-e2e') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''
-                            sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
-                            npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
-                        '''
-                    }
-                }
-            }
-        }
-        stage('Run Playwright UI Tests') {
-            options {
                 timeout(time: 60, unit: "MINUTES")
             }
             steps {
@@ -296,14 +273,13 @@ pipeline {
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
+                    junit 'e2e_tests/output/junit.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
+                    junit 'e2e_tests/output/junit.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png'
                 }
             }
             script {

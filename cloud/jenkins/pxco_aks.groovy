@@ -84,17 +84,6 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH
-                    )
-                }
-            }
-        }
-
         stage('Prepare Test Variables') {
             steps {
                 script {
@@ -135,6 +124,18 @@ pipeline {
                     currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
                     currentBuild.description = libraries.tests.buildJobDescription(testVariables)
                     libraries.tests.printTestVariables(testVariables)
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH
+                    )
                 }
             }
         }

@@ -1000,8 +1000,10 @@ pipeline {
 
                         getLibraries()
 
-                        libraries.dependencies.install()
-                        libraries.dependencies.installTrivy()
+                        libraries.dependencies.retryDependencyInstallation {
+                            libraries.dependencies.install()
+                            libraries.dependencies.installTrivy()
+                        }
 
                         def repository = repositories.find {
                             env.JOB_BASE_NAME ==

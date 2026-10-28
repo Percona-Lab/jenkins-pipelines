@@ -293,6 +293,7 @@ void validateTestVariables(Map testVariables) {
         'kubeconfig',
         'kubeconfigPath',
         'libraries',
+        'machine_type',
         'numClusters',
         'operator',
         'pillar_version',
