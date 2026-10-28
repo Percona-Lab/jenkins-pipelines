@@ -57,7 +57,7 @@ pipeline {
         )
         string(
             name: 'PS_VERSION',
-            defaultValue: '8.4.5-5',
+            defaultValue: '8.4.10-10',
             description: 'Percona Server version for the private mysqld of the MySQL tests (minimal glibc2.35 tarball from downloads.percona.com)'
         )
         string(
