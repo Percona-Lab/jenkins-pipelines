@@ -235,8 +235,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('e2e_tests') {
                         sh '''
-                            CI=true npx playwright test --grep '@ami-ovf-pre-upgrade' --grep-invert 'PMM-T2410'
-                            CI=true npx playwright test --grep 'PMM-T2410'
+                            CI=true npx playwright test --grep '@ami-ovf-pre-upgrade' --workers=1
                         '''
                     }
                 }
