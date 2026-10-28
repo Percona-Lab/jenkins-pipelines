@@ -18,7 +18,7 @@
 
 void runInPbtImage(String command) {
     sh """
-        docker run --rm --init --name "pbs-pbt-\${BUILD_TAG}" \\
+        docker run --rm --init --name "\${PBT_NAME}" \\
             -u "\$(id -u):\$(id -g)" -e HOME=/tmp/home \\
             --cap-add SYS_PTRACE --shm-size 2g \\
             -e WORKDIR=/work -e BUILD_TYPE -e PS_VERSION -e CASES_SCALE -e KNOWN_AS \\
@@ -31,7 +31,7 @@ void runInPbtImage(String command) {
 
 void removePbtContainer() {
     // an aborted build kills the docker client, not the container
-    sh 'docker rm -f "pbs-pbt-${BUILD_TAG}" >/dev/null 2>&1 || true'
+    sh 'docker rm -f "${PBT_NAME}" >/dev/null 2>&1 || true'
 }
 
 pipeline {
@@ -99,7 +99,10 @@ pipeline {
     }
 
     environment {
-        PBT_IMAGE = "pbs-pbt:${BUILD_TAG}"
+        // BUILD_TAG is "jenkins-<job name>-<build>"; the job name may contain
+        // spaces and capitals, which docker refuses in tags and names
+        PBT_NAME = "pbs-pbt-${env.BUILD_TAG.toLowerCase().replaceAll('[^a-z0-9_.-]+', '-')}"
+        PBT_IMAGE = "pbs-pbt:${env.BUILD_TAG.toLowerCase().replaceAll('[^a-z0-9_.-]+', '-')}"
         // Boost and the AWS SDK are built from source per preset (30-60 min)
         // and cached here, keyed by preset, versions, CMake presets and image
         DEPS_CACHE = 's3://percona-jenkins-artifactory/percona-binlog-server-pbt/deps'
