@@ -262,6 +262,10 @@ pipeline {
                                 git add documentation
                                 git commit -m "chore(rc): PMM ${VERSION} release notes"
                                 git push origin main
+                            elif ! cmp -s "${notes}/next.md" documentation/resources/release-notes-template.md; then
+                                # The cut takes all of main, so entries merged since the first cut ship in this one.
+                                echo "${VERSION}.md exists but next.md has entries: this cut ships them, move them to ${VERSION}.md"
+                                exit 1
                             fi
                         '''
                     }
