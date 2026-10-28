@@ -179,13 +179,14 @@ void runNodeBuild(String node_to_test) {
                     string(name: "test_repo", value: params.test_repo),
                     string(name: "test_type", value: "${test_type}"),
                     string(name: "pxc57_repo", value: params.pxc57_repo),
+                    string(name: "EOL", value: params.EOL),
                     string(name: "git_repo", value: params.git_repo),
                     string(name: "BRANCH", value: params.BRANCH)
                 ],
                 propagate: true,
                 wait: true
             )
-        }   
+        }
     }
     else if (params.product_to_test == "pxc84" || params.product_to_test == "pxc80") {
 
@@ -225,6 +226,7 @@ void runNodeBuild(String node_to_test) {
                     string(name: "test_repo", value: params.test_repo),
                     string(name: "test_type", value: "${test_type}"),
                     string(name: "pxc57_repo", value: params.pxc57_repo),
+                    string(name: "EOL", value: params.EOL),
                     string(name: "git_repo", value: params.git_repo),
                     string(name: "BRANCH", value: params.BRANCH)
                 ],
@@ -249,13 +251,14 @@ void runNodeBuild(String node_to_test) {
                 string(name: "test_repo", value: params.test_repo),
                 string(name: "test_type", value: "${test_type}"),
                 string(name: "pxc57_repo", value: params.pxc57_repo),
+                string(name: "EOL", value: params.EOL),
                 string(name: "git_repo", value: params.git_repo),
                 string(name: "BRANCH", value: params.BRANCH)
             ],
             propagate: true,
             wait: true
         )
-    } 
+    }
     else {
         error("Unsupported product_to_test for PRO testing: ${params.product_to_test}")
     }
@@ -326,9 +329,29 @@ properties([
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
+            description: 'Use the EOL (password protected) testing repo (only for PXC80)',
+            name: 'EOL',
+            referencedParameters: 'product_to_test,pro_repo',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "pxc80" && pro_repo != "yes") {
+                            return ["no", "yes"]
+                        }
+                        return ["no"]
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
             description: 'Test type',
             name: 'test_type',
-            referencedParameters: 'product_to_test,pro_repo,pxc57_repo',
+            referencedParameters: 'product_to_test,pro_repo,pxc57_repo,EOL',
             script: [
                 $class: 'GroovyScript',
                 script: [
@@ -336,22 +359,25 @@ properties([
                     sandbox: true,
                     script: '''
                         def result = ["install"]
-                        
+
                         // Debug - you can remove this later
-                        // return ["DEBUG: product=" + product_to_test + " pro=" + pro_repo + " pxc57=" + pxc57_repo]
-                        
+                        // return ["DEBUG: product=" + product_to_test + " pro=" + pro_repo + " pxc57=" + pxc57_repo + " EOL=" + EOL]
+
                         if (product_to_test == "pxc57") {
                             if (pxc57_repo == "EOL") {
                                 result.add("min_upgrade_pxc57_eol_main_to_eol_testing")
+                                result.add("maj_upgrade_pxc57_eol_to_pxc80_eol_testing")
                             }
-                        } 
+                        }
                         else if (product_to_test == "pxc80") {
                             if (pro_repo == "yes") {
                                 result = ["install", "min_upgrade_pro_pro", "min_upgrade_nonpro_pro", "min_upgrade_pro_nonpro"]
+                            } else if (EOL == "yes") {
+                                result.add("min_upgrade_pxc80_eol_main_to_eol_testing")
                             } else {
                                 result.add("min_upgrade_pxc_80")
                             }
-                        } 
+                        }
                         else if (product_to_test == "pxc84") {
                             if (pro_repo == "yes") {
                                 result = ["install", "min_upgrade_pro_pro", "min_upgrade_nonpro_pro", "min_upgrade_pro_nonpro"]
@@ -407,7 +433,8 @@ pipeline {
                     if (params.product_to_test == 'pxc57') {
                         echo "PXC57 Repo: ${params.pxc57_repo}"
                     }
-                    
+
+                    echo "EOL: ${params.EOL}"
                     echo "Test Type: ${params.test_type}"
                     echo "Git Repo: ${params.git_repo}"
                     echo "Branch: ${params.BRANCH}"
@@ -421,7 +448,9 @@ pipeline {
                 script {
                     if (params.pro_repo == "yes") {
                         currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type_pro}"
-                    }else {
+                    } else if (params.EOL == "yes") {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-EOL=yes-${params.test_type}"
+                    } else {
                         currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type}"
                     }
                 }
