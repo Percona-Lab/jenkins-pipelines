@@ -203,6 +203,8 @@ pipeline {
 
                             sudo dnf -y install podman-docker
 
+                            # A restart during first-boot pmm-init leaves the admin password at admin, not the instance ID.
+                            timeout 600 bash -c 'until podman exec pmm-server supervisorctl status pmm-init 2>/dev/null | grep -q EXITED; do sleep 5; done'
                             echo PMM_ENABLE_TELEMETRY=0 >> /home/admin/.config/systemd/user/pmm-server.env
                             systemctl --user restart pmm-server
                             timeout 300 bash -c 'until curl -ksf -o /dev/null https://127.0.0.1/v1/server/readyz; do sleep 5; done'
