@@ -1,0 +1,23 @@
+- job:
+    name: percona-binlog-server-pbt
+    project-type: pipeline
+    description: |
+        Builds percona-binlog-server with the property-based tests
+        (extra/qa in percona-binlog-server) and runs them.
+        Do not edit this job through the web!
+    concurrent: false
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: 30
+            artifact-num-to-keep: 30
+            days-to-keep: 60
+            num-to-keep: 60
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/percona-binlog-server-pbt.groovy
