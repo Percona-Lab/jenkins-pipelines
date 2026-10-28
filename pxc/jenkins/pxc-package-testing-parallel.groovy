@@ -167,7 +167,7 @@ void runNodeBuild(String node_to_test) {
             echo "PRO is not supported for PXC-5.7 or PXC-innovation testing"
         } else {
             echo "Normal testing"
-            job = "pxc-package-testing"
+            job = "pxc-package-testing-test"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
@@ -213,7 +213,7 @@ void runNodeBuild(String node_to_test) {
 
         } else {
             echo "Testing Non Pro packages"
-            job = "pxc-package-testing"
+            job = "pxc-package-testing-test"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
@@ -237,7 +237,7 @@ void runNodeBuild(String node_to_test) {
 
     } else if (params.product_to_test == "pxc97") {
         echo "Testing PXC-9.7 Non Pro packages"
-        job = "pxc-package-testing"
+        job = "pxc-package-testing-test"
         env.JOB_TO_RUN = "${job}"
         test_type = params.test_type
 
