@@ -6,15 +6,21 @@
 // binlog-server-pbt/pbt.sh, which runs inside the image built from
 // binlog-server-pbt/Dockerfile (Ubuntu 24.04, g++-14).
 //
-// Kept ready for a later Claude Code analysis stage (Percona-Lab/ci-ai-kit,
-// examples/jobs-report/claude-code.Jenkinsfile):
+// The Report stage turns the run into report/report.html. With AI_REPORT,
+// Claude Code (headless, on Amazon Bedrock) first writes up the issues from
+// the results and the source. The scripts are in package-testing
+// binlog-server-pbt/report and follow Percona-Lab/ci-ai-kit
+// (examples/jobs-report/claude-code.Jenkinsfile):
 // - the job runs on an EC2 worker ('docker-32gb'). EC2 workers on ps80 carry
 //   the jenkins-ps80-worker instance role, which may call Claude on Bedrock;
 //   containers reach it through the instance metadata service. Hetzner
 //   workers have no AWS role, so never move this job to a Hetzner label.
-// - every step runs in a container, the AWS key credential (AWS_STASH) is
-//   bound only around the S3 cache transfers, and the finished report is
-//   copied to results/, which an agent stage can mount read-only.
+// - no credential is bound while the agent runs (AWS_STASH is bound only
+//   around the S3 cache transfers). The agent's container mounts the results,
+//   the source and the facts of the run read-only and may write only
+//   ai/analysis, ai/work and ai/log. A separate step audits its transcript
+//   before the report uses its analysis, and the renderer checks that every
+//   file the analysis names exists.
 
 void runInPbtImage(String command) {
     sh """
@@ -27,6 +33,46 @@ void runInPbtImage(String command) {
             -v "\${WORKSPACE}/package-testing/binlog-server-pbt:/pbt:ro" \\
             -w /work "\${PBT_IMAGE}" /pbt/pbt.sh ${command}
     """
+}
+
+// One step of the report, run in the image with /ai as working directory:
+// input/ (facts from prepare.py), results/, source/, analysis/, work/, log/,
+// report/, and the scripts in /tools. The agent gets input/ read-only and
+// neither log/ nor report/; its transcript is its stdout, written to
+// ai/log/agent-transcript.jsonl on the host. Returns the exit code.
+int runReportStep(String script, String args, boolean agent = false) {
+    List<String> options = [
+        '-u "$(id -u):$(id -g)"', '-e HOME=/tmp/home',
+        '-v "${WORKSPACE}/results:/ai/results:ro"',
+        '-v "${WORKSPACE}/ws/percona-binlog-server:/ai/source:ro"',
+        '-v "${WORKSPACE}/ai/analysis:/ai/analysis"',
+        '-v "${WORKSPACE}/ai/work:/ai/work"',
+        '-v "${WORKSPACE}/package-testing/binlog-server-pbt/report:/tools:ro"',
+    ]
+    String limit = ''
+    String output = ''
+    if (agent) {
+        options += ['-v "${WORKSPACE}/ai/input:/ai/input:ro"',
+                    '-e AI_MODEL', '-e AI_EFFORT', '-e AI_MAX_TURNS', '-e CLAUDE_CODE_VERSION']
+        // exit code 124 when the time limit fires
+        limit = 'timeout --kill-after=60 "${AI_TIMEOUT_MINUTES}m"'
+        output = '> "${WORKSPACE}/ai/log/agent-transcript.jsonl"'
+    } else {
+        options += ['-v "${WORKSPACE}/ai/input:/ai/input"', '-v "${WORKSPACE}/ai/log:/ai/log:ro"',
+                    '-v "${WORKSPACE}/report:/ai/report"',
+                    '-e BUILD_URL', '-e BUILD_NUMBER', '-e BUILD_DISPLAY_NAME']
+    }
+    return sh(returnStatus: true, script: 'docker run --rm --init --name "${PBT_NAME}" ' + options.join(' ') +
+        " -w /ai \"\${PBT_IMAGE}\" ${limit} python3 -I /tools/${script} ${args} ${output}")
+}
+
+void copyResults() {
+    sh '''
+        rm -rf results
+        if [ -d ws/testruns/jenkins ]; then
+            cp -rL ws/testruns/jenkins results
+        fi
+    '''
 }
 
 void removePbtContainer() {
@@ -80,6 +126,36 @@ pipeline {
             defaultValue: false,
             description: 'Rebuild Boost and the AWS SDK and replace the S3 cache'
         )
+        booleanParam(
+            name: 'AI_REPORT',
+            defaultValue: true,
+            description: 'Let Claude Code (on Amazon Bedrock) write up the issues in report/report.html. Without it the report shows the known_bugs.md descriptions.'
+        )
+        choice(
+            name: 'AI_MODEL',
+            choices: ['claude-opus-5-5', 'claude-sonnet-5', 'claude-fable-5-1', 'claude-opus-5'],
+            description: 'Model for the report analysis'
+        )
+        choice(
+            name: 'AI_EFFORT',
+            choices: ['medium', 'low', 'high', 'xhigh', 'max'],
+            description: 'Thinking depth and token spend of the report analysis'
+        )
+        choice(
+            name: 'AI_SCOPE',
+            choices: ['all', 'new'],
+            description: 'all: write up every failing issue; new: only new issues, regressions, flaky failures and possibly fixed issues (cheaper)'
+        )
+        string(
+            name: 'AI_MAX_TURNS',
+            defaultValue: '300',
+            description: 'Turn limit of the Claude Code session'
+        )
+        string(
+            name: 'AI_TIMEOUT_MINUTES',
+            defaultValue: '120',
+            description: 'Time limit of the Claude Code session; the issues written up by then are still used'
+        )
         string(
             name: 'TESTING_REPO',
             defaultValue: 'https://github.com/Percona-QA/package-testing.git',
@@ -94,7 +170,7 @@ pipeline {
 
     options {
         disableConcurrentBuilds()
-        timeout(time: 6, unit: 'HOURS')
+        timeout(time: 8, unit: 'HOURS')
         timestamps()
     }
 
@@ -110,10 +186,17 @@ pipeline {
         // copied from the parameters so the first build, which registers
         // them, still sees the defaults
         BUILD_TYPE = "${params.BUILD_TYPE ?: 'asan_gcc14'}"
-        PS_VERSION = "${params.PS_VERSION ?: '8.4.5-5'}"
+        PS_VERSION = "${params.PS_VERSION ?: '8.4.10-10'}"
         CASES_SCALE = "${params.CASES_SCALE ?: '1'}"
         KNOWN_AS = "${params.KNOWN_AS ?: 'failure'}"
         EXTRA_RUN_ARGS = "${params.EXTRA_RUN_ARGS ?: ''}"
+        AI_MODEL = "${params.AI_MODEL ?: 'claude-opus-5-5'}"
+        AI_EFFORT = "${params.AI_EFFORT ?: 'medium'}"
+        AI_SCOPE = "${params.AI_SCOPE ?: 'all'}"
+        AI_MAX_TURNS = "${params.AI_MAX_TURNS ?: '300'}"
+        AI_TIMEOUT_MINUTES = "${params.AI_TIMEOUT_MINUTES ?: '120'}"
+        // pinned, like the ci-ai-kit examples
+        CLAUDE_CODE_VERSION = '2.1.282'
     }
 
     stages {
@@ -205,25 +288,57 @@ pipeline {
                 catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
                     runInPbtImage('run')
                 }
+                copyResults()
             }
         }
 
-        // A Claude Code analysis of results/ goes here later, following
-        // ci-ai-kit examples/jobs-report/claude-code.Jenkinsfile: a pinned
-        // ci-ai-kit image, results/ mounted read-only, writes only to work/
-        // and report/, then the audit and verify steps.
+        stage('Report') {
+            when {
+                expression { fileExists('results/summary.json') }
+            }
+            steps {
+                script {
+                    sh 'rm -rf ai report && mkdir -p ai/input ai/analysis ai/work ai/log report'
+                    if (runReportStep('prepare.py', "--results results --source source --out input/base.json --scope ${env.AI_SCOPE}") != 0) {
+                        error('prepare.py failed')
+                    }
+                    String aiMode = 'off'
+                    if (params.AI_REPORT) {
+                        int agent = runReportStep('run_agent.py', '', true)
+                        removePbtContainer()
+                        aiMode = agent == 0 ? 'claude' : 'failed'
+                        if (agent != 0) {
+                            echo "Claude Code session did not finish (exit code ${agent}${agent == 124 ? ', time limit' : ''}); the report uses the issues it wrote up"
+                        }
+                        // a failed audit keeps the agent's analysis out of the report
+                        if (runReportStep('audit_agent.py', 'log/agent-transcript.jsonl analysis') != 0) {
+                            aiMode = 'rejected'
+                        }
+                    }
+                    if (runReportStep('render_report.py', '--base input/base.json --source source --out report --analysis analysis ' +
+                            "--agent-result work/agent-result.json --ai ${aiMode}") != 0) {
+                        error('render_report.py failed')
+                    }
+                    echo "Report: ${env.BUILD_URL}artifact/report/report.html"
+                    if (aiMode == 'failed' || aiMode == 'rejected') {
+                        // the report exists either way: flag the stage, keep the build result
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            error(aiMode == 'rejected' ? 'Claude Code session failed the audit; its analysis is not in the report'
+                                                       : 'Claude Code session did not finish; the report has partial analysis')
+                        }
+                    }
+                }
+            }
+        }
     }
 
     post {
         always {
             removePbtContainer()
-            sh '''
-                rm -rf results
-                if [ -d ws/testruns/jenkins ]; then
-                    cp -rL ws/testruns/jenkins results
-                fi
-            '''
             script {
+                if (!fileExists('results/summary.json')) {
+                    copyResults()
+                }
                 if (fileExists('results/summary.json')) {
                     String summary = sh(script: '''
                         docker run --rm -u "$(id -u):$(id -g)" -e WORKDIR=/work \
@@ -234,9 +349,13 @@ pipeline {
                     currentBuild.description = "${currentBuild.description ?: ''}<br>${summary}"
                     sh 'cat results/summary.md'
                 }
+                if (fileExists('report/report.html')) {
+                    currentBuild.description = "${currentBuild.description ?: ''}<br><a href=\"${env.BUILD_URL}artifact/report/report.html\">Report</a>"
+                }
             }
             junit allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true, testResults: 'results/junit.xml'
-            archiveArtifacts allowEmptyArchive: true, artifacts: 'results/**'
+            archiveArtifacts allowEmptyArchive: true,
+                artifacts: 'results/**, report/**, ai/input/**, ai/analysis/**, ai/log/**, ai/work/agent-result.json'
             sh 'docker rmi -f "${PBT_IMAGE}" >/dev/null 2>&1 || true'
         }
         cleanup {
