@@ -323,8 +323,8 @@ void validateTestVariables(Map testVariables) {
 
 void resolveReleaseRunParams(Map testVariables) {
     echo '=========================[ Getting parameters for release test ]========================='
-    testVariables.platform_channel = 'stable'
-    echo "Forcing channel=stable, because it's a release run!"
+    testVariables.platform_channel = 'regular'
+    echo "Forcing channel=regular, because it's a release run!"
 
     testVariables.images = resolveImages(testVariables)
 
