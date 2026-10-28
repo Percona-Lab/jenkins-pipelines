@@ -2,23 +2,25 @@
     name: ec2-instance-checks-mysql
     project-type: pipeline
     description: |
-        Work in progress, please ignore
-        Do not edit this job through the web!
-    concurrent: true
+        Scheduled reaper: scans all AWS regions for leaked EC2 instances from MySQL-family
+        (ps/pxc/pxb/pt/pbm/pdmdb/toolkit) QA and molecule tests and terminates those older
+        than 1 day. Runs daily. Managed by JJB from misc/ec2-instance-checks-mysql.groovy —
+        do not edit this job through the web!
+    concurrent: false
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 40
+            artifact-num-to-keep: 160
             days-to-keep: -1
-            num-to-keep: 40
+            num-to-keep: 160
     pipeline-scm:
         scm:
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'ec2-instanct-checks-pg-mysql-sep'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: misc/ec2-instance-checks-mysql.groovy
     triggers:
-      - timed: "0 0 */2 * *"
+      - timed: "H 0 * * *"

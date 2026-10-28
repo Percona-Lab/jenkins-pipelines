@@ -9,6 +9,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        timeout(time: 30, unit: 'MINUTES')
     }
 
     stages {
@@ -24,9 +25,8 @@ pipeline {
 
             steps {
                     sh """
-                    set +xe
-                    sudo yum install jq -y
-                    sudo wget -qO /opt/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    sudo wget -qO /opt/yq https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_linux_amd64
+                    echo "0c2b24e645b57d8e7c0566d18643a6d4f5580feeea3878127354a46f2a1e4598  /opt/yq" | sha256sum -c -
                     sudo chmod +x /opt/yq
                     """
 
@@ -44,7 +44,7 @@ pipeline {
                             // region, and the job posts a clean estate on a green build.
                             sh "aws sts get-caller-identity"
 
-                            // Runs every 48 hrs — general EC2 checks
+                            // Scan all regions for QA/molecule instances older than 1 day
                             sh " bash -x ./check-ec2-instances.sh"
 
                             env.OPALL = sh(script: "cat ${WORKSPACE}/OUTPUT-ALL.txt", returnStdout: true).trim()
@@ -53,7 +53,7 @@ pipeline {
                             env.ovqa = sh(script: "cat ${WORKSPACE}/overview-qa.txt", returnStdout: true).trim()
                         }
 
-                        // EC2 general output (every 48 hrs)
+                        // Echo the scan output (all regions and QA-only) into the build log
                         echo "Print the OUTPUT ALL\n ${env.OPALL}"
                         echo "Print the overview all\n ${env.ovall}"
                         echo "Print the OUTPUT QA\n ${env.OPQA}"
@@ -64,14 +64,12 @@ pipeline {
                         """
                         env.ovqa = sh(script: "cat ${WORKSPACE}/overview-qa.txt", returnStdout: true).trim()
                         echo "Print the overview qa after removing the 0 servers list in QA \n ${env.ovqa}"
-                        env.ovqacount = sh(script: """ awk '{sum += \$4} END {print sum}' ${WORKSPACE}/overview-qa.txt """, returnStdout: true).trim()
                     }
             }
         }
 
-        // Mutations live in their own stage, NOT in post{always}. A stage only runs
-        // when every earlier stage succeeded, so a failed or aborted scan skips the
-        // terminate calls instead of firing them on stale/partial data.
+        // Terminations run in a stage after the scan, so they execute only when the scan
+        // stage succeeded; a failed scan skips this stage instead of acting on partial data.
         stage("Terminate instances") {
 
             steps {
@@ -80,30 +78,24 @@ pipeline {
                         def jobName = env.JOB_NAME
                         def artifactBaseUrl = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact"
 
-                        // Instance-id regex is anchored to the two valid EC2 id lengths (8 or 17
-                        // hex chars) with word boundaries, so a Name tag like "multi-parallel"
-                        // no longer parses as the bogus id "i-parallel".
-                        def instanceIdPattern = /\b(i-(?:[0-9a-f]{8}|[0-9a-f]{17}))\b/
+                        // Matches only a line that is exactly an InstanceId YAML row ("  - i-<id>"),
+                        // so Name/job-name values that embed an id-like substring (e.g.
+                        // "clone-of-i-0f00ba4d00000c0de-ppg") are not read as instance ids.
+                        def instanceIdPattern = /^\s*-\s+(i-(?:[0-9a-f]{8}|[0-9a-f]{17}))\s*$/
 
-                        // === EC2 General: Runs every 48 hrs ===
-                        // Guard with fileExists: a missing file (scan wrote nothing) would make
-                        // readFile throw and skip the terminate loop and Slack notifications below.
+                        // Parse OUTPUT-QA.txt into (instance id, region) pairs to terminate.
                         def instanceIdRegionPairs = []
-                        if (fileExists('OUTPUT-QA.txt')) {
-                            def region = ""
-                            readFile('OUTPUT-QA.txt').readLines().each { line ->
-                                def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
-                                if (regionMatch) {
-                                    region = regionMatch[0][1]
-                                }
-                                def instanceMatch = line =~ instanceIdPattern
-                                if (instanceMatch) {
-                                    def instanceId = instanceMatch[0][1]
-                                    instanceIdRegionPairs << [id: instanceId, region: region]
-                                }
+                        def region = ""
+                        readFile('OUTPUT-QA.txt').readLines().each { line ->
+                            def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
+                            if (regionMatch) {
+                                region = regionMatch[0][1]
                             }
-                        } else {
-                            echo "OUTPUT-QA.txt not found — skipping QA terminate parsing"
+                            def instanceMatch = line =~ instanceIdPattern
+                            if (instanceMatch) {
+                                def instanceId = instanceMatch[0][1]
+                                instanceIdRegionPairs << [id: instanceId, region: region]
+                            }
                         }
 
                         // Track IDs whose AWS call failed so the loop can't report a clean
@@ -136,7 +128,7 @@ pipeline {
 
                         // === Slack notifications ===
 
-                        // EC2 General Slack (every 48 hrs) — the estate overview heartbeat
+                        // Estate overview heartbeat (all regions), posted every run
                         slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
                         ${env.ovall}
                         GENERAL
@@ -145,10 +137,10 @@ pipeline {
                         =========================
                         """
 
-                        if ((env.ovqacount ?: '0').toInteger() >= 1) {
+                        if (instanceIdRegionPairs.size() >= 1) {
                             def terminatedOk = instanceIdRegionPairs.size() - terminateFailed.size()
                             def qaMsg = """
-                            Terminated ${terminatedOk}/${instanceIdRegionPairs.size()} instances with molecule QA Tests up since past 2 days:
+                            Terminated ${terminatedOk}/${instanceIdRegionPairs.size()} instances with molecule QA Tests older than 1 day:
                             ---------------------------------------------------
                             ${env.ovqa}
                             ---------------------------------------------------
@@ -159,7 +151,7 @@ pipeline {
                             }
                             slackSend channel: '#dev-server-qa', color: terminateFailed ? '#FF0000' : '#DEFF13', message: qaMsg
                         } else {
-                            echo "No QA servers are running since past 2 days"
+                            echo "No QA servers running older than 1 day"
                         }
                     }
             }
@@ -171,6 +163,9 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: '*.txt', followSymlinks: false, allowEmptyArchive: true
+        }
+        unsuccessful {
+            slackSend channel: '#dev-server-qa', color: '#FF0000', message: "ec2-instance-checks-mysql ${currentBuild.currentResult}: the EC2 reaper did not complete — leaked instances may still be running. ${env.BUILD_URL}"
         }
     }
 

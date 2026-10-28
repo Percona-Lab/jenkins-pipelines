@@ -9,6 +9,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        timeout(time: 30, unit: 'MINUTES')
     }
 
     stages {
@@ -24,9 +25,8 @@ pipeline {
 
             steps {
                     sh """
-                    set +xe
-                    sudo yum install jq -y
-                    sudo wget -qO /opt/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    sudo wget -qO /opt/yq https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_linux_amd64
+                    echo "0c2b24e645b57d8e7c0566d18643a6d4f5580feeea3878127354a46f2a1e4598  /opt/yq" | sha256sum -c -
                     sudo chmod +x /opt/yq
                     """
 
@@ -71,9 +71,8 @@ pipeline {
             }
         }
 
-        // Mutations live in their own stage, NOT in post{always}. A stage only runs
-        // when every earlier stage succeeded, so a failed or aborted scan skips all
-        // terminate/stop calls instead of firing them on stale/partial data.
+        // Terminate/stop run in a stage after the scan, so they execute only when the scan
+        // stage succeeded; a failed scan skips this stage instead of acting on partial data.
         stage("Terminate & Stop PGSQL instances") {
 
             steps {
@@ -82,51 +81,39 @@ pipeline {
                         def jobName = env.JOB_NAME
                         def artifactBaseUrl = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact"
 
-                        // Instance-id regex is anchored to the two valid EC2 id lengths (8 or 17
-                        // hex chars) with word boundaries, so a Name tag like "multi-parallel"
-                        // no longer parses as the bogus id "i-parallel".
-                        def instanceIdPattern = /\b(i-(?:[0-9a-f]{8}|[0-9a-f]{17}))\b/
+                        // Matches only a line that is exactly an InstanceId YAML row ("  - i-<id>"),
+                        // so Name/job-name values that embed an id-like substring (e.g.
+                        // "clone-of-i-0f00ba4d00000c0de-ppg") are not read as instance ids.
+                        def instanceIdPattern = /^\s*-\s+(i-(?:[0-9a-f]{8}|[0-9a-f]{17}))\s*$/
 
-                        // === PGSQL: Runs every build (every 6 hrs) ===
-
-                        // Parse DESTROY-QA-PGSQL.txt — terminate PGSQL instances running >6 hrs.
-                        // Guard with fileExists: a missing file (scan wrote nothing) would make
-                        // readFile throw and skip the stop loop and every Slack notification below.
+                        // Parse DESTROY-QA-PGSQL.txt into (id, region) pairs: PGSQL instances older than 6 h.
                         def pgsqlTerminatePairs = []
-                        if (fileExists('DESTROY-QA-PGSQL.txt')) {
-                            def pgsqlTerminateRegion = ""
-                            readFile('DESTROY-QA-PGSQL.txt').readLines().each { line ->
-                                def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
-                                if (regionMatch) {
-                                    pgsqlTerminateRegion = regionMatch[0][1]
-                                }
-                                def instanceMatch = line =~ instanceIdPattern
-                                if (instanceMatch) {
-                                    def instanceId = instanceMatch[0][1]
-                                    pgsqlTerminatePairs << [id: instanceId, region: pgsqlTerminateRegion]
-                                }
+                        def pgsqlTerminateRegion = ""
+                        readFile('DESTROY-QA-PGSQL.txt').readLines().each { line ->
+                            def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
+                            if (regionMatch) {
+                                pgsqlTerminateRegion = regionMatch[0][1]
                             }
-                        } else {
-                            echo "DESTROY-QA-PGSQL.txt not found — skipping PGSQL terminate parsing"
+                            def instanceMatch = line =~ instanceIdPattern
+                            if (instanceMatch) {
+                                def instanceId = instanceMatch[0][1]
+                                pgsqlTerminatePairs << [id: instanceId, region: pgsqlTerminateRegion]
+                            }
                         }
 
-                        // Parse STOP-QA-PGSQL.txt — stop PGSQL based on the keys instances running >12 hrs
+                        // Parse STOP-QA-PGSQL.txt into (id, region) pairs: key-owned PGSQL instances older than 12 h.
                         def pgsqlStopPairs = []
-                        if (fileExists('STOP-QA-PGSQL.txt')) {
-                            def pgsqlStopRegion = ""
-                            readFile('STOP-QA-PGSQL.txt').readLines().each { line ->
-                                def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
-                                if (regionMatch) {
-                                    pgsqlStopRegion = regionMatch[0][1]
-                                }
-                                def instanceMatch = line =~ instanceIdPattern
-                                if (instanceMatch) {
-                                    def instanceId = instanceMatch[0][1]
-                                    pgsqlStopPairs << [id: instanceId, region: pgsqlStopRegion]
-                                }
+                        def pgsqlStopRegion = ""
+                        readFile('STOP-QA-PGSQL.txt').readLines().each { line ->
+                            def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
+                            if (regionMatch) {
+                                pgsqlStopRegion = regionMatch[0][1]
                             }
-                        } else {
-                            echo "STOP-QA-PGSQL.txt not found — skipping PGSQL stop parsing"
+                            def instanceMatch = line =~ instanceIdPattern
+                            if (instanceMatch) {
+                                def instanceId = instanceMatch[0][1]
+                                pgsqlStopPairs << [id: instanceId, region: pgsqlStopRegion]
+                            }
                         }
 
                         // Track IDs whose AWS call failed so the loops can't report a clean
@@ -219,6 +206,9 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: '*.txt', followSymlinks: false, allowEmptyArchive: true
+        }
+        unsuccessful {
+            slackSend channel: '#dev-server-qa', color: '#FF0000', message: "ec2-instance-checks-pgsql ${currentBuild.currentResult}: the EC2 reaper did not complete — leaked instances may still be running. ${env.BUILD_URL}"
         }
     }
 
