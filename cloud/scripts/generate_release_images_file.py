@@ -103,6 +103,29 @@ def fetch_rc_pxb_tag(repo, prefix=None):
     return fetch_dockerhub_tag(repo, prefix, allow_rc=True)
 
 
+def fetch_ps_binlog_server_tag(release):
+    """Latest ${release}-binlog-server-* tag on percona/percona-server-mysql-operator."""
+    prefix = f"{release}-binlog-server-"
+    resp = _session.get(
+        "https://registry.hub.docker.com/v2/repositories/"
+        "percona/percona-server-mysql-operator/tags",
+        params={"page_size": 100, "name": prefix},
+    )
+    resp.raise_for_status()
+    versions = []
+    for tag in resp.json().get("results", []):
+        name = tag["name"]
+        if not name.startswith(prefix):
+            continue
+        try:
+            parsed = _parse_docker_tag(name[len(prefix) :])
+            if not parsed.is_prerelease:
+                versions.append((parsed, name))
+        except Exception:
+            continue
+    return max(versions)[1] if versions else None
+
+
 def fetch_community_dockerhub_tags(repo, name=None):
     params = {"page_size": 100}
     if name:
@@ -365,7 +388,7 @@ def get_image_tasks(op):
             "backup84": (D, "percona/percona-xtrabackup", "8.4"),
             "backup80": (D, "percona/percona-xtrabackup", "8.0"),
             "orchestrator": (D, "percona/percona-orchestrator"),
-            "haproxy": (D, "percona/haproxy"),
+            "haproxy": (D, "percona/haproxy", "2"),
             "toolkit": (D, "percona/percona-toolkit"),
             "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
@@ -381,10 +404,8 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("MONGOD70", "percona-server-mongodb", versions.get("7.0")),
             ("MONGOD60", "percona-server-mongodb", versions.get("6.0")),
             ("BACKUP", "percona-backup-mongodb", versions.get("backup")),
-            ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            ("PMM_SERVER", "pmm-server", PMM_SERVER),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
             ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
         ],
         "pxc": [
@@ -430,6 +451,11 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("ORCHESTRATOR", "percona-orchestrator", versions.get("orchestrator")),
             ("TOOLKIT", "percona-toolkit", versions.get("toolkit")),
+            (
+                "BINLOG_SERVER",
+                "percona-server-mysql-operator",
+                versions.get("binlog_server"),
+            ),
             ("LOG_COLLECTOR", "fluentbit", versions.get("logcollector")),
             ("PMM_CLIENT", "pmm-client", pmm3),
             ("PMM_SERVER", "pmm-server", pmm3),
@@ -440,7 +466,10 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
 
 
 def get_image_lines(op, ver):
-    versions = fetch_parallel(get_image_tasks(op))
+    tasks = get_image_tasks(op)
+    if op == "ps":
+        tasks["binlog_server"] = (fetch_ps_binlog_server_tag, ver)
+    versions = fetch_parallel(tasks)
     pmm3 = versions.pop("pmm3", None)
     if op == "pg":
         return build_pg_image_lines(ver, versions, pmm3)

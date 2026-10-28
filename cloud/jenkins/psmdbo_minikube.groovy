@@ -31,10 +31,8 @@ pipeline {
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
         string(name: 'IMAGE_SEARCH', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongot')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
@@ -73,18 +71,6 @@ pipeline {
                         'make',
                         'psmdb',
                         'minikube'
-                    )
-                }
-            }
-        }
-
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH,
-                        platform     : 'linux/amd64,linux/arm64'
                     )
                 }
             }
@@ -130,8 +116,6 @@ pipeline {
                             IMAGE_BACKUP      : IMAGE_BACKUP,
                             IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
                             IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-                            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-                            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER,
                             IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
                             IMAGE_SEARCH      : IMAGE_SEARCH
                         ]
@@ -140,6 +124,19 @@ pipeline {
                     currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
                     currentBuild.description = libraries.tests.buildJobDescription(testVariables)
                     libraries.tests.printTestVariables(testVariables)
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
+                    )
                 }
             }
         }

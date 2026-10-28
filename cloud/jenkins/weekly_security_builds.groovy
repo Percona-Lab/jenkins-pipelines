@@ -931,8 +931,10 @@ pipeline {
 
                         getLibraries()
 
-                        libraries.dependencies.install()
-                        libraries.dependencies.installTrivy()
+                        libraries.dependencies.retryDependencyInstallation {
+                            libraries.dependencies.install()
+                            libraries.dependencies.installTrivy()
+                        }
 
                         repositories.each { repository ->
                             repositoryStarted = true

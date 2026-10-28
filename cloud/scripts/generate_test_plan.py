@@ -462,8 +462,7 @@ def _mongodb_software_versions(versions: dict[str, str]) -> list[str]:
     for _, val, suffix in prefixed_images(versions, "IMAGE_MONGOD"):
         lines.append(f"MongoDB {suffix[0]}.{suffix[1:]}: {image_tag(val)}")
     _add_if_exists(lines, versions, "IMAGE_BACKUP", "PBM")
-    _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM Client")
-    _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM3 Client")
+    _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
     _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector")
     _add_cert_manager(lines, versions)
     return lines
@@ -504,6 +503,7 @@ def _mysql_software_versions(versions: dict[str, str]) -> list[str]:
     _add_if_exists(lines, versions, "IMAGE_HAPROXY", "HAProxy")
     _add_if_exists(lines, versions, "IMAGE_ORCHESTRATOR", "Orchestrator")
     _add_if_exists(lines, versions, "IMAGE_TOOLKIT", "Percona Toolkit")
+    _add_if_exists(lines, versions, "IMAGE_BINLOG_SERVER", "Binlog Server")
     _add_if_exists(lines, versions, "IMAGE_LOG_COLLECTOR", "LogCollector (fluent-bit)")
     _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
     _add_cert_manager(lines, versions)

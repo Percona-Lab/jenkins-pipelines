@@ -1013,6 +1013,7 @@ EOF
                                         ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
                                         ${PMM_CLIENT_REPO:+--set pmmClient.image.repository=${PMM_CLIENT_REPO}} \
                                         ${PMM_CLIENT_TAG:+--set pmmClient.image.tag=${PMM_CLIENT_TAG}} \
+                                        --set-string pmmEnv.PMM_DEV_TELEMETRY_DISABLE_SEND=1 \
                                         ${PMM_ENV_ARGS} \
                                         ${HELM_VALUES:+--set ${HELM_VALUES}}
                                     HELM_EXIT_CODE=$?

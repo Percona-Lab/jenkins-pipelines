@@ -36,6 +36,7 @@ void startPmmServer(String name, String image, String volume) {
             --network="pmm-qa" \
             -e PMM_DEBUG=1 \
             -e PMM_ENABLE_UPDATES=1 \
+            -e PMM_ENABLE_TELEMETRY=0 \
             -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
             -e GF_SECURITY_ADMIN_PASSWORD="\${ADMIN_PASSWORD}" \
             --publish 443:8443 \

@@ -120,6 +120,17 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ppg/${SCENARIO}"
+                    // A scenario can be retired in ppg/versions.yml with skip_reason (e.g.
+                    // a major upgrade from an end-of-life major): skip it, starting no machines.
+                    def skipParts = upgradeScenarioParts(env.SCENARIO)
+                    if (skipParts != null) {
+                        def skipReason = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${skipParts[0]}']['${skipParts[1]}-upgrade'].get('skip_reason') or '')" """).trim()
+                        if (skipReason) {
+                            env.SKIP_REASON = skipReason
+                            currentBuild.description = "Skipped: ${skipReason}"
+                            echo "Skipping ${env.SCENARIO}: ${skipReason}"
+                        }
+                    }
                     fromVersion = (params.FROM_VERSION ?: '').trim()
                     if (!fromVersion) {
                         def parts = upgradeScenarioParts(env.SCENARIO)
@@ -130,15 +141,27 @@ pipeline {
                         echo "FROM_VERSION is empty: using ${fromVersion}, the default for ${env.SCENARIO} in ppg/versions.yml"
                     }
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${fromVersion}-to-${env.VERSION}"
+                    // Carried to the Test stage through env: a parameter of the same name
+                    // (FROM_VERSION) cannot be overridden, a variable of its own can.
+                    env.RESOLVED_FROM_VERSION = fromVersion
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
+                    if (env.SKIP_REASON) {
+                        echo "Not running ${env.SCENARIO}: ${env.SKIP_REASON}"
+                        return
+                    }
                     // Build parameters win over env.X assignments, so pass the resolved
                     // FROM_VERSION to Molecule (tasks, verifier tests) explicitly.
-                    withEnv(["FROM_VERSION=${fromVersion}"]) {
+                    def resolvedFrom = (env.RESOLVED_FROM_VERSION ?: '').trim()
+                    if (!resolvedFrom) {
+                        error("FROM_VERSION is empty and was not resolved in the Prepare stage")
+                    }
+                    echo "Running the upgrade tests with FROM_VERSION=${resolvedFrom}"
+                    withEnv(["FROM_VERSION=${resolvedFrom}"]) {
                         moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                     }
                 }
@@ -148,8 +171,10 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.SCENARIO, fromVersion ?: env.FROM_VERSION, env.VERSION)
+                if (!env.SKIP_REASON) {
+                    moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                }
+                sendSlackNotification(env.SCENARIO, env.RESOLVED_FROM_VERSION ?: env.FROM_VERSION, env.VERSION)
             }
         }
     }
