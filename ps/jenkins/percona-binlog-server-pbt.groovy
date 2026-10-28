@@ -22,7 +22,7 @@ void runInPbtImage(String command) {
             -u "\$(id -u):\$(id -g)" -e HOME=/tmp/home \\
             --cap-add SYS_PTRACE --shm-size 2g \\
             -e WORKDIR=/work -e BUILD_TYPE -e PS_VERSION -e CASES_SCALE -e KNOWN_AS \\
-            -e EXTRA_RUN_ARGS -e IMAGE_ID \\
+            -e EXTRA_RUN_ARGS \\
             -v "\${WORKSPACE}/ws:/work" \\
             -v "\${WORKSPACE}/package-testing/binlog-server-pbt:/pbt:ro" \\
             -w /work "\${PBT_IMAGE}" /pbt/pbt.sh ${command}
@@ -130,7 +130,6 @@ pipeline {
                     git -C ws/percona-binlog-server log -1 --format='percona-binlog-server %H %s'
 
                     docker build --pull -t "${PBT_IMAGE}" package-testing/binlog-server-pbt
-                    docker image inspect -f '{{.Id}}' "${PBT_IMAGE}" | cut -d: -f2 > image-id
 
                     # gcc-14 AddressSanitizer cannot map its shadow memory with
                     # the 32-bit mmap randomisation of recent kernels
@@ -139,7 +138,6 @@ pipeline {
                     fi
                 '''
                 script {
-                    env.IMAGE_ID = readFile('image-id').trim()
                     env.DEPS_KEY = sh(
                         script: 'WORKDIR="${WORKSPACE}/ws" package-testing/binlog-server-pbt/pbt.sh deps-key',
                         returnStdout: true
