@@ -252,7 +252,7 @@ pipeline {
                 }
             }
         }
-        stage('Run Playwright UI Tests') {
+        stage('Run UI Tests') {
             options {
                 timeout(time: 60, unit: "MINUTES")
             }
