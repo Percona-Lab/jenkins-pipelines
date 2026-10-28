@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@molecule_upgrade", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -39,7 +39,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormMongo()
              }
            }
         }
@@ -64,12 +64,12 @@ pipeline {
          }
     }
     post {
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PCSM with ${MONGODB_COMMUNITY.toBoolean() ? 'MongoDB Community Edition' : 'PSMDB'} Version(${MONGODB_VERSION}) finished succesfully - [${BUILD_URL}]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PCSM with ${MONGODB_COMMUNITY.toBoolean() ? 'MongoDB Community Edition' : 'PSMDB'} Version(${MONGODB_VERSION}) failed - [${BUILD_URL}]")
-        }
+//        success {
+//            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PCSM with ${MONGODB_COMMUNITY.toBoolean() ? 'MongoDB Community Edition' : 'PSMDB'} Version(${MONGODB_VERSION}) finished succesfully - [${BUILD_URL}]")
+//        }
+//        failure {
+//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PCSM with ${MONGODB_COMMUNITY.toBoolean() ? 'MongoDB Community Edition' : 'PSMDB'} Version(${MONGODB_VERSION}) failed - [${BUILD_URL}]")
+//        }
         always {
             script {
                 moleculeParallelPostDestroy(pcsmOperatingSystems(), moleculeDir)
