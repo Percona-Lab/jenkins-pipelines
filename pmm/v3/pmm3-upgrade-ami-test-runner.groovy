@@ -88,11 +88,11 @@ pipeline {
     parameters {
         string(
             defaultValue: "pmm-${versions[0]}",
-            description: 'Tag/Branch for pmm-qa repository (Codecept in codeceptjs-e2e/) for pre upgrade',
+            description: 'Tag/Branch for pmm-qa repository used to set up the AMI instance before upgrade',
             name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-qa repository for post upgrade UI tests',
+            description: 'Tag/Branch for pmm-qa repository for the UI tests (Playwright in e2e_tests/)',
             name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: upgradeAmiVersion,
@@ -141,7 +141,7 @@ pipeline {
                 }
                 checkout poll: false, scm: [
                     $class: 'GitSCM',
-                    branches: [[name: PMM_QA_PRE_UPGRADE_GIT_BRANCH]],
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
                     userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
                     extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
                 ]
@@ -202,13 +202,11 @@ pipeline {
         }
         stage('Setup Dependencies and PMM Client') {
             steps {
-                dir('codeceptjs-e2e') {
+                dir('e2e_tests') {
                     sh '''
                         npm ci
-                        npx playwright install
-                        envsubst < env.list > env.generated.list
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export CHROMIUM_PATH=/usr/bin/chromium
+                        npx playwright install chromium
+                        sudo npx playwright install-deps chromium
                         ansible-galaxy collection install ansible.utils
                     '''
                 }
@@ -235,10 +233,9 @@ pipeline {
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    dir('codeceptjs-e2e') {
+                    dir('e2e_tests') {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
-                            export ADMIN_PASSWORD="pmm3admin!"
+                            CI=true npx playwright test --grep '@ami-ovf-pre-upgrade'
                         '''
                     }
                 }
@@ -255,9 +252,9 @@ pipeline {
                     }
                     steps {
                         withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                            dir('codeceptjs-e2e') {
+                            dir('e2e_tests') {
                                 sh '''
-                                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                                    CI=true npx playwright test --grep '@pmm-upgrade'
                                 '''
                             }
                         }
@@ -298,19 +295,6 @@ pipeline {
                 }
             }
         }
-        stage('Switch to the post-upgrade suite') {
-            steps {
-                sh 'git checkout -f ${PMM_QA_GIT_BRANCH}'
-                dir('codeceptjs-e2e') {
-                    sh '''
-                        npm ci
-                        npx playwright install
-                        envsubst < env.list > env.generated.list
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    '''
-                }
-            }
-        }
         stage('Run post pmm server upgrade UI tests') {
             environment {
                 ADMIN_PASSWORD = "pmm3admin!"
@@ -328,9 +312,9 @@ pipeline {
                 }
                 sh 'timeout 300 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/v1/server/readyz)" != "200" ]]; do sleep 5; done\' || false'
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    dir('codeceptjs-e2e') {
+                    dir('e2e_tests') {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
+                            CI=true npx playwright test --grep '@ami-ovf-post-upgrade'
                         '''
                     }
                 }
@@ -399,9 +383,9 @@ pipeline {
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    dir('codeceptjs-e2e') {
+                    dir('e2e_tests') {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
+                            CI=true npx playwright test --grep '@ami-ovf-post-upgrade'
                         '''
                     }
                 }
@@ -420,7 +404,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/**/*.png', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'e2e_tests/playwright-report/**, e2e_tests/test-results/**', allowEmptyArchive: true
         }
     }
 }
