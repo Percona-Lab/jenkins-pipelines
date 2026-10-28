@@ -52,7 +52,12 @@ int runReportStep(String script, String args, boolean agent = false) {
     String limit = ''
     String output = ''
     if (agent) {
-        options += ['-v "${WORKSPACE}/ai/input:/ai/input:ro"',
+        // Host network: Claude Code takes the worker's instance role from the
+        // metadata service, which answers containers on the default bridge
+        // network only when the instance allows two hops. On docker-32gb the
+        // bridged container got no credentials (build 9: "Could not load AWS
+        // credentials"); run_agent.py checks and names the reason first.
+        options += ['--network host', '-v "${WORKSPACE}/ai/input:/ai/input:ro"',
                     '-e AI_MODEL', '-e AI_EFFORT', '-e AI_MAX_TURNS', '-e CLAUDE_CODE_VERSION']
         // exit code 124 when the time limit fires
         limit = 'timeout --kill-after=60 "${AI_TIMEOUT_MINUTES}m"'
