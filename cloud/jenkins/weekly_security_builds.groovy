@@ -42,6 +42,7 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
             'e2e-tests/release_versions'
         ],
         operatorKustomizations: [
+            'config/manager/kustomization.yaml',
             'config/manager/cluster/kustomization.yaml'
         ],
         kustomizationImageName: 'perconalab/percona-server-mysql-operator',
