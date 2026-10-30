@@ -54,9 +54,6 @@ List selectedPsmdbImageSuffixes() {
     if (params.IMAGE_BACKUP) {
         images << 'backup'
     }
-    if (params.IMAGE_MONGOD60) {
-        images << 'mongod6.0'
-    }
     if (params.IMAGE_MONGOD70) {
         images << 'mongod7.0'
     }
@@ -204,7 +201,6 @@ pipeline {
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Build PSMDB operator image')
         booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Build PBM image')
-        booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Build PSMDB 6.0 image')
         booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Build PSMDB 7.0 image')
         booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Build PSMDB 8.0 image')
         booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Build PSMDB 8.3 image')
