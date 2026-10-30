@@ -206,7 +206,6 @@ pipeline {
                     sh '''
                         npm ci
                         npx playwright install chromium
-                        sudo npx playwright install-deps chromium
                         ansible-galaxy collection install ansible.utils
                     '''
                 }
