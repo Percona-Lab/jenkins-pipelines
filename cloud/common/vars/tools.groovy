@@ -147,6 +147,15 @@ void gitCheckoutTag(String tagName) {
     """
 }
 
+void gitCleanupLocalChanges() {
+    sh '''
+        set -eu
+
+        git reset --hard HEAD
+        git clean -fdx
+    '''
+}
+
 void gitCreateBranch(String branchName) {
     sh """
         set -eu
@@ -181,6 +190,29 @@ void gitFetchBranch(String branchName) {
 
             git checkout --detach \
                 "refs/remotes/origin/${GIT_BRANCH_NAME}"
+        '''
+    }
+}
+
+void gitVerifyLocalBranchFromRemote(String branchName) {
+    withEnv(["GIT_BRANCH_NAME=${branchName}"]) {
+        sh '''
+            set -eu
+
+            expected_commit=$(git rev-parse \
+                "refs/remotes/origin/${GIT_BRANCH_NAME}")
+            current_commit=$(git rev-parse HEAD)
+
+            if [ "${current_commit}" != "${expected_commit}" ]; then
+                echo "Expected ${expected_commit}, found ${current_commit}" >&2
+                exit 1
+            fi
+
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+                echo 'Workspace is dirty after checking out the remote branch' >&2
+                git status --short --untracked-files=no >&2
+                exit 1
+            fi
         '''
     }
 }
