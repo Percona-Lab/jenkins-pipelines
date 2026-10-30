@@ -433,7 +433,18 @@ ENDSSH
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
 
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
+                        # 10.30.6.12 sometimes returns an empty answer to the first lookup
+                        for attempt in 1 2 3 4 5; do
+                            export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
+                            if [ -n "$UPLOAD_HOST" ]; then
+                                break
+                            fi
+                            if [ "$attempt" = 5 ]; then
+                                echo "downloads-rsync-endpoint.int.percona.com did not resolve after 5 attempts" >&2
+                                exit 1
+                            fi
+                            sleep $(( attempt * 5 ))
+                        done
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm3/${VERSION}/docker"
 
