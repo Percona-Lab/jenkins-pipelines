@@ -144,25 +144,20 @@ pipeline {
                 // token. main is not a pinned SHA, so each build downloads
                 // the current scripts.
                 withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
-                    // Jenkins runs sh with tracing on. set +x keeps the token header out of the log.
-                    sh '''
-                        set +x
-                        set -o errexit
-                        base=https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins
-                        fetch() {
-                            mkdir -p "$(dirname "$1")"
-                            curl -fsSL --retry 3 --retry-all-errors --max-time 60 \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" -o "$1" "$base/$2"
-                        }
-                        fetch check_oracle_cpu.py check_oracle_cpu.py
-                        fetch oracle_cpu/__init__.py oracle_cpu/__init__.py
-                        fetch oracle_cpu/core.py oracle_cpu/core.py
-                        fetch oracle_cpu/diagnostics.py oracle_cpu/diagnostics.py
-                        fetch oracle_cpu/pipeline.py oracle_cpu/pipeline.py
-                        fetch oracle_cpu/state.py oracle_cpu/state.py
-                        fetch tests/__init__.py tests/__init__.py
-                        fetch tests/test_oracle_cpu.py tests/test_oracle_cpu.py
-                    '''
+                    def sandboxFetch = load 'ps/jenkins/sandbox_fetch.groovy'
+                    sandboxFetch.fetch(
+                        'https://raw.githubusercontent.com/Percona-Lab/mysql-sandbox/main/jenkins',
+                        [
+                            'check_oracle_cpu.py',
+                            'oracle_cpu/__init__.py',
+                            'oracle_cpu/core.py',
+                            'oracle_cpu/diagnostics.py',
+                            'oracle_cpu/pipeline.py',
+                            'oracle_cpu/state.py',
+                            'tests/__init__.py',
+                            'tests/test_oracle_cpu.py',
+                        ]
+                    )
                 }
             }
         }
