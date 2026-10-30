@@ -23,19 +23,56 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field List repositories = [
     [
-        operator              : 'ps-operator',
+        operator              : 'pso',
         name                  : 'percona-server-mysql-operator',
-        sourceBranch          : 'main',
-        imageName             : 'percona-server-mysql-operator',
         imageRepo             : 'perconalab',
         releaseImageRepo      : 'percona',
         testJob               : 'pso-gke-1',
-        // Reads the image from the default CR and converts 8.4 to 84
+        testSuite             : 'run-release.csv',
         pillarVersion         : [imagePath: '.spec.mysql.image', strategy: 'majorMinor'],
-        goVersionFiles        : [], // List of files containing Go version references to be updated
+        goVersionFiles        : [],
+        operatorImageFiles    : [
+            'config/manager/manager.yaml',
+            'config/manager/cluster/manager.yaml',
+            'deploy/bundle.yaml',
+            'deploy/cw-bundle.yaml',
+            'deploy/operator.yaml',
+            'deploy/cw-operator.yaml',
+            'deploy/cr.yaml',
+            'e2e-tests/release_versions'
+        ],
+        operatorKustomizations: [
+            'config/manager/kustomization.yaml',
+            'config/manager/cluster/kustomization.yaml'
+        ],
+        kustomizationImageName: 'perconalab/percona-server-mysql-operator',
         operatorVersionFiles  : [
             'pkg/controller/ps/suite_test.go'
-        ] // List of files containing operator version references to be updated
+        ]
+    ],
+    [
+        operator              : 'psmdbo',
+        name                  : 'percona-server-mongodb-operator',
+        imageRepo             : 'perconalab',
+        releaseImageRepo      : 'percona',
+        testJob               : 'psmdbo-gke-1',
+        testSuite             : 'release',
+        pillarVersion         : [imagePath: '.spec.image', strategy: 'majorMinor'],
+        goVersionFiles        : [],
+        operatorImageFiles    : [
+            'deploy/bundle.yaml',
+            'deploy/cw-bundle.yaml',
+            'deploy/operator.yaml',
+            'deploy/cw-operator.yaml',
+            'deploy/cr.yaml',
+            'e2e-tests/release_versions'
+        ],
+        operatorKustomizations: [
+            'config/manager/namespace/kustomization.yaml',
+            'config/manager/cluster/kustomization.yaml'
+        ],
+        kustomizationImageName: 'psmdb-operator',
+        operatorVersionFiles  : []
     ]
 ]
 
@@ -55,39 +92,41 @@ Map buildContext(Map repository) {
 
     // Version and image repositories
     def version = baseReleaseGitTag.substring(1)
-    def buildImageRepository = "${repository.imageRepo}/${repository.imageName}"
-    def releaseImageRepository = "${repository.releaseImageRepo}/${repository.imageName}"
+    def buildImageRepository = "${repository.imageRepo}/${repository.name}"
+    def releaseImageRepository = "${repository.releaseImageRepo}/${repository.name}"
 
     // Security build identifiers
-    def buildNumber = nextSecurityBuildNumber(version, releaseImageRepository)
-    def previousBuildNumber = buildNumber - 1
+    def buildState = resolveSecurityBuildState(version, releaseImageRepository)
+    def buildNumber = buildState.buildNumber
     def securityBaseBranch = "security/${version}"
     def securityBranch = "${securityBaseBranch}-${buildNumber}"
     def numberedImageTag = "${version}-${buildNumber}"
     def floatingImageTag = "${version}-latest"
 
     // Fully qualified images
-    def previousReleaseImage = "${releaseImageRepository}:${version}-${previousBuildNumber}"
+    def previousReleaseImage = buildState.previousReleaseImage
     def buildImage = "${buildImageRepository}:${numberedImageTag}"
     def releaseImage = "${releaseImageRepository}:${numberedImageTag}"
     def floatingReleaseImage = "${releaseImageRepository}:${floatingImageTag}"
 
     return [
         // Repository configuration
-        REPO_PATH             : "${gitNamespace}/${repository.name}",
-        GIT_NAMESPACE         : gitNamespace,
-        OPERATOR              : repository.operator,
-        OPERATOR_NAME         : repository.name,
-        GO_VERSION_FILES      : repository.goVersionFiles,
-        OPERATOR_VERSION_FILES: repository.operatorVersionFiles,
-        BUILD_URL             : env.BUILD_URL,
+        REPO_PATH               : "${gitNamespace}/${repository.name}",
+        GIT_NAMESPACE           : gitNamespace,
+        OPERATOR                : repository.operator,
+        OPERATOR_NAME           : repository.name,
+        GO_VERSION_FILES        : repository.goVersionFiles,
+        OPERATOR_IMAGE_FILES    : repository.operatorImageFiles,
+        OPERATOR_KUSTOMIZATIONS : repository.operatorKustomizations,
+        KUSTOMIZATION_IMAGE_NAME: repository.kustomizationImageName,
+        OPERATOR_VERSION_FILES  : repository.operatorVersionFiles,
+        BUILD_URL               : env.BUILD_URL,
 
         // Base release
         VERSION               : version, // Example: 1.0.0
         BASE_RELEASE_GIT_TAG  : baseReleaseGitTag, // Git tag example: v1.0.0
         SECURITY_BASE_BRANCH  : securityBaseBranch, // Example: security/1.0.0
-        PREVIOUS_BUILD_NUMBER : previousBuildNumber, // Example: 1
-        PREVIOUS_RELEASE_IMAGE: previousReleaseImage, // Example: percona/percona-server-mysql-operator:1.0.0-1
+        PREVIOUS_RELEASE_IMAGE: previousReleaseImage,
 
         // Security build
         SECURITY_BUILD_NUMBER : buildNumber, // Example: 2
@@ -107,11 +146,7 @@ Map buildContext(Map repository) {
     ]
 }
 
-List slackMessageAttachments(
-    String text,
-    String color,
-    List<Map> buttons = []
-) {
+List slackMessageAttachments(String text, String color, List<Map> buttons = []) {
     def blocks = [[
         type: 'section',
         text: [
@@ -204,35 +239,54 @@ String getPillarVersionFromDefaultCR(Map repository) {
     }
 }
 
-int nextSecurityBuildNumber(
-    String version,
-    String releaseImageRepository
-) {
-    return withEnv([
-        "VERSION=${version}",
-        "RELEASE_IMAGE_REPOSITORY=${releaseImageRepository}"
-    ]) {
+boolean releaseImageExists(String image) {
+    def status = withEnv(["RELEASE_IMAGE_TO_CHECK=${image}"]) {
         sh(
             script: '''
-                set -eu
+                output_file=$(mktemp)
+                trap 'rm -f "${output_file}"' EXIT
 
-                candidate=1
+                if docker manifest inspect "${RELEASE_IMAGE_TO_CHECK}" \
+                    >"${output_file}" 2>&1; then
+                    exit 0
+                fi
 
-                while docker manifest inspect \
-                    "${RELEASE_IMAGE_REPOSITORY}:${VERSION}-${candidate}" >/dev/null 2>&1; do
-                    candidate=$((candidate + 1))
-                done
-
-                if [ "${candidate}" -eq 1 ]; then
-                    echo "No numbered release image found. Expected ${RELEASE_IMAGE_REPOSITORY}:${VERSION}-1" >&2
+                if grep -Eqi \
+                    'manifest unknown|no such manifest|manifest.*not found' \
+                    "${output_file}"; then
                     exit 1
                 fi
 
-                echo "${candidate}"
+                cat "${output_file}" >&2
+                exit 2
             ''',
-            returnStdout: true
-        ).trim().toInteger()
+            returnStatus: true
+        )
     }
+
+    if (status > 1) {
+        error("Unable to inspect release image ${image}")
+    }
+
+    return status == 0
+}
+
+Map resolveSecurityBuildState(String version, String releaseImageRepository) {
+    def releaseImagePrefix = "${releaseImageRepository}:${version}-"
+    def buildNumber = 1
+
+    while (releaseImageExists("${releaseImagePrefix}${buildNumber}")) {
+        buildNumber++
+    }
+
+    if (buildNumber == 1) {
+        error("Required initial security release image ${releaseImagePrefix}1 does not exist")
+    }
+
+    return [
+        buildNumber         : buildNumber,
+        previousReleaseImage: "${releaseImagePrefix}${buildNumber - 1}"
+    ]
 }
 
 void ensureSecurityBaseBranch(Map context) {
@@ -268,12 +322,14 @@ void ensureSecurityBaseBranch(Map context) {
 
 void pullPreviousReleaseImage(Map context) {
     withEnv(["PREVIOUS_RELEASE_IMAGE=${context.PREVIOUS_RELEASE_IMAGE}"]) {
-        sh '''
-            set -eu
+        libraries.credentials.withDockerCredentials {
+            sh '''
+                set -eu
 
-            echo "Pulling previous RELEASE image ${PREVIOUS_RELEASE_IMAGE}"
-            docker pull "${PREVIOUS_RELEASE_IMAGE}"
-        '''
+                echo "Pulling previous RELEASE image ${PREVIOUS_RELEASE_IMAGE}"
+                docker pull "${PREVIOUS_RELEASE_IMAGE}"
+            '''
+        }
     }
 }
 
@@ -335,6 +391,9 @@ void updateOperatorImageReferences(Map context) {
         "RELEASE_IMAGE_REPO=${context.RELEASE_REPOSITORY}",
         "OPERATOR_RELEASE_IMAGE=${context.RELEASE_IMAGE}",
         "SECURITY_BUILD_REF=${context.SECURITY_BRANCH}",
+        "OPERATOR_IMAGE_FILES=${context.OPERATOR_IMAGE_FILES.join(' ')}",
+        "OPERATOR_KUSTOMIZATIONS=${context.OPERATOR_KUSTOMIZATIONS.join(' ')}",
+        "KUSTOMIZATION_IMAGE_NAME=${context.KUSTOMIZATION_IMAGE_NAME}",
         "OPERATOR_VERSION_FILES=${context.OPERATOR_VERSION_FILES.join(' ')}"
     ]) {
         sh '''
@@ -348,28 +407,46 @@ void updateOperatorImageReferences(Map context) {
 
             sed -Ei \
               "s#${IMAGE_PATTERN}${IMAGE_BOUNDARY}#${OPERATOR_RELEASE_IMAGE}\\4#g" \
-              config/manager/manager.yaml \
-              config/manager/cluster/manager.yaml \
-              deploy/bundle.yaml \
-              deploy/cw-bundle.yaml \
-              deploy/operator.yaml \
-              deploy/cw-operator.yaml \
-              deploy/cr.yaml \
-              e2e-tests/release_versions \
+              ${OPERATOR_IMAGE_FILES} \
               ${OPERATOR_VERSION_FILES:-}
 
             sed -Ei \
-              "/name: ${IMAGE_REPO}\\/${OPERATOR}/,/newTag:/ { \
+              "\\#name: ${KUSTOMIZATION_IMAGE_NAME}#,/newTag:/ { \
                 s#newName: .*#newName: ${RELEASE_IMAGE_REPO}/${OPERATOR}#; \
                 s#newTag: .*#newTag: ${OPERATOR_RELEASE_TAG}#; \
               }" \
-              config/manager/kustomization.yaml \
-              config/manager/cluster/kustomization.yaml
+              ${OPERATOR_KUSTOMIZATIONS}
+
+            for file in ${OPERATOR_IMAGE_FILES} ${OPERATOR_VERSION_FILES:-}; do
+                if ! grep -Fq "${OPERATOR_RELEASE_IMAGE}" "${file}"; then
+                    echo "Operator release image was not updated in ${file}" >&2
+                    exit 1
+                fi
+            done
+
+            for file in ${OPERATOR_KUSTOMIZATIONS}; do
+                if ! grep -Fq "newName: ${RELEASE_IMAGE_REPO}/${OPERATOR}" "${file}" || \
+                   ! grep -Fq "newTag: ${OPERATOR_RELEASE_TAG}" "${file}"; then
+                    echo "Operator release image was not updated in ${file}" >&2
+                    exit 1
+                fi
+            done
+
+            remaining_images=$(grep -Eho \
+              "${IMAGE_PATTERN}${IMAGE_BOUNDARY}" \
+              ${OPERATOR_IMAGE_FILES} ${OPERATOR_VERSION_FILES:-} | \
+              sed -E 's#[^[:alnum:]_.-]$##; s#^docker\\.io/##' | \
+              grep -Fvx "${OPERATOR_RELEASE_IMAGE}" || true)
+
+            if [ -n "${remaining_images}" ]; then
+                echo "Old operator image references remain after the update:" >&2
+                echo "${remaining_images}" >&2
+                exit 1
+            fi
 
             git add -- \
-              config/manager \
-              deploy \
-              e2e-tests/release_versions \
+              ${OPERATOR_IMAGE_FILES} \
+              ${OPERATOR_KUSTOMIZATIONS} \
               ${OPERATOR_VERSION_FILES:-}
 
             if ! git diff --cached --quiet; then
@@ -487,11 +564,7 @@ String createPullRequest(Map context) {
     }
 }
 
-void waitForMerge(
-    Map context,
-    String vulnerabilitySummary,
-    String prUrl
-) {
+void waitForMerge(Map context, String vulnerabilitySummary, String prUrl) {
     def message = [
         ':warning: *Security build awaiting PR merge*',
         '',
@@ -605,7 +678,12 @@ void waitForMerge(
 void checkoutMergedCommit(Map context) {
     withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
+            libraries.tools.gitCleanupLocalChanges()
             libraries.tools.gitFetchBranch(context.SECURITY_BASE_BRANCH)
+            libraries.tools.gitVerifyLocalBranchFromRemote(
+                context.SECURITY_BASE_BRANCH
+            )
+
             context.RELEASE_COMMIT = libraries.tools.gitHead()
         }
     }
@@ -639,7 +717,7 @@ void pushReleaseImage(Map context) {
 Map runTests(Map repository, Map context) {
     def lastBuildUrl
     def testParameters = [
-        TEST_SUITE        : 'run-release.csv',
+        TEST_SUITE        : repository.testSuite,
         GIT_BRANCH       : context.SECURITY_BASE_BRANCH,
         IMAGE_OPERATOR   : context.BUILD_IMAGE,
         GKE_RELEASE_CHANNEL: 'stable',
@@ -687,11 +765,7 @@ void skipStages(List<String> stages, String reason) {
     }
 }
 
-void trackedStage(
-    Map execution,
-    String stageName,
-    Closure body
-) {
+void trackedStage(Map execution, String stageName, Closure body) {
     execution.currentStage = stageName
 
     stage(stageName) {
@@ -699,10 +773,7 @@ void trackedStage(
     }
 }
 
-void skipRemainingStages(
-    String currentStage,
-    String reason
-) {
+void skipRemainingStages(String currentStage, String reason) {
     def currentIndex =
         securityBuildStages.indexOf(currentStage)
 
@@ -712,10 +783,7 @@ void skipRemainingStages(
     )
 }
 
-void runRepositoryPipeline(
-    Map repository,
-    Map execution
-) {
+void runRepositoryPipeline(Map repository, Map execution) {
     def context
     def vulnerabilitiesFound
     def vulnerabilitySummary
@@ -727,14 +795,16 @@ void runRepositoryPipeline(
         }
 
         libraries.tools.gitClone([
-            branch: repository.sourceBranch,
+            branch: 'main',
             repo: "https://github.com/${gitNamespace}/${repository.name}.git"
         ], repository.name)
 
         dir(repository.name) {
             libraries.tools.gitFetchTags()
 
-            context = buildContext(repository)
+            libraries.credentials.withDockerCredentials {
+                context = buildContext(repository)
+            }
 
             currentBuild.displayName =
                 "${repository.operator} | ${context.BASE_RELEASE_GIT_TAG}-${context.SECURITY_BUILD_NUMBER}"
@@ -936,14 +1006,28 @@ pipeline {
                             libraries.dependencies.installTrivy()
                         }
 
-                        repositories.each { repository ->
-                            repositoryStarted = true
-
-                            echo "Repository: ${gitNamespace}/${repository.name}"
-                            echo "Slack channel: ${slackChannel}"
-
-                            processRepository(repository)
+                        def repository = repositories.find {
+                            env.JOB_BASE_NAME ==
+                                "weekly-security-builds-${it.operator}"
                         }
+
+                        if (!repository) {
+                            def expectedJobs = repositories.collect {
+                                "weekly-security-builds-${it.operator}"
+                            }.join(', ')
+
+                            error(
+                                "Unable to select repository for job '${env.JOB_BASE_NAME}'. " +
+                                "Expected one of: ${expectedJobs}"
+                            )
+                        }
+
+                        repositoryStarted = true
+
+                        echo "Repository: ${gitNamespace}/${repository.name}"
+                        echo "Slack channel: ${slackChannel}"
+
+                        processRepository(repository)
                     } catch (Exception failure) {
                         if (!repositoryStarted) {
                             skipStages(
