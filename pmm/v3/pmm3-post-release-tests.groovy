@@ -8,28 +8,24 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-// Checks what users get after a PMM 3 release: PMM_VERSION, which pmm3-release passes when
-// it starts this job, or the newest percona/pmm-server tag on Docker Hub. What people publish
-// after the GA job is waited for, up to PUBLISH_WAIT_MINUTES, before it is checked.
-// Each branch of 'Post-release checks' reports on its own:
+// Checks what users get after a PMM 3 release: PMM_VERSION, or the newest percona/pmm-server
+// tag on Docker Hub. Run it once the release is published: docs, the Version Service production
+// entry and the bumped charts. A missing publication fails its branch; nothing here waits for,
+// opens or merges anything. Each branch of 'Post-release checks' reports on its own:
 //
 //   Release notes        docs release notes and the percona/pmm GitHub release
 //   Downloads and repos  percona.com/downloads files and the pmm3-client yum/apt repos
 //   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs: checksums, then a
 //                        smoke run of their binaries on Oracle Linux 8 and 9
-//   Docker               fresh install through percona.com/get/pmm; when it passes, fires the
-//                        RELEASE_PRS_ROUTINE_ID Routine to open the release PRs and start
-//                        the mongodb_exporter release,
-//                        then waits for the release in the PROD Version Service, then
-//                        previous -> latest upgrade with the @post-release specs run before it
+//   Docker               fresh install through percona.com/get/pmm, the release in the PROD
+//                        Version Service, then previous -> latest upgrade with the
+//                        @post-release specs run before it
+//   Helm                 the bumped pmm and pmm-ha charts, then k8s/helm-post-release.bats from
+//                        pmm-qa on minikube: released chart install, previous -> latest upgrade
+//   HA                   two pmm3-ha-upgrade-tests builds on CLUSTER_TYPE: the released pmm-ha
+//                        chart installed, and the previous release's chart upgraded to it
 //
 // Ends with a one-line result in #pmm-internal.
-//   Helm                 waits for the bumped pmm and pmm-ha charts, then runs
-//                        k8s/helm-post-release.bats from pmm-qa on minikube: released chart
-//                        install, previous -> latest chart upgrade
-//   HA                   waits for the bumped charts, then two pmm3-ha-upgrade-tests builds on
-//                        CLUSTER_TYPE: the released pmm-ha chart installed, and the previous
-//                        release's chart upgraded to it
 
 void startPmmServer(String name, String image, String volume) {
     sh """
@@ -57,29 +53,18 @@ void waitForPmmReady(String name) {
     """
 }
 
-// Polls a check script every 5 minutes; the GitHub API allows 60 unauthenticated calls an hour.
-void waitForPublication(String what, String check) {
-    echo "Waiting up to ${params.PUBLISH_WAIT_MINUTES ?: '240'} minutes for ${what}"
-    timeout(time: (params.PUBLISH_WAIT_MINUTES ?: '240').toInteger(), unit: 'MINUTES') {
-        waitUntil(quiet: true) {
-            if (sh(returnStatus: true, script: check) == 0) {
-                return true
-            }
-            sleep(time: 5, unit: 'MINUTES')
-            return false
-        }
-    }
-}
-
-void waitForReleasedCharts() {
-    waitForPublication("percona/pmm and percona/pmm-ha charts that ship ${env.PMM_SERVER_LATEST}", '''
+void checkReleasedCharts() {
+    sh '''
         helm repo update percona > /dev/null
         for chart in pmm pmm-ha; do
-            helm search repo "percona/${chart}" --versions --output json \
+            if ! helm search repo "percona/${chart}" --versions --output json \
                 | jq -e --arg name "percona/${chart}" --arg v "${PMM_SERVER_LATEST}" \
-                    'any(.[]; .name == $name and .app_version == $v)' > /dev/null || exit 1
+                    'any(.[]; .name == $name and .app_version == $v)' > /dev/null; then
+                echo "No published percona/${chart} chart ships ${PMM_SERVER_LATEST}: is the Helm bump merged?" >&2
+                exit 1
+            fi
         done
-    ''')
+    '''
 }
 
 void verifyPmmVersion(String expected, String password = '${ADMIN_PASSWORD}') {
@@ -108,16 +93,12 @@ pipeline {
             name: 'ADMIN_PASSWORD')
         string(
             defaultValue: '',
-            description: 'Released PMM version to check, e.g. 3.11.0. Empty takes the newest 3.x.y percona/pmm-server tag on Docker Hub; pmm3-release passes its VERSION.',
+            description: 'Released PMM version to check, e.g. 3.11.0. Empty takes the newest 3.x.y percona/pmm-server tag on Docker Hub.',
             name: 'PMM_VERSION')
         string(
             defaultValue: 'main',
             description: 'pmm-qa git branch.',
             name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: '240',
-            description: 'Minutes each check waits for what people publish after the GA job: the docs release notes and GitHub release, the bumped pmm and pmm-ha charts, and the PROD Version Service entry, whose PR is merged once the smoke checks of this job pass.',
-            name: 'PUBLISH_WAIT_MINUTES')
         choice(
             choices: ['OpenShift', 'EKS'],
             description: 'Kubernetes platform of the HA builds',
@@ -125,8 +106,8 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        // The waits for publications, then the HA clusters.
-        timeout(time: 8, unit: 'HOURS')
+        // The two HA clusters.
+        timeout(time: 6, unit: 'HOURS')
     }
     stages {
         stage('Prepare') {
@@ -170,12 +151,6 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
             parallel {
                 stage('Release notes') {
                     steps {
-                        waitForPublication('the release notes and the GitHub release', '''
-                            curl -sf "https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${PMM_SERVER_LATEST}.html" \
-                                | grep -qF "<title>PMM ${PMM_SERVER_LATEST} " || exit 1
-                            curl -sf "https://api.github.com/repos/percona/pmm/releases/tags/v${PMM_SERVER_LATEST}" \
-                                | jq -e '.draft == false and .prerelease == false and (.body // "" | length) > 0' > /dev/null
-                        ''')
                         sh '''
                             notes="https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${PMM_SERVER_LATEST}.html"
                             # No -L: a missing page redirects to a 404 page that answers 200.
@@ -359,7 +334,6 @@ ENDSSH
                                             exit 1
                                         fi
                                     '''
-                                    env.FRESH_INSTALL_OK = 'true'
                                 }
                             }
                             post {
@@ -372,69 +346,9 @@ ENDSSH
                                 }
                             }
                         }
-                        stage('Open the release PRs') {
-                            when { expression { env.FRESH_INSTALL_OK == 'true' } }
+                        stage('PROD Version Service') {
                             steps {
-                                script {
-                                    // Each command runs a pmm-ai skill in the RELEASE_PRS_ROUTINE Routine, the way
-                                    // people opened these PRs together once the GA images were public. Without its
-                                    // credentials in Jenkins this is done by hand; the waits cover both.
-                                    // The Helm bump command joins this list once its skill exists.
-                                    def commands = []
-                                    def inVersionService = sh(returnStatus: true, script: '''
-                                        curl -fsS https://check.percona.com/metadata/v2/pmm-server \
-                                            | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
-                                    ''') == 0
-                                    if (!inVersionService) {
-                                        def notes = "https://raw.githubusercontent.com/percona/pmm/v${env.PMM_SERVER_LATEST}/documentation/docs/release-notes/${env.PMM_SERVER_LATEST}.md"
-                                        commands.add("/pmm-release:version-pr-ga ${env.PMM_SERVER_LATEST} ${notes}")
-                                    }
-                                    // Checklist item 40. The skill stops after its preflight until a person says yes in
-                                    // the Routine's session, since the tag push publishes the images.
-                                    def exporterVersion = sh(returnStdout: true, script: '''
-                                        curl -fsS https://raw.githubusercontent.com/percona/mongodb_exporter/main/VERSION || true
-                                    ''').trim()
-                                    if (!(exporterVersion ==~ /v\d+\.\d+\.\d+/)) {
-                                        echo "Could not read mongodb_exporter's VERSION ('${exporterVersion}'); release it by hand"
-                                    } else if (sh(returnStatus: true, script: """
-                                        curl -fsS -o /dev/null https://api.github.com/repos/percona/mongodb_exporter/git/ref/tags/${exporterVersion}
-                                    """) != 0) {
-                                        commands.add("/pmm-dev:mongodb-exporter-release release ${exporterVersion}")
-                                    }
-                                    commands.each { command ->
-                                        try {
-                                            writeFile file: 'release-pr.json', text: groovy.json.JsonOutput.toJson([text: command])
-                                            withCredentials([
-                                                string(credentialsId: 'RELEASE_PRS_ROUTINE_ID', variable: 'ROUTINE_ID'),
-                                                string(credentialsId: 'RELEASE_PRS_ROUTINE_TOKEN', variable: 'ROUTINE_TOKEN')
-                                            ]) {
-                                                sh '''
-                                                    set -euo pipefail
-                                                    curl -fsS --connect-timeout 10 --max-time 60 -X POST \
-                                                        "https://api.anthropic.com/v1/claude_code/routines/${ROUTINE_ID}/fire" \
-                                                        -H "Authorization: Bearer ${ROUTINE_TOKEN}" \
-                                                        -H "anthropic-version: 2023-06-01" \
-                                                        -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
-                                                        -H "Content-Type: application/json" \
-                                                        --data @release-pr.json
-                                                '''
-                                            }
-                                            echo "Started: ${command}"
-                                        } catch (Throwable e) {
-                                            echo "Could not start '${command}', do it by hand: ${e.message}"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        stage('Wait for the PROD Version Service') {
-                            steps {
-                                // percona-version-service's production PR is merged after the smoke checks
-                                // pass; PMM-T2200 finds the update through it, so the upgrade waits for it.
-                                waitForPublication('the release in the PROD Version Service', '''
-                                    curl -fsS https://check.percona.com/metadata/v2/pmm-server \
-                                        | jq -e --arg v "${PMM_SERVER_LATEST}" 'any(.versions[]; .version == $v)' > /dev/null
-                                ''')
+                                // PMM-T2200 below finds the update through this entry.
                                 sh '''
                                     entry=$(curl -fsS https://check.percona.com/metadata/v2/pmm-server \
                                         | jq -c --arg v "${PMM_SERVER_LATEST}" '.versions[] | select(.version == $v) | .imageInfo')
@@ -503,9 +417,9 @@ ENDSSH
                 }
                 stage('Helm') {
                     stages {
-                        stage('Wait for the bumped charts') {
+                        stage('Released charts') {
                             steps {
-                                waitForReleasedCharts()
+                                checkReleasedCharts()
                             }
                         }
                         stage('Helm on minikube') {
@@ -545,7 +459,7 @@ ENDSSH
                 }
                 stage('HA') {
                     steps {
-                        waitForReleasedCharts()
+                        checkReleasedCharts()
                         script {
                             def previousChart = sh(returnStdout: true, script: '''
                                 helm search repo percona/pmm-ha --versions --output json \
