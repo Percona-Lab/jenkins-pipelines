@@ -207,7 +207,7 @@ def cleanupCluster() {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
 
     options {
@@ -217,6 +217,11 @@ pipeline {
     }
 
     parameters {
+        booleanParam(
+            name: 'USE_ONDEMAND',
+            defaultValue: false,
+            description: 'Use an on-demand agent instead of spot (for RC/Release testing). The ROSA workers are on-demand either way.'
+        )
         choice(
             name: 'OCP_VERSION',
             choices: ['4.21', '4.20', '4.19', '4.18'],
