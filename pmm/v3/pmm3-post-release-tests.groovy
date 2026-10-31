@@ -18,7 +18,8 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs: checksums, then a
 //                        smoke run of their binaries on Oracle Linux 8 and 9
 //   Docker               fresh install through percona.com/get/pmm; when it passes, fires the
-//                        RELEASE_PRS_ROUTINE_ID Routine to open the release PRs,
+//                        RELEASE_PRS_ROUTINE_ID Routine to open the release PRs and start
+//                        the mongodb_exporter release,
 //                        then waits for the release in the PROD Version Service, then
 //                        previous -> latest upgrade with the @post-release specs run before it
 //
@@ -377,7 +378,7 @@ ENDSSH
                                 script {
                                     // Each command runs a pmm-ai skill in the RELEASE_PRS_ROUTINE Routine, the way
                                     // people opened these PRs together once the GA images were public. Without its
-                                    // credentials in Jenkins the PRs are opened by hand; the waits cover both.
+                                    // credentials in Jenkins this is done by hand; the waits cover both.
                                     // The Helm bump command joins this list once its skill exists.
                                     def commands = []
                                     def inVersionService = sh(returnStatus: true, script: '''
@@ -387,6 +388,18 @@ ENDSSH
                                     if (!inVersionService) {
                                         def notes = "https://raw.githubusercontent.com/percona/pmm/v${env.PMM_SERVER_LATEST}/documentation/docs/release-notes/${env.PMM_SERVER_LATEST}.md"
                                         commands.add("/pmm-release:version-pr-ga ${env.PMM_SERVER_LATEST} ${notes}")
+                                    }
+                                    // Checklist item 40. The skill stops after its preflight until a person says yes in
+                                    // the Routine's session, since the tag push publishes the images.
+                                    def exporterVersion = sh(returnStdout: true, script: '''
+                                        curl -fsS https://raw.githubusercontent.com/percona/mongodb_exporter/main/VERSION || true
+                                    ''').trim()
+                                    if (!(exporterVersion ==~ /v\d+\.\d+\.\d+/)) {
+                                        echo "Could not read mongodb_exporter's VERSION ('${exporterVersion}'); release it by hand"
+                                    } else if (sh(returnStatus: true, script: """
+                                        curl -fsS -o /dev/null https://api.github.com/repos/percona/mongodb_exporter/git/ref/tags/${exporterVersion}
+                                    """) != 0) {
+                                        commands.add("/pmm-dev:mongodb-exporter-release release ${exporterVersion}")
                                     }
                                     commands.each { command ->
                                         try {
@@ -408,7 +421,7 @@ ENDSSH
                                             }
                                             echo "Started: ${command}"
                                         } catch (Throwable e) {
-                                            echo "Could not start '${command}', open that PR by hand: ${e.message}"
+                                            echo "Could not start '${command}', do it by hand: ${e.message}"
                                         }
                                     }
                                 }
