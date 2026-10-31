@@ -162,22 +162,36 @@ pipeline {
                             --instance-ids $INSTANCE_ID \
                             --region $AWS_DEFAULT_REGION \
                             --output text \
-                            --query 'Reservations[].Instances[].PublicIpAddress' \
-                            | tee PUBLIC_IP
-
-                        echo "PUBLIC_IP: $(cat PUBLIC_IP)"
-
-
-                        aws ec2 describe-instances \
-                            --instance-ids $INSTANCE_ID \
-                            --region $AWS_DEFAULT_REGION \
-                            --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
 
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
+
+                        # A pending instance can have no public IP yet: read straight after run-instances it once came
+                        # back empty, and the SSH wait below looped on "admin@" until the caller's timeout aborted it.
+                        PUBLIC_IP=""
+                        for attempt in $(seq 1 24); do
+                            PUBLIC_IP=$(
+                                aws ec2 describe-instances \
+                                    --instance-ids $INSTANCE_ID \
+                                    --region $AWS_DEFAULT_REGION \
+                                    --output text \
+                                    --query 'Reservations[].Instances[].PublicIpAddress'
+                            )
+                            if [ -n "$PUBLIC_IP" ] && [ "$PUBLIC_IP" != "None" ]; then
+                                break
+                            fi
+                            PUBLIC_IP=""
+                            sleep 5
+                        done
+                        if [ -z "$PUBLIC_IP" ]; then
+                            echo "ERROR: instance $INSTANCE_ID has no public IP 2 minutes after reaching running"
+                            exit 1
+                        fi
+                        echo "$PUBLIC_IP" > PUBLIC_IP
+                        echo "PUBLIC_IP: $PUBLIC_IP"
                     '''
                 }
                 script {
@@ -188,9 +202,10 @@ pipeline {
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} date; do
-                            sleep 5
-                        done
+                        if ! timeout 600 bash -c 'until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} date; do sleep 5; done'; then
+                            echo "ERROR: no SSH to admin@${PUBLIC_IP} within 10 minutes"
+                            exit 1
+                        fi
 
                         if [ -n "$SSH_KEY" ]; then
                             echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} 'cat - >> .ssh/authorized_keys'
