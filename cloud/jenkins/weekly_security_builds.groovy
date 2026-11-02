@@ -465,12 +465,14 @@ String fixVulnerabilities(Map context) {
         def baseCommit = libraries.tools.gitHead()
 
         goSecurityFixScript(context)
+        updateOperatorImageReferences(context)
 
         if (libraries.tools.gitHead() == baseCommit) {
-            return ''
+            error(
+                "No security changes or operator image updates were generated " +
+                "for ${context.SECURITY_BRANCH}"
+            )
         }
-
-        updateOperatorImageReferences(context)
 
         def summary = sh(
             script: """
@@ -539,13 +541,15 @@ boolean addVulnerabilityBadge() {
 void buildImage(Map context) {
     echo "Building BUILD image: ${context.BUILD_IMAGE}"
 
-    libraries.credentials.withDockerCredentials {
-        libraries.tools.dockerBuildAndPush(
-            operator: context.OPERATOR,
-            operatorImage: context.BUILD_IMAGE_REPOSITORY,
-            branch: context.NUMBERED_IMAGE_TAG,
-            sourceDir: '.'
-        )
+    withEnv(['DOCKER_NOCACHE=1']) {
+        libraries.credentials.withDockerCredentials {
+            libraries.tools.dockerBuildAndPush(
+                operator: context.OPERATOR,
+                operatorImage: context.BUILD_IMAGE_REPOSITORY,
+                branch: context.NUMBERED_IMAGE_TAG,
+                sourceDir: '.'
+            )
+        }
     }
 }
 
@@ -865,15 +869,6 @@ void runRepositoryPipeline(Map repository, Map execution) {
 
         trackedStage(execution, 'Fix Vulnerabilities') {
             vulnerabilitySummary = fixVulnerabilities(context)
-        }
-
-        if (!vulnerabilitySummary) {
-            skipRemainingStages(
-                execution.currentStage,
-                "No fixable Go vulnerabilities found for ${repository.name}"
-            )
-
-            return
         }
 
         trackedStage(execution, 'Build') {
