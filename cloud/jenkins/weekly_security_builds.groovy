@@ -465,12 +465,14 @@ String fixVulnerabilities(Map context) {
         def baseCommit = libraries.tools.gitHead()
 
         goSecurityFixScript(context)
+        updateOperatorImageReferences(context)
 
         if (libraries.tools.gitHead() == baseCommit) {
-            return ''
+            error(
+                "No security changes or operator image updates were generated " +
+                "for ${context.SECURITY_BRANCH}"
+            )
         }
-
-        updateOperatorImageReferences(context)
 
         def summary = sh(
             script: """
@@ -539,17 +541,60 @@ boolean addVulnerabilityBadge() {
 void buildImage(Map context) {
     echo "Building BUILD image: ${context.BUILD_IMAGE}"
 
-    libraries.credentials.withDockerCredentials {
-        libraries.tools.dockerBuildAndPush(
-            operator: context.OPERATOR,
-            operatorImage: context.BUILD_IMAGE_REPOSITORY,
-            branch: context.NUMBERED_IMAGE_TAG,
-            sourceDir: '.'
-        )
+    withEnv(['DOCKER_NOCACHE=1']) {
+        libraries.credentials.withDockerCredentials {
+            libraries.tools.dockerBuildAndPush(
+                operator: context.OPERATOR,
+                operatorImage: context.BUILD_IMAGE_REPOSITORY,
+                branch: context.NUMBERED_IMAGE_TAG,
+                sourceDir: '.'
+            )
+        }
     }
 }
 
 String createPullRequest(Map context) {
+    def vulnerabilityTable = sh(
+        script: '''
+            jq -r '
+                def cell:
+                    tostring | gsub("[\\r\\n]"; " ") | gsub("[|]"; "&#124;");
+                [
+                    .Results[]? as $result |
+                    $result.Vulnerabilities[]? |
+                    select(.Severity == "HIGH" or .Severity == "CRITICAL") |
+                    {
+                        id: .VulnerabilityID,
+                        severity: .Severity,
+                        package: .PkgName,
+                        installed: .InstalledVersion,
+                        fixed: (.FixedVersion // ""),
+                        target: $result.Target
+                    }
+                ] | unique | sort_by(.severity, .id, .package, .target) |
+                (
+                    ["Vulnerability", "Severity", "Package", "Previous version",
+                     "Fix versions reported by Trivy", "Target"],
+                    ["---", "---", "---", "---", "---", "---"],
+                    (.[] | [.id, .severity, .package, .installed, .fixed, .target])
+                ) |
+                "| " + (map(cell) | join(" | ")) + " |"
+            ' trivy.json
+        ''',
+        returnStdout: true
+    ).trim()
+    def body = [
+        "Automated security update for `${context.SECURITY_BRANCH}`.",
+        '',
+        "- Previous image: `${context.PREVIOUS_RELEASE_IMAGE}`",
+        "- Verified image: `${context.BUILD_IMAGE}`",
+        '',
+        '## Vulnerabilities',
+        '',
+        'Findings and recommended fix versions from the previous image scan:',
+        '',
+        vulnerabilityTable
+    ].join('\n')
     return withEnv(["REPO_PATH=${context.REPO_PATH}"]) {
         libraries.credentials.withGitHubCredentials {
             libraries.tools.githubCreatePullRequest(
@@ -558,7 +603,7 @@ String createPullRequest(Map context) {
                 context.SECURITY_BRANCH,
                 context.SECURITY_BASE_BRANCH,
                 "Security build ${context.SECURITY_BRANCH}",
-                "Automated security update for ${context.SECURITY_BRANCH}."
+                body
             )
         }
     }
@@ -865,15 +910,6 @@ void runRepositoryPipeline(Map repository, Map execution) {
 
         trackedStage(execution, 'Fix Vulnerabilities') {
             vulnerabilitySummary = fixVulnerabilities(context)
-        }
-
-        if (!vulnerabilitySummary) {
-            skipRemainingStages(
-                execution.currentStage,
-                "No fixable Go vulnerabilities found for ${repository.name}"
-            )
-
-            return
         }
 
         trackedStage(execution, 'Build') {
