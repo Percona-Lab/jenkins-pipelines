@@ -64,9 +64,7 @@ void createCluster(Map clusterCfg) {
             ]) {
                 int exitCode = 1
                 for (int attempt = 1; attempt <= 15; attempt++) {
-                    if (clusterExists(clusterCfg)) {
-                        shutdownCluster(clusterCfg, true)
-                    }
+                    shutdownCluster(clusterCfg, false)
 
                     exitCode = sh(
                         returnStatus: true,
@@ -122,24 +120,27 @@ void createCluster(Map clusterCfg) {
     }
 }
 
-void shutdownCluster(Map clusterCfg, boolean waitForDeletion = false) {
+void shutdownCluster(Map clusterCfg, boolean async = true) {
     timeout(time: 30, unit: 'MINUTES') {
+        if (!clusterExists(clusterCfg)) {
+            return
+        }
         withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
             withEnv([
                 "CLUSTER_SUFFIX=${clusterCfg.clusterSuffix}",
                 "CLUSTER_NAME=${clusterCfg.clusterName}",
-                "GKE_REGION=${clusterCfg.zone}"
+                "GKE_REGION=${clusterCfg.zone}",
+                "DELETE_ASYNC_FLAG=${async ? '--async' : ''}"
             ]) {
-                if (waitForDeletion) {
-                    sh '''
-                        gcloud container clusters delete "$CLUSTER_NAME-$CLUSTER_SUFFIX" \
-                            --project "$GCP_PROJECT" --zone "$GKE_REGION" --quiet
-                    '''
-                } else {
-                    sh '''
-                        gcloud container clusters delete --async --zone $GKE_REGION $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-                    '''
-                }
+                sh '''
+                    gcloud container clusters delete "$CLUSTER_NAME-$CLUSTER_SUFFIX" \
+                        --project "$GCP_PROJECT" \
+                        --zone "$GKE_REGION" \
+                        ${DELETE_ASYNC_FLAG} \
+                        --quiet ||
+                        echo "Warning: unable to delete GKE cluster " \
+                            "${CLUSTER_NAME}-${CLUSTER_SUFFIX}; continuing"
+                '''
             }
         }
     }
