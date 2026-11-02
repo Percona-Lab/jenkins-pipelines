@@ -1,5 +1,5 @@
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@check-pxb-sbom", retriever: modernSCM([
         $class: 'GitSCMSource',
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
@@ -213,6 +213,21 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                 choices: ['NORMAL', 'PRO'],
                 description: 'Choose the product to test',
                 name: 'REPO_TYPE'
+            ),
+            choice(
+                choices: ['warn', 'enforce', 'off'],
+                description: 'PXB SBOM verification. warn: validate the SBOM files when the package ships them, skip when it does not (PXB does not ship them yet). enforce: require them. off: skip entirely.',
+                name: 'SBOM_CHECK_MODE'
+            ),
+            choice(
+                choices: ['warn', 'enforce', 'off'],
+                description: 'Vulnerability scanning of the SBOM. Gated separately from SBOM_CHECK_MODE so a new upstream CVE in a vendored library does not fail package testing.',
+                name: 'SBOM_VULN_MODE'
+            ),
+            booleanParam(
+                defaultValue: true,
+                description: 'Install trivy and cyclonedx-cli once, on this Jenkins agent, and run the SBOM schema validation and vulnerability scan there over the files every target collected. Untick to skip them; the checks then report as skipped rather than failing.',
+                name: 'SBOM_EXTERNAL_TOOLS'
             )
         ])
     ])
@@ -229,6 +244,10 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
         scenario_to_test = "${params.scenario_to_test}"
         REPO_TYPE = "${params.REPO_TYPE}"
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
+        SBOM_CHECK_MODE = "${params.SBOM_CHECK_MODE}"
+        SBOM_VULN_MODE = "${params.SBOM_VULN_MODE}"
+        SBOM_EXTERNAL_TOOLS = "${params.SBOM_EXTERNAL_TOOLS}"
+        SBOM_LICENSE_STRICT = "1"
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())
@@ -299,6 +318,12 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         osList = osList.findAll { !it.endsWith('-arm') }
                                     }
 
+                                    // Every launched platform must send back an SBOM
+                                    // collection (runSbomChecks). Scenario names equal
+                                    // these entries, and each target labels its
+                                    // collection with MOLECULE_SCENARIO_NAME.
+                                    env.SBOM_EXPECTED_PLATFORMS = osList.join(',')
+
                                     if (REPO_TYPE == 'PRO') {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             script {
@@ -323,8 +348,26 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                     //sh "mkdir ARTIFACTS && cp *.zip ARTIFACTS/"
                                     //sh "ls -la ARTIFACTS/"
                                     //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
-                                    archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
+                                    // The SBOM collections are stored unpacked, per platform,
+                                    // by archiveSbomFiles() below -- not as raw zips.
+                                    archiveArtifacts artifacts: '*.zip', excludes: '*_sbom.zip', allowEmptyArchive: true
 
+                                    // The SBOM checks run HERE, once per platform, over the
+                                    // collections the targets fetched back (*_sbom.zip, from
+                                    // tasks/check_pxb_sbom.yml). Only the install playbooks
+                                    // collect. In post/always so a failed platform does not
+                                    // stop the others from being checked.
+                                    if (scenario_to_test == 'install') {
+                                        runSbomChecks(product: 'pxb')
+                                        archiveSbomFiles()
+                                    }
+
+                                    // allowEmptyResults: true because only install runs
+                                    // produce this file -- upgrade, major_upgrade, kms and
+                                    // kmip runs must not fail for lacking it.
+                                    junit testResults: 'sbom-junit.xml',
+                                          keepLongStdio: true,
+                                          allowEmptyResults: true
 
                                 }
                             }
