@@ -49,6 +49,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             else
                 wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-9.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-9.0_builder.sh -o ps_builder.sh
             fi
+            # Use the GitHub mirror instead of git.savannah.gnu.org
+            sed -i 's|git.savannah.gnu.org/git|github.com/cgitmirror|g' ps_builder.sh
+            grep -n 'github.com/cgitmirror' ps_builder.sh || true
             export build_dir=\$(pwd -P)
             if [ "$DOCKER_OS" = "none" ]; then
                 set -o xtrace
