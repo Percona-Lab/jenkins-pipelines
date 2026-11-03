@@ -273,10 +273,30 @@ void installProviderDependencies(Map libraries, String operator, String provider
     installClusterProviderTools(provider, platformVersion)
 }
 
+void retryDependencyInstallation(Closure installation) {
+    int maxAttempts = 3
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            installation()
+            return
+        } catch (Exception error) {
+            if (attempt == maxAttempts) {
+                throw error
+            }
+
+            echo "Dependency installation failed on attempt ${attempt}/${maxAttempts}. Retrying in 10 seconds..."
+            sleep(time: 10, unit: 'SECONDS')
+        }
+    }
+}
+
 void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
-    install()
-    installExecutorDependencies(testExecutorType)
-    installProviderDependencies(libraries, operator, provider, platformVersion)
+    retryDependencyInstallation {
+        install()
+        installExecutorDependencies(testExecutorType)
+        installProviderDependencies(libraries, operator, provider, platformVersion)
+    }
 }
 
 return this

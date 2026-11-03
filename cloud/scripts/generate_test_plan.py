@@ -503,6 +503,7 @@ def _mysql_software_versions(versions: dict[str, str]) -> list[str]:
     _add_if_exists(lines, versions, "IMAGE_HAPROXY", "HAProxy")
     _add_if_exists(lines, versions, "IMAGE_ORCHESTRATOR", "Orchestrator")
     _add_if_exists(lines, versions, "IMAGE_TOOLKIT", "Percona Toolkit")
+    _add_if_exists(lines, versions, "IMAGE_BINLOG_SERVER", "Binlog Server")
     _add_if_exists(lines, versions, "IMAGE_LOG_COLLECTOR", "LogCollector (fluent-bit)")
     _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
     _add_cert_manager(lines, versions)

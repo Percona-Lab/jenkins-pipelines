@@ -10,10 +10,6 @@
     concurrent: false
     description: |
         Do not edit this job through the web!
-    # Disable scheduled triggers
-    # triggers:
-    #   - parameterized-timer:
-    #       cron: '{schedule} % OPERATOR={repository}'
     pipeline-scm:
         scm:
           - git:
@@ -29,5 +25,5 @@
     jobs:
       - 'operators-weekly-security-builds/weekly-security-builds-{repository_id}':
           repository_id: pso
-          repository: percona-server-mysql-operator
-          schedule: '0 12 * * 1'
+      - 'operators-weekly-security-builds/weekly-security-builds-{repository_id}':
+          repository_id: psmdbo

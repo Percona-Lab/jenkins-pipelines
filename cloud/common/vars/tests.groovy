@@ -293,6 +293,7 @@ void validateTestVariables(Map testVariables) {
         'kubeconfig',
         'kubeconfigPath',
         'libraries',
+        'machine_type',
         'numClusters',
         'operator',
         'pillar_version',
@@ -552,7 +553,7 @@ String artifactFileName(Map testVariables, String testName) {
         getDbVersion(testVariables),
         "CW_${testVariables.cluster_wide}",
         testVariables.params_hash
-    ].findAll { it?.toString()?.trim() }.join('-')
+    ].findAll { it?.toString()?.trim() }.join('-').replaceAll(/[^a-zA-Z0-9._-]/, '-')
 }
 
 String buildParamsHash(Map testVariables) {

@@ -265,6 +265,7 @@ pipeline {
                                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                                         -e PMM_WATCHTOWER_TOKEN=testToken \
                                         -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+                                        -e PMM_ENABLE_TELEMETRY=0 \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 

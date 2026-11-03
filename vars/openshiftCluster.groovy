@@ -830,7 +830,8 @@ def deployPMM(Map params) {
                 --set platform=openshift \\
                 --set service.type=${serviceType} \\
                 --set image.repository=${params.pmmImageRepository} \\
-                --set image.tag=${params.pmmImageTag}"""
+                --set image.tag=${params.pmmImageTag} \\
+                --set-string pmmEnv.PMM_ENABLE_TELEMETRY=0"""
 
         // Set password based on user input
         // Only generate random password if value is '<GENERATED>' or empty

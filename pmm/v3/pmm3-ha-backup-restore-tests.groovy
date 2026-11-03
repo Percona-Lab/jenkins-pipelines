@@ -30,6 +30,46 @@ void provisionCluster() {
     env.CLUSTER_BUILD_NUMBER = clusterCreateJob.number.toString()
 }
 
+// As in pmm3-ha-rosa: a few minutes after a ROSA HCP cluster turns ready, its API hostname can
+// stop resolving ("dial tcp: lookup api...: no such host"), and the p3.openshiftapps.com SOA lets
+// resolvers cache that NXDOMAIN for 15 minutes. The install starts inside that window, so it
+// waits up to 20 minutes for the API to come back. kubectl, since this agent has no oc.
+def waitForClusterApi() {
+    sh '''
+        set +x
+        for i in $(seq 1 40); do
+            if OUT=$(kubectl get --raw /readyz --request-timeout=10s 2>&1); then
+                exit 0
+            fi
+            echo "Cluster API not reachable (${i}/40), retrying in 30s: $(echo "${OUT}" | tail -n 1)"
+            sleep 30
+        done
+        echo "ERROR: the cluster API is still not reachable after 20 minutes."
+        exit 1
+    '''
+}
+
+// Runs body again when it failed because the cluster API went away under it. A failure while
+// the API still answers is real and is rethrown at once. body must be safe to repeat.
+def withClusterApiRetry(Closure body) {
+    def attempts = 3
+    for (int i = 1; i <= attempts; i++) {
+        waitForClusterApi()
+        try {
+            body()
+            return
+        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+            throw e
+        } catch (err) {
+            def apiUp = sh(returnStatus: true, script: 'kubectl get --raw /readyz --request-timeout=10s >/dev/null 2>&1') == 0
+            if (apiUp || i == attempts) {
+                throw err
+            }
+            echo "The cluster API went away during this stage, running it again (attempt ${i + 1}/${attempts})"
+        }
+    }
+}
+
 pipeline {
     agent {
         label 'agent-amd64'
@@ -220,18 +260,26 @@ pipeline {
                         "CHART_REPO=${params.HELM_CHART_REPO}",
                         "PMM_CLIENT_IMAGE=${clientImage}",
                     ]) {
-                        sh '''
-                            /srv/pmm-qa/k8s/install_pmm_ha.sh \
-                                --platform "${PLATFORM}" \
-                                --image "${DOCKER_VERSION}" \
-                                --chart-branch "${HELM_CHART_BRANCH}" \
-                                --backup-minio \
-                                --external-access \
-                                --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
-                                --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}" \
-                                --summary-file "${PMM_HA_SUMMARY}" \
-                                --debug-dir "${WORKSPACE}/pmm-ha-debug"
-                        '''
+                        // install_pmm_ha.sh keeps an existing pmm-secret and backup secret and
+                        // re-applies everything else, so a rerun picks up where the API went away.
+                        withClusterApiRetry {
+                            sh '''
+                                # helm leaves a release locked in pending-* when it loses the API
+                                # mid-operation; nothing else runs helm on this cluster.
+                                kubectl delete secret -n pmm --ignore-not-found \
+                                    -l 'owner=helm,status in (pending-install,pending-upgrade,pending-rollback)'
+                                /srv/pmm-qa/k8s/install_pmm_ha.sh \
+                                    --platform "${PLATFORM}" \
+                                    --image "${DOCKER_VERSION}" \
+                                    --chart-branch "${HELM_CHART_BRANCH}" \
+                                    --backup-minio \
+                                    --external-access \
+                                    --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
+                                    --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}" \
+                                    --summary-file "${PMM_HA_SUMMARY}" \
+                                    --debug-dir "${WORKSPACE}/pmm-ha-debug"
+                            '''
+                        }
                     }
 
                     def pmmAddress = sh(
