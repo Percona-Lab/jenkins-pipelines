@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@molecule_upgrade", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -78,12 +78,12 @@ pipeline {
         }
     }
     post {
-//      success {
-//          slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PS4M package tests for mongot ${MONGOT_VERSION} with ${PSMDB_REPO} repo ${REPO} - finished succesfully - [${BUILD_URL}]")
-//      }
-//      failure {
-//          slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PS4M package tests for mongot ${MONGOT_VERSION} with ${PSMDB_REPO} repo ${REPO} - failed - [${BUILD_URL}]")
-//      }
+        success {
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PS4M package tests for mongot ${MONGOT_VERSION} with ${PSMDB_REPO} repo ${REPO} - finished succesfully - [${BUILD_URL}]")
+        }
+        failure {
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PS4M package tests for mongot ${MONGOT_VERSION} with ${PSMDB_REPO} repo ${REPO} - failed - [${BUILD_URL}]")
+        }
         always {
             script {
                 moleculeParallelPostDestroy(ps4mOperatingSystems(), moleculeDir)
