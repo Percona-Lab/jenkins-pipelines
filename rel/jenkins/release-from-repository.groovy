@@ -254,6 +254,7 @@ ENDSSH
                                    PRODUCT=\$(echo ${PATH_TO_BUILD} | awk -F '/' '{print \$3}')
                                    RELEASE=\$(echo ${PATH_TO_BUILD} | awk -F '/' '{print \$4}')
                                    REVISION=\$(echo ${PATH_TO_BUILD} | awk -F '/' '{print \$6}')
+                                   PRN=\$(echo ${PATH_TO_BUILD} | awk -F '/' '{print \$5}' | awk -F '-' '{ if (NF > 2) print "-" \$NF }')
                                    RELEASEDIR="/srv/UPLOAD/${PATH_TO_BUILD}/.tmp/\${PRODUCT}/\${RELEASE}"
                                    LCREPOSITORY=\$(echo "${REPOSITORY}" | tr '[:upper:]' '[:lower:]')
                                    rm -fr /srv/UPLOAD/${PATH_TO_BUILD}/.tmp
@@ -316,8 +317,8 @@ ENDSSH
                                    ln -s \${RELEASE} LATEST
                                    cd /srv/UPLOAD/${PATH_TO_BUILD}/.tmp
                                    if [ ${PROBUILD} = YES ]; then
-                                       mkdir -p /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}
-                                       cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}/
+                                       mkdir -p /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}\${PRN}
+                                       cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}\${PRN}/
                                    else
                                        if [ ${COPY_TELEMETRY} = YES ]; then
                                            touch \${RELEASEDIR}/binary/telemetry-enhanced.json
