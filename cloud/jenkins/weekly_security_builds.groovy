@@ -764,7 +764,7 @@ Map runTests(Map repository, Map context) {
     def testParameters = [
         TEST_SUITE        : repository.testSuite,
         GIT_BRANCH       : context.SECURITY_BASE_BRANCH,
-        IMAGE_OPERATOR   : context.BUILD_IMAGE,
+        IMAGE_OPERATOR   : context.RELEASE_IMAGE,
         GKE_RELEASE_CHANNEL: 'stable',
         CLUSTER_WIDE     : 'YES',
         PILLAR_VERSION   : context.PILLAR_VERSION
@@ -986,7 +986,7 @@ void runRepositoryPipeline(Map repository, Map execution) {
                 env.SECURITY_BUILD_REPOSITORY = context.REPO_PATH
                 env.SECURITY_BUILD_TEST_JOB = repository.testJob
                 env.SECURITY_BUILD_BRANCH = context.SECURITY_BASE_BRANCH
-                env.SECURITY_BUILD_TEST_IMAGE = context.BUILD_IMAGE
+                env.SECURITY_BUILD_TEST_IMAGE = context.RELEASE_IMAGE
 
                 throw failure
             }
