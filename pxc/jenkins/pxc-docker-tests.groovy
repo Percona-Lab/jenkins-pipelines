@@ -10,8 +10,26 @@ pipeline_timeout = 10
 // derived deterministically from PXC_VERSION instead.
 def dockerAcc()     { return params.EOL == 'yes' ? 'percona' : params.DOCKER_ACC }
 def dockerProduct() { return params.EOL == 'yes' ? 'percona-xtradb-cluster' : params.DOCKER_PRODUCT }
-def dockerTag()     { return params.EOL == 'yes' ? params.PXC_VERSION : params.DOCKER_TAG }
+def dockerTag() {
+    if (params.EOL == 'yes') { return params.PXC_VERSION }
+    // Active Choices HTML inputs can submit a trailing comma; strip it
+    def tag = (params.DOCKER_TAG ?: '').trim().replaceAll(/,+$/, '')
+    return (tag && tag != 'NA') ? tag : params.PXC_VERSION
+}
 def pxcImage()      { return "${dockerAcc()}/${dockerProduct()}:${dockerTag()}" }
+
+// Private repo folder that holds the EOL docker tarball, selected by REPO (EOL only).
+// testing -> qa-test gated folder, main -> pxc-80-eol tarballs folder.
+def eolRepoPath(String baseVersion) {
+    switch (params.REPO) {
+        case 'testing':
+            return "qa-test/pxc-gated-${baseVersion}"
+        case 'main':
+            return "pxc-80-eol/tarballs/Percona-XtraDB-Cluster-${baseVersion}"
+        default:
+            error("EOL REPO '${params.REPO}' is not supported (use testing or main)")
+    }
+}
 
 // Download the PXC EOL docker image tarball from the PS private (gated) repo and load it
 // locally. EOL images are not published to Docker Hub, so they are pulled from
@@ -26,7 +44,7 @@ def loadEolImage(String arch) {
         def baseVersion = params.PXC_VERSION.substring(0, lastDot)   // 8.0.46-39
         def pkgBuild    = params.PXC_VERSION.substring(lastDot + 1)  // 1
         def tarball     = "percona-xtradb-cluster-${baseVersion}-${pkgBuild}-${arch}.docker.tar"
-        def dockerTarURL = "https://repo.percona.com/private/\${USERNAME}-\${PASSWORD}/qa-test/pxc-gated-${baseVersion}/${tarball}"
+        def dockerTarURL = "https://repo.percona.com/private/\${USERNAME}-\${PASSWORD}/${eolRepoPath(baseVersion)}/${tarball}"
         // Load the tarball and re-tag whatever image it contains to the EOL reference
         // (percona/percona-xtradb-cluster:${PXC_VERSION}), so trivy and the pytest suite scan
         // the downloaded EOL image without relying on the N/A DOCKER_ inputs.
@@ -65,6 +83,17 @@ properties([
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
+            name: 'REPO',
+            description: 'Private repo to take the EOL docker image from (only when EOL=yes, NA otherwise)',
+            referencedParameters: 'EOL',
+            script: [
+                $class: 'GroovyScript',
+                script: [classpath: [], sandbox: true, script: 'return (EOL == "yes") ? ["testing", "main"] : ["NA"]']
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
             name: 'DOCKER_ACC',
             description: 'Docker Hub account for the PXC image (N/A when EOL=yes)',
             referencedParameters: 'EOL',
@@ -84,15 +113,21 @@ properties([
                 script: [classpath: [], sandbox: true, script: 'return (EOL == "yes") ? ["NA"] : ["percona-xtradb-cluster"]']
             ]
         ],
-        [
-            $class: 'CascadeChoiceParameter',
-            choiceType: 'PT_SINGLE_SELECT',
+                [
+            $class: 'DynamicReferenceParameter',
+            choiceType: 'ET_FORMATTED_HTML',
             name: 'DOCKER_TAG',
-            description: 'Docker tag to test (N/A when EOL=yes)',
+            description: 'Docker tag to test. Leave empty to use PXC_VERSION (N/A when EOL=yes)',
             referencedParameters: 'EOL',
+            omitValueField: false,
             script: [
                 $class: 'GroovyScript',
-                script: [classpath: [], sandbox: true, script: 'return (EOL == "yes") ? ["NA"] : ["8.0.22-13.1"]']
+                script: [classpath: [], sandbox: true, script: '''
+                    if (EOL == "yes") {
+                        return '<input name="value" class="setting-input" type="text" value="NA" readonly>'
+                    }
+                    return '<input name="value" class="setting-input" type="text" value="">'
+                ''']
             ]
         ],
         string(name: 'PXC_VERSION', defaultValue: '8.0.22-13.1', description: 'Full PXC version'),
@@ -125,7 +160,7 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "#${BUILD_NUMBER}-${PXC_VERSION}-${PXC_REVISION}"
-                    currentBuild.description = params.EOL == 'yes' ? "EOL (gated repo)" : "${DOCKER_ACC}"
+                    currentBuild.description = params.EOL == 'yes' ? "EOL (${params.REPO})" : "${DOCKER_ACC}"
                 }
             }
         }
@@ -192,6 +227,7 @@ pipeline {
                                     export PXC_PXB_VERSION="${PXC_PXB_VERSION}"
                                     export PXC57_PKG_VERSION="${PXC57_PKG_VERSION}"
                                     export EOL="${EOL}"
+                                    export REPO="${params.REPO}"
                                     ./run.sh
                                 """
                             }
@@ -249,6 +285,7 @@ pipeline {
                                     export PXC_PXB_VERSION="${PXC_PXB_VERSION}"
                                     export PXC57_PKG_VERSION="${PXC57_PKG_VERSION}"
                                     export EOL="${EOL}"
+                                    export REPO="${params.REPO}"
                                     ./run.sh
                                 """
                             }
