@@ -78,12 +78,12 @@ pipeline {
          }
   }
     post {
-        success {
+//      success {
 //          slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for ${PDMDB_VERSION} repo ${REPO} finished succesfully - [${BUILD_URL}]")
-        }
-        failure {
+//      }
+//      failure {
 //          slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for ${PDMDB_VERSION} repo ${REPO} failed - [${BUILD_URL}]")
-        }
+//      }
         always {
             script {
                 moleculeParallelPostDestroy(pdmdbOperatingSystems(PDMDB_VERSION), moleculeDir)
