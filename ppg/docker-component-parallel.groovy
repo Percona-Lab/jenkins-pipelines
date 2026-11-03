@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(repo, server_version, server_docker_tag, component, component_docker_tag, component_version) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nRepo: ${repo}\nServer-Version: ${server_version}\nServer-Docker-tag: ${server_docker_tag}\nComponent: ${component}\nComponent-Docker-tag: ${component_docker_tag}\nComponent-Version: ${component_version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
