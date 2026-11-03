@@ -11,9 +11,9 @@
 //   installTrivy(htmlTpl: true)                      // also download html.tpl
 
 def call(Map args = [:]) {
-    def TRIVY_VERSION    = "0.74.0"
-    def CHECKSUM_AMD64   = "2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a"
-    def CHECKSUM_ARM64   = "b94ce1976bbf3c15b514b605ee88be7c6d94a29be2302847ff01cb794d47aad5"
+    def TRIVY_VERSION    = "0.76.0"
+    def CHECKSUM_AMD64   = "e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7"
+    def CHECKSUM_ARM64   = "aab21e677a7b7071fc79f1711480840754c18a1b9d9cefa7ccd06af63a0e8f4c"
     def CHECKSUM_HTMLTPL = "d36b637cc77bc1a49b1f9a2358173756cd27a5d3385fab6365c0bab09abe5f0a"
 
     def method    = args.get('method', 'auto')

@@ -243,7 +243,7 @@ if [ -f /usr/bin/yum ]; then
             sleep 1
         done
     elif [[ ${RHVER} -eq 9 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}; do
             echo "waiting"
             sleep 1
         done

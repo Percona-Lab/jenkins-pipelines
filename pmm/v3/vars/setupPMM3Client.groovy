@@ -83,7 +83,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only pmm3-client release
                 fi
 
-                export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
+                export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}' | sort -V | tail -1)
                 retry_dnf_install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else

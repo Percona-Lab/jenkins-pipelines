@@ -60,7 +60,22 @@ def fetch_pg_upgrade_tag():
     return max(tags, key=lambda t: [int(p) for p in t.replace("-", ".").split(".")])
 
 
-def fetch_dockerhub_tag(repo, prefix=None):
+# rc sorts below a later numeric Percona release: 9.7.1-1.1 > 9.7.1-rc1.1 > 9.7.1
+_XTRABACKUP_RC_RE = re.compile(r"^(\d+(?:\.\d+)*)-rc(\d+)(?:\.(\d+))?$")
+
+
+def _parse_docker_tag(name, allow_rc=False):
+    normalized = name.lstrip("v")
+    if allow_rc and (match := _XTRABACKUP_RC_RE.match(normalized)):
+        base, rc_num, image_rev = match.groups()
+        parts = [base, "0", rc_num]
+        if image_rev is not None:
+            parts.append(image_rev)
+        return parse_version(".".join(parts))
+    return parse_version(normalized.replace("-", "."))
+
+
+def fetch_dockerhub_tag(repo, prefix=None, allow_rc=False):
     params = {"page_size": 100}
     if prefix:
         params["name"] = str(prefix)
@@ -76,7 +91,34 @@ def fetch_dockerhub_tag(repo, prefix=None):
         if prefix and not name.startswith(f"{prefix}."):
             continue
         try:
-            parsed = parse_version(name.lstrip("v").replace("-", "."))
+            parsed = _parse_docker_tag(name, allow_rc=allow_rc)
+            if not parsed.is_prerelease:
+                versions.append((parsed, name))
+        except Exception:
+            continue
+    return max(versions)[1] if versions else None
+
+
+def fetch_rc_pxb_tag(repo, prefix=None):
+    return fetch_dockerhub_tag(repo, prefix, allow_rc=True)
+
+
+def fetch_ps_binlog_server_tag(release):
+    """Latest ${release}-binlog-server-* tag on percona/percona-server-mysql-operator."""
+    prefix = f"{release}-binlog-server-"
+    resp = _session.get(
+        "https://registry.hub.docker.com/v2/repositories/"
+        "percona/percona-server-mysql-operator/tags",
+        params={"page_size": 100, "name": prefix},
+    )
+    resp.raise_for_status()
+    versions = []
+    for tag in resp.json().get("results", []):
+        name = tag["name"]
+        if not name.startswith(prefix):
+            continue
+        try:
+            parsed = _parse_docker_tag(name[len(prefix) :])
             if not parsed.is_prerelease:
                 versions.append((parsed, name))
         except Exception:
@@ -282,7 +324,6 @@ def get_image_tasks(op):
         "psmdb": {
             "8.0": (D, "percona/percona-server-mongodb", "8.0"),
             "7.0": (D, "percona/percona-server-mongodb", "7.0"),
-            "6.0": (D, "percona/percona-server-mongodb", "6.0"),
             "backup": (D, "percona/percona-backup-mongodb", "2"),
             "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
@@ -342,12 +383,13 @@ def get_image_tasks(op):
             "9.7": (D, "percona/percona-server", "9.7"),
             "8.4": (D, "percona/percona-server", "8.4"),
             "8.0": (D, "percona/percona-server", "8.0"),
-            "backup97": (D, "percona/percona-xtrabackup", "9.7"),
+            "backup97": (fetch_rc_pxb_tag, "percona/percona-xtrabackup", "9.7"),
             "backup84": (D, "percona/percona-xtrabackup", "8.4"),
             "backup80": (D, "percona/percona-xtrabackup", "8.0"),
             "orchestrator": (D, "percona/percona-orchestrator"),
-            "haproxy": (D, "percona/haproxy"),
+            "haproxy": (D, "percona/haproxy", "2"),
             "toolkit": (D, "percona/percona-toolkit"),
+            "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
         },
     }.get(op, {})
@@ -359,12 +401,9 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("OPERATOR", "percona-server-mongodb-operator", operator_version),
             ("MONGOD80", "percona-server-mongodb", versions.get("8.0")),
             ("MONGOD70", "percona-server-mongodb", versions.get("7.0")),
-            ("MONGOD60", "percona-server-mongodb", versions.get("6.0")),
             ("BACKUP", "percona-backup-mongodb", versions.get("backup")),
-            ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            ("PMM_SERVER", "pmm-server", PMM_SERVER),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
             ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
         ],
         "pxc": [
@@ -410,8 +449,14 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("ORCHESTRATOR", "percona-orchestrator", versions.get("orchestrator")),
             ("TOOLKIT", "percona-toolkit", versions.get("toolkit")),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            (
+                "BINLOG_SERVER",
+                "percona-server-mysql-operator",
+                versions.get("binlog_server"),
+            ),
+            ("LOG_COLLECTOR", "fluentbit", versions.get("logcollector")),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
         ],
     }.get(op, [])
 
@@ -419,7 +464,10 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
 
 
 def get_image_lines(op, ver):
-    versions = fetch_parallel(get_image_tasks(op))
+    tasks = get_image_tasks(op)
+    if op == "ps":
+        tasks["binlog_server"] = (fetch_ps_binlog_server_tag, ver)
+    versions = fetch_parallel(tasks)
     pmm3 = versions.pop("pmm3", None)
     if op == "pg":
         return build_pg_image_lines(ver, versions, pmm3)

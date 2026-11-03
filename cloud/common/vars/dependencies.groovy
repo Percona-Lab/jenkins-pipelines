@@ -117,8 +117,8 @@ void installPxcTools() {
         sudo yum install -y percona-xtrabackup-84
     '''
 }
- 
-void installKuttl(String version = '0.25.0') {
+
+void installKuttl(String version = '0.27.0') {
     sh """
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
         command -v kubectl-krew >/dev/null || {
@@ -186,6 +186,30 @@ void installAzureCLI() {
     '''
 }
 
+void installTrivy(String version = '0.76.0') {
+    withEnv(["TRIVY_VERSION=${version}"]) {
+        sh '''
+            set -eu
+            case "$(uname -m)" in
+                aarch64|arm64) TRIVY_ARCH=ARM64 ;;
+                x86_64|amd64)  TRIVY_ARCH=64bit ;;
+                *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+            esac
+
+            [ "$(trivy --version 2>/dev/null | sed -n 's/.*Version: \\([0-9.]*\\).*/\\1/p')" = "$TRIVY_VERSION" ] && exit 0
+
+            archive="trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"
+            url="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+
+            curl -fsSLO "$url/$archive"
+            curl -fsSL "$url/trivy_${TRIVY_VERSION}_checksums.txt" | grep " $archive\$" | sha256sum -c -
+            sudo tar -xzf "$archive" -C /usr/local/bin trivy
+            rm -f "$archive"
+            trivy --version
+        '''
+    }
+}
+
 void installExecutorDependencies(String testExecutorType) {
     switch (testExecutorType) {
         case 'kuttl':
@@ -199,30 +223,28 @@ void installExecutorDependencies(String testExecutorType) {
     }
 }
 
-void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
-    // PSMDB requires Google and Azure CLIs, regardless of the provider.
-    // Rancher requires Google CLI to create cluster as GCE instances are used.
+Boolean needsGoogleAuth(String operator, String provider) {
+    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb' || operator == 'pxc'
+}
 
-    if (provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb-operator') {
-        installGoogleCLI()
-        libraries.gcloud.auth()
-    }
+Boolean needsAzureCli(String operator, String provider) {
+    return provider == 'azure' || operator == 'psmdb' || operator == 'pxc'
+}
 
-    if (provider == 'azure' || operator == 'psmdb-operator') {
-        installAzureCLI()
-        libraries.azure.auth()
-    }
-
+void installClusterProviderTools(String provider, String platformVersion) {
     if (provider == 'eks') {
         installEksctl()
+        return
     }
 
     if (provider == 'doks') {
         installDoctl()
+        return
     }
 
     if (provider == 'minikube') {
         installMinikube()
+        return
     }
 
     if (provider == 'openshift') {
@@ -230,10 +252,51 @@ void installProviderDependencies(Map libraries, String operator, String provider
     }
 }
 
+void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
+    // PSMDB and PXC require Google and Azure CLIs on every provider.
+    // Rancher uses Google CLI because clusters run on GCE.
+
+    if (operator == 'pxc') {
+        installPxcTools()
+    }
+
+    if (needsGoogleAuth(operator, provider)) {
+        installGoogleCLI()
+        libraries.gcloud.auth()
+    }
+
+    if (needsAzureCli(operator, provider)) {
+        installAzureCLI()
+        libraries.azure.auth()
+    }
+
+    installClusterProviderTools(provider, platformVersion)
+}
+
+void retryDependencyInstallation(Closure installation) {
+    int maxAttempts = 3
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            installation()
+            return
+        } catch (Exception error) {
+            if (attempt == maxAttempts) {
+                throw error
+            }
+
+            echo "Dependency installation failed on attempt ${attempt}/${maxAttempts}. Retrying in 10 seconds..."
+            sleep(time: 10, unit: 'SECONDS')
+        }
+    }
+}
+
 void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
-    install()
-    installExecutorDependencies(testExecutorType)
-    installProviderDependencies(libraries, operator, provider, platformVersion)
+    retryDependencyInstallation {
+        install()
+        installExecutorDependencies(testExecutorType)
+        installProviderDependencies(libraries, operator, provider, platformVersion)
+    }
 }
 
 return this

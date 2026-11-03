@@ -13,15 +13,30 @@ def sendSlackNotification(psp_repo, psp_branch, version, io_method, tde_branch) 
     }
 }
 
+// The operating systems to test: every supported one, or the PLATFORMS subset.
+// An unknown name fails the build instead of silently testing nothing.
+def selectedOperatingSystems() {
+    def all = ppgOperatingSystemsALL()
+    def wanted = (params.PLATFORMS ?: '').tokenize()
+    if (!wanted) {
+        return all
+    }
+    def unknown = wanted.findAll { !all.contains(it) }
+    if (unknown) {
+        error("Unknown PLATFORMS: ${unknown.join(' ')}. Supported: ${all.join(' ')}")
+    }
+    return all.findAll { wanted.contains(it) }
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
     }
     parameters {
         string(
-            name: 'VERSION',
             defaultValue: 'ppg-18.6',
-            description: 'Server PG version for test, including major and minor version, e.g ppg-18.6, ppg-17.9'
+            description: 'Server PG version for test, including major and minor version, e.g ppg-18.6, ppg-17.9',
+            name: 'VERSION'
         )
         choice(
             name: 'IO_METHOD',
@@ -29,9 +44,9 @@ pipeline {
             choices: ['sync', 'worker', 'io_uring']
         )
         string(
-            name: 'TESTING_BRANCH',
             defaultValue: 'main',
-            description: 'Branch for ppg-testing testing repository'
+            description: 'Branch for ppg-testing testing repository',
+            name: 'TESTING_BRANCH'
         )
         booleanParam(
             name: 'INSTALL_FROM_PACKAGES',
@@ -51,29 +66,39 @@ pipeline {
             description: "Install packages from the OBS (openSUSE Build Service) repo instead of repo.percona.com. REPO above still selects the channel (testing/release/experimental -> staging/releases/devel). ONLY applicable with INSTALL_FROM_PACKAGES enabled."
         )
         string(
-            name: 'OBS_HOST',
             defaultValue: '',
-            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).'
+            description: 'OBS instance hostname to use when USE_OBS_REPO is enabled. Leave empty for the default public instance (download.opensuse.org).',
+            name: 'OBS_HOST'
         )
         string(
-            name: 'PSP_REPO',
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
+        )
+        string(
+            defaultValue: '',
+            description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
+            name: 'PLATFORMS'
+        )
+        string(
             defaultValue: 'https://github.com/percona/postgres',
-            description: 'PSP repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
+            description: 'PSP repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'PSP_REPO'
         )
         string(
-            name: 'PSP_BRANCH',
             defaultValue: 'PSP_REL_18_STABLE',
-            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
+            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'PSP_BRANCH'
         )
         string(
-            name: 'TDE_REPO',
             defaultValue: 'https://github.com/percona/pg_tde.git',
-            description: 'pg_tde repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
+            description: 'pg_tde repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'TDE_REPO'
         )
         string(
-            name: 'TDE_BRANCH',
             defaultValue: 'release-2.2.0',
-            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
+            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.',
+            name: 'TDE_BRANCH'
         )
         choice(
             name: 'TEST_SUITE',
@@ -82,6 +107,11 @@ pipeline {
                 'Sanity',
                 'All'
             ]
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {
@@ -115,13 +145,15 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    // molecule.yml is generated from pg_tde/core/scenario.yml (not stored in git)
+                    sh "python3 tools/render.py --group ${env.MOLECULE_DIR}"
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -129,7 +161,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                moleculeParallelPostDestroyPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 // Slack notifications disabled for now.
                 // sendSlackNotification(env.PSP_REPO, env.PSP_BRANCH, env.VERSION, env.IO_METHOD, env.TDE_BRANCH)
             }

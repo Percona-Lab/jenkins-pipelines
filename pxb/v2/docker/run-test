@@ -13,6 +13,7 @@ function cleanup (){
   fi
   exit "${test_status}"
 }
+DOCKER_DIR=$(cd $(dirname $0); pwd -P)
 ROOT_DIR=$(cd $(dirname $0)/../sources; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-oraclelinux:9}
@@ -27,7 +28,13 @@ function check_pxb_network() {
   fi
 }
 
-if [[ ${WITH_AZURITE} == "ON" || ${WITH_XBCLOUD_TESTS} == "true" || ${WITH_VAULT_TESTS} == "true" || ${WITH_KMIP_TESTS} == "true" ]]; then
+# Only Percona Server ships the auth_openid_connect server plugin, so the
+# OIDC tests skip on every other target and need no Keycloak there.
+if [[ ${WITH_KEYCLOAK_TESTS} == "true" && ${XTRABACKUP_TARGET} != xtradb* ]]; then
+    WITH_KEYCLOAK_TESTS=false
+fi
+
+if [[ ${WITH_AZURITE} == "ON" || ${WITH_XBCLOUD_TESTS} == "true" || ${WITH_VAULT_TESTS} == "true" || ${WITH_KMIP_TESTS} == "true" || ${WITH_KEYCLOAK_TESTS} == "true" ]]; then
     DOCKER_NETWORK_FLAG="--network pxb_network"
 fi
 
@@ -82,6 +89,21 @@ if [[ ${WITH_KMIP_TESTS} == "true" ]]; then
     export KMIP_SERVER_IP=$(docker inspect kmip | egrep "\"IPAddress\": \"([0-9]{1,3}\.){3}[0-9]{1,3}" | awk -F'"' '{print $4}' | head -n 1)
 fi
 
+if [[ ${WITH_KEYCLOAK_TESTS} == "true" ]]; then
+    check_pxb_network
+    # suites/oidc/oidc_keycloak.sh logs in to this Keycloak and fetches an ID
+    # token when it runs, so no token is fetched here: it could expire before
+    # the test starts. The realm, client and user are imported at startup;
+    # the test waits until Keycloak answers.
+    KEYCLOAK_CONTAINER_ID=$(docker run -d --rm ${DOCKER_NETWORK_FLAG} --name keycloak --memory 1g \
+    --mount type=bind,source=${DOCKER_DIR}/keycloak-realm-pxb.json,destination=/opt/keycloak/data/import/pxb.json,readonly \
+    quay.io/keycloak/keycloak:26.0 start-dev --import-realm)
+    helper_containers+=("${KEYCLOAK_CONTAINER_ID}")
+    export KEYCLOAK_SERVER_IP=$(docker inspect keycloak | egrep "\"IPAddress\": \"([0-9]{1,3}\.){3}[0-9]{1,3}" | awk -F'"' '{print $4}' | head -n 1)
+    # An empty URL would make the OIDC test skip and the run pass.
+    [[ -n ${KEYCLOAK_SERVER_IP} ]] || { echo "Keycloak IP not found: the keycloak container is not running" >&2; exit 1; }
+fi
+
 XTRABACKUP_TARGET_VERSION=$(set | grep -i $XTRABACKUP_TARGET'_VERSION' | awk -F '=' '{print $2}')
 
 docker run --rm \
@@ -114,6 +136,7 @@ docker run --rm \
     export KMIP_SERVER_IP='${KMIP_SERVER_IP}'
     export KMIP_SERVER_ADDR='local.kmip.com'
     export KMIP_SERVER_PORT=5696
+    export KEYCLOAK_URL='${KEYCLOAK_SERVER_IP:+http://${KEYCLOAK_SERVER_IP}:8080}'
     mkdir /tmp/results
     cp /tmp/pxb/results/*.tar.gz /tmp/results
 

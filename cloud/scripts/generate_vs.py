@@ -189,6 +189,7 @@ def categorize_ps(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
         (lambda k: "ORCHESTRATOR" in k, "orchestrator"),
         (lambda k: "ROUTER" in k, "router"),
         (lambda k: "TOOLKIT" in k, "toolkit"),
+        (lambda k: "LOG_COLLECTOR" in k, "log_collector"),
     ]
     categories = [
         "mysql",
@@ -198,6 +199,7 @@ def categorize_ps(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
         "router",
         "toolkit",
         "backup",
+        "log_collector",
         "operator",
     ]
     return categorize_by_rules(images, hashes, rules, categories)
@@ -351,8 +353,8 @@ PXC_VERSION_LIMITS = {
 }
 
 PSMDB_VERSION_LIMITS = {
-    "mongod": {"8.0": 5, "7.0": 5, "6.0": 5},
-    "pmm": {"2": 1, "3": 1},
+    "mongod": {"8.0": 5, "7.0": 5},
+    "pmm": 1,
     "backup": 1,
     "log_collector": 1,
     "operator": 1,
@@ -366,6 +368,7 @@ PS_VERSION_LIMITS = {
     "router": {"9.7": 1, "8.4": 1, "8.0": 1},
     "toolkit": 1,
     "backup": {"9.7": 1, "8.4": 1, "8.0": 1},
+    "log_collector": 1,
     "operator": 1,
 }
 

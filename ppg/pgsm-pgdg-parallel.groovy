@@ -14,6 +14,21 @@ def sendSlackNotification(pgsm_repo, pgsm_branch, version) {
     }
 }
 
+// The operating systems to test: every supported one, or the PLATFORMS subset.
+// An unknown name fails the build instead of silently testing nothing.
+def selectedOperatingSystems() {
+    def all = ppgOperatingSystemsALL()
+    def wanted = (params.PLATFORMS ?: '').tokenize()
+    if (!wanted) {
+        return all
+    }
+    def unknown = wanted.findAll { !all.contains(it) }
+    if (unknown) {
+        error("Unknown PLATFORMS: ${unknown.join(' ')}. Supported: ${all.join(' ')}")
+    }
+    return all.findAll { wanted.contains(it) }
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
@@ -44,9 +59,24 @@ pipeline {
             name: 'OBS_HOST'
         )
         string(
+            defaultValue: '',
+            description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
+            name: 'OBS_PROJECT'
+        )
+        string(
             defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
+        )
+        string(
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.',
+            name: 'RUN_LABELS'
+        )
+        string(
+            defaultValue: '',
+            description: 'Space-separated operating systems to test, e.g. "rocky-9 debian-13 ubuntu-noble". Leave empty to test every supported OS.',
+            name: 'PLATFORMS'
         )
     }
     environment {
@@ -87,7 +117,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -95,7 +125,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                moleculeParallelPostDestroyPPG(selectedOperatingSystems(), env.MOLECULE_DIR)
                 sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.VERSION)
             }
             archiveArtifacts(

@@ -10,11 +10,12 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for OpenShift: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {
     def clusterSuffix = clusterCfg.clusterSuffix
+    def workerType = clusterCfg.machineType ?: 'm5.xlarge'
 
     timeout(time: 60, unit: 'MINUTES') {
         withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
@@ -33,7 +34,7 @@ compute:
   name: worker
   platform:
     aws:
-      type: m5.xlarge
+      type: ${workerType}
   replicas: 3
 controlPlane:
   architecture: amd64
@@ -58,7 +59,7 @@ platform:
     region: ${clusterCfg.region}
     userTags:
       iit-billing-tag: openshift
-      delete-cluster-after-hours: 7
+      delete-cluster-after-hours: 6
       team: cloud
       product: ${clusterCfg.product}
       creation-time: \$timestamp

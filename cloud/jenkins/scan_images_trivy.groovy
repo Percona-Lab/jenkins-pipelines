@@ -37,7 +37,7 @@ void scanImage(String image) {
 
             sg docker -c "
                 echo "\$PASS" | docker login -u "\$USER" --password-stdin
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/usr/local/bin/contrib/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
                 docker logout
             "
 
@@ -131,10 +131,7 @@ IMAGE_MYSQL84=percona/percona-server:8.4.10-10.1''',
                     echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz" | sha256sum -c -
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     rm -f trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-
-                    if [ ! -f /tmp/junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
+                    test -f /usr/local/bin/contrib/junit.tpl
 
                     if ! command -v uv >/dev/null 2>&1; then
                         curl -LsSf https://astral.sh/uv/install.sh | sh

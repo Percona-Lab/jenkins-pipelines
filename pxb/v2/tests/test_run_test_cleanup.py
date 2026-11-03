@@ -39,7 +39,8 @@ class RunTestCleanup(unittest.TestCase):
                                 XTRABACKUP_TARGET='innodb80', INNODB80_VERSION='8.0.35',
                                 CMAKE_BUILD_TYPE='RelWithDebInfo',
                                 WITH_XBCLOUD_TESTS='false', WITH_VAULT_TESTS='false',
-                                WITH_KMIP_TESTS='false', WITH_AZURITE='false')
+                                WITH_KMIP_TESTS='false', WITH_KEYCLOAK_TESTS='false',
+                                WITH_AZURITE='false')
 
     def run_runner(self):
         self.state_path.write_text(json.dumps(self.state))
@@ -110,6 +111,54 @@ class RunTestCleanup(unittest.TestCase):
         self.assertEqual(self.state['main_runs'], 0)
         self.assertEqual(self.state['containers'], existing)
         self.assertEqual(self.state['cleanup_targets'], ['a' * 64])
+
+    def test_keycloak_starts_for_percona_server_and_is_passed_to_the_tests(self):
+        self.environment.update(WITH_KEYCLOAK_TESTS='true', XTRABACKUP_TARGET='xtradb80',
+                                XTRADB80_VERSION='8.4.11-11')
+        result = self.run_runner()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state['cleanup_targets'], ['9' * 64])
+        self.assertIn("export KEYCLOAK_URL='http://192.0.2.10:8080'", self.state['main_script'])
+
+    def test_keycloak_imports_the_pxb_realm(self):
+        self.environment.update(WITH_KEYCLOAK_TESTS='true', XTRABACKUP_TARGET='xtradb80',
+                                XTRADB80_VERSION='8.4.11-11')
+        shutil.copy2(ROOT / 'pxb/v2/docker/keycloak-realm-pxb.json',
+                     self.runner.parent / 'keycloak-realm-pxb.json')
+        self.run_runner()
+        args = self.state['started']['keycloak']
+        self.assertIn('--import-realm', args)
+        mount = args[args.index('--mount') + 1]
+        self.assertIn('destination=/opt/keycloak/data/import/', mount)
+        source = mount.split('source=')[1].split(',')[0]
+        realm = json.loads(Path(source).read_text())
+        self.assertEqual(realm['realm'], 'pxb')
+        self.assertEqual(realm['clients'][0]['clientId'], 'pxb-xtrabackup')
+        self.assertTrue(realm['clients'][0]['directAccessGrantsEnabled'])
+
+    def test_keycloak_that_is_not_running_fails_the_run(self):
+        self.environment.update(WITH_KEYCLOAK_TESTS='true', XTRABACKUP_TARGET='xtradb80',
+                                XTRADB80_VERSION='8.4.11-11')
+        self.state['not_running'] = ['keycloak']
+        result = self.run_runner()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(self.state['main_runs'], 0)
+        self.assertEqual(self.state['cleanup_targets'], ['9' * 64])
+        self.assertIn('Keycloak IP not found', result.stderr)
+
+    def test_keycloak_memory_is_limited(self):
+        self.environment.update(WITH_KEYCLOAK_TESTS='true', XTRABACKUP_TARGET='xtradb80',
+                                XTRADB80_VERSION='8.4.11-11')
+        self.run_runner()
+        args = self.state['started']['keycloak']
+        self.assertEqual(args[args.index('--memory') + 1], '1g')
+
+    def test_no_keycloak_for_targets_without_the_server_plugin(self):
+        self.environment.update(WITH_KEYCLOAK_TESTS='true')
+        result = self.run_runner()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.state['cleanup_targets'], [])
+        self.assertIn("export KEYCLOAK_URL=''", self.state['main_script'])
 
 
 if __name__ == '__main__':

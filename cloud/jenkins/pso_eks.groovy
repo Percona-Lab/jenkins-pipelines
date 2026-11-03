@@ -38,6 +38,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
+        string(name: 'IMAGE_LOG_COLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
         string(name: 'EKS_REGION', defaultValue: 'eu-west-2', description: 'EKS region to use for cluster')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
@@ -72,19 +73,8 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'eks'
-                    )
-                }
-            }
-        }
-
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH
                     )
                 }
             }
@@ -96,7 +86,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
+                        operator              : 'ps',
                         platform              : 'eks',
                         platform_provider     : 'eks',
                         platform_version      : PLATFORM_VER,
@@ -123,13 +113,26 @@ pipeline {
                             IMAGE_TOOLKIT      : IMAGE_TOOLKIT,
                             IMAGE_PMM_CLIENT   : IMAGE_PMM_CLIENT,
                             IMAGE_PMM_SERVER   : IMAGE_PMM_SERVER,
-                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER
+                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER,
+                            IMAGE_LOG_COLLECTOR: IMAGE_LOG_COLLECTOR
                         ]
                     ])
 
                     currentBuild.displayName = "#${currentBuild.number} ${GIT_BRANCH}"
                     currentBuild.description = libraries.tests.buildJobDescription(testVariables)
                     libraries.tests.printTestVariables(testVariables)
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH
+                    )
                 }
             }
         }
@@ -149,7 +152,7 @@ pipeline {
 
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             steps {
                 script {

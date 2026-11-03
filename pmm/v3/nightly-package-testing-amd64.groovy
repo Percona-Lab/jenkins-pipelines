@@ -66,7 +66,18 @@ def setupUbuntu() {
     sh '''
         sudo apt update -y
         sudo apt install -y software-properties-common
-        sudo apt-add-repository --yes --update ppa:ansible/ansible
+        # apt-add-repository resolves the PPA through api.launchpad.net and retries
+        # nothing itself: one truncated read there failed three concurrent builds.
+        for attempt in 1 2 3 4 5; do
+            if sudo apt-add-repository --yes --update ppa:ansible/ansible; then
+                break
+            fi
+            if [ "$attempt" = 5 ]; then
+                echo "apt-add-repository ppa:ansible/ansible failed after 5 attempts" >&2
+                exit 1
+            fi
+            sleep $(( attempt * 15 ))
+        done
         sudo apt-get install -y ansible git wget
     '''
 }

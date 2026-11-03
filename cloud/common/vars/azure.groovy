@@ -19,7 +19,7 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for AKS: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {
@@ -27,7 +27,7 @@ void createCluster(Map clusterCfg) {
 
     timeout(time: 30, unit: 'MINUTES') {
         sh """
-            export KUBECONFIG=/tmp/${clusterFullName}
+            export KUBECONFIG=${clusterCfg.kubeconfig}
             az aks create -n ${clusterFullName} \
                 -g percona-operators \
                 --subscription eng-cloud-dev \
