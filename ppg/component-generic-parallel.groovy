@@ -19,6 +19,10 @@ def defaultComponentRepo = [
 ]
 
 def sendSlackNotification(componentName, ppgVersion, componentVersion) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'

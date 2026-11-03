@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(fromVersion, toVersion, upgradeType, tdeUpgrade, fromSource, toSource) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     def status = currentBuild.result == 'SUCCESS' ? '*SUCCESS*' : '*FAILURE*'
     def color  = currentBuild.result == 'SUCCESS' ? 'good'     : 'danger'
 
