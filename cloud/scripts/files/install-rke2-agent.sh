@@ -44,7 +44,7 @@ if sudo systemctl is-active --quiet rke2-agent; then
   exit 0
 fi
 
-sudo dnf install -y curl tar wget iptables iscsi-initiator-utils
+sudo dnf --disablerepo='rancher-rke2*' install -y curl tar wget iptables iscsi-initiator-utils
 sudo systemctl enable --now iscsid || true
 
 if [[ -n "$FIREWALLD_BASE_SCRIPT" ]]; then

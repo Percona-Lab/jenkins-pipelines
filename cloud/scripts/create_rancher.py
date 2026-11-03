@@ -6,6 +6,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import secrets
 import shlex
 import shutil
@@ -25,7 +26,14 @@ ROOT = Path(__file__).resolve().parent
 FILES = ROOT / "files"
 REMOTE_KUBECONFIG = "/etc/rancher/rke2/rke2.yaml"
 Config = dict[str, Any]
+SUPPRESS_LOGS = [
+    "WARNING: Some requests generated warnings:",
+    "You might need to resize the root repartition manually if the operating system does not support automatic resizing.",
+]
 LOGGER = logging.getLogger("create_rancher")
+LOGGER.addFilter(
+    lambda record: not any(text in record.getMessage() for text in SUPPRESS_LOGS)
+)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -251,13 +259,13 @@ def parse_args():
     p.add_argument(
         "--rke2-channel",
         default=os.environ.get("INSTALL_RKE2_CHANNEL", "stable"),
-        help="RKE2 release channel used by the installer. Defaults to INSTALL_RKE2_CHANNEL or stable.",
+        help="RKE2 release channel. Defaults to INSTALL_RKE2_CHANNEL or stable (the latest release promoted to the stable channel).",
     )
 
     p.add_argument(
         "--rke2-version",
         default=os.environ.get("INSTALL_RKE2_VERSION"),
-        help="Specific RKE2 version to install. Defaults to INSTALL_RKE2_VERSION, or the latest version from the selected channel.",
+        help="RKE2 version or latest. Defaults to INSTALL_RKE2_VERSION, or resolves and pins the selected channel for all nodes.",
     )
 
     p.add_argument(
@@ -670,10 +678,37 @@ def ensure_metallb_range(cfg):
 # ── RKE2 install ──────────────────────────────────────────────────────────────
 
 
+def resolve_rke2_version(cfg):
+    version = cfg["rke2_version"]
+    if not version or version == "latest":
+        latest = cfg["rke2_version"] == "latest" or cfg["rke2_channel"] == "latest"
+        url = (
+            "https://api.github.com/repos/rancher/rke2/releases/latest"
+            if latest else "https://update.rke2.io/v1-release/channels"
+        )
+        response = json.loads(run_command(
+            cfg, "Resolve RKE2 channel", [
+                "curl", "--fail", "--silent", "--show-error", "--location",
+                "--retry", "3", "--retry-all-errors",
+                "--connect-timeout", "15", "--max-time", "60",
+                url,
+            ],
+        ).stdout)
+        version = response["tag_name"] if latest else next(
+            (channel["latest"] for channel in response["data"]
+             if channel["id"] == cfg["rke2_channel"]), None,
+        )
+    if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-[\w.-]+)?\+rke2r\d+", version or ""):
+        raise ValueError(f"Invalid RKE2 version for channel {cfg['rke2_channel']}: {version}")
+    cfg["rke2_version"] = version
+    LOGGER.info("Using RKE2 version: %s", version)
+
+
 def install_env(cfg, kind=None):
     parts = []
     if cfg["rke2_channel"]:
-        parts.append(f"INSTALL_RKE2_CHANNEL={cfg['rke2_channel']}")
+        channel = "stable" if cfg["rke2_channel"] == "latest" else cfg["rke2_channel"]
+        parts.append(f"INSTALL_RKE2_CHANNEL={channel}")
     if cfg["rke2_version"]:
         parts.append(f"INSTALL_RKE2_VERSION={cfg['rke2_version']}")
     if kind:
@@ -1148,6 +1183,7 @@ def main():
     setup_stdout_logging(LOGGER, level=cfg["log_level"])
     try:
         validate(cfg)
+        resolve_rke2_version(cfg)
         ensure_ssh_key(cfg)
 
         LOGGER.info("Provisioning firewall rules")
