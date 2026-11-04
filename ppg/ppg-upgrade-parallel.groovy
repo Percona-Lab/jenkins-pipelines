@@ -148,6 +148,23 @@ pipeline {
                     // Carried to the Test stage through env: a parameter of the same name
                     // (FROM_VERSION) cannot be overridden, a variable of its own can.
                     env.RESOLVED_FROM_VERSION = fromVersion
+                    // A minor upgrade starts from a released minor of the same major.
+                    // Before a major's first release (e.g. PG 19 until 19.0 is out)
+                    // there is none: skip, starting no machines; it runs by itself once
+                    // the release exists. Only a 404 skips (other errors run and fail
+                    // visibly), and only for minor upgrades: a major upgrade starts from
+                    // an older, released major, so a missing repository is a real error.
+                    def kind = upgradeScenarioParts(env.SCENARIO)
+                    if (!env.SKIP_REASON && kind != null && kind[1] == 'minor') {
+                        // psp repositories are per major (psp-16), ppg per minor (ppg-18.6)
+                        def repoName = fromVersion.startsWith('psp-') ? fromVersion.tokenize('.')[0] : fromVersion
+                        def code = sh(returnStdout: true, script: "curl -s -o /dev/null -w '%{http_code}' --max-time 30 https://repo.percona.com/${repoName}/ || true").trim()
+                        if (code == '404') {
+                            env.SKIP_REASON = "${fromVersion} is not released on repo.percona.com yet, so there is no released minor to upgrade from"
+                            currentBuild.description = "Skipped: ${env.SKIP_REASON}"
+                            echo "Skipping ${env.SCENARIO}: ${env.SKIP_REASON}"
+                        }
+                    }
                 }
             }
         }
