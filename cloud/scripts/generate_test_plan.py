@@ -480,8 +480,7 @@ def _pxc_software_versions(versions: dict[str, str]) -> list[str]:
     _add_if_exists(lines, versions, "IMAGE_PROXY", "ProxySQL")
     _add_if_exists(lines, versions, "IMAGE_PROXYSQL", "ProxySQL")
     _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector (fluent-bit)")
-    _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM-Client2")
-    _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM-Client3")
+    _add_if_exists(lines, versions, "IMAGE_PMM_CLIENT", "PMM Client")
     _add_cert_manager(lines, versions)
     return lines
 
