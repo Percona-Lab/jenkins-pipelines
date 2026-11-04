@@ -4,6 +4,7 @@ def certifiableImages = [
     'IMAGE_OPERATOR',
     'IMAGE_MONGOD70',
     'IMAGE_MONGOD80',
+    'IMAGE_MONGOD83',
     'IMAGE_BACKUP',
     'IMAGE_PMM_CLIENT',
     'IMAGE_LOGCOLLECTOR',
