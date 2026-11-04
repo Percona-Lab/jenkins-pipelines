@@ -39,7 +39,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormMongo()
              }
            }
         }
