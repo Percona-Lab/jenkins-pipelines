@@ -306,8 +306,8 @@ parameters {
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-1/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-2/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" ${Dockerfile}.aarch64
-                            sed -i "s/^\\s*percona-release enable mysql-shell experimental;/#&/" ${Dockerfile}
-                            sed -i "s/^\\s*percona-release enable mysql-shell experimental;/#&/" ${Dockerfile}.aarch64
+                            sed -i "s/^\\s*percona-release enable mysql-shell/#&/" ${Dockerfile}
+                            sed -i "s/^\\s*percona-release enable mysql-shell/#&/" ${Dockerfile}.aarch64
                             sudo docker --version
 
                             if [ ${COMPONENT} = "experimental" ]; then
