@@ -2,11 +2,12 @@
 //
 // Creates a bare EKS cluster, installs PMM HA on it through Argo CD with
 // k8s/install_pmm_ha.sh --install-method argocd (--backup-minio, --external-access), attaches
-// monitored databases, runs the @ha-argocd tests, then the @pmm-ha suite with Argo CD self-heal
-// turned off on both Applications.
+// monitored databases, runs the @ha-argocd tests, then the @pmm-ha suite with automated sync, and
+// with it self-heal, turned off on both Applications.
 //
-// @pmm-ha scales StatefulSets and patches Services with kubectl, which self-heal would revert, so
-// self-heal is switched off only right before it. A failed @ha-argocd stage stops the job before
+// @pmm-ha scales StatefulSets and patches Services with kubectl, which self-heal would revert, and
+// a new commit on a chart fork would re-sync the chart mid-suite, so automated sync is switched off
+// only right before it. A failed @ha-argocd stage stops the job before
 // that suite runs. Kept apart from the nightly @pmm-ha run.
 //
 // HELM_CHART_BRANCH and DEPS_CHART_BRANCH accept OWNER:BRANCH to install a chart from a fork,
@@ -122,7 +123,7 @@ pipeline {
             name: 'TAGS_FOR_TESTS')
         string(
             defaultValue: '@pmm-ha',
-            description: 'Playwright --grep tag expression for the HA suite run last, with Argo CD self-heal off. Empty skips it.',
+            description: 'Playwright --grep tag expression for the HA suite run last, with Argo CD automated sync (and self-heal) off. Empty skips it.',
             name: 'HA_TAGS')
     }
     options {
@@ -313,8 +314,8 @@ pipeline {
         }
         stage('Run Argo CD tests') {
             options {
-                // Past Playwright's 60m globalTimeout, so Playwright times out and reports first.
-                timeout(time: 75, unit: 'MINUTES')
+                // Past the 120m --global-timeout, so Playwright times out and reports first.
+                timeout(time: 135, unit: 'MINUTES')
             }
             steps {
                 // No catchError: a failure here must stop the job before the HA suite.
@@ -322,7 +323,7 @@ pipeline {
                     pushd /srv/pmm-qa/e2e_tests
                         export CI=true
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        npx playwright test --grep "${TAGS_FOR_TESTS}"
+                        npx playwright test --grep "${TAGS_FOR_TESTS}" --global-timeout=7200000
                     popd
                 '''
             }
@@ -335,13 +336,17 @@ pipeline {
                 timeout(time: 75, unit: 'MINUTES')
             }
             steps {
+                // Patching is safe to repeat, so an API blip does not fail a build after a green @ha-argocd.
+                withClusterApiRetry {
+                    sh '''
+                        # Without automated sync, neither self-heal nor a new chart commit reverts what @pmm-ha does.
+                        for app in $(echo "${PMM_HA_ARGOCD_APPS}" | tr ',' ' '); do
+                            kubectl -n argocd patch application "${app}" --type merge \
+                                -p '{"spec":{"syncPolicy":{"automated":null}}}'
+                        done
+                    '''
+                }
                 sh '''
-                    # @pmm-ha scales and patches resources with kubectl, which self-heal would revert.
-                    for app in $(echo "${PMM_HA_ARGOCD_APPS}" | tr ',' ' '); do
-                        kubectl -n argocd patch application "${app}" --type merge \
-                            -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}'
-                    done
-
                     pushd /srv/pmm-qa/e2e_tests
                         # Each run replaces output/junit.xml and playwright-report/.
                         mv output/junit.xml output/junit-argocd.xml
