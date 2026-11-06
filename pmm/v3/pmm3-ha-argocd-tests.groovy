@@ -86,8 +86,8 @@ pipeline {
             description: 'EKS cluster version',
             name: 'K8S_VERSION')
         string(
-            defaultValue: '7',
-            description: 'Worker nodes for the EKS cluster, passed to pmm3-ha-eks as WORKER_COUNT',
+            defaultValue: '12',
+            description: 'Worker nodes for the EKS cluster, passed to pmm3-ha-eks as WORKER_COUNT. The chart is installed with its own resource requests, which need 12 (pmm3-ha-eks fits 7 only with its minimal profile).',
             name: 'EKS_WORKER_COUNT')
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
@@ -409,6 +409,19 @@ pipeline {
             junit testResults: 'output/junit*.xml', keepLongStdio: true, allowEmptyResults: true,
                 skipPublishingChecks: true
             script {
+                // eksctl deletes the LoadBalancer Services before the VPC, but self-heal would
+                // recreate HAProxy's, and its NLB then fails the stack delete.
+                if (env.KUBECONFIG) {
+                    sh '''
+                        timeout 120 kubectl scale statefulset argocd-application-controller --namespace argocd --replicas=0 || true
+                        timeout 120 kubectl wait --for=delete pod --namespace argocd \
+                            --selector app.kubernetes.io/name=argocd-application-controller --timeout=90s || true
+                        for svc in $(timeout 60 kubectl get services --namespace pmm \
+                                -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.name}{" "}{end}'); do
+                            timeout 300 kubectl delete service --namespace pmm "${svc}" --wait=true || true
+                        done
+                    '''
+                }
                 if (env.CLUSTER_NAME) {
                     build job: 'pmm3-ha-eks-cleanup', parameters: [
                         string(name: 'ACTION', value: 'DELETE_CLUSTER'),
