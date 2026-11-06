@@ -3,7 +3,23 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
+// Debian Bullseye repositories are archived: point apt to snapshot.debian.org.
+// This block is inserted into pxc_builder.sh right before the first "apt-get update".
+void writeBullseyeSnapshotBlock() {
+    writeFile file: 'bullseye_snapshot_block.sh', text: '''export DIST="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+if [ "${DIST}" == "bullseye" ]; then
+            sed -i -E '/bullseye(-security|-updates)?[[:space:]]/d' /etc/apt/sources.list
+cat <<'EOF' | tee -a /etc/apt/sources.list
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye-updates main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260830T000000Z/ bullseye-security main
+EOF
+fi
+'''
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    writeBullseyeSnapshotBlock()
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
         sh """
             set -o xtrace
@@ -12,6 +28,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-xtradb-cluster|g" pxc_builder.sh
             ls -la
             grep "git clone" pxc_builder.sh
+            # Insert the Debian Bullseye snapshot block right before the first "apt-get update" / "apt-get -y update"
+            awk 'FNR==NR { block = block \$0 "\\n"; next } !done && /apt-get (-y )?update/ { printf "%s", block; done = 1 } { print }' bullseye_snapshot_block.sh pxc_builder.sh > pxc_builder.sh.tmp && mv pxc_builder.sh.tmp pxc_builder.sh
+            grep -n -B1 -A10 'export DIST="\$(. /etc/os-release' pxc_builder.sh
             pwd -P
             export build_dir=\$(pwd -P)
             sudo docker run --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
