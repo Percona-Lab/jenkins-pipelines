@@ -229,6 +229,7 @@ void validateTestVariables(Map testVariables) {
         eks      : 'eks',
         gke      : 'gcloud',
         minikube : 'minikube',
+        nkp      : 'nkp',
         openshift: 'openshift',
         rke2     : 'rancher'
     ]

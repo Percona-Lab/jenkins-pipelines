@@ -6,6 +6,7 @@ def loadLibraries() {
         tools       : load('cloud/common/vars/tools.groovy'),
         gcloud      : load('cloud/common/vars/gcloud.groovy'),
         rancher     : load('cloud/common/vars/rancher.groovy'),
+        nkp         : load('cloud/common/vars/nkp.groovy'),
         eks         : load('cloud/common/vars/eks.groovy'),
         doks        : load('cloud/common/vars/doks.groovy'),
         openshift   : load('cloud/common/vars/openshift.groovy'),

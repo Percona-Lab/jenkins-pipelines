@@ -65,10 +65,26 @@ void install(Map config = [:]) {
                 sudo chmod +x /usr/local/bin/kubectl
             fi
 
+            if command -v aws >/dev/null 2>&1; then
+                echo "aws already installed: $(aws --version)"
+            else
+                case "$(uname -m)" in
+                    aarch64|arm64) AWS_ARCH=aarch64 ;;
+                    *)             AWS_ARCH=x86_64 ;;
+                esac
+                echo "Installing aws CLI v2..."
+                AWS_TMP="$(mktemp -d)"
+                curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "$AWS_TMP/awscliv2.zip"
+                unzip -q "$AWS_TMP/awscliv2.zip" -d "$AWS_TMP"
+                sudo "$AWS_TMP/aws/install" --update
+                rm -rf "$AWS_TMP"
+            fi
+
             yq --version
             jq --version
             helm version
             kubectl version --client
+            aws --version
         '''
     }
 }

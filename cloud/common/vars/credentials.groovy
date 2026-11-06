@@ -62,4 +62,32 @@ void withDockerCredentials(Closure body) {
     }
 }
 
+void withNkpVpnCredentials(Closure body) {
+    withCredentials([usernamePassword(
+        credentialsId: 'nkp-vpn',
+        usernameVariable: 'NKP_VPN_USER',
+        passwordVariable: 'NKP_VPN_PASSWORD'
+    )]) {
+        body()
+    }
+}
+
+void withNkpKubeconfigCredentials(String clusterName, Closure body) {
+    def kubeconfigCredentials = [
+        'percona-cluster-1': 'nkp-percona1-kubeconfig',
+        'percona-cluster-2': 'nkp-percona2-kubeconfig'
+    ]
+    def credentialsId = kubeconfigCredentials[clusterName]
+    if (!credentialsId) {
+        error("No NKP kubeconfig credential configured for ${clusterName}")
+    }
+
+    withCredentials([file(
+        credentialsId: credentialsId,
+        variable: 'NKP_KUBECONFIG_FILE'
+    )]) {
+        body()
+    }
+}
+
 return this

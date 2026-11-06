@@ -384,13 +384,29 @@ String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerL
 }
 
 void kubernetesCleanupCluster(String kubeconfig) {
+    def protectedNamespaces = [
+        '^kube-',
+        '^gke-',
+        '^cattle-',
+        '^openshift',
+        '^cert-manager$',
+        '^cilium-secrets$',
+        '^container-object-storage-system$',
+        '^default$',
+        '^kommander-default-workspace$',
+        '^kommander-flux$',
+        '^metallb-system$',
+        '^node-feature-discovery$',
+        '^ntnx-system$'
+    ]
+
     sh """
         export KUBECONFIG=${kubeconfig}
 
         if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
             for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers \
                 | awk '{print \$1}' \
-                | grep -vE "^kube-|^gke-|^cattle-|^openshift" \
+                | grep -vE '${protectedNamespaces.join('|')}' \
                 | sed '/-operator/ s/^/1-/' \
                 | sort \
                 | sed 's/^1-//'); do
