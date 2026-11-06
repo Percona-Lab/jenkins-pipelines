@@ -264,12 +264,15 @@ parameters {
                                 PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
                                 MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                             fi
-                            if [ ${PS_RELEASE} = "8.4.11-12" ]; then
-                                MYSQL_SHELL_RELEASE="8.4.10"
-                            fi
-                            if [ ${PS_RELEASE} = "9.7.2-3" ]; then
-                                MYSQL_SHELL_RELEASE="9.7.1"
-                            fi
+                            # MySQL Shell version is pinned for 8.4.* and 9.7.* PS releases
+                            case "${PS_RELEASE}" in
+                                8.4.*)
+                                    MYSQL_SHELL_RELEASE="8.4.10"
+                                    ;;
+                                9.7.*)
+                                    MYSQL_SHELL_RELEASE="9.7.1"
+                                    ;;
+                            esac
                             MYSQL_ROUTER_RELEASE=${PS_RELEASE}
 
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
