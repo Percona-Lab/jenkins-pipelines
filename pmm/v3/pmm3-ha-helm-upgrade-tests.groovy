@@ -12,6 +12,9 @@
 //   6. @pmm-helm-post-upgrade
 //   7. @pmm-ha - failover and the rest of the HA suite, on the upgraded cluster
 //
+// RUN_UPGRADE=false stops after step 2 and runs HA_TAGS on the released cluster: a
+// check of the released install alone. pmm3-post-release-testing runs it both ways.
+//
 // Every helm step is k8s/install_pmm_ha.sh from pmm-qa, on the branch PMM_QA_GIT_BRANCH
 // points at; this job only sequences it and runs the tests.
 //
@@ -21,6 +24,7 @@
 
 void runEKSClusterCreate(String k8sVersion) {
     def clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND ?: false),
         string(name: 'K8S_VERSION', value: k8sVersion),
         string(name: 'WORKER_COUNT', value: params.EKS_WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
@@ -37,6 +41,7 @@ void runEKSClusterCreate(String k8sVersion) {
 
 void runOpenShiftClusterCreate(String ocpVersion) {
     def clusterCreateJob = build job: 'pmm3-ha-rosa', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND ?: false),
         string(name: 'OCP_VERSION', value: ocpVersion),
         string(name: 'WORKER_COUNT', value: params.WORKER_COUNT),
         booleanParam(name: 'DEPLOY_PMM', value: false),
@@ -53,9 +58,13 @@ void runOpenShiftClusterCreate(String ocpVersion) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand agents instead of spot (for RC/Release testing), here and in the cluster job. EKS worker nodes stay spot; ROSA workers are on-demand.',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -113,6 +122,10 @@ pipeline {
             defaultValue: 'latest-tarball',
             description: 'PMM Client version the monitored databases register with - released by default, so the upgrade moves the server out from under existing clients',
             name: 'CLIENT_VERSION')
+        booleanParam(
+            defaultValue: true,
+            description: 'Upgrade the released install. Uncheck to only install the released PMM HA and test it - DOCKER_VERSION, HELM_CHART_BRANCH and the mid/post-upgrade tags are then ignored.',
+            name: 'RUN_UPGRADE')
         string(
             defaultValue: '@pmm-helm-pre-upgrade',
             description: 'Playwright --grep tag expression run against the released install',
@@ -127,7 +140,7 @@ pipeline {
             name: 'POST_UPGRADE_TAGS')
         string(
             defaultValue: '@pmm-ha',
-            description: 'Playwright --grep tag expression for the HA suite run last, on the upgraded cluster. Empty skips it.',
+            description: 'Playwright --grep tag expression for the HA suite run last, on the upgraded cluster (the released one with RUN_UPGRADE unchecked). Empty skips it.',
             name: 'HA_TAGS')
     }
     options {
@@ -145,7 +158,8 @@ pipeline {
                 script {
                     def clusterVersion = params.CLUSTER_TYPE == 'EKS' ? params.K8S_VERSION : params.OCP_VERSION
                     def releasedImage = params.RELEASE_DOCKER_VERSION ?: 'latest released'
-                    currentBuild.description = "HA upgrade on ${params.CLUSTER_TYPE} ${clusterVersion}. ${releasedImage} -> ${params.DOCKER_VERSION}"
+                    def target = params.RUN_UPGRADE != false ? " -> ${params.DOCKER_VERSION}" : ' (install only)'
+                    currentBuild.description = "HA upgrade on ${params.CLUSTER_TYPE} ${clusterVersion}. ${releasedImage}${target}"
                 }
                 deleteDir()
                 git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
@@ -269,7 +283,8 @@ pipeline {
                     if (!env.RELEASE_DOCKER_VERSION || !env.PMM_UI_URL.startsWith('https://')) {
                         error "Could not read the image and PMM URL out of ${env.PMM_HA_SUMMARY}"
                     }
-                    currentBuild.description = "HA upgrade on ${params.CLUSTER_TYPE}. ${env.RELEASE_DOCKER_VERSION} -> ${params.DOCKER_VERSION}"
+                    def target = params.RUN_UPGRADE != false ? " -> ${params.DOCKER_VERSION}" : ' (install only)'
+                    currentBuild.description = "HA upgrade on ${params.CLUSTER_TYPE}. ${env.RELEASE_DOCKER_VERSION}${target}"
                     echo "PMM HA ${env.RELEASE_DOCKER_VERSION} serving on ${env.PMM_UI_URL}"
                 }
             }
@@ -319,6 +334,9 @@ pipeline {
             }
         }
         stage('Upgrade dependencies') {
+            when {
+                expression { params.RUN_UPGRADE != false }
+            }
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -334,6 +352,9 @@ pipeline {
             }
         }
         stage('Verify PMM after the dependencies upgrade') {
+            when {
+                expression { params.RUN_UPGRADE != false }
+            }
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
@@ -348,6 +369,9 @@ pipeline {
             }
         }
         stage('Upgrade PMM HA') {
+            when {
+                expression { params.RUN_UPGRADE != false }
+            }
             options {
                 timeout(time: 40, unit: 'MINUTES')
             }
@@ -367,6 +391,9 @@ pipeline {
             }
         }
         stage('Run post-upgrade tests') {
+            when {
+                expression { params.RUN_UPGRADE != false }
+            }
             options {
                 timeout(time: 30, unit: 'MINUTES')
             }
