@@ -332,9 +332,9 @@ pipeline {
                           parameters: [
                               string(name: 'CLOUD', value: 'Hetzner'),
                               string(name: 'ORGANIZATION', value: 'perconalab'),
+                              string(name: 'GIT_REPO', value: "${GIT_REPO}"),
                               string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),
-                              string(name: 'RPM_RELEASE', value: '1'),
-                              string(name: 'DEB_RELEASE', value: '1'),
+                              string(name: 'RPM_RELEASE', value: "${RPM_RELEASE}"),
                               string(name: 'FIPSMODE', value: 'NO'),
                               booleanParam(name: 'RUN_FAST', value: true)
                           ],
