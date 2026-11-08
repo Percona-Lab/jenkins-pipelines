@@ -236,6 +236,7 @@ pipeline {
                             awsStashPath:     AWS_STASH_PATH,
                             fipsMode:         env.FIPSMODE,
                             experimentalMode: env.EXPERIMENTALMODE,
+                            git_repo:         env.GIT_REPO,
                             onlyStages:       params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
                         )
                     }
