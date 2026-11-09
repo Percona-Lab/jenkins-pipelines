@@ -264,8 +264,8 @@ pipeline {
                         "PMM_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
                         "PMM_CLIENT_IMAGE=${clientImage}",
                         "DEPS_BRANCH=${params.DEPS_CHART_BRANCH ?: params.HELM_CHART_BRANCH}",
-                        "HELM_CHART_VERSION=${params.HELM_CHART_VERSION}",
-                        "DEPS_CHART_VERSION=${params.DEPS_CHART_VERSION}",
+                        "HELM_CHART_VERSION=${params.HELM_CHART_VERSION ?: ''}",
+                        "DEPS_CHART_VERSION=${params.DEPS_CHART_VERSION ?: ''}",
                     ]) {
                         // install_pmm_ha.sh keeps an existing pmm-secret and backup secret and
                         // re-applies everything else, so a rerun picks up where the API went away.
