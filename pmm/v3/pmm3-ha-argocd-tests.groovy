@@ -157,7 +157,8 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    currentBuild.description = "HA on Argo CD, EKS ${params.K8S_VERSION}. Chart: ${params.HELM_CHART_BRANCH}. Server: ${params.DOCKER_VERSION}"
+                    def chartVersions = [params.HELM_CHART_VERSION, params.DEPS_CHART_VERSION].findAll { it }.join(', ')
+                    currentBuild.description = "HA on Argo CD, EKS ${params.K8S_VERSION}. Chart: ${params.HELM_CHART_BRANCH}${chartVersions ? " (${chartVersions})" : ''}. Server: ${params.DOCKER_VERSION}"
                 }
                 deleteDir()
                 git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
@@ -270,12 +271,12 @@ pipeline {
                         // re-applies everything else, so a rerun picks up where the API went away.
                         withClusterApiRetry {
                             sh '''
-                                chart_args=()
+                                set --
                                 if [ -n "${HELM_CHART_VERSION}" ]; then
-                                    chart_args+=(--chart-version "${HELM_CHART_VERSION}")
+                                    set -- "$@" --chart-version "${HELM_CHART_VERSION}"
                                 fi
                                 if [ -n "${DEPS_CHART_VERSION}" ]; then
-                                    chart_args+=(--deps-chart-version "${DEPS_CHART_VERSION}")
+                                    set -- "$@" --deps-chart-version "${DEPS_CHART_VERSION}"
                                 fi
 
                                 /srv/pmm-qa/k8s/install_pmm_ha.sh \
@@ -286,7 +287,7 @@ pipeline {
                                     --clone-dir "${WORKSPACE}/charts" \
                                     --chart-branch "${HELM_CHART_BRANCH}" \
                                     --deps-chart-branch "${DEPS_BRANCH}" \
-                                    "${chart_args[@]}" \
+                                    "$@" \
                                     --argocd-version "${ARGOCD_VERSION}" \
                                     --image "${DOCKER_VERSION}" \
                                     --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
