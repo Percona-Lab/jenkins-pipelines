@@ -62,7 +62,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        def os = ['ubuntu-resolute']  // TEMP PSMDB-2073: was pdmdbOperatingSystems("${PSMDB_VERSION}")
+                        def os = pdmdbOperatingSystems("${PSMDB_VERSION}")
                         os.removeAll { it.contains('-arm') }
                         moleculeParallelTestPSMDB(os, moleculeDir)
                     }
@@ -74,7 +74,7 @@ pipeline {
         always {
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
-                def os = ['ubuntu-resolute']  // TEMP PSMDB-2073: was pdmdbOperatingSystems("${PSMDB_VERSION}")
+                def os = pdmdbOperatingSystems("${PSMDB_VERSION}")
                 os.removeAll { it.contains('-arm') }
                 moleculeParallelPostDestroy(os, moleculeDir)
             }
