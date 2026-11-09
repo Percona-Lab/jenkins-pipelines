@@ -279,6 +279,20 @@ pipeline {
                         withClusterApiRetry {
                             sh '''
                                 set --
+                                if [ -n "${HELM_CHART_BRANCH}" ]; then
+                                    set -- "$@" --chart-branch "${HELM_CHART_BRANCH}"
+                                fi
+                                if [ -n "${DEPS_BRANCH}" ]; then
+                                    set -- "$@" --deps-chart-branch "${DEPS_BRANCH}"
+                                fi
+                                if [ -n "${FLUX_VERSION}" ]; then
+                                    set -- "$@" --flux-version "${FLUX_VERSION}"
+                                fi
+                                if [ -n "${DOCKER_VERSION}" ]; then
+                                    set -- "$@" --image "${DOCKER_VERSION}" \
+                                        --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
+                                        --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}"
+                                fi
                                 if [ -n "${HELM_CHART_VERSION}" ]; then
                                     set -- "$@" --chart-version "${HELM_CHART_VERSION}"
                                 fi
@@ -292,13 +306,7 @@ pipeline {
                                     --backup-minio \
                                     --external-access \
                                     --clone-dir "${WORKSPACE}/charts" \
-                                    --chart-branch "${HELM_CHART_BRANCH}" \
-                                    --deps-chart-branch "${DEPS_BRANCH}" \
                                     "$@" \
-                                    --flux-version "${FLUX_VERSION}" \
-                                    --image "${DOCKER_VERSION}" \
-                                    --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
-                                    --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}" \
                                     --summary-file "${PMM_HA_SUMMARY}" \
                                     --debug-dir "${WORKSPACE}/pmm-ha-debug"
                             '''
