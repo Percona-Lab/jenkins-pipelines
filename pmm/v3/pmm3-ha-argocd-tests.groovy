@@ -10,8 +10,11 @@
 // only right before it. A failed @ha-argocd stage stops the job before
 // that suite runs. Kept apart from the nightly @pmm-ha run.
 //
-// HELM_CHART_BRANCH and DEPS_CHART_BRANCH accept OWNER:BRANCH to install a chart from a fork,
-// e.g. theTibi:PMM-13858; the charts are cloned from percona-helm-charts.
+// By default the released pmm-ha and pmm-ha-dependencies charts are installed (HELM_CHART_BRANCH
+// latest); HELM_CHART_VERSION and DEPS_CHART_VERSION pin a released version. Any other
+// HELM_CHART_BRANCH or DEPS_CHART_BRANCH installs from a percona-helm-charts branch, and
+// OWNER:BRANCH, e.g. theTibi:PMM-13858, from a fork. The version parameters apply only to a
+// released chart.
 
 void provisionCluster() {
     def clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
@@ -102,13 +105,21 @@ pipeline {
             description: 'pmm-server admin user password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'main',
-            description: 'Branch of percona-helm-charts whose pmm-ha chart is installed. OWNER:BRANCH, e.g. theTibi:PMM-13858, clones that owner\'s fork instead.',
+            defaultValue: 'latest',
+            description: '`latest` installs the released pmm-ha chart; otherwise a percona-helm-charts branch, or OWNER:BRANCH for a fork, e.g. theTibi:PMM-13858.',
             name: 'HELM_CHART_BRANCH')
         string(
             defaultValue: '',
-            description: 'Branch of percona-helm-charts whose pmm-ha-dependencies chart is installed; OWNER:BRANCH for a fork. Empty means HELM_CHART_BRANCH.',
+            description: 'Released pmm-ha chart version. Empty means the newest release. Only with HELM_CHART_BRANCH latest.',
+            name: 'HELM_CHART_VERSION')
+        string(
+            defaultValue: '',
+            description: 'percona-helm-charts branch (or `latest`, or OWNER:BRANCH) for the pmm-ha-dependencies chart. Empty means the same source as HELM_CHART_BRANCH.',
             name: 'DEPS_CHART_BRANCH')
+        string(
+            defaultValue: '',
+            description: 'Released pmm-ha-dependencies chart version. Empty means the newest release. Only with a released chart.',
+            name: 'DEPS_CHART_VERSION')
         string(
             defaultValue: 'v3.5.6',
             description: 'Argo CD release whose manifests/install.yaml is applied',
@@ -252,11 +263,21 @@ pipeline {
                         "PMM_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
                         "PMM_CLIENT_IMAGE=${clientImage}",
                         "DEPS_BRANCH=${params.DEPS_CHART_BRANCH ?: params.HELM_CHART_BRANCH}",
+                        "HELM_CHART_VERSION=${params.HELM_CHART_VERSION}",
+                        "DEPS_CHART_VERSION=${params.DEPS_CHART_VERSION}",
                     ]) {
                         // install_pmm_ha.sh keeps an existing pmm-secret and backup secret and
                         // re-applies everything else, so a rerun picks up where the API went away.
                         withClusterApiRetry {
                             sh '''
+                                chart_args=()
+                                if [ -n "${HELM_CHART_VERSION}" ]; then
+                                    chart_args+=(--chart-version "${HELM_CHART_VERSION}")
+                                fi
+                                if [ -n "${DEPS_CHART_VERSION}" ]; then
+                                    chart_args+=(--deps-chart-version "${DEPS_CHART_VERSION}")
+                                fi
+
                                 /srv/pmm-qa/k8s/install_pmm_ha.sh \
                                     --platform eks \
                                     --install-method argocd \
@@ -265,6 +286,7 @@ pipeline {
                                     --clone-dir "${WORKSPACE}/charts" \
                                     --chart-branch "${HELM_CHART_BRANCH}" \
                                     --deps-chart-branch "${DEPS_BRANCH}" \
+                                    "${chart_args[@]}" \
                                     --argocd-version "${ARGOCD_VERSION}" \
                                     --image "${DOCKER_VERSION}" \
                                     --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
