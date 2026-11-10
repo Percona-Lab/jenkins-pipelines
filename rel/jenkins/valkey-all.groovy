@@ -192,10 +192,12 @@ pipeline {
                     if (params.PKG_AUDIT) {
                         jobs['audit'] = trigger('hetzner-valkey-audit-RELEASE', [
                             string(name: 'CLOUD',                value: cloud),
+                            string(name: 'PACKAGING_BRANCH',     value: pkgBr),
                             string(name: 'VALKEY_AUDIT_VERSION', value: params.VALKEY_AUDIT_VERSION),
                             string(name: 'VALKEY_AUDIT_RELEASE', value: params.AUDIT_RELEASE),
                             string(name: 'VALKEY_AUDIT_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
+                            string(name: 'VALKEY_REPO_CHANNEL',  value: ch),
                         ])
                         published['percona-valkey-audit'] = "${params.VALKEY_AUDIT_VERSION}-${params.AUDIT_RELEASE}"
                     }

@@ -82,7 +82,7 @@ ReposPathMap = [
     'ValkeyBloom':          "${GitHubURL}/valkey-io/valkey-bloom",
     'ValkeySearch':         "${GitHubURL}/valkey-io/valkey-search",
     'ValkeyLDAP':           "${GitHubURL}/valkey-io/valkey-ldap",
-    'ValkeyAudit':          "${GitHubURL}/valkey-io/valkey-audit",
+    'ValkeyAudit':          "${GitHubURL}/percona/valkey-audit",
     'PgPool':               "${GitHubURL}/pgpool/pgpool2",
     'PgTDE':                "${GitHubURL}/percona/pg_tde",
     'PostGIS':              "${GitHubURL}/postgis/postgis",
