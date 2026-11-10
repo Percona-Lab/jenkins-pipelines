@@ -49,7 +49,7 @@ pipeline {
             description: 'percona-valkey-bundle version value',
             name: 'VALKEY_BUNDLE_VERSION')
         string(
-            defaultValue: '1',
+            defaultValue: '2',
             description: 'percona-valkey-bundle release value',
             name: 'VALKEY_BUNDLE_RELEASE')
         string(

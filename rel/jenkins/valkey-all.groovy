@@ -102,7 +102,7 @@ pipeline {
         string(defaultValue: '1.0.0', description: 'valkey-audit version',  name: 'VALKEY_AUDIT_VERSION')
         string(defaultValue: '4',     description: 'valkey-audit release number',  name: 'AUDIT_RELEASE')
         string(defaultValue: '9.1.3', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
-        string(defaultValue: '1',     description: 'valkey-bundle release number', name: 'BUNDLE_RELEASE')
+        string(defaultValue: '2',     description: 'valkey-bundle release number', name: 'BUNDLE_RELEASE')
         string(defaultValue: '1.2.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
         string(defaultValue: '1',     description: 'valkey-admin release number',  name: 'ADMIN_RELEASE')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
