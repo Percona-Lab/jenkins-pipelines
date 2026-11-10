@@ -19,7 +19,7 @@ void testStage(String DOCKER_OS) {
             set -o xtrace
 
             # Clone valkey-packaging and checkout the requested branch
-            git clone https://github.com/EvgeniyPatlan/valkey-packaging.git valkey-packaging
+            git clone https://github.com/percona/valkey-packaging.git valkey-packaging
             cd valkey-packaging
             git checkout ${PACKAGING_BRANCH}
             cd ..
