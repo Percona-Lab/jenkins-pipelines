@@ -56,7 +56,7 @@ pipeline {
             description: 'VALKEY release value',
             name: 'VALKEY_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for the valkey-packaging repository',
             name: 'PACKAGING_REPO')
         string(

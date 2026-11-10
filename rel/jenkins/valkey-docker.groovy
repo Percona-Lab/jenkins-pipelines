@@ -24,7 +24,7 @@ pipeline {
         )
 
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository',
             name: 'PACKAGING_REPO'
         )

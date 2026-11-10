@@ -53,7 +53,7 @@ pipeline {
             description: 'percona-valkey-bundle release value',
             name: 'VALKEY_BUNDLE_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository (holds the bundle/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(

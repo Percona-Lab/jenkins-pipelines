@@ -56,7 +56,7 @@ pipeline {
             description: 'valkey-bloom release value',
             name: 'VALKEY_BLOOM_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository (holds the bloom/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(

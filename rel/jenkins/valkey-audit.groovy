@@ -56,7 +56,7 @@ pipeline {
             description: 'valkey-audit release value (1.0.0-1..3 are already published; use 4 or higher)',
             name: 'VALKEY_AUDIT_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository (holds the audit/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
