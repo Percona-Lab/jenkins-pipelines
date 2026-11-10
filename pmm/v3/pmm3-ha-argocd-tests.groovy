@@ -19,7 +19,9 @@
 void provisionCluster() {
     def clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
         string(name: 'K8S_VERSION', value: params.K8S_VERSION),
-        string(name: 'WORKER_COUNT', value: params.EKS_WORKER_COUNT),
+        // 12 workers, which the chart's own resource requests need. With DEPLOY_PMM off the profile
+        // changes nothing else.
+        string(name: 'RESOURCE_PROFILE', value: 'chart'),
         booleanParam(name: 'DEPLOY_PMM', value: false),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: false),
         string(name: 'RETENTION_DAYS', value: '1'),
@@ -29,6 +31,21 @@ void provisionCluster() {
     env.CLUSTER_BUILD_NUMBER = clusterCreateJob.number.toString()
 }
 
+// The newest published version of percona/<chart>. The percona Helm repository must be added.
+def newestChartVersion(String chart) {
+    def version = sh(
+        returnStdout: true,
+        script: """
+            found=\$(helm search repo 'percona/${chart}' -o json) || exit 1
+            printf '%s' "\${found}" | jq -r --arg n 'percona/${chart}' '[.[] | select(.name == \$n) | .version][0] // empty'
+        """,
+    ).trim()
+    if (!version) {
+        error "No published version of percona/${chart} found"
+    }
+    return version
+}
+
 def summaryValue(String key) {
     return sh(
         returnStdout: true,
@@ -36,9 +53,7 @@ def summaryValue(String key) {
     ).trim()
 }
 
-// Carried over from the ROSA pipelines, where a cluster's API hostname can stop resolving for up to
-// 15 minutes after it turns ready. On EKS it only absorbs a short API blip, so the install waits up
-// to 20 minutes for the API. kubectl, since this agent has no oc.
+// Waits up to 20 minutes for the cluster API, so a short API blip does not fail the stage.
 def waitForClusterApi() {
     sh '''
         set +x
@@ -89,10 +104,6 @@ pipeline {
             description: 'EKS cluster version',
             name: 'K8S_VERSION')
         string(
-            defaultValue: '12',
-            description: 'Worker nodes for the EKS cluster, passed to pmm3-ha-eks as WORKER_COUNT. The chart is installed with its own resource requests, which need 12 (pmm3-ha-eks fits 7 only with its minimal profile).',
-            name: 'EKS_WORKER_COUNT')
-        string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server image under test (image-name:version-tag). The client image follows it.',
             name: 'DOCKER_VERSION')
@@ -139,9 +150,11 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        // Covers post too, and a job timeout that fires during post leaks the cluster: this leaves
-        // room for pmm3-ha-eks, a stage running to its timeout, and the deletion.
-        timeout(time: 6, unit: 'HOURS')
+        // Covers post too, and a job timeout that fires during post leaks the cluster. Before post:
+        // pmm3-ha-eks up to 90 min (plus any wait in its queue, it disables concurrent builds), the
+        // kubeconfig wait 10 min and the stage timeouts 300 min (50 + 40 + 135 + 75), about 400 min.
+        // That leaves about 80 min for post and the cluster deletion.
+        timeout(time: 8, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '30'))
     }
     environment {
@@ -158,7 +171,7 @@ pipeline {
             steps {
                 script {
                     def chartVersions = [params.HELM_CHART_VERSION, params.DEPS_CHART_VERSION].findAll { it }.join(', ')
-                    currentBuild.description = "HA on Argo CD, EKS ${params.K8S_VERSION}. Chart: ${params.HELM_CHART_BRANCH}${chartVersions ? " (${chartVersions})" : ''}. Server: ${params.DOCKER_VERSION}"
+                    currentBuild.description = "HA on Argo CD, EKS ${params.K8S_VERSION}. Chart: ${params.HELM_CHART_BRANCH ?: ''}${chartVersions ? " (${chartVersions})" : ''}. Server: ${params.DOCKER_VERSION ?: ''}"
                 }
                 deleteDir()
                 git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
@@ -260,23 +273,44 @@ pipeline {
                 script {
                     // The client follows the server image, as in pmm3-ha-eks (PMM-15633).
                     def clientImage = params.DOCKER_VERSION.replace('pmm-server', 'pmm-client')
+
+                    // Resolved once, so a retry installs the same released versions as the first attempt.
+                    def chartReleased = (params.HELM_CHART_BRANCH ?: 'latest') == 'latest'
+                    def depsReleased = params.DEPS_CHART_BRANCH ? params.DEPS_CHART_BRANCH == 'latest' : chartReleased
+                    env.PMM_HA_CHART_VERSION = params.HELM_CHART_VERSION ?: ''
+                    env.PMM_HA_DEPS_CHART_VERSION = params.DEPS_CHART_VERSION ?: ''
+                    if ((chartReleased && !env.PMM_HA_CHART_VERSION) || (depsReleased && !env.PMM_HA_DEPS_CHART_VERSION)) {
+                        sh 'helm repo add percona https://percona.github.io/percona-helm-charts/ --force-update'
+                        if (chartReleased && !env.PMM_HA_CHART_VERSION) {
+                            env.PMM_HA_CHART_VERSION = newestChartVersion('pmm-ha')
+                        }
+                        if (depsReleased && !env.PMM_HA_DEPS_CHART_VERSION) {
+                            env.PMM_HA_DEPS_CHART_VERSION = newestChartVersion('pmm-ha-dependencies')
+                        }
+                    }
+
                     withEnv([
                         "PMM_ADMIN_PASSWORD=${params.ADMIN_PASSWORD}",
                         "PMM_CLIENT_IMAGE=${clientImage}",
-                        "DEPS_BRANCH=${params.DEPS_CHART_BRANCH ?: params.HELM_CHART_BRANCH}",
-                        "HELM_CHART_VERSION=${params.HELM_CHART_VERSION ?: ''}",
-                        "DEPS_CHART_VERSION=${params.DEPS_CHART_VERSION ?: ''}",
+                        "HELM_CHART_BRANCH=${params.HELM_CHART_BRANCH ?: ''}",
+                        "DEPS_CHART_BRANCH=${params.DEPS_CHART_BRANCH ?: ''}",
                     ]) {
                         // install_pmm_ha.sh keeps an existing pmm-secret and backup secret and
                         // re-applies everything else, so a rerun picks up where the API went away.
                         withClusterApiRetry {
                             sh '''
                                 set --
-                                if [ -n "${HELM_CHART_VERSION}" ]; then
-                                    set -- "$@" --chart-version "${HELM_CHART_VERSION}"
+                                if [ -n "${HELM_CHART_BRANCH}" ]; then
+                                    set -- "$@" --chart-branch "${HELM_CHART_BRANCH}"
                                 fi
-                                if [ -n "${DEPS_CHART_VERSION}" ]; then
-                                    set -- "$@" --deps-chart-version "${DEPS_CHART_VERSION}"
+                                if [ -n "${DEPS_CHART_BRANCH}" ]; then
+                                    set -- "$@" --deps-chart-branch "${DEPS_CHART_BRANCH}"
+                                fi
+                                if [ -n "${PMM_HA_CHART_VERSION}" ]; then
+                                    set -- "$@" --chart-version "${PMM_HA_CHART_VERSION}"
+                                fi
+                                if [ -n "${PMM_HA_DEPS_CHART_VERSION}" ]; then
+                                    set -- "$@" --deps-chart-version "${PMM_HA_DEPS_CHART_VERSION}"
                                 fi
 
                                 /srv/pmm-qa/k8s/install_pmm_ha.sh \
@@ -285,8 +319,6 @@ pipeline {
                                     --backup-minio \
                                     --external-access \
                                     --clone-dir "${WORKSPACE}/charts" \
-                                    --chart-branch "${HELM_CHART_BRANCH}" \
-                                    --deps-chart-branch "${DEPS_BRANCH}" \
                                     "$@" \
                                     --argocd-version "${ARGOCD_VERSION}" \
                                     --image "${DOCKER_VERSION}" \
@@ -296,6 +328,16 @@ pipeline {
                                     --debug-dir "${WORKSPACE}/pmm-ha-debug"
                             '''
                         }
+                    }
+
+                    def chartVersion = summaryValue('chart_version')
+                    def depsChartVersion = summaryValue('deps_chart_version')
+                    def released = [
+                        chartVersion ? "pmm-ha ${chartVersion}" : '',
+                        depsChartVersion ? "deps ${depsChartVersion}" : '',
+                    ].findAll { it }.join(', ')
+                    if (released) {
+                        currentBuild.description += " Released: ${released}"
                     }
 
                     def pmmAddress = summaryValue('url')
@@ -336,6 +378,9 @@ pipeline {
             }
         }
         stage('Run Argo CD tests') {
+            when {
+                expression { params.TAGS_FOR_TESTS }
+            }
             options {
                 // Past the 120m --global-timeout, so Playwright times out and reports first.
                 timeout(time: 135, unit: 'MINUTES')
@@ -372,8 +417,12 @@ pipeline {
                 sh '''
                     pushd /srv/pmm-qa/e2e_tests
                         # Each run replaces output/junit.xml and playwright-report/.
-                        mv output/junit.xml output/junit-argocd.xml
-                        mv playwright-report playwright-report-argocd
+                        if [ -f output/junit.xml ]; then
+                            mv output/junit.xml output/junit-argocd.xml
+                        fi
+                        if [ -d playwright-report ]; then
+                            mv playwright-report playwright-report-argocd
+                        fi
 
                         export CI=true
                         export CHROMIUM_PATH=/usr/bin/chromium
@@ -384,8 +433,7 @@ pipeline {
         }
     }
     post {
-        // Everything that reads the cluster is in always, which runs before the other
-        // conditions and deletes the cluster.
+        // The cluster is deleted at the end, so everything that reads it comes first.
         always {
             script {
                 if (env.KUBECONFIG) {
@@ -432,19 +480,7 @@ pipeline {
             junit testResults: 'output/junit*.xml', keepLongStdio: true, allowEmptyResults: true,
                 skipPublishingChecks: true
             script {
-                // eksctl deletes the LoadBalancer Services before the VPC, but self-heal would
-                // recreate HAProxy's, and its NLB then fails the stack delete.
-                if (env.KUBECONFIG) {
-                    sh '''
-                        timeout 120 kubectl scale statefulset argocd-application-controller --namespace argocd --replicas=0 || true
-                        timeout 120 kubectl wait --for=delete pod --namespace argocd \
-                            --selector app.kubernetes.io/name=argocd-application-controller --timeout=90s || true
-                        for svc in $(timeout 60 kubectl get services --namespace pmm \
-                                -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.name}{" "}{end}'); do
-                            timeout 300 kubectl delete service --namespace pmm "${svc}" --wait=true || true
-                        done
-                    '''
-                }
+                // pmm3-ha-eks-cleanup stops Argo CD and deletes the LoadBalancer Services first.
                 if (env.CLUSTER_NAME) {
                     build job: 'pmm3-ha-eks-cleanup', parameters: [
                         string(name: 'ACTION', value: 'DELETE_CLUSTER'),
