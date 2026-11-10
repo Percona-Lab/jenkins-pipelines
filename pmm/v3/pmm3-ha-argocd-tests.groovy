@@ -272,7 +272,7 @@ pipeline {
             steps {
                 script {
                     // The client follows the server image, as in pmm3-ha-eks (PMM-15633).
-                    def clientImage = params.DOCKER_VERSION.replace('pmm-server', 'pmm-client')
+                    def clientImage = (params.DOCKER_VERSION ?: '').replace('pmm-server', 'pmm-client')
 
                     // Resolved once, so a retry installs the same released versions as the first attempt.
                     def chartReleased = (params.HELM_CHART_BRANCH ?: 'latest') == 'latest'
@@ -337,7 +337,7 @@ pipeline {
                         depsChartVersion ? "deps ${depsChartVersion}" : '',
                     ].findAll { it }.join(', ')
                     if (released) {
-                        currentBuild.description += " Released: ${released}"
+                        currentBuild.description += ". Released: ${released}"
                     }
 
                     def pmmAddress = summaryValue('url')

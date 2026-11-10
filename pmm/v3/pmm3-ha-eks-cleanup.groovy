@@ -5,6 +5,7 @@
 String releaseLoadBalancersFunction() {
     return '''
         release_load_balancers() {
+            command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found, not releasing load balancers of $1"; return 0; }
             kc="${WORKSPACE}/kubeconfig-$1"
             if ! timeout 120 aws eks update-kubeconfig --name "$1" --region "${REGION}" --kubeconfig "${kc}"; then
                 echo "No kubeconfig for $1, deleting it without releasing its load balancers."
@@ -132,6 +133,7 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh releaseLoadBalancersFunction() + '''
+                        set -f
                         for c in $(echo "${CLUSTER_NAME}" | tr ',' ' '); do
                             if ! aws eks describe-cluster --region "${REGION}" --name "$c" >/dev/null 2>&1; then
                                 echo "Cluster '$c' not found in region '${REGION}' - skipping."
