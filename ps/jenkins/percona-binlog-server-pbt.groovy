@@ -80,6 +80,39 @@ void copyResults() {
     '''
 }
 
+// Publish the test results to the controller right after the tests, so a
+// lost worker (docker-32gb are spot instances) or a failing Report stage
+// cannot take them with it. Runs once; post{} calls it again as a fallback.
+void publishResults() {
+    if (env.RESULTS_PUBLISHED == 'true' || !fileExists('results/summary.json')) {
+        return
+    }
+    junit allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true, testResults: 'results/junit.xml'
+    archiveArtifacts allowEmptyArchive: true, artifacts: 'results/**'
+    env.RESULTS_PUBLISHED = 'true'
+    String summary = sh(returnStdout: true, script: '''
+        docker run --rm -u "$(id -u):$(id -g)" -e WORKDIR=/work \
+            -v "${WORKSPACE}/ws:/work:ro" \
+            -v "${WORKSPACE}/package-testing/binlog-server-pbt:/pbt:ro" \
+            "${PBT_IMAGE}" /pbt/pbt.sh describe || true
+    ''').trim()
+    if (summary) {
+        currentBuild.description = "${currentBuild.description ?: ''}<br>${summary}"
+    }
+    sh 'cat results/summary.md'
+}
+
+// Archive the report (and the agent's files) as soon as it exists.
+void publishReport() {
+    if (env.REPORT_PUBLISHED == 'true' || !fileExists('report/report.html')) {
+        return
+    }
+    archiveArtifacts allowEmptyArchive: true,
+        artifacts: 'report/**, ai/input/**, ai/analysis/**, ai/log/**, ai/work/agent-result.json'
+    env.REPORT_PUBLISHED = 'true'
+    currentBuild.description = "${currentBuild.description ?: ''}<br><a href=\"${env.BUILD_URL}artifact/report/report.html\">Report</a>"
+}
+
 void removePbtContainer() {
     // an aborted build kills the docker client, not the container
     sh 'docker rm -f "${PBT_NAME}" >/dev/null 2>&1 || true'
@@ -294,6 +327,9 @@ pipeline {
                     runInPbtImage('run')
                 }
                 copyResults()
+                script {
+                    publishResults()
+                }
             }
         }
 
@@ -324,6 +360,7 @@ pipeline {
                             "--agent-result work/agent-result.json --ai ${aiMode}") != 0) {
                         error('render_report.py failed')
                     }
+                    publishReport()
                     echo "Report: ${env.BUILD_URL}artifact/report/report.html"
                     if (aiMode == 'failed' || aiMode == 'rejected') {
                         // the report exists either way: flag the stage, keep the build result
@@ -341,26 +378,16 @@ pipeline {
         always {
             removePbtContainer()
             script {
+                // Fallbacks for builds that stop before the stages published
+                // (aborted, timed out, or a stage error). With the worker gone,
+                // as in builds 14-16 and 18, nothing here can run; what the
+                // stages published by then is kept.
                 if (!fileExists('results/summary.json')) {
                     copyResults()
                 }
-                if (fileExists('results/summary.json')) {
-                    String summary = sh(script: '''
-                        docker run --rm -u "$(id -u):$(id -g)" -e WORKDIR=/work \
-                            -v "${WORKSPACE}/ws:/work:ro" \
-                            -v "${WORKSPACE}/package-testing/binlog-server-pbt:/pbt:ro" \
-                            "${PBT_IMAGE}" /pbt/pbt.sh describe
-                    ''', returnStdout: true).trim()
-                    currentBuild.description = "${currentBuild.description ?: ''}<br>${summary}"
-                    sh 'cat results/summary.md'
-                }
-                if (fileExists('report/report.html')) {
-                    currentBuild.description = "${currentBuild.description ?: ''}<br><a href=\"${env.BUILD_URL}artifact/report/report.html\">Report</a>"
-                }
+                publishResults()
+                publishReport()
             }
-            junit allowEmptyResults: true, keepLongStdio: true, skipPublishingChecks: true, testResults: 'results/junit.xml'
-            archiveArtifacts allowEmptyArchive: true,
-                artifacts: 'results/**, report/**, ai/input/**, ai/analysis/**, ai/log/**, ai/work/agent-result.json'
             sh 'docker rmi -f "${PBT_IMAGE}" >/dev/null 2>&1 || true'
         }
         cleanup {
