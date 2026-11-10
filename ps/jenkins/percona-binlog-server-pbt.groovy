@@ -136,7 +136,7 @@ pipeline {
         )
         choice(
             name: 'BUILD_TYPE',
-            choices: ['asan_gcc14', 'asan_gcc14-ubsan', 'release_gcc14', 'debug_gcc14'],
+            choices: ['asan_gcc14-ubsan', 'asan_gcc14', 'release_gcc14', 'debug_gcc14'],
             description: 'Build variant: CMake preset, -ubsan adds UndefinedBehaviorSanitizer (extra/qa/README.md, "Build variants")'
         )
         string(
