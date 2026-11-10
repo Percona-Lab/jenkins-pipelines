@@ -315,7 +315,9 @@ pipeline {
             steps {
                 script {
                     try {
-                        if (env.FIPSMODE == 'YES') {
+                        // Tarballs built in FIPS mode or from a private repository (e.g. percona-xtradb-cluster-private)
+                        // go to the gated (private) TESTING area
+                        if (env.FIPSMODE == 'YES' || params.GIT_REPO.contains('-private')) {
                             uploadTarballToDownloadsTesting(params.CLOUD, "pxc-gated", "${GIT_BRANCH}")
                         } else {
                             uploadTarballToDownloadsTesting(params.CLOUD, "pxc", "${GIT_BRANCH}")
