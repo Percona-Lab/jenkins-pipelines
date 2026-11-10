@@ -346,7 +346,7 @@ pipeline {
                         depsChartVersion ? "deps ${depsChartVersion}" : '',
                     ].findAll { it }.join(', ')
                     if (released) {
-                        currentBuild.description += " Released: ${released}"
+                        currentBuild.description += ". Released: ${released}"
                     }
 
                     def pmmAddress = summaryValue('url')
