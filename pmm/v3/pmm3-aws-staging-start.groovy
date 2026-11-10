@@ -39,7 +39,7 @@ pipeline {
             name: 'SSH_KEY'
         )
         string(
-            defaultValue: 'pmm3Admin!123',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD'
         )
