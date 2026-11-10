@@ -102,7 +102,7 @@ pipeline {
             description: 'percona-helm-charts branch whose pmm-ha chart the upgrade installs; the script clones it. The install always comes from the published chart. "latest" upgrades from the published chart too, making it an image-only upgrade.',
             name: 'HELM_CHART_BRANCH')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user password',
             name: 'ADMIN_PASSWORD')
         string(
