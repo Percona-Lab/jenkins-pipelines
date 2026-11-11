@@ -16,7 +16,12 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --admin_deps
+            # Dependency installation reaches distro mirrors and repo.percona.com;
+            # retry it, and stop here if it still fails instead of failing later.
+            install_deps() { bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --admin_deps; }
+            install_deps || { echo 'Dependency installation failed, retry 1/2 in 60s'; sleep 60; install_deps; } || \\
+                { echo 'Dependency installation failed, retry 2/2 in 120s'; sleep 120; install_deps; } || \\
+                { echo 'ERROR: dependency installation failed after 3 attempts'; exit 1; }
             bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --admin_repo=${GIT_REPO} --admin_branch=${GIT_BRANCH} --admin_version=${VALKEY_ADMIN_VERSION} --release=${VALKEY_ADMIN_RELEASE} ${STAGE_PARAM}"
     """
 }
