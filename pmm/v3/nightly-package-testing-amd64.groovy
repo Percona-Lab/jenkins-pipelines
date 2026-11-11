@@ -15,7 +15,7 @@ properties([
         string(defaultValue: 'pmm3-client_integration', description: 'Name of the playbook, e.g. pmm3-client_integration', name: 'TESTS', trim: true),
         choice(choices: ['experimental', 'testing', 'release'], description: 'Enable repo for client nodes', name: 'INSTALL_REPO'),
         string(defaultValue: '', description: 'PMM Client (x64) tarball link or FB-code', name: 'TARBALL'),
-        string(defaultValue: 'pmm3admin!', description: 'Password for the pmm server admin user', name: 'ADMIN_PASSWORD'),
+        string(defaultValue: 'PMM3testuser!', description: 'Password for the pmm server admin user', name: 'ADMIN_PASSWORD'),
         string(defaultValue: '--help', description: 'Flag for pmm framework', name: 'CLIENTS'),
         choice(choices: ['auto', 'push', 'pull'], description: 'Metrics mode for the client', name: 'METRICS_MODE'),
         booleanParam(defaultValue: false, description: 'Use on-demand instances instead of spot', name: 'USE_ONDEMAND'),

@@ -247,7 +247,7 @@ pipeline {
                         expression { return params.UPGRADE_TYPE == 'UI' }
                     }
                     environment {
-                        ADMIN_PASSWORD = "pmm3admin!"
+                        ADMIN_PASSWORD = "PMM3testuser!"
                     }
                     steps {
                         withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -264,7 +264,7 @@ pipeline {
                         expression { return params.UPGRADE_TYPE == 'DOCKER' }
                     }
                     environment {
-                        ADMIN_PASSWORD = "pmm3admin!"
+                        ADMIN_PASSWORD = "PMM3testuser!"
                     }
                     steps {
                         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -296,7 +296,7 @@ pipeline {
         }
         stage('Run post pmm server upgrade UI tests') {
             environment {
-                ADMIN_PASSWORD = "pmm3admin!"
+                ADMIN_PASSWORD = "PMM3testuser!"
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
@@ -327,7 +327,7 @@ pipeline {
         }
         stage('Run post pmm client upgrade UI tests') {
             environment {
-                ADMIN_PASSWORD = "pmm3admin!"
+                ADMIN_PASSWORD = "PMM3testuser!"
             }
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {

@@ -114,7 +114,7 @@ pipeline {
             description: 'Branch of HELM_CHART_REPO whose pmm-ha and pmm-ha-dependencies charts are installed. It must carry backup support (PMM-13858). A fork PR\'s owner:branch label, e.g. theTibi:PMM-13858, clones that owner\'s fork instead.',
             name: 'HELM_CHART_BRANCH')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user password',
             name: 'ADMIN_PASSWORD')
         string(

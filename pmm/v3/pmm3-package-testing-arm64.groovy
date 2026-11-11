@@ -136,7 +136,7 @@ pipeline {
             description: 'PMM Client tarball link or FB-code',
             name: 'TARBALL')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'Password for pmm server admin user',
             name: 'ADMIN_PASSWORD')
         string(
