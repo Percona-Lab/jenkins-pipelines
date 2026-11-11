@@ -100,6 +100,7 @@ pipeline {
         string(defaultValue: '4',     description: 'valkey-ldap release number',   name: 'LDAP_RELEASE')
         string(defaultValue: '1.0.0', description: 'valkey-audit version',  name: 'VALKEY_AUDIT_VERSION')
         string(defaultValue: '4',     description: 'valkey-audit release number',  name: 'AUDIT_RELEASE')
+        string(defaultValue: 'b5ebc556e5af076fe067bf53771dea236db1d2fb', description: 'percona/valkey-audit commit/tag/branch to build', name: 'AUDIT_GIT_BRANCH')
         string(defaultValue: '9.1.3', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
         string(defaultValue: '2',     description: 'valkey-bundle release number', name: 'BUNDLE_RELEASE')
         string(defaultValue: '1.3.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
@@ -191,6 +192,11 @@ pipeline {
                     if (params.PKG_AUDIT) {
                         jobs['audit'] = trigger('hetzner-valkey-audit-RELEASE', [
                             string(name: 'CLOUD',                value: cloud),
+                            // Pass the source explicitly: a job left with older defaults
+                            // (or a rebuild) would otherwise build a different repo. The
+                            // fallback covers the first run, before AUDIT_GIT_BRANCH exists.
+                            string(name: 'GIT_REPO',             value: 'https://github.com/percona/valkey-audit.git'),
+                            string(name: 'GIT_BRANCH',           value: params.AUDIT_GIT_BRANCH ?: 'b5ebc556e5af076fe067bf53771dea236db1d2fb'),
                             string(name: 'PACKAGING_BRANCH',     value: pkgBr),
                             string(name: 'VALKEY_AUDIT_VERSION', value: params.VALKEY_AUDIT_VERSION),
                             string(name: 'VALKEY_AUDIT_RELEASE', value: params.AUDIT_RELEASE),
