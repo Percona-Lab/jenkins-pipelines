@@ -1,3 +1,44 @@
+// A shell function that stops the GitOps controllers on cluster $1 and deletes its LoadBalancer
+// Services, whose NLBs would otherwise fail eksctl's stack delete: Argo CD self-heal or Flux
+// helm-controller recreates a Service eksctl removes. Best effort and time-bounded, since the
+// cluster may be broken or unreachable; it never fails the delete.
+String releaseLoadBalancersFunction() {
+    return '''
+        release_load_balancers() {
+            command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found, not releasing load balancers of $1"; return 0; }
+            kc="${WORKSPACE}/kubeconfig-$1"
+            if ! timeout 120 aws eks update-kubeconfig --name "$1" --region "${REGION}" --kubeconfig "${kc}"; then
+                echo "No kubeconfig for $1, deleting it without releasing its load balancers."
+                rm -f "${kc}"
+                return 0
+            fi
+            if ! timeout 30 kubectl --kubeconfig "${kc}" get --raw /readyz --request-timeout=20s >/dev/null 2>&1; then
+                echo "The API of $1 does not answer, deleting it without releasing its load balancers."
+                rm -f "${kc}"
+                return 0
+            fi
+            timeout 60 kubectl --kubeconfig "${kc}" scale statefulset argocd-application-controller \
+                --namespace argocd --replicas=0 || true
+            timeout 60 kubectl --kubeconfig "${kc}" scale deployment helm-controller \
+                --namespace flux-system --replicas=0 || true
+            timeout 60 kubectl --kubeconfig "${kc}" scale deployment kustomize-controller \
+                --namespace flux-system --replicas=0 || true
+            timeout 120 kubectl --kubeconfig "${kc}" wait --for=delete pod --namespace argocd \
+                --selector app.kubernetes.io/name=argocd-application-controller --timeout=90s || true
+            timeout 120 kubectl --kubeconfig "${kc}" wait --for=delete pod --namespace flux-system \
+                --selector 'app in (helm-controller,kustomize-controller)' --timeout=90s || true
+            services=$(timeout 60 kubectl --kubeconfig "${kc}" get services --all-namespaces \
+                -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.metadata.namespace}{"/"}{.metadata.name}{" "}{end}') \
+                || services=""
+            for svc in ${services}; do
+                timeout 300 kubectl --kubeconfig "${kc}" delete service --namespace "${svc%%/*}" "${svc#*/}" \
+                    --wait=true --timeout=240s || true
+            done
+            rm -f "${kc}"
+        }
+    '''
+}
+
 pipeline {
     agent {
         label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
@@ -96,18 +137,16 @@ pipeline {
             when { expression { env.ACTION == 'DELETE_CLUSTER' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        IFS=',' read -ra CLUSTERS <<< "${CLUSTER_NAME}"
-                        for c in "${CLUSTERS[@]}"; do
-                            c=$(echo "$c" | xargs)  # trim whitespace
-                            [ -z "$c" ] && continue
-
+                    sh releaseLoadBalancersFunction() + '''
+                        set -f
+                        for c in $(echo "${CLUSTER_NAME}" | tr ',' ' '); do
                             if ! aws eks describe-cluster --region "${REGION}" --name "$c" >/dev/null 2>&1; then
                                 echo "Cluster '$c' not found in region '${REGION}' - skipping."
                                 continue
                             fi
 
                             echo "Deleting cluster: $c"
+                            release_load_balancers "$c"
                             eksctl delete cluster --region "${REGION}" --name "$c" \
                                 --disable-nodegroup-eviction --wait
                         done
@@ -120,7 +159,7 @@ pipeline {
             when { expression { env.ACTION == 'DELETE_ALL' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
+                    sh releaseLoadBalancersFunction() + '''
                         CLUSTERS=$(aws eks list-clusters --region "$REGION" \
                             --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" --output text)
 
@@ -130,6 +169,7 @@ pipeline {
                         fi
 
                         for c in $CLUSTERS; do
+                            release_load_balancers "$c"
                             eksctl delete cluster --region "$REGION" --name "$c" \
                                 --disable-nodegroup-eviction --wait
                         done
@@ -142,7 +182,7 @@ pipeline {
             when { expression { env.ACTION == 'DELETE_OLD' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
+                    sh releaseLoadBalancersFunction() + '''
                         CLUSTERS=$(aws eks list-clusters --region "$REGION" \
                             --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" \
                             --output text)
@@ -168,6 +208,7 @@ pipeline {
                             AGE_SECONDS=$(( NOW_EPOCH - CREATED_EPOCH ))
 
                             if [ "$AGE_SECONDS" -gt "$MAX_AGE_SECONDS" ]; then
+                                release_load_balancers "$c"
                                 eksctl delete cluster \
                                     --region "$REGION" \
                                     --name "$c" \
