@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 // PMM HA on Argo CD tests.
 //
 // Creates a bare EKS cluster, installs PMM HA on it through Argo CD with
@@ -51,43 +56,6 @@ def summaryValue(String key) {
         returnStdout: true,
         script: """awk -F= -v k='${key}' '\$1 == k { print \$2 }' '${env.PMM_HA_SUMMARY}' | tail -n 1""",
     ).trim()
-}
-
-// Waits up to 20 minutes for the cluster API, so a short API blip does not fail the stage.
-def waitForClusterApi() {
-    sh '''
-        set +x
-        for i in $(seq 1 40); do
-            if OUT=$(kubectl get --raw /readyz --request-timeout=10s 2>&1); then
-                exit 0
-            fi
-            echo "Cluster API not reachable (${i}/40), retrying in 30s: $(echo "${OUT}" | tail -n 1)"
-            sleep 30
-        done
-        echo "ERROR: the cluster API is still not reachable after 20 minutes."
-        exit 1
-    '''
-}
-
-// Runs body again when it failed because the cluster API went away under it. A failure while
-// the API still answers is real and is rethrown at once. body must be safe to repeat.
-def withClusterApiRetry(Closure body) {
-    def attempts = 3
-    for (int i = 1; i <= attempts; i++) {
-        waitForClusterApi()
-        try {
-            body()
-            return
-        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-            throw e
-        } catch (err) {
-            def apiUp = sh(returnStatus: true, script: 'kubectl get --raw /readyz --request-timeout=10s >/dev/null 2>&1') == 0
-            if (apiUp || i == attempts) {
-                throw err
-            }
-            echo "The cluster API went away during this stage, running it again (attempt ${i + 1}/${attempts})"
-        }
-    }
 }
 
 pipeline {
