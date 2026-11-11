@@ -24,6 +24,18 @@ pipeline {
             description: 'Package Testing Repository Branch',
             name: 'PACKAGE_TESTING_REPO_BRANCH',
             trim: true)
+        choice(
+            choices: ['warn', 'enforce', 'off'],
+            description: 'PXB SBOM verification. warn: validate the SBOM files when the image ships them, skip when it does not (PXB images do not ship them yet). enforce: require them. off: skip entirely.',
+            name: 'SBOM_CHECK_MODE')
+        choice(
+            choices: ['warn', 'enforce', 'off'],
+            description: 'Vulnerability scanning of the SBOM. Gated separately so a new upstream CVE in a vendored library does not fail the docker tests.',
+            name: 'SBOM_VULN_MODE')
+        booleanParam(
+            defaultValue: true,
+            description: 'Run the SBOM schema validation and vulnerability scan on this agent. When on, a missing or unusable trivy/cyclonedx-cli FAILS the test rather than skipping it.',
+            name: 'SBOM_EXTERNAL_TOOLS')
     }
     options {
         skipDefaultCheckout()
@@ -244,12 +256,49 @@ pipeline {
                                     sudo docker run --rm --entrypoint xbcloud    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcrypt    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbstream   \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
+
+                                    # SBOM checks (docker-image-tests/pxb/tests/test_pxb_sbom.py).
+                                    # trivy is already in /usr/local/bin from the trivy stage above.
+                                    # cyclonedx-cli is arch-specific: copying the x64 asset onto the
+                                    # aarch64 agent gives an Exec format error that surfaces as a
+                                    # confusing pytest failure rather than a clear one.
+                                    ARCH=\$(uname -m)
+                                    if [ "\$ARCH" = "aarch64" ]; then
+                                        CDX_ASSET="cyclonedx-linux-arm64"
+                                    else
+                                        CDX_ASSET="cyclonedx-linux-x64"
+                                    fi
+                                    if [ "${params.SBOM_EXTERNAL_TOOLS}" = "true" ]; then
+                                        # rm first, and no "|| true": curl -f does not
+                                        # truncate its output file on an HTTP error, so a
+                                        # failed download would otherwise leave the PREVIOUS
+                                        # build's binary on this persistent agent and the
+                                        # schema validation would silently run against a
+                                        # stale version. Letting the failure through reports
+                                        # it here rather than later as a confusing
+                                        # "cyclonedx-cli is not installed" pytest failure.
+                                        sudo rm -f /usr/local/bin/cyclonedx
+                                        sudo curl -fsSL -o /usr/local/bin/cyclonedx \
+                                            https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET}
+                                        sudo chmod +x /usr/local/bin/cyclonedx
+                                    fi
+                                    export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
+                                    export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
+                                    export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
+                                    export SBOM_LICENSE_STRICT="1"
+
                                     ./run.sh
+
+                                    # junit results are labelled with the
+                                    # architecture by run.sh itself, so the
+                                    # labelling ships with
+                                    # PACKAGE_TESTING_REPO_BRANCH rather than
+                                    # waiting on a merge of this file.
                                 """
                             }
                             post {
                                 always {
-                                    junit 'package-testing/docker-image-tests/pxb/report.xml'
+                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: false, keepLongStdio: true
                                 }
                             }
                         }
@@ -343,12 +392,49 @@ pipeline {
                                     sudo docker run --rm --entrypoint xbcloud    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcrypt    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbstream   \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
+
+                                    # SBOM checks (docker-image-tests/pxb/tests/test_pxb_sbom.py).
+                                    # trivy is already in /usr/local/bin from the trivy stage above.
+                                    # cyclonedx-cli is arch-specific: copying the x64 asset onto the
+                                    # aarch64 agent gives an Exec format error that surfaces as a
+                                    # confusing pytest failure rather than a clear one.
+                                    ARCH=\$(uname -m)
+                                    if [ "\$ARCH" = "aarch64" ]; then
+                                        CDX_ASSET="cyclonedx-linux-arm64"
+                                    else
+                                        CDX_ASSET="cyclonedx-linux-x64"
+                                    fi
+                                    if [ "${params.SBOM_EXTERNAL_TOOLS}" = "true" ]; then
+                                        # rm first, and no "|| true": curl -f does not
+                                        # truncate its output file on an HTTP error, so a
+                                        # failed download would otherwise leave the PREVIOUS
+                                        # build's binary on this persistent agent and the
+                                        # schema validation would silently run against a
+                                        # stale version. Letting the failure through reports
+                                        # it here rather than later as a confusing
+                                        # "cyclonedx-cli is not installed" pytest failure.
+                                        sudo rm -f /usr/local/bin/cyclonedx
+                                        sudo curl -fsSL -o /usr/local/bin/cyclonedx \
+                                            https://github.com/CycloneDX/cyclonedx-cli/releases/latest/download/\${CDX_ASSET}
+                                        sudo chmod +x /usr/local/bin/cyclonedx
+                                    fi
+                                    export SBOM_CHECK_MODE="${params.SBOM_CHECK_MODE}"
+                                    export SBOM_VULN_MODE="${params.SBOM_VULN_MODE}"
+                                    export SBOM_EXTERNAL_TOOLS="${params.SBOM_EXTERNAL_TOOLS}"
+                                    export SBOM_LICENSE_STRICT="1"
+
                                     ./run.sh
+
+                                    # junit results are labelled with the
+                                    # architecture by run.sh itself, so the
+                                    # labelling ships with
+                                    # PACKAGE_TESTING_REPO_BRANCH rather than
+                                    # waiting on a merge of this file.
                                 """
                             }
                             post {
                                 always {
-                                    junit 'package-testing/docker-image-tests/pxb/report.xml'
+                                    junit testResults: 'package-testing/docker-image-tests/pxb/report.xml', allowEmptyResults: false, keepLongStdio: true
                                 }
                             }
                         }
