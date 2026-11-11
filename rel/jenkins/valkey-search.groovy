@@ -47,11 +47,11 @@ pipeline {
             description: 'URL for valkey-search repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.2.0',
+            defaultValue: '1.2.1',
             description: 'Tag/Branch for valkey-search repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1.2.0',
+            defaultValue: '1.2.1',
             description: 'valkey-search version value',
             name: 'VALKEY_SEARCH_VERSION')
         string(
@@ -59,11 +59,11 @@ pipeline {
             description: 'valkey-search release value',
             name: 'VALKEY_SEARCH_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository (holds the search/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.2',
+            defaultValue: '9.1.3',
             description: 'Branch/Tag for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(

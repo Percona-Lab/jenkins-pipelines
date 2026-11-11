@@ -68,8 +68,14 @@ pipeline {
                             EC=0
                             AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_90.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
                             if [ \${EC} = 1 ]; then
-                                # first run: just record state, don't build
-                                echo "START_NEW_BUILD=NO" > startBuild
+                                # no .properties yet, e.g. the release branch has just appeared.
+                                # build if there was a green build before; otherwise it's the
+                                # job's very first run, so only record state
+                                if [ -n "\${LAST_SUCCESSFUL_BRANCH}" ]; then
+                                    echo "START_NEW_BUILD=YES" > startBuild
+                                else
+                                    echo "START_NEW_BUILD=NO" > startBuild
+                                fi
                             else
                                 AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_90.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                                 CACHED_BRANCH=\$(awk -F= '\$1=="BRANCH_NAME"{print \$2}' branch_commit_id_90.properties)

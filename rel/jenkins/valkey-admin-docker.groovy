@@ -24,13 +24,13 @@ pipeline {
         )
 
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository',
             name: 'PACKAGING_REPO'
         )
 
         string(
-            defaultValue: '9.1.2',
+            defaultValue: '9.1.3',
             description: 'Branch for valkey-packaging repository',
             name: 'PACKAGING_BRANCH'
         )

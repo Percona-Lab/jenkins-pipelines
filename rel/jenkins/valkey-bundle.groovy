@@ -45,19 +45,19 @@ pipeline {
              description: 'Cloud infra for build',
              name: 'CLOUD' )
         string(
-            defaultValue: '9.1.0',
+            defaultValue: '9.1.3',
             description: 'percona-valkey-bundle version value',
             name: 'VALKEY_BUNDLE_VERSION')
         string(
-            defaultValue: '1',
+            defaultValue: '2',
             description: 'percona-valkey-bundle release value',
             name: 'VALKEY_BUNDLE_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository (holds the bundle/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.2',
+            defaultValue: '9.1.3',
             description: 'Branch/Tag for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         string(

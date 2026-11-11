@@ -44,11 +44,11 @@ pipeline {
             description: 'URL for valkey-json repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.0.2',
+            defaultValue: '1.0.3',
             description: 'Tag/Branch for valkey-json repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1.0.2',
+            defaultValue: '1.0.3',
             description: 'valkey-json version value',
             name: 'VALKEY_JSON_VERSION')
         string(
@@ -56,11 +56,11 @@ pipeline {
             description: 'valkey-json release value',
             name: 'VALKEY_JSON_RELEASE')
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            defaultValue: 'https://github.com/percona/valkey-packaging.git',
             description: 'URL for valkey-packaging repository (holds the json/ packaging + builder)',
             name: 'PACKAGING_REPO')
         string(
-            defaultValue: '9.1.2',
+            defaultValue: '9.1.3',
             description: 'Branch/Tag for valkey-packaging repository',
             name: 'PACKAGING_BRANCH')
         choice(
