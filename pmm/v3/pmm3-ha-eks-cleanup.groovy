@@ -12,6 +12,11 @@ String releaseLoadBalancersFunction() {
                 rm -f "${kc}"
                 return 0
             fi
+            if ! timeout 30 kubectl --kubeconfig "${kc}" get --raw /readyz --request-timeout=20s >/dev/null 2>&1; then
+                echo "The API of $1 does not answer, deleting it without releasing its load balancers."
+                rm -f "${kc}"
+                return 0
+            fi
             timeout 60 kubectl --kubeconfig "${kc}" scale statefulset argocd-application-controller \
                 --namespace argocd --replicas=0 || true
             timeout 60 kubectl --kubeconfig "${kc}" scale deployment helm-controller \
