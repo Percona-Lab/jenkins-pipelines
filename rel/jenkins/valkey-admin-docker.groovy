@@ -36,7 +36,7 @@ pipeline {
         )
 
         string(
-            defaultValue: '1.2.0',
+            defaultValue: '1.3.0',
             description: 'Valkey Admin version (its upstream tag is v<version>)',
             name: 'VALKEY_ADMIN_VERSION'
         )
