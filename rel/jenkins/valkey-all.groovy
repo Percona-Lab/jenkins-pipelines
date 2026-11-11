@@ -4,10 +4,19 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 ]) _
 
 // trigger — return a closure (for parallel{}) that runs a downstream job and
-// waits for it, propagating failure so a broken package/image fails the pipeline.
+// waits for it. A failed or aborted job fails the pipeline. An UNSTABLE job only
+// marks it unstable and the pipeline goes on: the shared artifact helpers mark a
+// job unstable when Hetzner S3 falls back to AWS, and with propagate: true that
+// stopped every later stage although the packages were built and published.
 def trigger(String jobName, List jobParams) {
     return {
-        build job: jobName, parameters: jobParams, wait: true, propagate: true
+        def run = build job: jobName, parameters: jobParams, wait: true, propagate: false
+        String result = run.result
+        if (result == 'UNSTABLE') {
+            unstable("${jobName} #${run.number} finished UNSTABLE, continuing: ${run.absoluteUrl}")
+        } else if (result != 'SUCCESS') {
+            error("${jobName} #${run.number} finished ${result}: ${run.absoluteUrl}")
+        }
     }
 }
 
@@ -296,20 +305,25 @@ pipeline {
         stage('Run tests') {
             when { expression { params.RUN_TESTS } }
             steps {
-                build job: 'hetzner-valkey-TESTING', wait: true, propagate: true, parameters: [
-                    string(name: 'CLOUD',            value: params.CLOUD),
-                    string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
-                    string(name: 'PACKAGING_BRANCH', value: params.PACKAGING_BRANCH),
-                    string(name: 'COMPONENT',        value: params.CHANNEL),
-                    string(name: 'VALKEY_REPO',      value: params.VALKEY_REPO),
-                    string(name: 'PLATFORMS',        value: params.TEST_PLATFORMS),
-                ]
+                script {
+                    trigger('hetzner-valkey-TESTING', [
+                        string(name: 'CLOUD',            value: params.CLOUD),
+                        string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
+                        string(name: 'PACKAGING_BRANCH', value: params.PACKAGING_BRANCH),
+                        string(name: 'COMPONENT',        value: params.CHANNEL),
+                        string(name: 'VALKEY_REPO',      value: params.VALKEY_REPO),
+                        string(name: 'PLATFORMS',        value: params.TEST_PLATFORMS),
+                    ]).call()
+                }
             }
         }
     }
     post {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: full Valkey pipeline succeeded for ${params.VALKEY_VERSION} (${params.CHANNEL}) - [${BUILD_URL}]")
+        }
+        unstable {
+            slackNotify("#releases-ci", "#FFFF00", "[${JOB_NAME}]: full Valkey pipeline finished UNSTABLE for ${params.VALKEY_VERSION} (${params.CHANNEL}), see the downstream jobs - [${BUILD_URL}]")
         }
         failure {
             slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: full Valkey pipeline failed for ${params.VALKEY_VERSION} (${params.CHANNEL}) - [${BUILD_URL}]")
