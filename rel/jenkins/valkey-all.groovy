@@ -74,8 +74,7 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-ldap',            name: 'PKG_LDAP')
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-audit',           name: 'PKG_AUDIT')
         booleanParam(defaultValue: true, description: 'Package: percona-valkey-bundle',          name: 'PKG_BUNDLE')
-        // valkey-admin does not depend on the server; rebuild it only when its version changes.
-        booleanParam(defaultValue: false, description: 'Package: percona-valkey-admin',         name: 'PKG_ADMIN')
+        booleanParam(defaultValue: true,  description: 'Package: percona-valkey-admin',          name: 'PKG_ADMIN')
         booleanParam(defaultValue: true, description: 'Docker image: valkey (server)',           name: 'IMG_VALKEY')
         booleanParam(defaultValue: true, description: 'Docker image: valkey-bundle',             name: 'IMG_BUNDLE')
         booleanParam(defaultValue: true, description: 'Docker image: valkey modules',            name: 'IMG_MODULE')
@@ -103,7 +102,7 @@ pipeline {
         string(defaultValue: '4',     description: 'valkey-audit release number',  name: 'AUDIT_RELEASE')
         string(defaultValue: '9.1.3', description: 'valkey-bundle version', name: 'VALKEY_BUNDLE_VERSION')
         string(defaultValue: '2',     description: 'valkey-bundle release number', name: 'BUNDLE_RELEASE')
-        string(defaultValue: '1.2.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
+        string(defaultValue: '1.3.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
         string(defaultValue: '1',     description: 'valkey-admin release number',  name: 'ADMIN_RELEASE')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
     }
@@ -142,8 +141,8 @@ pipeline {
                     String ch    = params.CHANNEL
                     String pkgBr = params.PACKAGING_BRANCH
                     Map jobs = [:]
-                    // Published packages to wait for. valkey-admin is left out: its package
-                    // name is not known here and nothing in the package chain depends on it.
+                    // Published packages to wait for, so the bundle and the Docker images
+                    // install what this run built.
                     Map published = [:]
                     if (params.PKG_JSON) {
                         jobs['json'] = trigger('hetzner-valkey-json-RELEASE', [
@@ -213,6 +212,7 @@ pipeline {
                             string(name: 'VALKEY_ADMIN_REPO',    value: params.VALKEY_REPO),
                             string(name: 'COMPONENT',            value: ch),
                         ])
+                        published['percona-valkey-admin-server'] = "${params.VALKEY_ADMIN_VERSION}-${params.ADMIN_RELEASE}"
                     }
                     echo "Building module packages: ${jobs.keySet().join(', ')}"
                     parallel(jobs)
