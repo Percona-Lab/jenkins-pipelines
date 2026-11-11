@@ -34,10 +34,8 @@ pipeline {
         string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'PMM client image: perconalab/pmm-client:dev-latest')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'PMM server image: perconalab/pmm-server:dev-latest')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'PMM client image: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'PMM server image: perconalab/pmm-server:3-dev-latest')
         string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital ocean region to use for cluster')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
         choice(name: 'JENKINS_AGENT', choices: ['AWS', 'Hetzner'], description: 'Cloud infra for build')
@@ -111,9 +109,7 @@ pipeline {
                             IMAGE_BACKUP      : IMAGE_BACKUP,
                             IMAGE_LOGCOLLECTOR: IMAGE_LOGCOLLECTOR,
                             IMAGE_PMM_CLIENT  : IMAGE_PMM_CLIENT,
-                            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER,
-                            IMAGE_PMM3_CLIENT : IMAGE_PMM3_CLIENT,
-                            IMAGE_PMM3_SERVER : IMAGE_PMM3_SERVER
+                            IMAGE_PMM_SERVER  : IMAGE_PMM_SERVER
                         ]
                     ])
 
