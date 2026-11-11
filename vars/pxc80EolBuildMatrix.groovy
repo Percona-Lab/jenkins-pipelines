@@ -1,0 +1,229 @@
+/**
+ * pxc80EolBuildMatrix.groovy - PXC 8.0 EOL build matrix shared library
+ *
+ * Runs parallel build stages for Percona XtraDB Cluster 8.0 EOL packages.
+ * Same as pxc80BuildMatrix, but pxc_builder.sh and sources are fetched from
+ * the private repository (GIT_REPO) using GITHUB_API_TOKEN.
+ * Handles agent label selection, FIPS mode, and version constraints.
+ *
+ * Usage:
+ *   pxc80EolBuildMatrix(
+ *       cloud:        params.CLOUD,
+ *       awsStashPath: AWS_STASH_PATH,
+ *       fipsMode:     env.FIPSMODE,
+ *       onlyStages:   params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+ *   )
+ */
+
+void cleanUpWS() {
+    sh """
+        sudo rm -rf ./*
+    """
+}
+
+// Debian Bullseye repositories are archived: point apt to snapshot.debian.org.
+// This block is inserted into pxc_builder.sh right before the first "apt-get update".
+void writeBullseyeSnapshotBlock() {
+    writeFile file: 'bullseye_snapshot_block.sh', text: '''export DIST="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+if [ "${DIST}" == "bullseye" ]; then
+            sed -i -E '/bullseye(-security|-updates)?[[:space:]]/d' /etc/apt/sources.list
+cat <<'EOF' | tee -a /etc/apt/sources.list
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye-updates main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260830T000000Z/ bullseye-security main
+EOF
+fi
+'''
+}
+
+void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    writeBullseyeSnapshotBlock()
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh """
+            set -o xtrace
+            uname -a
+            mkdir -p test
+            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O pxc_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/pxc_builder.sh?ref=${GIT_BRANCH}
+            sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-xtradb-cluster|g" pxc_builder.sh
+            ls -la
+            grep "git clone" pxc_builder.sh
+            # Insert the Debian Bullseye snapshot block right before the first "apt-get update" / "apt-get -y update"
+            awk 'FNR==NR { block = block \$0 "\\n"; next } !done && /apt-get (-y )?update/ { printf "%s", block; done = 1 } { print }' bullseye_snapshot_block.sh pxc_builder.sh > pxc_builder.sh.tmp && mv pxc_builder.sh.tmp pxc_builder.sh
+            grep -n -B1 -A10 'export DIST="\$(. /etc/os-release' pxc_builder.sh
+            pwd -P
+            export build_dir=\$(pwd -P)
+            docker version
+            docker info | grep -i runtime
+            docker run --shm-size=16g --cap-add=SYS_NICE -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                set -o xtrace
+                df -T \${build_dir}
+                cd \${build_dir}
+                bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --bin_release=${BIN_RELEASE} ${STAGE_PARAM}"
+        """
+    }
+}
+
+def call(Map args = [:]) {
+    def cloud        = args.get('cloud', '')
+    def awsStashPath = args.get('awsStashPath', '')
+    def fipsMode     = args.get('fipsMode', 'NO')
+    def onlyStages   = args.get('onlyStages', [])
+
+    // Each entry: name, image, arch, buildType, flags, fipsFlags (null = no FIPS variant),
+    //             skipInFips, versionConstraint
+    def stages = [
+        // ---- RPM stages ----
+        [name: 'Centos 8',                 image: 'centos:8',         arch: 'x64',     buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: null,
+         skipInFips: true],
+        [name: 'Centos 8 ARM',             image: 'centos:8',         arch: 'aarch64', buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: null,
+         skipInFips: true],
+        [name: 'Oracle Linux 9',           image: 'oraclelinux:9',    arch: 'x64',     buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Oracle Linux 9 ARM',       image: 'oraclelinux:9',    arch: 'aarch64', buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Oracle Linux 10',          image: 'oraclelinux:10',   arch: 'x64',     buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+        [name: 'Oracle Linux 10 ARM',      image: 'oraclelinux:10',   arch: 'aarch64', buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: '--build_rpm=1 --enable_fipsmode=1',
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+        [name: 'Amazon Linux 2023',        image: 'amazonlinux:2023', arch: 'x64',     buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: null,
+         skipInFips: false],
+        [name: 'Amazon Linux 2023 ARM',    image: 'amazonlinux:2023', arch: 'aarch64', buildType: 'rpm',
+         flags: '--build_rpm=1',           fipsFlags: null,
+         skipInFips: false],
+        // ---- DEB stages ----
+        [name: 'Ubuntu Jammy(22.04)',      image: 'ubuntu:jammy',     arch: 'x64',     buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Ubuntu Jammy(22.04) ARM',  image: 'ubuntu:jammy',     arch: 'aarch64', buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Ubuntu Noble(24.04)',      image: 'ubuntu:noble',     arch: 'x64',     buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Ubuntu Noble(24.04) ARM',  image: 'ubuntu:noble',     arch: 'aarch64', buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Ubuntu Resolute(26.04)',   image: 'ubuntu:resolute',  arch: 'x64',     buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+        [name: 'Ubuntu Resolute(26.04) ARM', image: 'ubuntu:resolute-20260610', arch: 'aarch64', buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+        [name: 'Debian Bullseye(11)',      image: 'debian:bullseye',  arch: 'x64',     buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: null,
+         skipInFips: true],
+        [name: 'Debian Bullseye(11) ARM',  image: 'debian:bullseye',  arch: 'aarch64', buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: null,
+         skipInFips: true],
+        [name: 'Debian Bookworm(12)',      image: 'debian:bookworm',  arch: 'x64',     buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Debian Bookworm(12) ARM',  image: 'debian:bookworm',  arch: 'aarch64', buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Debian Trixie(13)',        image: 'debian:trixie',    arch: 'x64',     buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+        [name: 'Debian Trixie(13) ARM',    image: 'debian:trixie',    arch: 'aarch64', buildType: 'deb',
+         flags: '--build_deb=1',           fipsFlags: '--build_deb=1 --enable_fipsmode=1',
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+        // ---- Tarball stages ----
+        [name: 'Centos 8 tarball',         image: 'centos:8',         arch: 'x64',     buildType: 'tarball',
+         flags: '--build_tarball=1',       fipsFlags: null,
+         skipInFips: true],
+        [name: 'Oracle Linux 9 tarball',   image: 'oraclelinux:9',    arch: 'x64',     buildType: 'tarball',
+         flags: '--build_tarball=1',       fipsFlags: '--build_tarball=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Debian Bullseye(11) tarball', image: 'debian:bullseye', arch: 'x64',   buildType: 'tarball',
+         flags: '--build_tarball=1',       fipsFlags: null,
+         skipInFips: true],
+        [name: 'Ubuntu Jammy(22.04) tarball', image: 'ubuntu:jammy',  arch: 'x64',     buildType: 'tarball',
+         flags: '--build_tarball=1',       fipsFlags: '--build_tarball=1 --enable_fipsmode=1',
+         skipInFips: false],
+        [name: 'Debian Trixie(13) tarball', image: 'debian:trixie',   arch: 'x64',     buildType: 'tarball',
+         flags: '--build_tarball=1',       fipsFlags: null,
+         skipInFips: false,
+         versionConstraint: [[major: '8', minor: '4'], [major: '9', minor: '7']]],
+    ]
+
+    def sourceFolders = [rpm: 'srpm/', deb: 'source_deb/', tarball: 'source_tarball/']
+    def targetFolders = [rpm: 'rpm/',  deb: 'deb/',        tarball: 'test/tarball/']
+
+    def branches = [:]
+
+    stages.each { s ->
+        def stageName    = s.name
+        def image        = s.image
+        def arch         = s.arch
+        def buildType    = s.buildType
+        def flags        = s.flags
+        def fipsFl       = s.fipsFlags
+        def _skipInFips       = s.skipInFips
+        def versionConstraint = s.get('versionConstraint', null)
+
+        def agentLabel = arch == 'aarch64'
+            ? (cloud == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64')
+            : (cloud == 'Hetzner' ? 'docker-x64'     : 'docker-32gb')
+
+        def sourceFolder = sourceFolders[buildType]
+        def targetFolder = targetFolders[buildType]
+
+        branches[stageName] = {
+            stage(stageName) {
+                if (onlyStages && !onlyStages.contains(stageName)) {
+                    echo "Skipped: not in BUILD_STAGES filter"
+                    return
+                }
+                if (_skipInFips && fipsMode == 'YES') {
+                    echo "Skipping '${stageName}' (not supported in FIPS mode)"
+                    return
+                }
+                if (versionConstraint) {
+                    def major = env.MYSQL_VERSION_MAJOR
+                    def minor = env.MYSQL_VERSION_MINOR
+                    def allowed = versionConstraint.any { vc -> vc.major == major && vc.minor == minor }
+                    if (!allowed) {
+                        echo "Skipping '${stageName}' (version constraint not met, detected ${major}.${minor})"
+                        return
+                    }
+                }
+                node(agentLabel) {
+                    cleanUpWS()
+                    unstash 'pxc-80.properties'
+                    popArtifactFolder(cloud, sourceFolder, awsStashPath)
+                    def buildFlags = (fipsMode == 'YES' && fipsFl != null) ? fipsFl : flags
+                    buildStage(image, buildFlags)
+                    stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                    pushArtifactFolder(cloud, targetFolder, awsStashPath)
+                    if (buildType == 'rpm') {
+                        uploadRPMfromAWS(cloud, targetFolder, awsStashPath)
+                    } else if (buildType == 'deb') {
+                        uploadDEBfromAWS(cloud, targetFolder, awsStashPath)
+                    } else {
+                        uploadTarballfromAWS(cloud, targetFolder, awsStashPath, 'binary')
+                    }
+                }
+            }
+        }
+    }
+
+    // Kill all other running branches as soon as any single branch
+    // fails or is aborted, instead of waiting for the rest to finish.
+    // branches.failFast = true
+
+    parallel branches
+}

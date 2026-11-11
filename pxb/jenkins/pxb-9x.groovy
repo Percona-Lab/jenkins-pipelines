@@ -194,7 +194,7 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'OFF\nON',
+            choices: 'ON\nOFF',
             description: 'Enable SBOM generation',
             name: 'ENABLE_SBOM')
         choice(

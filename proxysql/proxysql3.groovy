@@ -9,6 +9,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         uname -a
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/scripts/proxysql_builder.sh -O proxysql_builder.sh
+        sed -i -E 's/^([[:space:]]*GO_VERSION=).*/\\1"1.26.10"/' proxysql_builder.sh
+        grep -n 'GO_VERSION=' proxysql_builder.sh || true
         pwd -P
         export build_dir=\$(pwd -P)
         ls -la /var/run/docker.sock
@@ -52,11 +54,11 @@ pipeline {
             description: 'URL for proxysql repository',
             name: 'PROXYSQL_REPO')
         string(
-            defaultValue: 'v3.0.1',
+            defaultValue: 'v3.0.9',
             description: 'Tag/Branch for proxysql repository',
             name: 'PROXYSQL_BRANCH')  
         string(
-            defaultValue: '3.0.1',
+            defaultValue: '3.0.9',
             description: 'PROXYSQL release value',
             name: 'VERSION')  
         string(
@@ -64,7 +66,7 @@ pipeline {
             description: 'URL for proxysql-admin-tool repository',
             name: 'PAT_REPO')
         string(
-            defaultValue: 'v2',
+            defaultValue: 'v3',
             description: 'Tag/Branch for proxysql-admin-tool repository',
             name: 'PAT_TAG')   
         string(

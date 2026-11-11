@@ -33,32 +33,45 @@ void installCli() {
 }
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir -p test
-        wget \$(echo ${env.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${env.BRANCH}/build-ps/percona-server-9.0_builder.sh -O ps_builder.sh || curl \$(echo ${env.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${env.BRANCH}/build-ps/percona-server-9.0_builder.sh -o ps_builder.sh
-        export build_dir=\$(pwd -P)
-        SBOM_PARAM=""
-        if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
-        if [ "${DOCKER_OS}" = "none" ]; then
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh """
             set -o xtrace
-            cd \${build_dir}
-            if [ -f ./test/percona-server-9.0.properties ]; then
-                . ./test/percona-server-9.0.properties
+            mkdir -p test
+            # GIT_REPO can be either a public (percona-server) or a private (percona-server-private) repository
+            if echo "${env.GIT_REPO}" | grep -q -- '-private'; then
+                wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${env.GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-9.0_builder.sh?ref=${env.BRANCH}
+                # Private repository: clone with the token into the percona-server directory expected by the builder
+                sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${env.GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+                grep "git clone" ps_builder.sh
+            else
+                wget \$(echo ${env.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${env.BRANCH}/build-ps/percona-server-9.0_builder.sh -O ps_builder.sh || curl \$(echo ${env.GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${env.BRANCH}/build-ps/percona-server-9.0_builder.sh -o ps_builder.sh
             fi
-            sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
-        else
-            docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+            # Use the GitHub mirror instead of git.savannah.gnu.org
+            sed -i 's|git.savannah.gnu.org/git|github.com/cgitmirror|g' ps_builder.sh
+            grep -n 'github.com/cgitmirror' ps_builder.sh || true
+            export build_dir=\$(pwd -P)
+            SBOM_PARAM=""
+            if [ "${ENABLE_SBOM}" = "ON" ]; then SBOM_PARAM="--sbom=1"; fi
+            if [ "${DOCKER_OS}" = "none" ]; then
                 set -o xtrace
                 cd \${build_dir}
                 if [ -f ./test/percona-server-9.0.properties ]; then
                     . ./test/percona-server-9.0.properties
                 fi
-                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
-        fi
-    """
+                sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}
+            else
+                docker run -u root --shm-size=16g --cap-add=SYS_NICE -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                    set -o xtrace
+                    cd \${build_dir}
+                    if [ -f ./test/percona-server-9.0.properties ]; then
+                        . ./test/percona-server-9.0.properties
+                    fi
+                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${env.GIT_REPO} --branch=${env.BRANCH} --rpm_release=${env.RPM_RELEASE} --deb_release=${env.DEB_RELEASE} \${SBOM_PARAM} ${STAGE_PARAM}"
+            fi
+        """
+    }
 }
 
 def call(Map args) {

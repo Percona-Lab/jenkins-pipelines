@@ -264,12 +264,15 @@ parameters {
                                 PS_MAJOR_RELEASE="${VER_MAJOR}${VER_MINOR}"
                                 MYSQL_SHELL_RELEASE="${VER_MAJOR}.${VER_MINOR}.${VER_PATCH}"
                             fi
-                            if [ ${PS_RELEASE} = "8.4.11-11" ]; then
-                                MYSQL_SHELL_RELEASE="8.4.10"
-                            fi
-                            if [ ${PS_RELEASE} = "9.7.2-2" ]; then
-                                MYSQL_SHELL_RELEASE="9.7.1"
-                            fi
+                            # MySQL Shell version is pinned for 8.4.* and 9.7.* PS releases
+                            case "${PS_RELEASE}" in
+                                8.4.*)
+                                    MYSQL_SHELL_RELEASE="8.4.10"
+                                    ;;
+                                9.7.*)
+                                    MYSQL_SHELL_RELEASE="9.7.1"
+                                    ;;
+                            esac
                             MYSQL_ROUTER_RELEASE=${PS_RELEASE}
 
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -299,13 +302,15 @@ parameters {
                             esac
 
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
-                            sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
-                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
+                            sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-1/g" ${Dockerfile}
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-2/g" ${Dockerfile}
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO ${COMPONENT}/g" ${Dockerfile}
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}.aarch64
-                            sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}.aarch64
-                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}.aarch64
+                            sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-1/g" ${Dockerfile}.aarch64
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-2/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" ${Dockerfile}.aarch64
+                            sed -i "s/^\\s*percona-release enable mysql-shell/#&/" ${Dockerfile}
+                            sed -i "s/^\\s*percona-release enable mysql-shell/#&/" ${Dockerfile}.aarch64
                             sudo docker --version
 
                             if [ ${COMPONENT} = "experimental" ]; then
@@ -327,7 +332,8 @@ parameters {
 
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
-                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-2/g" Dockerfile
+                            sed -i "s/^\\s*percona-release enable mysql-shell experimental;/#&/" Dockerfile
 
                             case ${PS_MAJOR_RELEASE} in
                                 80) echo "no sed command is required" ;;

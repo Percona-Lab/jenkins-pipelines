@@ -26,8 +26,19 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 set -o xtrace
                 uname -a
                 mkdir -p test
+                # GIT_REPO can be either a public (percona-xtradb-cluster) or a private (percona-xtradb-cluster-private) repository
+                if echo "${GIT_REPO}" | grep -q -- '-private'; then
+                    IS_PRIVATE_REPO=1
+                else
+                    IS_PRIVATE_REPO=0
+                fi
                 if [ \${FIPSMODE} = "YES" ]; then
-                    PXC_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION && cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+                    if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                        wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${GIT_BRANCH}
+                    else
+                        curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION
+                    fi
+                    PXC_VERSION_MINOR=\$(grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
                     if [ \${PXC_VERSION_MINOR} = "0" ]; then
                         PRO_BRANCH="8.0"
                     elif [ \${PXC_VERSION_MINOR} = "4" ]; then
@@ -42,7 +53,16 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     sed -i "s/PRIVATE_USERNAME/\${USERNAME}/g" pxc_builder.sh
                     sed -i "s/PRIVATE_TOKEN/\${PASSWORD}/g" pxc_builder.sh
                 else
-                    wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+                    if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                        wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O pxc_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/pxc_builder.sh?ref=${GIT_BRANCH}
+                    else
+                        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+                    fi
+                fi
+                if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                    # Private repository: clone with the token into the percona-xtradb-cluster directory expected by the builder
+                    sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-xtradb-cluster|g" pxc_builder.sh
+                    grep "git clone" pxc_builder.sh
                 fi
                 pwd -P
                 export build_dir=\$(pwd -P)

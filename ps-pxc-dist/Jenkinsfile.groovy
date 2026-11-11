@@ -375,13 +375,13 @@ ENDSSH
 
     post {
         success {
-            slackSend channel: '#releases-ci', color: '#00FF00', message: "✅ ${REPOSITORY} distribution: job finished"
+            slackSend channel: '#releases-ci', color: '#00FF00', message: "✅ ${REPOSITORY}-${REPOSITORY_VERSION} (${COMPONENT}) distribution: job finished"
         }
         unstable {
-            slackSend channel: '#releases-ci', color: '#FFFF00', message: "⚠️ ${REPOSITORY} distribution: job finished with warnings (Trivy)"
+            slackSend channel: '#releases-ci', color: '#FFFF00', message: "⚠️ ${REPOSITORY}-${REPOSITORY_VERSION} (${COMPONENT}) distribution: job finished with warnings (Trivy)"
         }
         failure {
-            slackSend channel: '#releases-ci', color: '#FF0000', message: "❌ ${REPOSITORY} distribution: job failed"
+            slackSend channel: '#releases-ci', color: '#FF0000', message: "❌ ${REPOSITORY}-${REPOSITORY_VERSION} (${COMPONENT}) distribution: job failed"
         }
         always {
             script {

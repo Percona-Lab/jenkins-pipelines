@@ -9,6 +9,22 @@ void cleanUpWS() {
     """
 }
 
+// Downloads MYSQL_VERSION for GIT_BRANCH from GIT_REPO into the current workspace.
+// GIT_REPO can be either a public (percona-xtradb-cluster) or a private (percona-xtradb-cluster-private) repository
+void fetchMysqlVersion() {
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh '''
+            rm -f MYSQL_VERSION
+            if echo "${GIT_REPO}" | grep -q -- '-private'; then
+                curl -fsSL -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.v3.raw" \
+                    -o MYSQL_VERSION "$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git$||')/contents/MYSQL_VERSION?ref=${GIT_BRANCH}"
+            else
+                curl -fsSL -o MYSQL_VERSION "$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${GIT_BRANCH}/MYSQL_VERSION"
+            fi
+        '''
+    }
+}
+
 void installSbomTools() {
     sh """
         set -e
@@ -111,6 +127,7 @@ pipeline {
                 script {
                         echo "====> Build docker containers"
                         cleanUpWS()
+                        fetchMysqlVersion()
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                         sh '''
                             PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
@@ -133,7 +150,6 @@ pipeline {
                             sudo apt-get install -y qemu-system binfmt-support qemu-user-static
                             sudo qemu-system-x86_64 --version
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                            curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                             . ./MYSQL_VERSION
                             git clone $(echo ${REPO_DOCKER} | sed -e "s|https://github.com/|https://x-access-token:${TOKEN}@github.com/|")
                             cd percona-docker
@@ -201,6 +217,7 @@ pipeline {
                             sudo docker images
                         '''
                         }
+                            fetchMysqlVersion()
                             withCredentials([
                             usernamePassword(credentialsId: 'hub.docker.com',
                             passwordVariable: 'PASS',
@@ -208,7 +225,6 @@ pipeline {
                             )]) {
                             sh '''
                                 echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                                curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                                 . ./MYSQL_VERSION
                                 sudo docker push ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64
                                 sudo docker push ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-amd64
@@ -219,8 +235,8 @@ pipeline {
                                 fi
                             '''
                         }
+                        fetchMysqlVersion()
                         sh '''
-                           curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                            . ./MYSQL_VERSION
                            sudo docker manifest create --amend ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 \
@@ -229,6 +245,7 @@ pipeline {
                            sudo docker manifest annotate ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 --os linux --arch amd64
                            sudo docker manifest inspect ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
+                       fetchMysqlVersion()
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
                        passwordVariable: 'PASS',
@@ -236,7 +253,6 @@ pipeline {
                        )]) {
                        sh '''
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                            . ./MYSQL_VERSION
                            sudo docker manifest push ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH} ${ORGANIZATION}/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
@@ -255,9 +271,9 @@ pipeline {
                 expression {
                     // Container-image SBOM generation/attach only applies to
                     // PXC releases 9.7 and above
+                    fetchMysqlVersion()
                     def ver = sh(returnStdout: true, script: """
-                        curl -fsSL "https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION" \
-                            | awk -F= '/^MYSQL_VERSION_(MAJOR|MINOR)/{gsub(/[ \\r\\t"]/,"",\$2); printf "%s ", \$2}'
+                        awk -F= '/^MYSQL_VERSION_(MAJOR|MINOR)/{gsub(/[ \\r\\t"]/,"",\$2); printf "%s ", \$2}' MYSQL_VERSION
                     """).trim()
 
                     def parts = ver.tokenize(' ')
@@ -288,10 +304,10 @@ pipeline {
                         sh 'echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin'
                         sh 'echo "${PASS}" | oras login -u "${USER}" --password-stdin docker.io'
 
+                        fetchMysqlVersion()
                         images.each { name, repo ->
                             sh """
                                 set -e
-                                curl -fsSL "https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION" -o MYSQL_VERSION
                                 . ./MYSQL_VERSION
                                 PXC_RELEASE="\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}\${MYSQL_VERSION_EXTRA}"
 
@@ -350,9 +366,10 @@ stage('Check by trivy') {
             try {
                 echo "🔄 Fetching MySQL version..."
 
-                // 🔹 Capture the file content directly from curl
+                // 🔹 Download MYSQL_VERSION from GIT_REPO and read its content
+                fetchMysqlVersion()
                 def mysqlVersion = sh(
-                    script: "curl -s https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION",
+                    script: 'cat MYSQL_VERSION',
                     returnStdout: true
                 ).trim()
 

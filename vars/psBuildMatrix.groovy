@@ -45,14 +45,41 @@ void cleanUpWS() {
     """
 }
 
+// Debian Bullseye repositories are archived: point apt to snapshot.debian.org.
+// This block is inserted into ps_builder.sh right before the first "apt-get update".
+void writeBullseyeSnapshotBlock() {
+    writeFile file: 'bullseye_snapshot_block.sh', text: '''export DIST="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+if [ "${DIST}" == "bullseye" ]; then
+            sed -i -E '/bullseye(-security|-updates)?[[:space:]]/d' /etc/apt/sources.list
+cat <<'EOF' | tee -a /etc/apt/sources.list
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye-updates main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260830T000000Z/ bullseye-security main
+EOF
+fi
+'''
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    writeBullseyeSnapshotBlock()
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
       sh """
           set -o xtrace
           free -h
           mkdir -p test
+          # GIT_REPO can be either a public (percona-server) or a private (percona-server-private) repository
+          if echo "${GIT_REPO}" | grep -q -- '-private'; then
+              IS_PRIVATE_REPO=1
+          else
+              IS_PRIVATE_REPO=0
+          fi
           if [ \${FIPSMODE} = "YES" ]; then
-              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
+              if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                  wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${BRANCH}
+              else
+                  curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION
+              fi
+              MYSQL_VERSION_MINOR=\$(grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
               if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
                   PRO_BRANCH="8.0"
               elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
@@ -67,8 +94,20 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
               sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
               sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
           else
-              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+              if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                  wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-8.0_builder.sh?ref=${BRANCH}
+              else
+                  wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+              fi
           fi
+          if [ \${IS_PRIVATE_REPO} = 1 ]; then
+              # Private repository: clone with the token into the percona-server directory expected by the builder
+              sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+              grep "git clone" ps_builder.sh
+          fi
+          # Insert the Debian Bullseye snapshot block right before the first "apt-get update"
+          awk 'FNR==NR { block = block \$0 "\\n"; next } !done && /apt-get update/ { printf "%s", block; done = 1 } { print }' bullseye_snapshot_block.sh ps_builder.sh > ps_builder.sh.tmp && mv ps_builder.sh.tmp ps_builder.sh
+          grep -n -B1 -A10 'export DIST=' ps_builder.sh
           export build_dir=\$(pwd -P)
           if [ "$DOCKER_OS" = "none" ]; then
               set -o xtrace

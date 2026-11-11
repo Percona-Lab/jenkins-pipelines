@@ -55,11 +55,11 @@ pipeline {
             description: 'Percona Toolkit release value',
             name: 'VERSION')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '1.1',
+            defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
@@ -67,7 +67,7 @@ pipeline {
             description: 'PT repo name',
             name: 'PT_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }

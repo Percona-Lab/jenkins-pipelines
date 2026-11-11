@@ -34,13 +34,40 @@ void installCli() {
     """
 }
 
+// Debian Bullseye repositories are archived: point apt to snapshot.debian.org.
+// This block is inserted into ps_builder.sh right before the first "apt-get update".
+void writeBullseyeSnapshotBlock() {
+    writeFile file: 'bullseye_snapshot_block.sh', text: '''export DIST="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+if [ "${DIST}" == "bullseye" ]; then
+            sed -i -E '/bullseye(-security|-updates)?[[:space:]]/d' /etc/apt/sources.list
+cat <<'EOF' | tee -a /etc/apt/sources.list
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye-updates main
+deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20260830T000000Z/ bullseye-security main
+EOF
+fi
+'''
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    writeBullseyeSnapshotBlock()
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
       sh """
           set -o xtrace
           mkdir -p test
+          # GIT_REPO can be either a public (percona-server) or a private (percona-server-private) repository
+          if echo "${GIT_REPO}" | grep -q -- '-private'; then
+              IS_PRIVATE_REPO=1
+          else
+              IS_PRIVATE_REPO=0
+          fi
           if [ \${FIPSMODE} = "YES" ]; then
-              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
+              if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                  wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${BRANCH}
+              else
+                  curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION
+              fi
+              MYSQL_VERSION_MINOR=\$(grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
               if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
                   PRO_BRANCH="8.0"
               elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
@@ -55,13 +82,20 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
               sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
               sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
           else
-              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
-              sed -i '0,/cd \${WORKDIR}/{s|cd \${WORKDIR}/percona-server|cd \${WORKDIR}/percona-server\\n    curl -L "https://github.com/percona/percona-server/compare/release-8.0.34-26...satya-bodapati:percona-server:PS-9107-8.0.34.patch" -o PS-9107-8.0.34.patch\\n    git apply --verbose PS-9107-8.0.34.patch|}' ps_builder.sh
+              if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                  wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-8.0_builder.sh?ref=${BRANCH}
+              else
+                  wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+              fi
           fi
-          #sed -i 's|^    wget https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.gz|    #wget https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.gz|' ps_builder.sh
-          #sed -i 's|^    #wget http://jenkins.percona.com/downloads/boost/\${BOOST_PACKAGE_NAME}.tar.gz|    wget --no-check-certificate https://downloads.percona.com/downloads/packaging/boost/\${BOOST_PACKAGE_NAME}.tar.gz|' ps_builder.sh
-          #sed -i '0,/git checkout "\$BRANCH"/{s#git checkout "\$BRANCH"#git checkout "\$BRANCH"\\n    sed -i "s|https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/\${BOOST_TARBALL}|https://downloads.percona.com/downloads/packaging/boost/\${BOOST_TARBALL}|" cmake/boost.cmake#}' ps_builder.sh
-          #grep boost ps_builder.sh
+          if [ \${IS_PRIVATE_REPO} = 1 ]; then
+              # Private repository: clone with the token into the percona-server directory expected by the builder
+              sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+              grep "git clone" ps_builder.sh
+          fi
+          # Insert the Debian Bullseye snapshot block right before the first "apt-get update"
+          awk 'FNR==NR { block = block \$0 "\\n"; next } !done && /apt-get update/ { printf "%s", block; done = 1 } { print }' bullseye_snapshot_block.sh ps_builder.sh > ps_builder.sh.tmp && mv ps_builder.sh.tmp ps_builder.sh
+          grep -n -B1 -A10 'export DIST=' ps_builder.sh
           ls -la
           export build_dir=\$(pwd -P)
           if [ "$DOCKER_OS" = "none" ]; then
@@ -459,9 +493,15 @@ parameters {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 script {
-                    sh """
-                        curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
-                    """
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                        sh """
+                            if echo "${GIT_REPO}" | grep -q -- '-private'; then
+                                wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${BRANCH}
+                            else
+                                curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                            fi
+                        """
+                    }
                     env.MYSQL_VERSION_MAJOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MAJOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     env.MYSQL_VERSION_MINOR = sh(returnStdout: true, script: "grep '^MYSQL_VERSION_MINOR=' MYSQL_VERSION | cut -d= -f2").trim()
                     echo "Detected Percona Server version: ${env.MYSQL_VERSION_MAJOR}.${env.MYSQL_VERSION_MINOR}"
@@ -521,12 +561,17 @@ parameters {
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             steps {
                 script {
-                    psBuildMatrix(
-                        cloud: params.CLOUD,
-                        awsStashPath: AWS_STASH_PATH,
-                        fipsMode: env.FIPSMODE,
-                        onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
-                    )
+                    // Do not fail the whole pipeline if one of the parallel build steps fails:
+                    // the remaining steps still finish, this stage is marked as failed,
+                    // the build is marked as UNSTABLE and the next stages continue
+                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                        psBuildMatrix(
+                            cloud: params.CLOUD,
+                            awsStashPath: AWS_STASH_PATH,
+                            fipsMode: env.FIPSMODE,
+                            onlyStages: params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
+                        )
+                    }
                 }
             }
         }
@@ -603,7 +648,16 @@ parameters {
             steps {
                 unstash 'properties'
                 script {
-                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                        sh """
+                            if echo "${GIT_REPO}" | grep -q -- '-private'; then
+                                wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${BRANCH}
+                            else
+                                curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                            fi
+                        """
+                    }
+                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
                     if ("${MYSQL_VERSION_MINOR}" == "0") {

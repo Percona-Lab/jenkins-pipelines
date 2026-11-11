@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
@@ -8,8 +8,19 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
       sh """
           set -o xtrace
           mkdir -p test
+          # GIT_REPO can be either a public (percona-xtradb-cluster) or a private (percona-xtradb-cluster-private) repository
+          if echo "${GIT_REPO}" | grep -q -- '-private'; then
+              IS_PRIVATE_REPO=1
+          else
+              IS_PRIVATE_REPO=0
+          fi
           if [ \${FIPSMODE} = "YES" ]; then
-              PXC_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION && cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+              if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                  wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${GIT_BRANCH}
+              else
+                  curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION
+              fi
+              PXC_VERSION_MINOR=\$(grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
               if [ \${PXC_VERSION_MINOR} = "0" ]; then
                   PRO_BRANCH="8.0"
               elif [ \${PXC_VERSION_MINOR} = "4" ]; then
@@ -22,7 +33,16 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                       -o pxc_builder.sh \
                       "https://api.github.com/repos/percona/percona-xtradb-cluster-private-build/contents/build-ps/pxc_builder.sh?ref=\${PRO_BRANCH}"
           else
-              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+              if [ \${IS_PRIVATE_REPO} = 1 ]; then
+                  wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O pxc_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/pxc_builder.sh?ref=${GIT_BRANCH}
+              else
+                  wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+              fi
+          fi
+          if [ \${IS_PRIVATE_REPO} = 1 ]; then
+              # Private repository: clone with the token into the percona-xtradb-cluster directory expected by the builder
+              sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone --depth 1 --branch \\\$BRANCH \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-xtradb-cluster|g" pxc_builder.sh
+              grep "git clone" pxc_builder.sh
           fi
           pwd -P
           ls -laR
@@ -216,6 +236,7 @@ pipeline {
                             awsStashPath:     AWS_STASH_PATH,
                             fipsMode:         env.FIPSMODE,
                             experimentalMode: env.EXPERIMENTALMODE,
+                            git_repo:         env.GIT_REPO,
                             onlyStages:       params.BUILD_STAGES ? params.BUILD_STAGES.split(',').collect { it.trim() } : []
                         )
                     }
@@ -252,7 +273,16 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 script {
-                    PXC_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${GIT_BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                        sh """
+                            if echo "${GIT_REPO}" | grep -q -- '-private'; then
+                                wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${GIT_BRANCH}
+                            else
+                                curl -s \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/MYSQL_VERSION -o MYSQL_VERSION
+                            fi
+                        """
+                    }
+                    PXC_VERSION_MINOR = sh(returnStdout: true, script: ''' cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     if ("${PXC_VERSION_MINOR}" == "0") {
                     // sync packages
                         if (env.FIPSMODE == 'YES') {
@@ -285,7 +315,9 @@ pipeline {
             steps {
                 script {
                     try {
-                        if (env.FIPSMODE == 'YES') {
+                        // Tarballs built in FIPS mode or from a private repository (e.g. percona-xtradb-cluster-private)
+                        // go to the gated (private) TESTING area
+                        if (env.FIPSMODE == 'YES' || params.GIT_REPO.contains('-private')) {
                             uploadTarballToDownloadsTesting(params.CLOUD, "pxc-gated", "${GIT_BRANCH}")
                         } else {
                             uploadTarballToDownloadsTesting(params.CLOUD, "pxc", "${GIT_BRANCH}")

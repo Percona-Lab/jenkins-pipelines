@@ -18,12 +18,25 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             fi
             export build_dir=\$(pwd -P)
             docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                set -o errexit
                 set -o xtrace
                 cd \${build_dir}
                 bash -x ./mysql-shell_builder.sh --builddir=\${build_dir}/test --install_deps=1 --mysqlshell_branch=$SHELL_BRANCH
                 bash -x mysql-shell_builder.sh --builddir=\${build_dir}/test --repo_mysqlshell=$SHELL_REPO --mysqlshell_branch=$SHELL_BRANCH --repo=${PS_REPO} --branch_db=${PS_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
         """
     }
+}
+
+void checkArtifacts(String DIR, String PATTERN) {
+    // mysql-shell_builder.sh does not use 'set -e', so a failed build can still exit 0.
+    // Fail the stage explicitly if the expected packages were not produced.
+    sh """
+        if [ -z "\$(find ${DIR} -type f -name '${PATTERN}' 2>/dev/null)" ]; then
+            echo "ERROR: no ${PATTERN} files found in ${DIR}/ - build failed"
+            exit 1
+        fi
+        ls -la ${DIR}
+    """
 }
 
 void cleanUpWS() {
@@ -40,7 +53,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
     }
     environment {
         PS_MAJOR_RELEASE = sh(
@@ -138,7 +151,7 @@ pipeline {
             parallel {
                 stage('Build MYSQL-SHELL generic source rpm') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -151,7 +164,7 @@ pipeline {
                 }
                 stage('Build MYSQL-SHELL generic source deb') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -178,15 +191,18 @@ pipeline {
                         expression { shouldRunStage('Oracle Linux 8') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:8", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Centos 8 ARM') {
@@ -197,12 +213,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:8", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -210,15 +229,18 @@ pipeline {
                         expression { shouldRunStage('Oracle Linux 9') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:9", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
             
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 } 
                 stage('Oracle Linux 9 ARM') {
@@ -229,12 +251,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:9", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Oracle Linux 10') {
@@ -242,15 +267,18 @@ pipeline {
                         expression { shouldRunStage('Oracle Linux 10') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:10", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:10", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
@@ -261,12 +289,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:10", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:10", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Amazon Linux 2023') {
@@ -274,15 +305,18 @@ pipeline {
                         expression { shouldRunStage('Amazon Linux 2023') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("amazonlinux:2023", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
@@ -293,12 +327,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("amazonlinux:2023", "--build_rpm=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
+                            checkArtifacts("rpm", "*.rpm")
 
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Focal (20.04)') {
@@ -306,15 +343,18 @@ pipeline {
                         expression { (env.PS_MAJOR_RELEASE == "80") && shouldRunStage('Ubuntu Focal (20.04)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:focal", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Focal (20.04) ARM') {
@@ -325,13 +365,16 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        script {
-                            cleanUpWS()
-                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                            buildStage("ubuntu:focal", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            script {
+                                cleanUpWS()
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_deb=1")
+                                checkArtifacts("deb", "*.deb")
 
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -340,15 +383,18 @@ pipeline {
                         expression { shouldRunStage('Ubuntu Jammy (22.04)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:jammy", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Jammy (22.04) ARM') {
@@ -359,12 +405,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:jammy", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Noble (24.04)') {
@@ -372,15 +421,18 @@ pipeline {
                         expression { shouldRunStage('Ubuntu Noble (24.04)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:noble", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:noble", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Noble (24.04) ARM') {
@@ -391,12 +443,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:noble", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:noble", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Resolute (26.04)') {
@@ -404,15 +459,18 @@ pipeline {
                         expression { shouldRunStage('Ubuntu Resolute (26.04)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:resolute", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Resolute (26.04) ARM') {
@@ -423,12 +481,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:resolute", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Bullseye (11)') {
@@ -436,15 +497,18 @@ pipeline {
                         expression { (env.PS_MAJOR_RELEASE == "80" || env.PS_MAJOR_RELEASE == "84") && shouldRunStage('Debian Bullseye (11)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:bullseye", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Bullseye (11) ARM') {
@@ -455,12 +519,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                       cleanUpWS()
-                       popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                       buildStage("debian:bullseye", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                           cleanUpWS()
+                           popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                           buildStage("debian:bullseye", "--build_deb=1")
+                           checkArtifacts("deb", "*.deb")
 
-                       pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                       uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                           pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                           uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Bookworm (12)') {
@@ -468,15 +535,18 @@ pipeline {
                         expression { shouldRunStage('Debian Bookworm (12)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bookworm", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:bookworm", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Bookworm (12) ARM') {
@@ -487,12 +557,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bookworm", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:bookworm", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Trixie (13)') {
@@ -500,15 +573,18 @@ pipeline {
                         expression { shouldRunStage('Debian Trixie (13)') }
                     }
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:trixie", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:trixie", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Trixie (13) ARM') {
@@ -519,12 +595,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:trixie", "--build_deb=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:trixie", "--build_deb=1")
+                            checkArtifacts("deb", "*.deb")
 
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
@@ -535,12 +614,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_tarball=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:9", "--build_tarball=1")
+                            checkArtifacts("test/tarball", "*.tar.gz")
 
-                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Oracle Linux 9 ARM tarball') {
@@ -551,12 +633,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_tarball=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:9", "--build_tarball=1")
+                            checkArtifacts("test/tarball", "*.tar.gz")
 
-                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Ubuntu Jammy (22.04) tarball') {
@@ -567,12 +652,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                            buildStage("ubuntu:jammy", "--build_tarball=1")
+                            checkArtifacts("test/tarball", "*.tar.gz")
 
-                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Ubuntu Jammy (22.04) ARM tarball') {
@@ -583,12 +671,15 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                            buildStage("ubuntu:jammy", "--build_tarball=1")
+                            checkArtifacts("test/tarball", "*.tar.gz")
 
-                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
             }
