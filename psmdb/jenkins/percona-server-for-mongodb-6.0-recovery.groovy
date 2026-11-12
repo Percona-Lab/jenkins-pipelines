@@ -131,8 +131,8 @@ pipeline {
                 expression { return params.RUN_SIGN == true }
             }
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
 
