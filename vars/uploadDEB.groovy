@@ -1,5 +1,5 @@
-def call() {
-    node('master') {
+def call(String nodeLabel = 'master') {
+    node(nodeLabel) {
         deleteDir()
         unstash 'debs'
         unstash 'uploadPath'

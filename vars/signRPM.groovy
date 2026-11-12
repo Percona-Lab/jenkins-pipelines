@@ -1,5 +1,5 @@
-def call() {
-    node('master') {
+def call(String nodeLabel = 'master') {
+    node(nodeLabel) {
         unstash 'uploadPath'
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
