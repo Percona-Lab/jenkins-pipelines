@@ -213,23 +213,47 @@ parameters {
             } // script
           } // steps
         } // stage
+        stage('Run docker tests on ps80') {
+            agent {
+                label 'launcher-x64'
+            }
+            options {
+                timeout(time: 120, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    runRemoteJob(server: 'https://ps80.cd.percona.com',
+                                 job: 'binlog_server_docker',
+                                 credentialsId: 'JNKPERCONA_PS80_TOKEN',
+                                 parameters: [
+                                     DOCKER_ACC: params.ORGANIZATION,
+                                     PBS_VERSION: "${params.VERSION}-${params.RPM_RELEASE}"
+                                 ])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ""} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ""} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ""} - [${BUILD_URL}]")
             }
             deleteDir()
         }
@@ -238,7 +262,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION}, repo tools ${COMPONENT} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}, repo tools ${COMPONENT} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ""}"
             }
             deleteDir()
         }
