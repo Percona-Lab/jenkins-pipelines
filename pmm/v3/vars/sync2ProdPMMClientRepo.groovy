@@ -1,5 +1,5 @@
-def call(String DESTINATION, String UPLOAD_PATH, String PMM_CLIENT_SUBPATH = 'pmm2-client') {
-    node('master') {
+def call(String DESTINATION, String UPLOAD_PATH, String PMM_CLIENT_SUBPATH = 'pmm2-client', String nodeLabel = 'master') {
+    node(nodeLabel) {
         withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
             withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                 sh """

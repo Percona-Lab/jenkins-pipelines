@@ -1,5 +1,5 @@
-def call(String TarballType) {
-    node('master') {
+def call(String TarballType, String nodeLabel = 'master') {
+    node(nodeLabel) {
         deleteDir()
         unstash "${TarballType}.tarball"
         unstash 'uploadPath'
