@@ -254,7 +254,7 @@ parameters {
                 label 'launcher-x64'
             }
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 30, unit: 'MINUTES')
             }
             steps {
                 script {
