@@ -218,23 +218,46 @@ parameters {
             } // script
           } // steps
         } // stage
+        stage('Run docker tests on pxc.cd') {
+            agent {
+                label 'launcher-x64'
+            }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    runRemoteJob(server: 'https://pxc.cd.percona.com',
+                                 job: 'test-proxysql-docker-image',
+                                 credentialsId: 'JNKPERCONA_PXC_TOKEN',
+                                 parameters: [DOCKER_ACC: params.ORGANIZATION,
+                                              DOCKER_PRODUCT: "proxysql${params.VERSION.tokenize('.')[0]}".toString(),
+                                              PROXYSQL_VERSION: "${params.VERSION}-${params.RPM_RELEASE}".toString()])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ''}")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ''}")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE} - [${BUILD_URL}]${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ''}")
             }
             deleteDir()
         }
@@ -243,7 +266,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ''}"
             }
             deleteDir()
         }
