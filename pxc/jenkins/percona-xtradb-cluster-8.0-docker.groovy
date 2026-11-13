@@ -438,23 +438,112 @@ stage('Check by trivy') {
         } // script
     } // steps
  } // stage
+        stage('Get PXC build info') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            steps {
+                script {
+                    // pxc-docker-tests compares `mysqld --version` in the image with PXC_REVISION and
+                    // PXC_WSREP_VERSION. Both are read from the pushed image, and the revision must be
+                    // the head of GIT_BRANCH, so the image has packages built from the branch we built for.
+                    fetchMysqlVersion()
+                    def info = ''
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                        info = sh(returnStdout: true, script: '''#!/bin/bash
+                            set -eo pipefail
+                            . ./MYSQL_VERSION
+                            TAG="${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}"
+                            IMAGE="${ORGANIZATION}/percona-xtradb-cluster:${TAG}-amd64"
+                            sudo docker pull -q "${IMAGE}" >&2
+                            MYSQLD_VERSION=$(sudo docker run --rm --entrypoint mysqld "${IMAGE}" --version)
+                            sudo docker rmi "${IMAGE}" >&2 || true
+                            echo "${IMAGE}: ${MYSQLD_VERSION}" >&2
+
+                            REVISION=$(echo "${MYSQLD_VERSION}" | sed -n 's/.*Revision \\([0-9a-f]*\\).*/\\1/p')
+                            WSREP=$(echo "${MYSQLD_VERSION}" | sed -n 's/.*WSREP version \\([0-9.]*\\).*/\\1/p')
+                            if [ -z "${REVISION}" ] || [ -z "${WSREP}" ]; then
+                                echo "ERROR: cannot read revision and WSREP version from: ${MYSQLD_VERSION}" >&2
+                                exit 1
+                            fi
+
+                            API_URL="$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git$||')/commits/${GIT_BRANCH}"
+                            HEAD_SHA=$(curl -fsSL -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.sha" "${API_URL}")
+                            case "${HEAD_SHA}" in
+                                "${REVISION}"*)
+                                    echo "Image revision ${REVISION} matches ${GIT_BRANCH} head ${HEAD_SHA}" >&2 ;;
+                                *)
+                                    echo "ERROR: image revision ${REVISION} is not the head of ${GIT_BRANCH} (${HEAD_SHA})" >&2
+                                    exit 1 ;;
+                            esac
+
+                            echo "${TAG} ${REVISION} ${WSREP}"
+                        ''').trim()
+                    }
+                    def parts = info.tokenize(' ')
+                    if (parts.size() != 3) {
+                        error "Unexpected PXC build info: '${info}'"
+                    }
+                    env.PXC_TEST_TAG = parts[0]
+                    env.PXC_TEST_REVISION = parts[1]
+                    env.PXC_TEST_WSREP = parts[2]
+                    echo "PXC tests: version ${env.PXC_TEST_TAG}, revision ${env.PXC_TEST_REVISION}, WSREP ${env.PXC_TEST_WSREP}"
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
+        stage('Run docker tests on pxc.cd') {
+            agent {
+                label 'launcher-x64'
+            }
+            options {
+                // pxc-docker-tests usually takes 20-30 minutes
+                timeout(time: 60, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    // UNSTABLE comes from Trivy findings in the remote job, test failures make it FAILURE
+                    runRemoteJob(server: 'https://pxc.cd.percona.com',
+                                 job: 'pxc-docker-tests',
+                                 credentialsId: 'JNKPERCONA_PXC_TOKEN',
+                                 allowUnstable: true,
+                                 parameters: [EOL: 'no',
+                                              REPO: 'NA',
+                                              DOCKER_ACC: params.ORGANIZATION,
+                                              DOCKER_PRODUCT: 'percona-xtradb-cluster',
+                                              DOCKER_TAG: env.PXC_TEST_TAG,
+                                              PXC_VERSION: env.PXC_TEST_TAG,
+                                              PXC_REVISION: env.PXC_TEST_REVISION,
+                                              PXC_WSREP_VERSION: env.PXC_TEST_WSREP])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} pushed to ${ORGANIZATION}${env.REMOTE_BUILD_URL ? " tests: ${env.REMOTE_BUILD_URL}" : ''}")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build finished with warnings (Trivy) for ${GIT_BRANCH} pushed to ${ORGANIZATION}")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build finished with warnings (Trivy) for ${GIT_BRANCH} pushed to ${ORGANIZATION}${env.REMOTE_BUILD_URL ? " tests: ${env.REMOTE_BUILD_URL}" : ''}")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build failed for ${GIT_BRANCH}")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: build failed for ${GIT_BRANCH}${env.REMOTE_BUILD_URL ? " tests: ${env.REMOTE_BUILD_URL}" : ''}")
             }
             deleteDir()
         }
@@ -463,7 +552,7 @@ stage('Check by trivy') {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH} pushed to ${ORGANIZATION}"
+                currentBuild.description = "Built on ${GIT_BRANCH} pushed to ${ORGANIZATION}${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ''}"
             }
             deleteDir()
         }
