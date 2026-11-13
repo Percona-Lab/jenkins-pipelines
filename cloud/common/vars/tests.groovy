@@ -280,6 +280,7 @@ void validateTestVariables(Map testVariables) {
         'cert_manager_version',
         'cluster_suffix_prefix',
         'cluster_wide',
+        'cluster_create_attempts',
         'clusters',
         'db_tag',
         'db_version',
@@ -311,6 +312,7 @@ void validateTestVariables(Map testVariables) {
         'skip_kubeconfig',
         'source_repo',
         'test_executor_type',
+        'test_timeout_minutes',
         'ubi_version',
         'worker_count',
         'zone'
@@ -488,9 +490,18 @@ void initTestRun(Map testVariables, Map config) {
         echo 'All tests will be re-run, ignoring previous execution results!'
         purgePreviousRunArtifacts(testVariables)
     }
+    // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
+    // never part of the operator Docker build context.
+}
 
-    loadCloudSecret(config.operator)
+// Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
+void prepareTestSources(Map testVariables) {
+    loadCloudSecret(testVariables.operator)
     testVariables.libraries.tools.stashClonedGitFiles()
+}
+
+Boolean hasPendingTests(Map testVariables) {
+    return countSkippedTests(testVariables.tests ?: []) > 0
 }
 
 void initTests(List tests, Map testVariables, Map config) {
@@ -618,32 +629,33 @@ void purgePreviousRunArtifacts(Map testVariables) {
 void updateListWithLastExecutionStatus(Map testVariables) {
     echo '=========================[ Checking previous execution ]========================='
 
+    def listing = ''
     withCredentials([aws(
         credentialsId: 'AMI/OVF',
         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
     )]) {
-        sh """
-            aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
-        """
+        // One listing for the whole commit prefix instead of one head-object call per test.
+        listing = sh(
+            script: """
+                aws s3 ls "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" \
+                    | awk '{print \$4}' || :
+            """,
+            returnStdout: true
+        ).trim()
+    }
 
-        testVariables.tests.each { test ->
-            def file = artifactFileName(testVariables, test.name)
-            def retFileExists = sh(
-                script: """
-                    aws s3api head-object \
-                        --bucket percona-jenkins-artifactory \
-                        --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} \
-                        >/dev/null 2>&1
-                """,
-                returnStatus: true
-            )
+    def existingMarkers = listing ? (listing.split('\n').collect { it.trim() }.findAll { it } as Set) : ([] as Set)
+    def passedCount = 0
 
-            if (retFileExists == 0) {
-                test.result = 'passed'
-            }
+    testVariables.tests.each { test ->
+        if (artifactFileName(testVariables, test.name) in existingMarkers) {
+            test.result = 'passed'
+            passedCount++
         }
     }
+
+    echo "${passedCount} of ${testVariables.tests.size()} tests already passed in a previous run"
 }
 
 Map resolveImages(Map testVariables) {
@@ -848,6 +860,13 @@ Integer claimNextSkippedTest(List tests, String clusterSuffix) {
 }
 
 @com.cloudbees.groovy.cps.NonCPS
+Integer countSkippedTests(List tests) {
+    synchronized (tests) {
+        return tests.count { test -> test.result == 'skipped' } as Integer
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
 void updateTestResult(List tests, Integer testId, String result) {
     synchronized (tests) {
         tests[testId].result = result
@@ -889,28 +908,43 @@ void runTest(Map testConfig) {
     def clusterSuffix = testConfig.clusterSuffix
     def retries = (testConfig.retries ?: 1) as Integer
     def maxAttempts = retries + 1
+    def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 120) as Integer
     def timeStart = System.currentTimeMillis()
+    def finalResult = 'failure'
 
     updateTestResult(testVariables.tests, testId, 'failure')
 
     try {
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts})!"
+            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts}, timeout ${testTimeoutMinutes} min)!"
 
             def exitCode = 1
+            def timedOut = false
+            def attemptStart = System.currentTimeMillis()
             try {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
 
-                exitCode = sh(
-                    script: """
-                        cd source
-                        ${exports}
-                        ${testVariables.pre_test_sh ?: ''}
-                        ${command}
-                    """,
-                    returnStatus: true
-                )
+                timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
+                    exitCode = sh(
+                        script: """
+                            cd source
+                            ${exports}
+                            ${testVariables.pre_test_sh ?: ''}
+                            ${command}
+                        """,
+                        returnStatus: true
+                    )
+                }
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                // Only the per-test timeout above can fire after testTimeoutMinutes. Anything earlier
+                // is a user abort or an outer timeout, and must stop the runner instead of being
+                // counted as a test failure.
+                if (System.currentTimeMillis() - attemptStart < testTimeoutMinutes * 60000L) {
+                    throw exc
+                }
+                timedOut = true
+                echo "The ${testName} test timed out after ${testTimeoutMinutes} minutes"
             } catch (exc) {
                 echo "Error occurred while running test ${testName}: ${exc}"
             }
@@ -924,11 +958,21 @@ void runTest(Map testConfig) {
                 return
             }
 
-            echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
+            if (!timedOut) {
+                echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
+            }
             try {
                 testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                throw exc
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
+            }
+
+            if (timedOut) {
+                // A hung test usually hangs again; retrying would hold the cluster for another full timeout.
+                finalResult = 'error'
+                break
             }
 
             if (attempt < maxAttempts) {
@@ -942,12 +986,17 @@ void runTest(Map testConfig) {
             }
         }
 
+        updateTestResult(testVariables.tests, testId, finalResult)
+
+        def failureMessage = finalResult == 'error' ?
+            "Test ${testName} timed out after ${testTimeoutMinutes} minutes" :
+            "Test ${testName} failed after ${maxAttempts} attempts"
         catchError(
             buildResult: 'FAILURE',
             stageResult: 'FAILURE',
-            message: "Test ${testName} failed after ${maxAttempts} attempts"
+            message: failureMessage
         ) {
-            error("Test ${testName} failed after ${maxAttempts} attempts")
+            error(failureMessage)
         }
     } finally {
         updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
@@ -959,8 +1008,17 @@ void runTest(Map testConfig) {
         } catch (logErr) {
             echo "Warning: failed to push log for ${testName}: ${logErr}"
         }
+        stash name: "report-${testName}", includes: "source/e2e-tests/reports/${testName}.*", allowEmpty: true
         echo "The ${testName} test was finished!"
     }
+}
+
+// GKE, Rancher and DOKS already retry inside createCluster; the others make a single attempt.
+Integer clusterCreateAttempts(Map testVariables) {
+    if (testVariables.cluster_create_attempts) {
+        return testVariables.cluster_create_attempts as Integer
+    }
+    return (testVariables.platform_provider?.toLowerCase() in ['eks', 'azure', 'openshift']) ? 2 : 1
 }
 
 void clusterRunner(String clusterSuffix, Map testVariables) {
@@ -993,14 +1051,12 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
     }
     def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
+    def createAttempts = clusterCreateAttempts(testVariables)
 
     try {
-        while (true) {
-            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
-            if (testId == null) {
-                break
-            }
-
+        // The cluster is created before a test is claimed, so a failed creation leaves every test in
+        // the queue for the other runners instead of recording one of them as failed.
+        while (countSkippedTests(testVariables.tests) > 0) {
             if (!clusterCreated) {
                 clusterCreated = true
                 createdClusters.add(clusterSuffix)
@@ -1009,12 +1065,38 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 echo "=========================[ Cleanup existing cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 try {
                     shutdownCluster.call()
+                } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                    throw e
                 } catch (Exception e) {
                     echo "Cluster shutdown failed, maybe cluster does not exist or is already deleted: ${e.getMessage()}"
                 }
 
-                echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
-                createCluster.call()
+                for (int attempt = 1; attempt <= createAttempts; attempt++) {
+                    echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${createAttempts}) ]========================="
+                    try {
+                        createCluster.call()
+                        break
+                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                        throw e
+                    } catch (Exception e) {
+                        if (attempt == createAttempts) {
+                            throw e
+                        }
+                        echo "Cluster creation failed: ${e.getMessage()}. Deleting the partial cluster before retrying."
+                        try {
+                            shutdownCluster.call()
+                        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException ie) {
+                            throw ie
+                        } catch (Exception shutdownErr) {
+                            echo "Warning: cleanup of the partial cluster failed: ${shutdownErr.getMessage()}"
+                        }
+                    }
+                }
+            }
+
+            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+            if (testId == null) {
+                break
             }
 
             runTest(
@@ -1067,8 +1149,20 @@ void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariable
 
 Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
+    def pendingTests = countSkippedTests(testVariables.tests ?: [])
 
-    for (int i = 1; i <= testVariables.numClusters; i++) {
+    if (pendingTests == 0) {
+        return ['no-pending-tests': { echo 'All tests already passed in a previous run; no clusters are needed.' }]
+    }
+
+    // Never start more agents and clusters than there are tests left to run.
+    def maxClusters = testVariables.numClusters as Integer
+    def clusterCount = pendingTests < maxClusters ? pendingTests : maxClusters
+    echo "Starting ${clusterCount} of ${maxClusters} clusters for ${pendingTests} pending tests"
+
+    prepareTestSources(testVariables)
+
+    for (int i = 1; i <= clusterCount; i++) {
         def clusterSuffix = "${testVariables.cluster_suffix_prefix ?: 'cluster'}${i}"
 
         parallelStages[clusterSuffix] = {
@@ -1160,6 +1254,11 @@ void normalizeReports(List tests, String sourceDir = 'source') {
             continue
         }
 
+        try {
+            unstash "report-${testName}"
+        } catch (ignored) {
+        }
+
         def xmlFile = "${reportsDir}/${testName}.xml"
         def htmlFile = "${reportsDir}/${testName}.html"
 
@@ -1243,13 +1342,14 @@ void publishPytestReports(Map config) {
     def tests = config.tests ?: []
     def sourceDir = config.sourceDir ?: 'source'
     def reportHtml = config.reportHtml ?: 'e2e-test-report.html'
-    def reportXml = config.reportXml ?: 'e2e-test-report.xml'
     def gitShortCommit = config.gitShortCommit ?: env.GIT_SHORT_COMMIT
     def gitBranch = config.gitBranch ?: env.GIT_BRANCH
     def title = config.title ?: "PSMDB e2e tests - ${gitBranch} (${gitShortCommit})"
     def pushToS3 = config.containsKey('pushToS3') ? config.pushToS3 : true
 
-    echo '=========================[ Publishing pytest HTML/JUnit reports ]========================='
+    // HTML only. JUnit results come from TestsReport.xml (makeReportJUnit), which the pipelines publish;
+    // publishing a second merged XML here counted every test twice.
+    echo '=========================[ Publishing pytest HTML report ]========================='
 
     def startedTests = tests.findAll { test ->
         def result = test.containsKey('result') ? test.result : test['result']
@@ -1268,15 +1368,13 @@ void publishPytestReports(Map config) {
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
             uv run pytest_html_merger -i e2e-tests/reports -o "\$WORKSPACE/${reportHtml}" -t "${title}"
-            uv run junitparser merge --glob 'e2e-tests/reports/*.xml' "\$WORKSPACE/${reportXml}"
         """
 
         if (fileExists(reportHtml)) {
             formatReportDuration(reportHtml)
         }
 
-        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
-        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}", allowEmptyArchive: true
+        archiveArtifacts artifacts: reportHtml, allowEmptyArchive: true
 
         if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
             pushReportFile(reportHtml, gitShortCommit)

@@ -223,32 +223,49 @@ void createCluster(String CLUSTER_SUFFIX) {
             cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
             cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
 
+            if [ -z "\$cluster_version" ]; then
+                echo "DOKS does not offer Kubernetes version $PLATFORM_VER" >&2
+                exit 1
+            fi
+
             create_cluster() {
                 doctl kubernetes cluster create "\$cluster" \
                     --region "$DO_REGION" \
                     --version "\$cluster_version" \
                     --tag "delete-cluster-after-hours:6" \
-                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
-
+                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6" &&
                 doctl kubernetes cluster kubeconfig save "\$cluster"
             }
 
             assign_cluster_to_project() {
-                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
-                urn="do:kubernetes:\$cluster_id"
-
-                doctl projects resources assign "$PROJECT" --resource "\$urn"
+                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header) &&
+                doctl projects resources assign "$PROJECT" --resource "do:kubernetes:\$cluster_id"
             }
 
-            max_retries=15
+            max_retries=3
+            created=0
             for ((i=1;i<=max_retries;i++)); do
-                if create_cluster && assign_cluster_to_project; then
+                if create_cluster; then
+                    created=1
                     break
                 fi
 
-                echo "Retry \$i/\$max_retries"
-                sleep 2
+                echo "Cluster creation failed (attempt \$i/\$max_retries); deleting any partial cluster"
+                doctl kubernetes cluster delete "\$cluster" --force --dangerous || true
+                sleep 30
             done
+
+            if [ "\$created" != 1 ]; then
+                echo "Failed to create DOKS cluster \$cluster after \$max_retries attempts" >&2
+                exit 1
+            fi
+
+            # Project assignment is bookkeeping only: retry it on its own and never recreate the cluster for it.
+            for ((i=1;i<=5;i++)); do
+                assign_cluster_to_project && break
+                echo "Project assignment failed (attempt \$i/5)"
+                sleep 10
+            done || true
         """
     }
 }
@@ -299,6 +316,20 @@ void runTest(Integer TEST_ID) {
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
+        }
+        catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+            // Only the 90 minute test timeout may be handled here. A user abort or the stage timeout
+            // fires earlier and must stop the build instead of being retried as a test failure.
+            if (new Date().getTime() - timeStart < 90 * 60 * 1000) {
+                throw exc
+            }
+            echo "The $testName test timed out after 90 minutes"
+            if (retryCount >= 1) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
         }
         catch (exc) {
             echo "Error occurred while running test $testName: $exc"
