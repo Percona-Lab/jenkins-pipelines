@@ -68,25 +68,6 @@ EOF
     '''
 }
 
-// A few minutes after a ROSA HCP cluster turns ready, its API hostname can stop resolving
-// ("dial tcp: lookup api...: no such host"). The p3.openshiftapps.com SOA lets resolvers cache
-// that NXDOMAIN for 15 minutes, so a retry of a few seconds cannot ride it out: wait up to 20.
-def waitForClusterApi() {
-    sh '''
-        set +x
-        for i in $(seq 1 40); do
-            # Bounded, so a load balancer that accepts but never answers cannot stall the wait.
-            if OUT=$(oc get --raw /readyz --request-timeout=10s 2>&1); then
-                exit 0
-            fi
-            echo "Cluster API not reachable (${i}/40), retrying in 30s: $(echo "${OUT}" | tail -n 1)"
-            sleep 30
-        done
-        echo "ERROR: the cluster API is still not reachable after 20 minutes."
-        exit 1
-    '''
-}
-
 // helm leaves a release locked in pending-install/-upgrade when it loses the API mid-operation,
 // and every later "helm upgrade --install" then fails with "another operation is in progress".
 // Nothing else runs helm against this cluster, so such a lock is always stale.
@@ -95,28 +76,6 @@ def clearStaleHelmLocks(String namespace) {
         oc delete secret -n ${namespace} --ignore-not-found \
             -l 'owner=helm,status in (pending-install,pending-upgrade,pending-rollback)'
     """
-}
-
-// Runs body, and runs it again when it failed because the cluster API went away under it (the
-// DNS blip above). A failure while the API still answers is real and is rethrown right away, so
-// a broken chart does not run three times. body must be safe to repeat.
-def withClusterApiRetry(Closure body) {
-    def attempts = 3
-    for (int i = 1; i <= attempts; i++) {
-        waitForClusterApi()
-        try {
-            body()
-            return
-        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-            throw e   // aborted or timed out
-        } catch (err) {
-            def apiUp = sh(returnStatus: true, script: 'oc get --raw /readyz --request-timeout=10s >/dev/null 2>&1') == 0
-            if (apiUp || i == attempts) {
-                throw err
-            }
-            echo "The cluster API went away during this stage, running it again (attempt ${i + 1}/${attempts})"
-        }
-    }
 }
 
 def cleanupCluster() {
@@ -665,7 +624,7 @@ pipeline {
                     '''
 
                     script {
-                        withClusterApiRetry {
+                        withClusterApiRetry('oc') {
                             sh '''
                                 oc whoami
 
@@ -687,7 +646,7 @@ pipeline {
                                 oc get nodes -o wide
                             '''
                         }
-                        withClusterApiRetry { mintAdminKubeconfig() }
+                        withClusterApiRetry('oc') { mintAdminKubeconfig() }
                     }
                 }
             }
@@ -697,7 +656,7 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
-                        withClusterApiRetry {
+                        withClusterApiRetry('oc') {
                             sh '''
                                 # Remove default annotation from all storage classes
                                 for sc in $(oc get storageclass -o name); do
@@ -719,7 +678,7 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
-                        withClusterApiRetry {
+                        withClusterApiRetry('oc') {
                             clearStaleHelmLocks('kyverno')
                             sh '''
                                 helm repo add kyverno https://kyverno.github.io/kyverno/ || true
@@ -826,7 +785,7 @@ EOF
                     }
 
                     script {
-                        withClusterApiRetry {
+                        withClusterApiRetry('oc') {
                             clearStaleHelmLocks('pmm')
                             sh '''
                                 # Covers a lookup that fails for a few seconds. An outage that outlasts
@@ -1099,7 +1058,7 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
-                        withClusterApiRetry {
+                        withClusterApiRetry('oc') {
                             sh '''
                                 export KUBECONFIG="${KUBECONFIG}"
 
@@ -1147,7 +1106,7 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
-                        withClusterApiRetry {
+                        withClusterApiRetry('oc') {
                             sh '''
                                 set +x
                                 export KUBECONFIG="${KUBECONFIG}"
