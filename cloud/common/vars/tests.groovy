@@ -1151,19 +1151,29 @@ Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
     def pendingTests = countSkippedTests(testVariables.tests ?: [])
 
-    if (pendingTests == 0) {
-        return ['no-pending-tests': { echo 'All tests already passed in a previous run; no clusters are needed.' }]
-    }
-
     // Never start more agents and clusters than there are tests left to run.
     def maxClusters = testVariables.numClusters as Integer
     def clusterCount = pendingTests < maxClusters ? pendingTests : maxClusters
     echo "Starting ${clusterCount} of ${maxClusters} clusters for ${pendingTests} pending tests"
 
-    prepareTestSources(testVariables)
+    if (clusterCount > 0) {
+        prepareTestSources(testVariables)
+    }
 
-    for (int i = 1; i <= clusterCount; i++) {
+    // Always declare every cluster branch so the stage view keeps the same columns between builds;
+    // branches that are not needed are shown as skipped instead of disappearing.
+    for (int i = 1; i <= maxClusters; i++) {
         def clusterSuffix = "${testVariables.cluster_suffix_prefix ?: 'cluster'}${i}"
+
+        if (i > clusterCount) {
+            parallelStages[clusterSuffix] = {
+                stage(clusterSuffix) {
+                    echo "SKIP: ${clusterSuffix} is not needed, only ${pendingTests} tests are pending."
+                    org.jenkinsci.plugins.pipeline.modeldefinition.Utils.markStageSkippedForConditional(clusterSuffix)
+                }
+            }
+            continue
+        }
 
         parallelStages[clusterSuffix] = {
             stage(clusterSuffix) {
