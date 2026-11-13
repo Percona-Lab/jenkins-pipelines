@@ -40,78 +40,6 @@ void cleanUpWS() {
     """
 }
 
-// Triggers orchestrator_docker on ps80.cd, waits for it to finish and fails the
-// current stage unless the remote build result is SUCCESS. Parameters not sent
-// here use the ps80 job defaults. The remote build URL is exported as env.ORCH_TEST_BUILD_URL.
-void runOrchestratorDockerTests(String dockerAcc, String orchVersion) {
-    try {
-        withEnv([
-            'REMOTE_SERVER=https://ps80.cd.percona.com',
-            'REMOTE_JOB=orchestrator_docker',
-            'POLL_SECONDS=30',
-            "DOCKER_ACC=${dockerAcc}",
-            "ORCHESTRATOR_VERSION=${orchVersion}"
-        ]) {
-            withCredentials([string(credentialsId: 'JNKPERCONA_PS80_TOKEN', variable: 'TOKEN')]) {
-                sh '''#!/bin/bash
-                    set -e
-                    rm -f remote-job-headers.txt remote-job-url.txt
-
-                    echo "Triggering ${REMOTE_SERVER}/job/${REMOTE_JOB} with DOCKER_ACC=${DOCKER_ACC} ORCHESTRATOR_VERSION=${ORCHESTRATOR_VERSION}"
-                    HTTP_CODE=$(curl -sS -u "${TOKEN}" -X POST -D remote-job-headers.txt -o /dev/null -w '%{http_code}' \
-                        "${REMOTE_SERVER}/job/${REMOTE_JOB}/buildWithParameters" \
-                        --data-urlencode "DOCKER_ACC=${DOCKER_ACC}" \
-                        --data-urlencode "ORCHESTRATOR_VERSION=${ORCHESTRATOR_VERSION}")
-                    if [ "${HTTP_CODE}" != "201" ]; then
-                        echo "ERROR: failed to trigger remote job, HTTP code: ${HTTP_CODE}"
-                        exit 1
-                    fi
-
-                    QUEUE_URL=$(grep -i '^location:' remote-job-headers.txt | tr -d '\\r' | awk '{print $2}')
-                    if [ -z "${QUEUE_URL}" ]; then
-                        echo "ERROR: no queue item location returned by remote Jenkins"
-                        exit 1
-                    fi
-                    case "${QUEUE_URL}" in */) ;; *) QUEUE_URL="${QUEUE_URL}/" ;; esac
-                    echo "Remote job queued: ${QUEUE_URL}"
-
-                    REMOTE_BUILD_URL=""
-                    while [ -z "${REMOTE_BUILD_URL}" ]; do
-                        sleep 10
-                        QUEUE_JSON=$(curl -sS -u "${TOKEN}" "${QUEUE_URL}api/json?tree=cancelled,executable%5Burl%5D" || true)
-                        if echo "${QUEUE_JSON}" | grep -q '"cancelled":true'; then
-                            echo "ERROR: remote queue item was cancelled"
-                            exit 1
-                        fi
-                        REMOTE_BUILD_URL=$(echo "${QUEUE_JSON}" | sed -n 's/.*"executable":{[^}]*"url":"\\([^"]*\\)".*/\\1/p')
-                    done
-                    echo "${REMOTE_BUILD_URL}" > remote-job-url.txt
-                    echo "Remote build started: ${REMOTE_BUILD_URL}"
-
-                    while true; do
-                        sleep "${POLL_SECONDS}"
-                        BUILD_JSON=$(curl -sS -u "${TOKEN}" "${REMOTE_BUILD_URL}api/json?tree=building,result" || true)
-                        if echo "${BUILD_JSON}" | grep -q '"building":false'; then
-                            break
-                        fi
-                        echo "Remote build still running: ${REMOTE_BUILD_URL}"
-                    done
-
-                    RESULT=$(echo "${BUILD_JSON}" | sed -n 's/.*"result":"\\([A-Z_]*\\)".*/\\1/p')
-                    echo "Remote build ${REMOTE_BUILD_URL} finished with result: ${RESULT:-UNKNOWN}"
-                    if [ "${RESULT}" != "SUCCESS" ]; then
-                        exit 1
-                    fi
-                '''
-            }
-        }
-    } finally {
-        if (fileExists('remote-job-url.txt')) {
-            env.ORCH_TEST_BUILD_URL = readFile('remote-job-url.txt').trim()
-        }
-    }
-}
-
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -326,11 +254,17 @@ parameters {
                 label 'launcher-x64'
             }
             options {
-                timeout(time: 120, unit: 'MINUTES')
+                timeout(time: 30, unit: 'MINUTES')
             }
             steps {
                 script {
-                    runOrchestratorDockerTests(params.ORGANIZATION, "${env.VERSION}-${env.RPM_RELEASE}")
+                    runRemoteJob(server: 'https://ps80.cd.percona.com',
+                                 job: 'orchestrator_docker',
+                                 credentialsId: 'JNKPERCONA_PS80_TOKEN',
+                                 parameters: [
+                                     DOCKER_ACC: params.ORGANIZATION,
+                                     ORCHESTRATOR_VERSION: "${env.VERSION}-${env.RPM_RELEASE}"
+                                 ])
                 }
             }
             post {
@@ -343,19 +277,19 @@ parameters {
     post {
         success {
             script {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'}${env.ORCH_TEST_BUILD_URL ? " tests: [${env.ORCH_TEST_BUILD_URL}]" : ""} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build has been finished successfully for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'}${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ""} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         unstable {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'}${env.ORCH_TEST_BUILD_URL ? " tests: [${env.ORCH_TEST_BUILD_URL}]" : ""} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build finished with warnings (Trivy) for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'}${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ""} - [${BUILD_URL}]")
             }
             deleteDir()
         }
         failure {
             script {
-                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'}${env.ORCH_TEST_BUILD_URL ? " tests: [${env.ORCH_TEST_BUILD_URL}]" : ""} - [${BUILD_URL}]")
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}${params.WEEKLY_UPDATE ? '⏰ ' : ''}[${JOB_NAME}]: (${ORGANIZATION}) build failed for ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} images: ${env.IMAGE_LIST ?: 'N/A'}${env.REMOTE_BUILD_URL ? " tests: [${env.REMOTE_BUILD_URL}]" : ""} - [${BUILD_URL}]")
             }
             deleteDir()
         }
@@ -364,7 +298,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} for ${ORGANIZATION} organization${env.ORCH_TEST_BUILD_URL ? ", tests: ${env.ORCH_TEST_BUILD_URL}" : ""}"
+                currentBuild.description = "Built on ${VERSION}-${RPM_RELEASE}${env.TAG_POSTFIX ?: ''} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ""}"
             }
             deleteDir()
         }
