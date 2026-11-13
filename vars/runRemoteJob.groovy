@@ -2,6 +2,7 @@
 //
 // Starts the remote job through its REST API (buildWithParameters), waits until the queued
 // build starts and finishes, and fails the calling stage unless the remote result is SUCCESS.
+// With allowUnstable: true, a remote UNSTABLE result marks the calling stage UNSTABLE instead.
 // Parameters not passed use the remote job's defaults.
 //
 // The credential must be a "Secret text" holding "user:apitoken" for the remote Jenkins
@@ -15,7 +16,8 @@
 //                job: 'orchestrator_docker',
 //                credentialsId: 'JNKPERCONA_PS80_TOKEN',
 //                parameters: [DOCKER_ACC: 'perconalab', ORCHESTRATOR_VERSION: '3.2.6-24'],
-//                pollSeconds: 30)   // optional, default 30
+//                allowUnstable: false,  // optional, default false
+//                pollSeconds: 30)       // optional, default 30
 
 def call(Map args = [:]) {
     def server        = args.get('server', '')
@@ -23,6 +25,7 @@ def call(Map args = [:]) {
     def credentialsId = args.get('credentialsId', '')
     def parameters    = args.get('parameters', [:])
     def pollSeconds   = args.get('pollSeconds', 30)
+    def allowUnstable = args.get('allowUnstable', false)
 
     if (!server || !job || !credentialsId) {
         error "runRemoteJob: 'server', 'job' and 'credentialsId' are required"
@@ -34,12 +37,13 @@ def call(Map args = [:]) {
         "RJ_POLL_SECONDS=${pollSeconds}",
     ] + paramsToEnv(parameters)
 
+    def result = ''
     try {
         withEnv(envList) {
             withCredentials([string(credentialsId: credentialsId, variable: 'TOKEN')]) {
                 sh '''#!/bin/bash
                     set -e
-                    rm -f .remote-job-headers .remote-build-url
+                    rm -f .remote-job-headers .remote-build-url .remote-build-result
 
                     ARGS=()
                     echo "Triggering ${RJ_SERVER}/job/${RJ_JOB} with parameters:"
@@ -89,9 +93,7 @@ def call(Map args = [:]) {
 
                     RESULT=$(echo "${BUILD_JSON}" | sed -n 's/.*"result":"\\([A-Z_]*\\)".*/\\1/p')
                     echo "Remote build ${RJ_BUILD_URL} finished with result: ${RESULT:-UNKNOWN}"
-                    if [ "${RESULT}" != "SUCCESS" ]; then
-                        exit 1
-                    fi
+                    echo "${RESULT:-UNKNOWN}" > .remote-build-result
                 '''
             }
         }
@@ -100,6 +102,16 @@ def call(Map args = [:]) {
             env.REMOTE_BUILD_URL = readFile('.remote-build-url').trim()
             sh 'rm -f .remote-build-url'
         }
+        if (fileExists('.remote-build-result')) {
+            result = readFile('.remote-build-result').trim()
+            sh 'rm -f .remote-build-result'
+        }
+    }
+
+    if (result == 'UNSTABLE' && allowUnstable) {
+        unstable "Remote build ${env.REMOTE_BUILD_URL} finished UNSTABLE"
+    } else if (result != 'SUCCESS') {
+        error "Remote build ${env.REMOTE_BUILD_URL} finished with ${result ?: 'UNKNOWN'}"
     }
     return env.REMOTE_BUILD_URL
 }
