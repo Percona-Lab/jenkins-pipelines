@@ -670,13 +670,56 @@ parameters {
             } // script
           } // steps
         } // stage
+        stage('Run docker tests on ps80') {
+            agent {
+                label 'launcher-x64'
+            }
+            when {
+                // test-ps-docker-image tests the released version listed in package-testing VERSIONS,
+                // so it only makes sense for release builds. Branch builds (trunk, 8.4, 9.7) and
+                // -fr (experimental) images are not covered by it.
+                expression {
+                    params.COMPONENT != 'experimental' && params.BRANCH ==~ /^release-\d+\.\d+\.\d+-\d+$/
+                }
+            }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    // test-ps-docker-image has no version parameter: PRODUCT_TO_TEST selects the
+                    // PS line (e.g. PS84) and the version is taken from package-testing VERSIONS.
+                    def ps = params.BRANCH.replaceFirst(/^release-/, '').tokenize('.')
+                    String product = "PS${ps[0]}${ps[1]}".toString()
+                    if (!(product in ['PS80', 'PS84', 'PS97'])) {
+                        // other 9.x releases are Innovation releases
+                        product = (ps[0] == '9') ? 'PS_INN_LTS' : ''
+                    }
+                    if (!product) {
+                        error "No test-ps-docker-image PRODUCT_TO_TEST matches PS ${ps[0]}.${ps[1]}"
+                    }
+                    runRemoteJob(server: 'https://ps80.cd.percona.com',
+                                 job: 'test-ps-docker-image',
+                                 credentialsId: 'JNKPERCONA_PS80_TOKEN',
+                                 parameters: [
+                                     DOCKER_ACC: params.ORGANIZATION,
+                                     PRODUCT_TO_TEST: product
+                                 ])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         success {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}${env.REMOTE_BUILD_URL ? '\nTests: ' + env.REMOTE_BUILD_URL : ''}")
                 }
             }
             deleteDir()
@@ -685,13 +728,13 @@ parameters {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build finished with warnings (Trivy) for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build finished with warnings (Trivy) for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}${env.REMOTE_BUILD_URL ? '\nTests: ' + env.REMOTE_BUILD_URL : ''}")
                 }
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]${env.REMOTE_BUILD_URL ? '\nTests: ' + env.REMOTE_BUILD_URL : ''}")
             deleteDir()
         }
         always {
@@ -699,7 +742,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ""}"
             }
             deleteDir()
         }
