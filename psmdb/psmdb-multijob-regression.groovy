@@ -21,7 +21,7 @@ pipeline {
         stage ('Run regression tests on ubuntu 24.04') {
             steps {
                 script {
-                    build job: 'hetzner-psmdb-regression', propagate: false, wait: false, parameters: [ 
+                    build job: 'hetzner-psmdb-regression-quick', propagate: false, wait: false, parameters: [ 
                         string(name: 'branch', value: params.PSMDB_BRANCH), 
                         string(name: 'version', value: params.PSMDB_VERSION), 
                         string(name: 'tag', value: params.PSMDB_BRANCH),
@@ -35,7 +35,7 @@ pipeline {
             steps {
                 script {
                     def tag = params.PSMDB_BRANCH + '-ol9'
-                    build job: 'hetzner-psmdb-regression', propagate: true, wait: true, parameters: [ 
+                    build job: 'hetzner-psmdb-regression-quick', propagate: true, wait: true, parameters: [ 
                         string(name: 'branch', value: params.PSMDB_BRANCH),
                         string(name: 'version', value: params.PSMDB_VERSION), 
                         string(name: 'tag', value: tag),
