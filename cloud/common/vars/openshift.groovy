@@ -21,6 +21,8 @@ void createCluster(Map clusterCfg) {
         withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
             withEnv(["CLUSTER_SUFFIX=${clusterSuffix}", "CLUSTER_NAME=${clusterCfg.clusterName}"]) {
                 sh """
+                    # Start from an empty state dir, a retry must not reuse a previous attempt's installer state.
+                    rm -rf openshift/\$CLUSTER_SUFFIX
                     mkdir -p openshift/\$CLUSTER_SUFFIX
                     timestamp="\$(date +%s)"
 tee openshift/\$CLUSTER_SUFFIX/install-config.yaml << EOF
@@ -69,18 +71,22 @@ EOF
                     cat \$OPENSHIFT_CONF_FILE >> openshift/\$CLUSTER_SUFFIX/install-config.yaml
                 """
                 sshagent(['aws-openshift-41-key']) {
-                    sh '''
-                        /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
-                            /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
-                            exit 1
-                        }
-                        export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                        TMP=$(mktemp)
-                        oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
-                        oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
-                        oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
-                        rm -rf $TMP
-                    '''
+                    try {
+                        sh '''
+                            /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
+                                /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
+                                exit 1
+                            }
+                            export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                            TMP=$(mktemp)
+                            oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
+                            oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
+                            oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
+                            rm -rf $TMP
+                        '''
+                    } finally {
+                        stashClusterMetadata(clusterSuffix)
+                    }
                 }
             }
         }
@@ -91,6 +97,22 @@ EOF
 
     if (clusterCfg.kubeconfig) {
         sh "cp openshift/${clusterSuffix}/auth/kubeconfig ${clusterCfg.kubeconfig}"
+    }
+}
+
+String clusterMetadataFile(String clusterSuffix) {
+    return "openshift/${clusterSuffix}/metadata.json"
+}
+
+String clusterMetadataStash(String clusterSuffix) {
+    return "openshift-metadata-${clusterSuffix}"
+}
+
+// metadata.json is all openshift-install needs to destroy a cluster. Stashing it lets any agent,
+// including the main one running the final cleanup, delete a cluster created on a runner agent.
+void stashClusterMetadata(String clusterSuffix) {
+    if (fileExists(clusterMetadataFile(clusterSuffix))) {
+        stash name: clusterMetadataStash(clusterSuffix), includes: clusterMetadataFile(clusterSuffix)
     }
 }
 
@@ -148,6 +170,15 @@ void verifyVolumeSnapshotResources(String clusterSuffix) {
 
 void shutdownCluster(Map clusterCfg) {
     def clusterSuffix = clusterCfg.clusterSuffix
+
+    if (!fileExists(clusterMetadataFile(clusterSuffix))) {
+        try {
+            unstash clusterMetadataStash(clusterSuffix)
+        } catch (err) {
+            echo "No OpenShift metadata for ${clusterSuffix} in this build; nothing to destroy"
+            return
+        }
+    }
 
     timeout(time: 30, unit: 'MINUTES') {
         withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
