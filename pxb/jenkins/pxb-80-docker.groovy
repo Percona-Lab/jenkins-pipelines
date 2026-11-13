@@ -396,6 +396,46 @@ stage('Check by Trivy') {
         }
     }
 }
+        stage('Run docker tests on pxb.cd') {
+            agent {
+                label 'launcher-x64'
+            }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    // pxb-docker-tests has no version parameter: PRODUCT_TO_TEST selects the
+                    // PXB line (e.g. PXB84) and the version is taken from package-testing VERSIONS.
+                    def xb = sh(returnStdout: true, script: '''
+                        curl -fsSL https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION -o XB_VERSION
+                        . ./XB_VERSION
+                        echo "${XB_VERSION_MAJOR} ${XB_VERSION_MINOR}"
+                    ''').trim().tokenize(' ')
+                    String product = "PXB${xb[0]}${xb[1]}".toString()
+                    if (!(product in ['PXB24', 'PXB80', 'PXB84', 'PXB97'])) {
+                        // other 9.x releases are Innovation releases
+                        product = (xb[0] == '9') ? 'PXB_INN_LTS' : ''
+                    }
+                    if (!product) {
+                        error "No pxb-docker-tests PRODUCT_TO_TEST matches PXB ${xb[0]}.${xb[1]}"
+                    }
+                    runRemoteJob(server: 'https://pxb.cd.percona.com',
+                                 job: 'pxb-docker-tests',
+                                 credentialsId: 'JNKPERCONA_PXB_TOKEN',
+                                 allowUnstable: true,
+                                 parameters: [
+                                     PXB_DOCKER_ACC: params.ORGANIZATION,
+                                     PRODUCT_TO_TEST: product
+                                 ])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         always {
@@ -403,7 +443,7 @@ stage('Check by Trivy') {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ""}"
             }
             deleteDir()
         }
