@@ -18,7 +18,7 @@ pipeline {
         )
         choice(
             name: 'FROM_REPO',
-            description: 'PDPXC will be upgraded from this repository'
+            description: 'PDPXC will be upgraded from this repository',
             choices: [
                 'release',
                 'testing',
