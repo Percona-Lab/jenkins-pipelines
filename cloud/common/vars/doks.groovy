@@ -21,35 +21,63 @@ void createCluster(Map clusterCfg, Map libraries) {
     def clusterFullName = "${clusterCfg.clusterName}-${clusterCfg.clusterSuffix}"
 
     libraries.credentials.withDOKSCredentials {
-        libraries.helpers.retryCommand(
-            command: """
-                set -euo pipefail
-                
-                cluster="${clusterFullName}"
-                cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "${clusterCfg.platformVersion}" '.[] | select(.kubernetes_version==\$v) | .slug')
+        timeout(time: 30, unit: 'MINUTES') {
+            libraries.helpers.retryCommand(
+                command: """
+                    set -euo pipefail
 
-                doctl kubernetes cluster create "\$cluster" \\
-                    --region "${clusterCfg.region}" \\
-                    --version "\$cluster_version" \\
-                    --tag "delete-cluster-after-hours:6" \\
-                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
-            """,
-            afterCommand: """
-                export KUBECONFIG=${clusterCfg.kubeconfig}
-                doctl kubernetes cluster kubeconfig save "${clusterFullName}"
-                
-                cluster_id=\$(doctl kubernetes cluster get "${clusterFullName}" --format ID --no-header)
-                project_id=\$(doctl projects list --output json | jq -er 'first(.[] | select(.name == "cloud-team") | .id)')
-                urn="do:kubernetes:\$cluster_id"
-                doctl projects resources assign "\$project_id" --resource "\$urn"
-                kubectl get nodes
-            """,
-            cleanupFunction: {
-                shutdownCluster(clusterCfg, libraries)
-            },
-            maxRetries: 3,
-            delaySeconds: 5
-        )
+                    # Set before creating: doctl updates the kubeconfig on create, and must not touch the
+                    # agent's shared ~/.kube/config used by other runners.
+                    export KUBECONFIG=${clusterCfg.kubeconfig}
+                    cluster="${clusterFullName}"
+                    cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "${clusterCfg.platformVersion}" '.[] | select(.kubernetes_version==\$v) | .slug')
+
+                    if [ -z "\$cluster_version" ]; then
+                        echo "DOKS does not offer Kubernetes version ${clusterCfg.platformVersion}" >&2
+                        exit 1
+                    fi
+
+                    doctl kubernetes cluster create "\$cluster" \\
+                        --region "${clusterCfg.region}" \\
+                        --version "\$cluster_version" \\
+                        --tag "delete-cluster-after-hours:6" \\
+                        --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+                """,
+                afterCommand: """
+                    set -euo pipefail
+
+                    export KUBECONFIG=${clusterCfg.kubeconfig}
+                    doctl kubernetes cluster kubeconfig save "${clusterFullName}"
+
+                    # A cluster that is "running" in DO but unreachable or without Ready nodes counts as a failed create.
+                    for ((n=1;n<=30;n++)); do
+                        [ -n "\$(kubectl get nodes --no-headers 2>/dev/null)" ] && break
+                        sleep 10
+                    done
+                    kubectl wait --for=condition=Ready nodes --all --timeout=300s
+                """,
+                cleanupFunction: {
+                    shutdownCluster(clusterCfg, libraries)
+                },
+                maxRetries: 3,
+                delaySeconds: 5
+            )
+        }
+
+        // Project assignment is bookkeeping only: retry it on its own and never recreate the cluster for it.
+        sh """
+            assign_cluster_to_project() {
+                project_id=\$(doctl projects list --output json | jq -er 'first(.[] | select(.name == "cloud-team") | .id)') &&
+                cluster_id=\$(doctl kubernetes cluster get "${clusterFullName}" --format ID --no-header) &&
+                doctl projects resources assign "\$project_id" --resource "do:kubernetes:\$cluster_id"
+            }
+
+            for i in 1 2 3 4 5; do
+                assign_cluster_to_project && break
+                echo "Project assignment failed (attempt \$i/5)"
+                sleep 10
+            done || true
+        """
     }
 }
 

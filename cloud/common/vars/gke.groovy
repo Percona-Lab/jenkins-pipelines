@@ -21,13 +21,14 @@ String getMachineType(String arch) {
 }
 
 boolean clusterExists(Map clusterCfg, Map libraries) {
+    def clusterName = ''
     libraries.credentials.withGCPCredentials {
         withEnv([
             "CLUSTER_SUFFIX=${clusterCfg.clusterSuffix}",
             "CLUSTER_NAME=${clusterCfg.clusterName}",
             "GKE_REGION=${clusterCfg.zone}"
         ]) {
-            return !sh(
+            clusterName = sh(
                 script: '''
                     gcloud container clusters list \
                         --project "$GCP_PROJECT" \
@@ -36,12 +37,17 @@ boolean clusterExists(Map clusterCfg, Map libraries) {
                         --format='value(name)'
                 ''',
                 returnStdout: true
-            ).trim().isEmpty()
+            ).trim()
         }
     }
+    return !clusterName.isEmpty()
 }
 
 void createCluster(Map clusterCfg, Map libraries) {
+    // A deletion started asynchronously (e.g. by the runner's pre-cleanup) must finish before a
+    // cluster with the same name can be created again.
+    shutdownCluster(clusterCfg, libraries, false)
+
     libraries.credentials.withGCPCredentials {
         withEnv([
             "CLUSTER_SUFFIX=${clusterCfg.clusterSuffix}",
@@ -80,7 +86,9 @@ void createCluster(Map clusterCfg, Map libraries) {
                             --project "$GCP_PROJECT" \\
                             --zone "$GKE_REGION"
                             
-                            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
+                            # Idempotent, so a retried afterCommand does not fail on AlreadyExists.
+                            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=$(gcloud config get-value core/account) \\
+                                --dry-run=client -o yaml | kubectl apply -f -
                             CURRENT_TIME=$(date --rfc-3339=seconds)
                             FUTURE_TIME=$(date -d "6 hours" --rfc-3339=seconds)
                             gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \\
@@ -101,7 +109,8 @@ void createCluster(Map clusterCfg, Map libraries) {
                             kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
                         ''',
                     cleanupFunction: {
-                        shutdownCluster(clusterCfg, libraries)
+                        // Synchronous, so the next attempt does not collide with the cluster being deleted.
+                        shutdownCluster(clusterCfg, libraries, false)
                     },
                     maxRetries: 3,
                     delaySeconds: 5
@@ -111,7 +120,7 @@ void createCluster(Map clusterCfg, Map libraries) {
     }
 }
 
-void shutdownCluster(Map clusterCfg, boolean async = true) {
+void shutdownCluster(Map clusterCfg, Map libraries, boolean async = true) {
     timeout(time: 30, unit: 'MINUTES') {
         if (!clusterExists(clusterCfg, libraries)) {
             return

@@ -42,14 +42,6 @@ String getReleaseVersionsParam(String releaseVersions, String paramName, String 
         returnStdout: true
     ).trim()
 
-    // Para rancher, tenta também rke2 se não encontrar
-    if (!param && keyName.toLowerCase() == 'rancher') {
-        param = sh(
-            script: "grep -iE '^\\s*rke2=' ${releaseVersions} | cut -d = -f 2 | tr -d '\\\"' | tail -1",
-            returnStdout: true
-        ).trim()
-    }
-
     if (!param) {
         error("${keyName} not found in params file ${releaseVersions}")
     }
@@ -308,6 +300,7 @@ void validateTestVariables(Map testVariables) {
         'skip_kubeconfig',
         'source_repo',
         'test_executor_type',
+        'test_timeout_minutes',
         'ubi_version',
         'worker_count',
         'zone'
@@ -324,9 +317,8 @@ void resolveReleaseRunParams(Map testVariables) {
     echo "Forcing channel=stable, because it's a release run!"
 
     testVariables.images = resolveImages(testVariables)
-def platform = testVariables.platform.toLowerCase()
 
-    if (platform == 'rancher') {
+    if (testVariables.platform.toLowerCase() == 'rancher') {
         ['rancher_version': 'RANCHER', 'cert_manager_version': 'CERT_MANAGER'].each { field, key ->
             if (!testVariables[field] || testVariables[field] == 'latest') {
                 testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
@@ -335,15 +327,20 @@ def platform = testVariables.platform.toLowerCase()
     }
 }
 
+// Kubernetes min/max versions are keyed by the distribution in release_versions (RKE2_MIN for Rancher,
+// RANCHER itself is the Rancher chart version).
+String platformVersionKeyPrefix(String platform) {
+    return platform.toLowerCase() == 'rancher' ? 'RKE2' : platform.toUpperCase()
+}
+
 void resolvePlatformVersion(Map testVariables) {
-def platform = testVariables.platform.toLowerCase()
-    def library = testVariables.libraries[platform]
+    def library = testVariables.libraries[testVariables.platform.toLowerCase()]
     def platformVersion = testVariables.platform_version
 
     if (platformVersion?.toLowerCase() in ['min', 'max']) {
         platformVersion = getReleaseVersionsParam(
             testVariables.release_versions,
-            "${testVariables.platform.toUpperCase()}_${platformVersion.toUpperCase()}"
+            "${platformVersionKeyPrefix(testVariables.platform)}_${platformVersion.toUpperCase()}"
         )
     } else if (platformVersion == 'latest') {
         platformVersion = library.getLatestPlatformVersion(testVariables)
@@ -356,10 +353,8 @@ def platform = testVariables.platform.toLowerCase()
 }
 
 void resolveMachineType(Map testVariables) {
-def platform = testVariables.platform.toLowerCase()
-
-    if (testVariables.platform_arch && platform) {
-        testVariables.machine_type = testVariables.libraries[platform].getMachineType(
+    if (testVariables.platform_arch) {
+        testVariables.machine_type = testVariables.libraries[testVariables.platform.toLowerCase()].getMachineType(
             testVariables.platform_arch
         )
     }
@@ -489,9 +484,18 @@ void initTestRun(Map testVariables, Map config) {
         echo 'All tests will be re-run, ignoring previous execution results!'
         purgePreviousRunArtifacts(testVariables)
     }
+    // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
+    // never part of the operator Docker build context.
+}
 
-    loadCloudSecret(config.operator)
+// Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
+void prepareTestSources(Map testVariables) {
+    loadCloudSecret(testVariables.operator)
     testVariables.libraries.tools.stashClonedGitFiles()
+}
+
+Boolean hasPendingTests(Map testVariables) {
+    return countSkippedTests(testVariables.tests ?: []) > 0
 }
 
 void initTests(List tests, Map testVariables, Map config) {
@@ -619,32 +623,33 @@ void purgePreviousRunArtifacts(Map testVariables) {
 void updateListWithLastExecutionStatus(Map testVariables) {
     echo '=========================[ Checking previous execution ]========================='
 
+    def listing = ''
     withCredentials([aws(
         credentialsId: 'AMI/OVF',
         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
     )]) {
-        sh """
-            aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
-        """
+        // One listing for the whole commit prefix instead of one head-object call per test.
+        listing = sh(
+            script: """
+                aws s3 ls "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" \
+                    | awk '{print \$4}' || :
+            """,
+            returnStdout: true
+        ).trim()
+    }
 
-        testVariables.tests.each { test ->
-            def file = artifactFileName(testVariables, test.name)
-            def retFileExists = sh(
-                script: """
-                    aws s3api head-object \
-                        --bucket percona-jenkins-artifactory \
-                        --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} \
-                        >/dev/null 2>&1
-                """,
-                returnStatus: true
-            )
+    def existingMarkers = listing ? (listing.split('\n').collect { it.trim() }.findAll { it } as Set) : ([] as Set)
+    def passedCount = 0
 
-            if (retFileExists == 0) {
-                test.result = 'passed'
-            }
+    testVariables.tests.each { test ->
+        if (artifactFileName(testVariables, test.name) in existingMarkers) {
+            test.result = 'passed'
+            passedCount++
         }
     }
+
+    echo "${passedCount} of ${testVariables.tests.size()} tests already passed in a previous run"
 }
 
 Map resolveImages(Map testVariables) {
@@ -789,6 +794,46 @@ String defineTestCommand(Map testVariables, String testName) {
     }
 }
 
+void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
+    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+
+    echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+
+    withEnv([
+        "FAILED_TEST_NAME=${testName}",
+        "KUBECONFIG=${kubeconfig}"
+    ]) {
+        sh '''
+            set +e
+
+            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
+                exit 0
+            fi
+
+            kubectl get namespaces --request-timeout=10s --no-headers \
+                | awk '{print $1}' \
+                | while read -r namespace; do
+                    case "$namespace" in
+                        "$FAILED_TEST_NAME"-*|kuttl*)
+                            echo "Removing finalizers from resources in namespace: $namespace"
+                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
+                                | while read -r resource; do
+                                    kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
+                                        | while read -r object; do
+                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
+                                        done
+                                done
+
+                            echo "Deleting namespace: $namespace"
+                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
+                            ;;
+                    esac
+                done
+        '''
+    }
+}
+
 // Below functions are annotated with @NonCPS because they are called from parallel stages and manipulate shared state.
 @com.cloudbees.groovy.cps.NonCPS
 Integer claimNextSkippedTest(List tests, String clusterSuffix) {
@@ -809,6 +854,13 @@ Integer claimNextSkippedTest(List tests, String clusterSuffix) {
 }
 
 @com.cloudbees.groovy.cps.NonCPS
+Integer countSkippedTests(List tests) {
+    synchronized (tests) {
+        return tests.count { test -> test.result == 'skipped' } as Integer
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
 void updateTestResult(List tests, Integer testId, String result) {
     synchronized (tests) {
         tests[testId].result = result
@@ -825,23 +877,6 @@ void updateTestTime(List tests, Integer testId, Object time) {
 @com.cloudbees.groovy.cps.NonCPS
 Double elapsedSeconds(Object elapsedMillis) {
     return String.format('%.1f', ((elapsedMillis ?: 0) as Double) / 1000) as Double
-}
-
-// Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
-void prepareTestSources(Map testVariables) {
-    loadCloudSecret(testVariables.operator)
-    testVariables.libraries.tools.stashClonedGitFiles()
-}
-
-@com.cloudbees.groovy.cps.NonCPS
-Integer countSkippedTests(List tests) {
-    synchronized (tests) {
-        return tests.count { test -> test.result == 'skipped' } as Integer
-    }
-}
-
-Boolean hasPendingTests(Map testVariables) {
-    return countSkippedTests(testVariables.tests ?: []) > 0
 }
 
 @com.cloudbees.groovy.cps.NonCPS
@@ -867,28 +902,43 @@ void runTest(Map testConfig) {
     def clusterSuffix = testConfig.clusterSuffix
     def retries = (testConfig.retries ?: 1) as Integer
     def maxAttempts = retries + 1
+    def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 60) as Integer
     def timeStart = System.currentTimeMillis()
+    def finalResult = 'failure'
 
     updateTestResult(testVariables.tests, testId, 'failure')
 
     try {
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts})!"
+            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts}, timeout ${testTimeoutMinutes} min)!"
 
             def exitCode = 1
+            def timedOut = false
+            def attemptStart = System.currentTimeMillis()
             try {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
 
-                exitCode = sh(
-                    script: """
-                        cd source
-                        ${exports}
-                        ${testVariables.pre_test_sh ?: ''}
-                        ${command}
-                    """,
-                    returnStatus: true
-                )
+                timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
+                    exitCode = sh(
+                        script: """
+                            cd source
+                            ${exports}
+                            ${testVariables.pre_test_sh ?: ''}
+                            ${command}
+                        """,
+                        returnStatus: true
+                    )
+                }
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                // Only the per-test timeout above can fire after testTimeoutMinutes. Anything earlier
+                // is a user abort or an outer timeout, and must stop the runner instead of being
+                // counted as a test failure.
+                if (System.currentTimeMillis() - attemptStart < testTimeoutMinutes * 60000L) {
+                    throw exc
+                }
+                timedOut = true
+                echo "The ${testName} test timed out after ${testTimeoutMinutes} minutes"
             } catch (exc) {
                 echo "Error occurred while running test ${testName}: ${exc}"
             }
@@ -902,11 +952,21 @@ void runTest(Map testConfig) {
                 return
             }
 
-            echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
+            if (!timedOut) {
+                echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
+            }
             try {
                 testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                throw exc
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
+            }
+
+            if (timedOut) {
+                // A hung test usually hangs again; retrying would hold the cluster for another full timeout.
+                finalResult = 'error'
+                break
             }
 
             if (attempt < maxAttempts) {
@@ -920,12 +980,17 @@ void runTest(Map testConfig) {
             }
         }
 
+        updateTestResult(testVariables.tests, testId, finalResult)
+
+        def failureMessage = finalResult == 'error' ?
+            "Test ${testName} timed out after ${testTimeoutMinutes} minutes" :
+            "Test ${testName} failed after ${maxAttempts} attempts"
         catchError(
             buildResult: 'FAILURE',
             stageResult: 'FAILURE',
-            message: "Test ${testName} failed after ${maxAttempts} attempts"
+            message: failureMessage
         ) {
-            error("Test ${testName} failed after ${maxAttempts} attempts")
+            error(failureMessage)
         }
     } finally {
         updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
@@ -937,6 +1002,7 @@ void runTest(Map testConfig) {
         } catch (logErr) {
             echo "Warning: failed to push log for ${testName}: ${logErr}"
         }
+        stash name: "report-${testName}", includes: "source/e2e-tests/reports/${testName}.*", allowEmpty: true
         echo "The ${testName} test was finished!"
     }
 }
@@ -953,8 +1019,10 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         machineType     : testVariables.machine_type,
         region          : testVariables.region ?: '',
         zone            : testVariables.zone ?: '',
-        kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+        kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
+        platformArch    : testVariables.platform_arch ?: ''
     ]
+
     def platform = testVariables.platform.toLowerCase()
 
     if (platform == 'rancher') {
@@ -964,6 +1032,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         clusterCfg.workerCount = testVariables.worker_count ?: 4
     }
 
+    // Retries, and cleanup of a failed attempt, are done inside each provider's createCluster.
     def createCluster = { testVariables.libraries[platform].createCluster(clusterCfg, testVariables.libraries) }
     def clusterCleanup = {
         if (testVariables.skip_kubeconfig) {
@@ -974,12 +1043,9 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     def shutdownCluster = { testVariables.libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries) }
 
     try {
-        while (true) {
-            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
-            if (testId == null) {
-                break
-            }
-
+        // The cluster is created before a test is claimed, so a failed creation leaves every test in
+        // the queue for the other runners instead of recording one of them as failed.
+        while (countSkippedTests(testVariables.tests) > 0) {
             if (!clusterCreated) {
                 clusterCreated = true
                 createdClusters.add(clusterSuffix)
@@ -988,12 +1054,19 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 echo "=========================[ Cleanup existing cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 try {
                     shutdownCluster.call()
+                } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                    throw e
                 } catch (Exception e) {
                     echo "Cluster shutdown failed, maybe cluster does not exist or is already deleted: ${e.getMessage()}"
                 }
 
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
+            }
+
+            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+            if (testId == null) {
+                break
             }
 
             runTest(
@@ -1046,9 +1119,31 @@ void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariable
 
 Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
+    def pendingTests = countSkippedTests(testVariables.tests ?: [])
 
-    for (int i = 1; i <= testVariables.numClusters; i++) {
+    // Never start more agents and clusters than there are tests left to run.
+    def maxClusters = testVariables.numClusters as Integer
+    def clusterCount = pendingTests < maxClusters ? pendingTests : maxClusters
+    echo "Starting ${clusterCount} of ${maxClusters} clusters for ${pendingTests} pending tests"
+
+    if (clusterCount > 0) {
+        prepareTestSources(testVariables)
+    }
+
+    // Always declare every cluster branch so the stage view keeps the same columns between builds;
+    // branches that are not needed are shown as skipped instead of disappearing.
+    for (int i = 1; i <= maxClusters; i++) {
         def clusterSuffix = "${testVariables.cluster_suffix_prefix ?: 'cluster'}${i}"
+
+        if (i > clusterCount) {
+            parallelStages[clusterSuffix] = {
+                stage(clusterSuffix) {
+                    echo "SKIP: ${clusterSuffix} is not needed, only ${pendingTests} tests are pending."
+                    org.jenkinsci.plugins.pipeline.modeldefinition.Utils.markStageSkippedForConditional(clusterSuffix)
+                }
+            }
+            continue
+        }
 
         parallelStages[clusterSuffix] = {
             stage(clusterSuffix) {
@@ -1139,6 +1234,11 @@ void normalizeReports(List tests, String sourceDir = 'source') {
             continue
         }
 
+        try {
+            unstash "report-${testName}"
+        } catch (ignored) {
+        }
+
         def xmlFile = "${reportsDir}/${testName}.xml"
         def htmlFile = "${reportsDir}/${testName}.html"
 
@@ -1222,13 +1322,14 @@ void publishPytestReports(Map config) {
     def tests = config.tests ?: []
     def sourceDir = config.sourceDir ?: 'source'
     def reportHtml = config.reportHtml ?: 'e2e-test-report.html'
-    def reportXml = config.reportXml ?: 'e2e-test-report.xml'
     def gitShortCommit = config.gitShortCommit ?: env.GIT_SHORT_COMMIT
     def gitBranch = config.gitBranch ?: env.GIT_BRANCH
     def title = config.title ?: "PSMDB e2e tests - ${gitBranch} (${gitShortCommit})"
     def pushToS3 = config.containsKey('pushToS3') ? config.pushToS3 : true
 
-    echo '=========================[ Publishing pytest HTML/JUnit reports ]========================='
+    // HTML only. JUnit results come from TestsReport.xml (makeReportJUnit), which the pipelines publish;
+    // publishing a second merged XML here counted every test twice.
+    echo '=========================[ Publishing pytest HTML report ]========================='
 
     def startedTests = tests.findAll { test ->
         def result = test.containsKey('result') ? test.result : test['result']
@@ -1247,15 +1348,13 @@ void publishPytestReports(Map config) {
             export PATH="\$HOME/.local/bin:\$PATH"
             cd ${sourceDir}
             uv run pytest_html_merger -i e2e-tests/reports -o "\$WORKSPACE/${reportHtml}" -t "${title}"
-            uv run junitparser merge --glob 'e2e-tests/reports/*.xml' "\$WORKSPACE/${reportXml}"
         """
 
         if (fileExists(reportHtml)) {
             formatReportDuration(reportHtml)
         }
 
-        junit testResults: reportXml, healthScaleFactor: 1.0, allowEmptyResults: true
-        archiveArtifacts artifacts: "${reportXml}, ${reportHtml}", allowEmptyArchive: true
+        archiveArtifacts artifacts: reportHtml, allowEmptyArchive: true
 
         if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
             pushReportFile(reportHtml, gitShortCommit)
@@ -1320,7 +1419,6 @@ void makeReportJUnit(List tests, Map testVariables) {
 
 void shutdownLeftoverClusters(Map testVariables) {
     def libraries = testVariables.libraries
-def platform = testVariables.platform.toLowerCase()
 
     testVariables.clusters.each { clusterSuffix ->
         try {
@@ -1337,7 +1435,7 @@ def platform = testVariables.platform.toLowerCase()
                 libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
             }
 
-            libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries)
+            libraries[testVariables.platform.toLowerCase()].shutdownCluster(clusterCfg, libraries)
         } catch (err) {
             echo "Cleanup failed for ${clusterSuffix}: ${err}"
         }

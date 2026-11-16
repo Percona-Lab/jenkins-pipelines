@@ -16,7 +16,7 @@ void createCluster(Map clusterCfg, Map libraries) {
         "WORKER_COUNT=${clusterCfg.workerCount}",
         "MACHINE_TYPE=${clusterCfg.machineType}",
         'BOOT_DISK_SIZE=100GB',
-        'IMAGE_FAMILY=rocky-linux-9-optimized-gcp',
+        "IMAGE_FAMILY=${clusterCfg.platformArch == 'arm64' ? 'rocky-linux-9-optimized-gcp-arm64' : 'rocky-linux-9-optimized-gcp'}",
         'IMAGE_PROJECT=rocky-linux-cloud',
         'SOURCE_RANGES=0.0.0.0/0',
         'OWNER=jenkins',
@@ -59,7 +59,8 @@ void createCluster(Map clusterCfg, Map libraries) {
     }
 }
 
-void shutdownCluster(Map clusterCfg, Map libraries) {
+// libraries is unused here; optional so older callers with a single argument keep working.
+void shutdownCluster(Map clusterCfg, Map libraries = [:]) {
     withEnv([
         "PREFIX=${cluster(clusterCfg)}",
         "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: 'us-central1-a'}",

@@ -236,8 +236,8 @@ pipeline {
                             kubeconfig   : "/tmp/${testVariables.cluster_name}-${clusterSuffix}"
                         ]
 
-                        libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
-                        libraries.rancher.shutdownCluster(clusterCfg)
+                        libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
+                        libraries.rancher.shutdownCluster(clusterCfg, libraries)
                     } catch (err) {
                         echo "Cleanup failed for ${clusterSuffix}: ${err}"
                     }

@@ -223,12 +223,13 @@ void installExecutorDependencies(String testExecutorType) {
     }
 }
 
+// Callers pass the platform name (gke/aks); the old provider names (gcloud/azure) are still accepted.
 Boolean needsGoogleAuth(String operator, String provider) {
-    return provider == 'gcloud' || provider == 'rancher' || operator == 'psmdb' || operator == 'pxc'
+    return provider in ['gke', 'gcloud', 'rancher'] || operator == 'psmdb' || operator == 'pxc'
 }
 
 Boolean needsAzureCli(String operator, String provider) {
-    return provider == 'azure' || operator == 'psmdb' || operator == 'pxc'
+    return provider in ['aks', 'azure'] || operator == 'psmdb' || operator == 'pxc'
 }
 
 void installClusterProviderTools(String provider, String platformVersion) {

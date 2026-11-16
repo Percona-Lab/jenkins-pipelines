@@ -4,7 +4,7 @@ String getPlatformVersion(String prefixVersion) {
 
 String getLatestPlatformVersion(Map testVariables) {
     def result = ""
-    libraries.credentials.withAWSLatestVersionCredentials {
+    testVariables.libraries.credentials.withAWSLatestVersionCredentials {
         result = sh(
             script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'",
             returnStdout: true
@@ -25,28 +25,24 @@ void createCluster(Map clusterCfg, Map libraries) {
     libraries.credentials.withAWSCredentials {
         libraries.helpers.retryCommand(
             command: """
-                timeout 30m bash -c '
-                    # Generate cluster config from template
-                    sed \\
-                        -e 's|<cluster-name>|${clusterFullName}|g' \\
-                        -e 's|<region>|${clusterCfg.region}|g' \\
-                        -e 's|<platform-version>|${clusterCfg.platformVersion}|g' \\
-                        -e 's|<creation-time>|${creationTime}|g' \\
-                        -e 's|<product>|${clusterCfg.product}|g' \\
-                        cloud/common/files/eks-cluster-template.yaml > cluster-${clusterSuffix}.yaml
+                set -euo pipefail
 
-                    export KUBECONFIG=${clusterCfg.kubeconfig}
-                    eksctl create cluster -f cluster-${clusterSuffix}.yaml
-                    kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
-                    kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class- --overwrite 2>/dev/null || true
-                    kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
-                    kubectl get storageclass
-                '
+                # Generate cluster config from template
+                sed \\
+                    -e 's|<cluster-name>|${clusterFullName}|g' \\
+                    -e 's|<region>|${clusterCfg.region}|g' \\
+                    -e 's|<platform-version>|${clusterCfg.platformVersion}|g' \\
+                    -e 's|<creation-time>|${creationTime}|g' \\
+                    -e 's|<product>|${clusterCfg.product}|g' \\
+                    cloud/common/files/eks-cluster-template.yaml > cluster-${clusterSuffix}.yaml
+
+                export KUBECONFIG=${clusterCfg.kubeconfig}
+                timeout 30m eksctl create cluster -f cluster-${clusterSuffix}.yaml
             """,
             afterCommand: """
+                set -euo pipefail
                 export KUBECONFIG=${clusterCfg.kubeconfig}
-                verifyVolumeSnapshotResources "${clusterCfg.kubeconfig}", ${libraries}
-                
+
                 # Wait for API server to be fully ready
                 for i in \$(seq 1 60); do
                     if kubectl cluster-info >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
@@ -56,7 +52,16 @@ void createCluster(Map clusterCfg, Map libraries) {
                     echo "Waiting for cluster API server... (\$i/60)"
                     sleep 10
                 done
-                
+
+                # Use GP3 storage class as default, recommended by the provider
+                kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
+                # Remove GP2 storage class default label, for old clusters
+                kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class- --overwrite 2>/dev/null || true
+                kubectl create clusterrolebinding cluster-admin-binding1 \\
+                    --clusterrole=cluster-admin \\
+                    --user="\$(aws sts get-caller-identity | jq -r '.Arn')" \\
+                    --dry-run=client -o yaml | kubectl apply -f -
+                kubectl get storageclass
                 kubectl get nodes
             """,
             cleanupFunction: {
@@ -65,10 +70,12 @@ void createCluster(Map clusterCfg, Map libraries) {
             maxRetries: 3,
             delaySeconds: 5
         )
+
+        verifyVolumeSnapshotResources(clusterCfg.kubeconfig, libraries)
     }
 }
 
-void verifyVolumeSnapshotResources(String kubeconfig) {
+void verifyVolumeSnapshotResources(String kubeconfig, Map libraries) {
     libraries.credentials.withAWSCredentials {
         sh """
             export KUBECONFIG=${kubeconfig}
