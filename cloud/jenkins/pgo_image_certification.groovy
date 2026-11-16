@@ -4,6 +4,7 @@ def certifiableImages = [
     'IMAGE_OPERATOR',
     'IMAGE_PMM_CLIENT',
     'IMAGE_UPGRADE',
+    'IMAGE_LOGCOLLECTOR',
     'IMAGE_POSTGRESQL14',
     'IMAGE_POSTGRESQL15',
     'IMAGE_POSTGRESQL16',
@@ -54,6 +55,9 @@ def buildTargetImage(key, image, params) {
 
         case 'IMAGE_UPGRADE':
             return target(image, containersProjectId, "${params.RELEASE}-upgrade", containersCredentials)
+
+        case 'IMAGE_LOGCOLLECTOR':
+            return target(image, containersProjectId, "${params.RELEASE}-logcollector", containersCredentials)
 
         case 'IMAGE_POSTGRESQL14':
         case 'IMAGE_POSTGRESQL15':
@@ -107,6 +111,7 @@ pipeline {
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
         booleanParam(name: 'IMAGE_UPGRADE', defaultValue: true, description: 'Certify IMAGE_UPGRADE')
+        booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
         booleanParam(name: 'IMAGE_POSTGRESQL14', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL14')
         booleanParam(name: 'IMAGE_POSTGRESQL15', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL15')
         booleanParam(name: 'IMAGE_POSTGRESQL16', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL16')

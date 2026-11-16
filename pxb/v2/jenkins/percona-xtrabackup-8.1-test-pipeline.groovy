@@ -22,11 +22,11 @@ pipeline {
             description: 'MySQL version for QA run',
             name: 'XTRABACKUP_TARGET')
         string(
-            defaultValue: '8.3.0',
+            defaultValue: '8.4.11',
             description: 'Version of MySQL InnoDB80 which will be used for bootstrap.sh script',
             name: 'INNODB80_VERSION')
         string(
-            defaultValue: '8.3.0.1',
+            defaultValue: '8.4.11-11',
             description: 'Version of Percona XtraDB80 which will be used for bootstrap.sh script',
             name: 'XTRADB80_VERSION')
         string(
@@ -53,6 +53,10 @@ pipeline {
             name: 'WITH_KMIP_TESTS',
             defaultValue: true,
             description: 'Run kmip tests')
+        booleanParam(
+            name: 'WITH_KEYCLOAK_TESTS',
+            defaultValue: true,
+            description: 'Run OIDC tests against a Keycloak container (xtradb targets only)')
         choice(
             choices: 'Hetzner\nAWS',
             description: 'Host provider for Jenkins workers',
@@ -76,7 +80,7 @@ pipeline {
                         currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                     }
                     sh 'echo Prepare: \$(date -u "+%s")'
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    checkout scm
                     sh '''#!/bin/bash
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user

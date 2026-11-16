@@ -41,6 +41,7 @@ void runOpenShiftClusterCreate(String OCP_VERSION, DOCKER_VERSION, HELM_CHART_BR
 
     def clusterCreateJob = build job: 'pmm3-ha-rosa', parameters: [
         string(name: 'OCP_VERSION', value: OCP_VERSION),
+        string(name: 'WORKER_COUNT', value: '4'),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
@@ -65,6 +66,13 @@ void runOpenShiftClusterCreate(String OCP_VERSION, DOCKER_VERSION, HELM_CHART_BR
 pipeline {
     agent {
         label 'agent-amd64'
+    }
+    environment {
+        PMM_QA_AWS_ACCESS_KEY_ID=credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY=credentials('PMM_QA_AWS_ACCESS_KEY')
+        PMM_QA_MYSQL_RDS_8_4_HOST=credentials('PMM_QA_MYSQL_RDS_8_4_HOST')
+        PMM_QA_MYSQL_RDS_8_4_USER=credentials('PMM_QA_MYSQL_RDS_8_4_USER')
+        PMM_QA_MYSQL_RDS_8_4_PASSWORD=credentials('PMM_QA_MYSQL_RDS_8_4_PASSWORD')
     }
     parameters {
         string(
@@ -111,7 +119,6 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers { cron('0 2 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -120,7 +127,12 @@ pipeline {
                     currentBuild.description = "HA on ${env.CLUSTER_TYPE} ${clusterVersion}. Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}. Tags: ${env.TAGS_FOR_TESTS}"
                 }
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
                 sh '''
                     sudo rm -rf /srv/pmm-qa || :
                     sudo mkdir -p /srv/pmm-qa

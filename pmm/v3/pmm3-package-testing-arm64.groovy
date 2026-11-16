@@ -3,15 +3,17 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
+void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, boolean USE_ONDEMAND) {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'SERVER_ARCH', value: 'arm64'),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1')
+        string(name: 'DAYS', value: '1'),
+        booleanParam(name: 'USE_ONDEMAND', value: USE_ONDEMAND)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
     env.PMM_SERVER_IP = stagingJob.buildVariables.IP
@@ -22,6 +24,7 @@ void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
@@ -96,7 +99,7 @@ def latestVersion = pmmVersion('v3').last()
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(
@@ -144,18 +147,19 @@ pipeline {
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
             name: 'METRICS_MODE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
     }
     options {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
     }
-    triggers {
-        cron('0 2 * * *')
-    }
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS)
+                runStaging(DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, params.USE_ONDEMAND)
                 script {
                     def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${VM_IP}"
@@ -172,7 +176,7 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8 - ARM64') {
                     agent {
-                        label 'min-ol-8-arm64'
+                        label params.USE_ONDEMAND ? 'min-ol-8-arm64-ondemand' : 'min-ol-8-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -181,7 +185,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9 - ARM64') {
                     agent {
-                        label 'min-ol-9-arm64'
+                        label params.USE_ONDEMAND ? 'min-ol-9-arm64-ondemand' : 'min-ol-9-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -190,7 +194,7 @@ pipeline {
                 }
                 stage('Almalinux 10 - ARM64') {
                     agent {
-                        label 'min-alma-10-arm64'
+                        label params.USE_ONDEMAND ? 'min-alma-10-arm64-ondemand' : 'min-alma-10-arm64'
                     }
                     steps{
                         setup_rhel_10_package_tests()
@@ -199,7 +203,7 @@ pipeline {
                 }
                 stage('Ubuntu 22.04 Jammy - ARM64') {
                     agent {
-                        label 'min-jammy-arm64'
+                        label params.USE_ONDEMAND ? 'min-jammy-arm64-ondemand' : 'min-jammy-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
@@ -208,7 +212,7 @@ pipeline {
                 }
                 stage('Ubuntu 24.04 Noble - ARM64') {
                     agent {
-                        label 'min-noble-arm64'
+                        label params.USE_ONDEMAND ? 'min-noble-arm64-ondemand' : 'min-noble-arm64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
@@ -217,25 +221,16 @@ pipeline {
                 }
                 stage('Ubuntu 26.04 Resolute - ARM64') {
                     agent {
-                        label 'min-resolute-arm64'
+                        label params.USE_ONDEMAND ? 'min-resolute-arm64-ondemand' : 'min-resolute-arm64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 11 Bullseye - ARM64') {
-                    agent {
-                        label 'min-bullseye-arm64'
-                    }
-                    steps{
-                        setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                }
                 stage('Debian 12 Bookworm - ARM64') {
                     agent {
-                        label 'min-bookworm-arm64'
+                        label params.USE_ONDEMAND ? 'min-bookworm-arm64-ondemand' : 'min-bookworm-arm64'
                     }
                     steps{
                         setup_debian_package_tests()
@@ -244,7 +239,7 @@ pipeline {
                 }
                 stage('Debian 13 Trixie - ARM64') {
                     agent {
-                        label 'min-trixie-arm64'
+                        label params.USE_ONDEMAND ? 'min-trixie-arm64-ondemand' : 'min-trixie-arm64'
                     }
                     steps{
                         setup_debian_trixie_package_tests()

@@ -150,6 +150,9 @@ pipeline {
                         sh """
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
                                 sudo dnf install -y wget git
+                                echo PMM_ENABLE_TELEMETRY=0 >> /home/admin/.config/systemd/user/pmm-server.env
+                                systemctl --user restart pmm-server
+                                timeout 300 bash -c "until curl -ksf -o /dev/null https://127.0.0.1/v1/server/readyz; do sleep 5; done"
                                 sudo mkdir -p /srv/pmm-qa || :
                                 set -x
                                 pushd /srv/pmm-qa

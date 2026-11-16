@@ -30,14 +30,11 @@ void build(String IMAGE_SUFFIX){
             if [ ${IMAGE_SUFFIX} = backup ]; then
                 build_multiarch "\$BASE_TAG" percona-backup-mongodb Dockerfile Dockerfile.aarch64
             elif [ ${IMAGE_SUFFIX} = mongot ]; then
-                build_multiarch "\$BASE_TAG" percona-server-mongodb-mongot Dockerfile Dockerfile.aarch64
+                build_multiarch "\$BASE_TAG" percona-search-mongodb Dockerfile Dockerfile.aarch64
             else
                 DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
                 CONTEXT=percona-server-mongodb-\$DOCKER_FILE_PREFIX
                 PSMDB_REPO=release
-                if [ ${IMAGE_SUFFIX} = mongod8.3 ]; then
-                    PSMDB_REPO=experimental
-                fi
 
                 # keep the package channel consistent across the amd64 and arm64 Dockerfiles
                 sed -E "s/ENV PSMDB_REPO (.+)/ENV PSMDB_REPO \${PSMDB_REPO}/" -i \${CONTEXT}/Dockerfile \${CONTEXT}/Dockerfile.aarch64
@@ -53,9 +50,6 @@ List selectedPsmdbImageSuffixes() {
 
     if (params.IMAGE_BACKUP) {
         images << 'backup'
-    }
-    if (params.IMAGE_MONGOD60) {
-        images << 'mongod6.0'
     }
     if (params.IMAGE_MONGOD70) {
         images << 'mongod7.0'
@@ -204,7 +198,6 @@ pipeline {
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Build PSMDB operator image')
         booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Build PBM image')
-        booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Build PSMDB 6.0 image')
         booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Build PSMDB 7.0 image')
         booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Build PSMDB 8.0 image')
         booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Build PSMDB 8.3 image')

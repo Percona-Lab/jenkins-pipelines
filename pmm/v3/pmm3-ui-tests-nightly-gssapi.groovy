@@ -5,6 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -32,6 +33,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION , PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -59,6 +61,7 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
@@ -71,7 +74,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
                 sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo git clone --depth 1 --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa || true
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
@@ -82,7 +85,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -131,6 +134,10 @@ pipeline {
         ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY');
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -156,23 +163,27 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
     }
     options {
         skipDefaultCheckout()
     }
-    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
 
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
@@ -215,16 +226,14 @@ pipeline {
         }
         stage('Setup Node') {
             steps {
-                dir('codeceptjs-e2e') {
+                dir('e2e_tests') {
                     sh '''
                         curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
-                        sudo apt-get install -y gettext
                         npm ci
-                        npx playwright install
-                        sudo npx playwright install-deps
-                        envsubst < env.list > env.generated.list
+                        npx playwright install chromium
+                        sudo npx playwright install-deps chromium
                     '''
                 }
             }
@@ -245,16 +254,13 @@ pipeline {
         }
         stage('Run UI Tests') {
             options {
-                timeout(time: 150, unit: "MINUTES")
+                timeout(time: 60, unit: "MINUTES")
             }
             steps {
-                dir('codeceptjs-e2e') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''
-                            sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
-                            npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
-                        '''
-                    }
+                dir('e2e_tests') {
+                    sh '''
+                        CI=true npx playwright test --grep '@gssapi-nightly'
+                    '''
                 }
             }
         }
@@ -267,19 +273,19 @@ pipeline {
             '''
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'codeceptjs-e2e/tests/output/*.xml'
+                    junit 'e2e_tests/output/junit.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'codeceptjs-e2e/tests/output/*.xml'
+                    junit 'e2e_tests/output/junit.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png'
                 }
             }
             script {
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }

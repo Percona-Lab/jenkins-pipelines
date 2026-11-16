@@ -103,7 +103,7 @@ pipeline {
             stage ('Molecule: Prepare') {
               steps {
                 script {
-                  installMoleculeBookworm()
+                  installMoleculeBookwormMysql()
                 }
               }
             }

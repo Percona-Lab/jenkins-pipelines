@@ -29,6 +29,27 @@ def getMachineType(String arch) {
     }
 }
 
+boolean clusterExists(Map clusterCfg) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT')]) {
+        withEnv([
+            "CLUSTER_SUFFIX=${clusterCfg.clusterSuffix}",
+            "CLUSTER_NAME=${clusterCfg.clusterName}",
+            "GKE_REGION=${clusterCfg.zone}"
+        ]) {
+            return !sh(
+                script: '''
+                    gcloud container clusters list \
+                        --project "$GCP_PROJECT" \
+                        --zone "$GKE_REGION" \
+                        --filter "name=$CLUSTER_NAME-$CLUSTER_SUFFIX" \
+                        --format='value(name)'
+                ''',
+                returnStdout: true
+            ).trim().isEmpty()
+        }
+    }
+}
+
 void createCluster(Map clusterCfg) {
     timeout(time: 30, unit: 'MINUTES') {
         withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -37,24 +58,24 @@ void createCluster(Map clusterCfg) {
                 "CLUSTER_NAME=${clusterCfg.clusterName}",
                 "GKE_RELEASE_CHANNEL=${clusterCfg.platformChannel}",
                 "GKE_REGION=${clusterCfg.zone}",
+                "KUBECONFIG=${clusterCfg.kubeconfig}",
                 "PLATFORM_VER=${clusterCfg.platformVersion}",
                 "MACHINE_TYPE=${clusterCfg.machineType}",
-                "HUGEPAGES=${clusterCfg.hugepages ? '1' : ''}"
+                "SYSTEM_CONFIG_FLAG=${clusterCfg.hugepages ? "--system-config-from-file=hugepages-config-${clusterCfg.clusterSuffix}.yaml" : ''}"
             ]) {
-                sh '''
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-                    maxRetries=15
-                    exitCode=1
+                if (clusterCfg.hugepages) {
+                    writeFile file: "hugepages-config-${clusterCfg.clusterSuffix}.yaml", text: 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n'
+                }
 
-                    SYSTEM_CONFIG_FLAG=""
-                    SYSTEM_CONFIG_FILE="$WORKSPACE/hugepages-config-$CLUSTER_SUFFIX.yaml"
-                    if [[ -n "$HUGEPAGES" ]]; then
-                        printf 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n' > "$SYSTEM_CONFIG_FILE"
-                        SYSTEM_CONFIG_FLAG="--system-config-from-file=$SYSTEM_CONFIG_FILE"
-                    fi
+                int exitCode = 1
+                for (int attempt = 1; attempt <= 15; attempt++) {
+                    shutdownCluster(clusterCfg, false)
 
-                    while [[ $exitCode != 0 && $maxRetries > 0 ]]; do
+                    exitCode = sh(
+                        returnStatus: true,
+                        script: '''
                         gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                            --project "$GCP_PROJECT" \
                             --release-channel $GKE_RELEASE_CHANNEL \
                             --zone $GKE_REGION \
                             --cluster-version $PLATFORM_VER \
@@ -72,15 +93,23 @@ void createCluster(Map clusterCfg) {
                             --no-enable-managed-prometheus \
                             --workload-pool=cloud-dev-112233.svc.id.goog \
                             $SYSTEM_CONFIG_FLAG \
-                            --quiet &&\
-                        kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
-                        exitCode=$?
-                        if [[ $exitCode == 0 ]]; then break; fi
-                        (( maxRetries -- ))
-                        sleep 1
-                    done
-                    rm -f "$SYSTEM_CONFIG_FILE"
-                    if [[ $exitCode != 0 ]]; then exit $exitCode; fi
+                            --quiet
+                        '''
+                    )
+                    if (exitCode == 0) {
+                        break
+                    }
+                    if (attempt < 15) {
+                        echo "Cluster creation failed (exit ${exitCode}); cleaning up before retry (${15 - attempt} attempts remaining)"
+                        sleep(time: 10, unit: 'SECONDS')
+                    }
+                }
+                if (exitCode != 0) {
+                    error("Cluster creation failed after 15 attempts (exit ${exitCode})")
+                }
+
+                sh '''
+                    kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
 
                     CURRENT_TIME=$(date --rfc-3339=seconds)
                     FUTURE_TIME=$(date -d '6 hours' --rfc-3339=seconds)
@@ -97,16 +126,26 @@ void createCluster(Map clusterCfg) {
     }
 }
 
-void shutdownCluster(Map clusterCfg) {
+void shutdownCluster(Map clusterCfg, boolean async = true) {
     timeout(time: 30, unit: 'MINUTES') {
+        if (!clusterExists(clusterCfg)) {
+            return
+        }
         withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
             withEnv([
                 "CLUSTER_SUFFIX=${clusterCfg.clusterSuffix}",
                 "CLUSTER_NAME=${clusterCfg.clusterName}",
-                "GKE_REGION=${clusterCfg.zone}"
+                "GKE_REGION=${clusterCfg.zone}",
+                "DELETE_ASYNC_FLAG=${async ? '--async' : ''}"
             ]) {
                 sh '''
-                    gcloud container clusters delete --async --zone $GKE_REGION $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
+                    gcloud container clusters delete "$CLUSTER_NAME-$CLUSTER_SUFFIX" \
+                        --project "$GCP_PROJECT" \
+                        --zone "$GKE_REGION" \
+                        ${DELETE_ASYNC_FLAG} \
+                        --quiet ||
+                        echo "Warning: unable to delete GKE cluster " \
+                            "${CLUSTER_NAME}-${CLUSTER_SUFFIX}; continuing"
                 '''
             }
         }

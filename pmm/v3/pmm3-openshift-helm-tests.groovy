@@ -7,6 +7,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
     def clusterName = "helm-test-${env.BUILD_NUMBER}"
 
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
         booleanParam(name: 'DEPLOY_PMM', value: false),
@@ -23,6 +24,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
 
 def destroyOpenshift(CLUSTER_NAME) {
     build job: 'openshift-cluster-destroy', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: CLUSTER_NAME),
         string(name: 'DESTROY_REASON', value: 'testing-complete'),
     ]
@@ -30,9 +32,13 @@ def destroyOpenshift(CLUSTER_NAME) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -65,11 +71,16 @@ pipeline {
                 }
                 // clean up workspace and fetch pmm-qa repository
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
 
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
-                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                    sudo git clone --depth 1 --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
                     sudo chmod -R 755 /srv/pmm-qa
 
                     sudo mkdir -p /opt/bats || :

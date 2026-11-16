@@ -36,7 +36,11 @@ bootstrap/re-image machinery.
 So we bake our own, on a schedule, in the CI build account (eu-central-1). The
 same Packer templates + scripts run whether driven locally (`justfile`) or by the
 GitHub Actions workflow. Builds connect over AWS Session Manager (no inbound SSH)
-and authenticate via GitHub OIDC (no static keys).
+and authenticate via GitHub OIDC (no static keys). Builders launch in a random
+default-VPC subnet across the region's AZs (`t3.large` x86_64, `m7g.large`
+arm64). Packer picks the subnet once per build and does not reselect on a
+capacity error, so this lowers the odds that one capacity-constrained AZ takes
+every lane, it does not guarantee failover. Set `-var subnet_id=...` to pin one.
 
 ## Build paths
 
@@ -73,21 +77,33 @@ template ONLY validates; **promotion to `role=ppg-package-test` is a separate,
 retried step** in the `justfile`/workflow that runs after a passing smoke, so a
 transient tag-API failure can never deregister a smoke-passed AMI. A real
 boot/install failure deregisters the candidate + its snapshots.
-The jobs and the next build's source filter select only `role=ppg-package-test`,
-so a non-booting image is never selectable and AMI IDs are never pinned.
+The pin refresh and the next build's source filter select only
+`role=ppg-package-test`, so a non-booting image is never selectable.
 Login user: `ec2-user` on OL, `rocky` on Rocky (the images keep their distro's
 cloud-init default user, matching what the molecule scenarios already use). "Latest"
 is the newest `role=ppg-package-test` AMI by `CreationDate` (no SSM parameter).
 
 ## Housekeeping (all via `just`, fail-safe)
 
-Cleanup is recipes too. Every prune recipe **lists by default** and deregisters
-only on an explicit `1`; the guard **never deletes a promoted prod base** and
-fail-closes on an AMI it cannot positively classify.
+Superseded prod bases are pruned **automatically**: after each successful promote the
+workflow runs `scripts/prune-superseded.sh` for that combo. The floor is the combo's pin
+in `vars/moleculeEnvPPG.groovy` on master. The pin and every newer AMI survive, and so
+does any image pinned by another combo or named by an open refresh PR. Only images older
+than the pin go. `deprecate_at` only marks an AMI deprecated, it never deletes, so without
+this the inventory grows with every refresh. `just prune-superseded` applies the same
+rule to all combos for ad-hoc / backfill cleanup.
+
+Every prune recipe **lists by default** and deregisters only on an explicit `1`. The guard
+**never deletes a pinned base or anything newer** and fail-closes on an AMI it cannot classify.
+Demoted rollback AMIs (`role=*-superseded*`) are never touched by any recipe. The
+post-promote prune additionally refuses to act while the just-promoted AMI is not yet
+visible as the newest of its combo, and reports every skipped deregister, failed
+snapshot cleanup, or image older than the pin left behind as a workflow warning +
+step-summary line.
 
 ```bash
 just list                # current factory AMIs (prod|test)
-just prune-superseded    # older prod dups (keeps newest per combo); add 1 to delete
+just prune-superseded    # prod bases older than the master pin;     add 1 to delete
 just prune-test          # isolated env=test AMIs;                   add 1 to delete
 just prune-stale         # raw/candidate intermediates + orphans;    add 1 to delete
 just prune-all           # prune-test + prune-stale
@@ -96,19 +112,17 @@ just ci-validate         # trigger the GHA workflow matrix (env=test)
 just ci-seed-rocky       # dispatch all six Rocky seeds (env=prod; every combo must be seeded once)
 ```
 
-## Job AMI lookup (replaces hardcoded IDs)
+## Job AMI lookup (static pins, refreshed weekly)
 
-`vars/moleculeEnvPPG.groovy` resolves each Oracle target at pipeline time
-(fail-closed: the job aborts if no base AMI is found). A follow-up PR switches
-the pg.cd jobs' Rocky targets to the same lookup with `Name=tag:os,Values=rocky`:
-
-```bash
-ami_ol9_x86_64=$(aws ec2 describe-images --region eu-central-1 --owners self \
-  --filters Name=tag:role,Values=ppg-package-test Name=tag:os,Values=oraclelinux \
-            Name=tag:os_major,Values=9 Name=tag:arch,Values=x86_64 \
-            Name=state,Values=available \
-  --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)
-```
+`vars/moleculeEnvPPG.groovy` carries static `export ami_*` pins for the OL and
+Rocky targets, same as the RHEL/Debian/Ubuntu entries. The `update-molecule-env`
+job in `ppg-ami-factory.yml` re-resolves the newest promoted AMI per
+os+major+arch (tag `role=ppg-package-test`, via
+`scripts/update_molecule_env.py`) after the weekly bake and publishes the new
+pins on the rolling `ppg-ami-refresh` branch, opening a PR when one is not
+already open. Resolution no longer happens at pipeline time: 30 parallel molecule
+stages each firing 12 `DescribeImages` calls tripped the account-wide EC2 rate
+limit.
 
 ## Validation gates (fail-closed)
 
@@ -122,6 +136,12 @@ so a broken/mislabeled image is never registered:
 4. `cloud-init` present.
 5. SELinux `enforcing` in `/etc/selinux/config` (fail-closed, stock OL and Rocky ship enforcing).
 6. `dnf makecache` succeeds (repos healthy).
+7. `dnf check-update` lists nothing still upgradable (a warning, not a failure, the refresh ran under `set -e`).
+8. `/boot` keeps at least 260MB free for the next kernel update (Rocky ships a fixed 936MB `/boot`).
+9. No crash-dump initramfs on `/boot` and `kdump.service` is disabled or masked. kdump wrote one
+   unowned `initramfs-<kernel>kdump.img` per newly booted kernel and retired kernels left theirs
+   behind, which is what filled `/boot` on Rocky 10. `provision.sh` turns kdump off and removes the
+   images, the smoke build re-checks both after a real first boot.
 
 De-instancing is native: Packer's `ssh_clear_authorized_keys` strips the temp key,
 cloud-init regenerates host keys on first boot, and `provision.sh` already reset
@@ -133,8 +153,9 @@ cloud-init + machine-id.
 *resulting* AMI boots. The native-Packer smoke (`smoke/smoke.pkr.hcl`, a
 `skip_create_ami` build) closes that gap: it launches the candidate, waits for
 2/2 status, connects over Session Manager (proving cloud-init re-injected access
-after the bake stripped keys), asserts the OS major/arch, and installs
-`percona-release` + a PPG server package. The smoke build ONLY validates; the
+after the bake stripped keys), asserts the OS major/arch, installs
+`percona-release` + a PPG server package, and re-checks that this first boot wrote
+no crash-dump initramfs and left `kdump.service` off. The smoke build ONLY validates; the
 caller (`justfile`/workflow) then promotes to `role=ppg-package-test` in a
 **separate retried step**, and deregisters the candidate + its snapshots ONLY on
 a real boot/install failure (never on a transient promote-tag failure).

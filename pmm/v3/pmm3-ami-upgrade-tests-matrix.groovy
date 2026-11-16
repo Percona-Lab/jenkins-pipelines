@@ -54,9 +54,6 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        cron('0 1 * * 0')
-    }
     stages{
         stage('AMI Upgrade Matrix'){
             steps{

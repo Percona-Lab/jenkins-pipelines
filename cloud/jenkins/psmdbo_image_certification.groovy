@@ -2,19 +2,18 @@ def certificationTests = []
 def certification
 def certifiableImages = [
     'IMAGE_OPERATOR',
-    'IMAGE_MONGOD60',
     'IMAGE_MONGOD70',
     'IMAGE_MONGOD80',
+    'IMAGE_MONGOD83',
     'IMAGE_BACKUP',
     'IMAGE_PMM_CLIENT',
-    'IMAGE_PMM3_CLIENT',
     'IMAGE_LOGCOLLECTOR',
     'IMAGE_CLUSTERSYNC'
 ]
 
 def imageTag(image) {
-    def parts = image.tokenize(":")
-    return parts.size() > 1 ? parts[-1] : "latest"
+    def parts = image.tokenize(':')
+    return parts.size() > 1 ? parts[-1] : 'latest'
 }
 
 def target(src, projectId, tag, credentials) {
@@ -36,7 +35,6 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_OPERATOR':
             return target(image, projectId, params.RELEASE, credentials)
 
-        case 'IMAGE_MONGOD60':
         case 'IMAGE_MONGOD70':
         case 'IMAGE_MONGOD80':
         case 'IMAGE_MONGOD83':
@@ -44,11 +42,8 @@ def buildTargetImage(key, image, params) {
 
         case 'IMAGE_BACKUP':
             return target(image, projectId, "${params.RELEASE}-backup", credentials)
-        
-        case 'IMAGE_PMM_CLIENT':
-            return target(image, projectId, "${params.RELEASE}-pmm", credentials)
 
-        case 'IMAGE_PMM3_CLIENT':
+        case 'IMAGE_PMM_CLIENT':
             return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
 
         case 'IMAGE_LOGCOLLECTOR':
@@ -79,13 +74,11 @@ pipeline {
         )
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
-        booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Certify IMAGE_MONGOD60')
         booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Certify IMAGE_MONGOD70')
         booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Certify IMAGE_MONGOD80')
         booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Certify IMAGE_MONGOD83')
         booleanParam(name: 'IMAGE_BACKUP', defaultValue: true, description: 'Certify IMAGE_BACKUP')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
-        booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
         booleanParam(name: 'IMAGE_LOGCOLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOGCOLLECTOR')
         booleanParam(name: 'IMAGE_CLUSTERSYNC', defaultValue: true, description: 'Certify IMAGE_CLUSTERSYNC')
 
@@ -96,7 +89,7 @@ pipeline {
         stage('Prepare Sources') {
             steps {
                 script {
-                    certification = load "cloud/common/imageCertification.groovy"
+                    certification = load 'cloud/common/imageCertification.groovy'
 
                     def release = certification.requireReleaseVersion(params)
                     currentBuild.displayName = release
@@ -113,7 +106,7 @@ pipeline {
         stage('Certify Image') {
             steps {
                 script {
-                    certification = certification ?: load("cloud/common/imageCertification.groovy")
+                    certification = certification ?: load('cloud/common/imageCertification.groovy')
 
                     def images = certification.loadReleaseVersions()
 
@@ -139,7 +132,7 @@ pipeline {
                     }
 
                     if (!imagesToCertify) {
-                        error("Select at least one image to certify")
+                        error('Select at least one image to certify')
                     }
 
                     imagesToCertify.each { key, image ->
@@ -175,7 +168,7 @@ pipeline {
     post {
         always {
             script {
-                certification = certification ?: load("cloud/common/imageCertification.groovy")
+                certification = certification ?: load('cloud/common/imageCertification.groovy')
                 certification.publishResults()
                 certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM, params.RELEASE)
             }

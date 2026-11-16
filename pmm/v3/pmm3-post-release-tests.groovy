@@ -69,6 +69,7 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                         --network="pmm-qa" \
                         -e PMM_DEBUG=1 \
                         -e PMM_ENABLE_UPDATES=1 \
+                        -e PMM_ENABLE_TELEMETRY=0 \
                         -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                         -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
                         --publish 443:8443 \
@@ -125,6 +126,7 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                         --network="pmm-qa" \
                         -e PMM_DEBUG=1 \
                         -e PMM_ENABLE_UPDATES=1 \
+                        -e PMM_ENABLE_TELEMETRY=0 \
                         -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                         -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
                         --publish 443:8443 \

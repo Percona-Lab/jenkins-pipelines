@@ -7,7 +7,7 @@ def getLatestPlatformVersion(Map testVariables) {
 }
 
 def getMachineType(String arch) {
-    return arch
+    error("Architecture selection is not supported for Minikube: ${arch}")
 }
 
 void createCluster(Map clusterCfg) {
@@ -15,6 +15,12 @@ void createCluster(Map clusterCfg) {
         export CHANGE_MINIKUBE_NONE_USER=true
         minikube start --kubernetes-version ${clusterCfg.platformVersion} --cpus=6 --memory=28G --force
     """
+}
+
+void shutdownCluster(Map clusterCfg) {
+    sh '''
+        minikube delete || true
+    '''
 }
 
 return this

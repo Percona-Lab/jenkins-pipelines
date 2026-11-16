@@ -1,0 +1,10 @@
+{
+  "extends": "recommended-jenkinsfile",
+  "rules": {
+    "CompileStatic": "off",
+    "LineLength": "off",
+    "MethodReturnTypeRequired": "off",
+    "NoDef": "off",
+    "VariableTypeRequired": "off"
+  }
+}

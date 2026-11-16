@@ -255,7 +255,7 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
             stage('Prepare') {
                 steps {
                     script {
-                        installMoleculeBookworm()
+                        installMoleculeBookwormMysql()
                     }
                 }
             }
@@ -293,6 +293,10 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         osList = pxbInnovationPackageTesting()
                                     } else {
                                         error("Unsupported product_to_test: ${product_to_test}")
+                                    }
+
+                                    if (server_to_test.startsWith('ms')) {
+                                        osList = osList.findAll { !it.endsWith('-arm') }
                                     }
 
                                     if (REPO_TYPE == 'PRO') {

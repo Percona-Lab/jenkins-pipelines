@@ -236,6 +236,43 @@ pipeline {
                 }
             }
         }
+        stage('Prepare release notes') {
+            when {
+                expression { env.EXIST.toInteger() == 0 && env.REMOVE_RELEASE_BRANCH == 'no' && params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH }
+            }
+            steps {
+                // Turns release-notes/next.md into ${VERSION}.md on main, so the release branch is cut with it.
+                dir('release-notes') {
+                    git branch: 'main', credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
+                    withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                        sh '''
+                            set -ex
+                            export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                            git config user.email "noreply@percona.com"
+                            git config user.name "PMM Jenkins"
+                            notes=documentation/docs/release-notes
+                            # A rerun after a dry run finds the page already there.
+                            if [ ! -f "${notes}/${VERSION}.md" ]; then
+                                sed "s/{{VERSION}}/${VERSION}/g" "${notes}/next.md" > "${notes}/${VERSION}.md"
+                                cp documentation/resources/release-notes-template.md "${notes}/next.md"
+                                sed -i "/^# Release notes$/a - [Percona Monitoring and Management ${VERSION}](${VERSION}.md)" "${notes}/index.md"
+                                awk -v v="${VERSION}" '{ print } index($0, "- Release notes index: release-notes/index.md") { print sprintf("      - %cPMM %s%c: release-notes/%s.md", 34, v, 34, v) }' \
+                                    documentation/mkdocs-base.yml > mkdocs-base.yml.new
+                                mv mkdocs-base.yml.new documentation/mkdocs-base.yml
+                                git add documentation
+                                git commit -m "chore(rc): PMM ${VERSION} release notes"
+                                git push origin main
+                            elif ! cmp -s "${notes}/next.md" documentation/resources/release-notes-template.md; then
+                                # The cut takes all of main, so entries merged since the first cut ship in this one.
+                                echo "${VERSION}.md exists but next.md has entries: this cut ships them, move them to ${VERSION}.md"
+                                exit 1
+                            fi
+                        '''
+                    }
+                    deleteDir()
+                }
+            }
+        }
         stage('Create Release branches') {
             when {
                 expression { env.EXIST.toInteger() == 0 }
@@ -289,18 +326,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Start PMM3 Watchtower Autobuild') {
-                    steps {
-                        script {
-                            def pmmWatchtower = build job: 'pmm3-watchtower-autobuild', parameters: [
-                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                                string(name: 'TAG_TYPE', value: 'rc'),
-                                booleanParam(name: 'USE_ONDEMAND', value: true)
-                            ]
-                            env.WATCHTOWER_IMAGE = pmmWatchtower.buildVariables.TIMESTAMP_TAG
-                        }
-                    }
-                }
             }
         }
         stage('Start AMI RC Build') {
@@ -312,7 +337,6 @@ pipeline {
                     def pmmAMI = build job: 'pmm3-ami', parameters: [
                         string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
                         string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
-                        string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
                         string(name: 'RELEASE_CANDIDATE', value: "yes"),
                         booleanParam(name: 'USE_ONDEMAND', value: true)
                     ]
@@ -329,21 +353,21 @@ pipeline {
                     def imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}-rc"),
                         string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}-rc"),
-                        booleanParam(name: 'USE_ONDEMAND', value: true)
+                        booleanParam(name: 'USE_ONDEMAND', value: true),
+                        booleanParam(name: 'REQUIRE_MULTIARCH', value: true)
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
                         // Copy Trivy reports for both server and client
-                        copyArtifacts filter: '*-report.*', projectName: 'pmm3-image-scanning'
+                        copyArtifacts filter: 'trivy-*-report-*.*', projectName: 'pmm3-image-scanning'
                         sh '''
-                            mv trivy-server-report.txt trivy-server-report-${VERSION}-rc.txt
-                            mv trivy-server-report.html trivy-server-report-${VERSION}-rc.html
-
-                            mv trivy-client-report.txt trivy-client-report-${VERSION}-rc.txt
-                            mv trivy-client-report.html trivy-client-report-${VERSION}-rc.html
+                            for report in trivy-*-report-*.*; do
+                                [ -e "${report}" ] || continue
+                                mv "${report}" "${report%.*}-${VERSION}-rc.${report##*.}"
+                            done
                         '''
-                        archiveArtifacts artifacts: "*-report-${VERSION}-rc.*"
+                        archiveArtifacts artifacts: "trivy-*-report-*-${VERSION}-rc.*"
                         env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }
@@ -356,17 +380,19 @@ pipeline {
             steps {
                 script {
                     try {
-                        build job: 'pmm3-rc-testing', wait: false, propagate: false, parameters: [
-                                string(name: 'RC_VERSION', value: env.VERSION),
+                        build job: 'pmm3-nightly-orchestrator', wait: false, propagate: false, parameters: [
+                                string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${env.VERSION}-rc"),
+                                string(name: 'CLIENT_VERSION', value: 'pmm3-rc'),
+                                string(name: 'AMI_ID', value: env.AMI_ID.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL', value: env.TARBALL_AMD64_URL.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL_ARM64', value: env.TARBALL_ARM64_URL.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL_OL8', value: env.TARBALL_AMD64_DYNAMIC_OL8_URL.trim()),
                                 string(name: 'PMM_CLIENT_TARBALL_OL9', value: env.TARBALL_AMD64_DYNAMIC_OL9_URL.trim()),
-                                string(name: 'AMI_ID', value: env.AMI_ID.trim()),
+                                booleanParam(name: 'USE_ONDEMAND', value: true),
                             ]
                         echo "[rc-tests] Release Candidate testing queued for ${env.VERSION}."
                     } catch (Throwable e) {
-                        echo "[rc-tests] Could not queue pmm3-rc-testing: ${e.message}"
+                        echo "[rc-tests] Could not queue pmm3-nightly-orchestrator: ${e.message}"
                     }
                 }
             }

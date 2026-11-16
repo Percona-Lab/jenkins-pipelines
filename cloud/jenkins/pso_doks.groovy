@@ -1,6 +1,6 @@
 import groovy.transform.Field
 
-@Field Integer numClusters = 5
+@Field Integer numClusters = 8
 @Field List clusters = []
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
@@ -24,7 +24,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80'], description: 'Implies release run.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '97', '84', '80'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mysql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
@@ -38,6 +38,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
+        string(name: 'IMAGE_LOG_COLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
         string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital Ocean region to use for cluster')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
@@ -49,7 +50,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('weekly-pso');
+        copyArtifactPermission('weekly-pso')
     }
     stages {
         stage('Init Workspace') {
@@ -72,19 +73,8 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'doks'
-                    )
-                }
-            }
-        }
-
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH
                     )
                 }
             }
@@ -96,7 +86,7 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
+                        operator              : 'ps',
                         platform              : 'doks',
                         platform_provider     : 'doks',
                         platform_version      : PLATFORM_VER,
@@ -112,7 +102,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : jenkinsAgentLabel(),
+                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params),
                         images: [
                             IMAGE_OPERATOR     : IMAGE_OPERATOR,
                             IMAGE_MYSQL        : IMAGE_MYSQL,
@@ -123,7 +113,8 @@ pipeline {
                             IMAGE_TOOLKIT      : IMAGE_TOOLKIT,
                             IMAGE_PMM_CLIENT   : IMAGE_PMM_CLIENT,
                             IMAGE_PMM_SERVER   : IMAGE_PMM_SERVER,
-                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER
+                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER,
+                            IMAGE_LOG_COLLECTOR: IMAGE_LOG_COLLECTOR
                         ]
                     ])
 
@@ -137,24 +128,36 @@ pipeline {
         stage('Init Tests') {
             steps {
                 script {
-                    testVariables.tests = libraries.tests.loadTestList(TEST_LIST, TEST_SUITE)
+                    libraries.tests.initTestRun(testVariables, [
+                        testList          : TEST_LIST,
+                        testSuite         : TEST_SUITE,
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
+                        operator          : 'ps'
+                    ])
+                }
+            }
+        }
 
-                    if (IGNORE_PREVIOUS_RUN == 'NO') {
-                        libraries.tests.updateListWithLastExecutionStatus(testVariables)
-                    } else {
-                        echo 'All tests will be re-run, ignoring previous execution results!'
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
                     }
 
-                    libraries.tests.loadCloudSecret(testVariables.operator)
-
-                    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH
+                    )
                 }
             }
         }
 
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             steps {
                 script {
@@ -166,43 +169,7 @@ pipeline {
     post {
         always {
             script {
-                echo "CLUSTER ASSIGNMENTS\n" +
-                    (testVariables.tests ?: []).toString()
-                        .replace('], ', ']\n')
-                        .replace(']]', ']')
-                        .replaceFirst('\\[', '')
-
-                if (testVariables.tests) {
-                    libraries.tests.makeReportJUnit(testVariables.tests, testVariables)
-                }
-
-                try {
-                    def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
-                    sendJobSlack.call(
-                        tests        : testVariables.tests,
-                        gitBranch    : GIT_BRANCH,
-                        platformVer  : testVariables.platform_version,
-                        clusterWide  : testVariables.cluster_wide,
-                        image        : testVariables.images?.IMAGE_MYSQL,
-                        operatorImage: testVariables.images?.IMAGE_OPERATOR
-                    )
-                } catch (err) {
-                    echo "Slack helper load/call failed: ${err}"
-                }
-
-                clusters.each { clusterSuffix ->
-                    try {
-                        libraries.doks.shutdownCluster([
-                            clusterName  : testVariables.cluster_name,
-                            clusterSuffix: clusterSuffix,
-                            region       : testVariables.region
-                        ])
-                    } catch (err) {
-                        echo "Cleanup failed for ${clusterSuffix}: ${err}"
-                    }
-                }
-
-                libraries.tools.dockerCleanupVolumes()
+                libraries.tests.finalizeJob(testVariables)
             }
 
             junit testResults: 'TestsReport.xml', healthScaleFactor: 1.0, allowEmptyResults: true

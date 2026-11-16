@@ -1,8 +1,12 @@
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'list-all-vms',
             description: 'Name or IP of VM to stop. Also you can set "list-all-vms" value, in this case list of current VMs will be shown and pipeline will ask you VM again.',
@@ -22,7 +26,7 @@ pipeline {
                             set +o xtrace
 
                             aws ec2 describe-instances \
-                                --output table \
+                                --output text \
                                 --region us-east-2 \
                                 --filters "Name=tag:iit-billing-tag,Values=pmm-staging" \
                                           "Name=instance-state-name,Values=running" \
@@ -74,8 +78,11 @@ pipeline {
                     sh '''
                         set -o errexit
                         set +x
-                        REQUEST_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $2}' | cut -d '|' -f1)
-                        INSTANCE_ID=$(echo "${VMList}" | grep "${INPUT}" | awk '{print $3}')
+                        # cut on '|' instead of awk fields -- awk's whitespace splitting
+                        # breaks when a short value like "None" doesn't butt up against the next '|'.
+                        ROW=$(echo "${VMList}" | grep "${INPUT}")
+                        REQUEST_ID=$(echo "$ROW" | awk '{print $1}')
+                        INSTANCE_ID=$(echo "$ROW" | awk '{print $2}')
                         set -x
                         echo $REQUEST_ID
                         echo $INSTANCE_ID
@@ -84,7 +91,11 @@ pipeline {
                             echo "REQUEST_ID: '$REQUEST_ID', INSTANCE_ID: '$INSTANCE_ID'"
                             exit 1
                         fi
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
+                        # On-demand instances have no spot request -- AWS renders that as the
+                        # literal "None" in the table above, not an empty string.
+                        if [ "$REQUEST_ID" != "None" ]; then
+                            aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
+                        fi
                         aws ec2 --region us-east-2 terminate-instances --instance-ids $INSTANCE_ID
                     '''
                 }

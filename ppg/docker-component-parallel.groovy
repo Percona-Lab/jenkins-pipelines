@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(repo, server_version, server_docker_tag, component, component_docker_tag, component_version) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nRepo: ${repo}\nServer-Version: ${server_version}\nServer-Docker-tag: ${server_docker_tag}\nComponent: ${component}\nComponent-Docker-tag: ${component_docker_tag}\nComponent-Version: ${component_version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
@@ -55,18 +59,25 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
-        choice(
+        string(
             name: 'REPOSITORY',
-            description: 'Docker hub repository to use for docker images.',
-            choices: [
-                'percona',
-                'perconalab'
-            ]
+            defaultValue: 'percona',
+            description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.'
+        )
+        string(
+            name: 'SERVER_REPOSITORY',
+            defaultValue: '',
+            description: 'Image prefix of the PostgreSQL server image, if not REPOSITORY (on OBS the component images are in ppg:staging:common:tools:containers, the server images in ppg:staging:<major>:containers, e.g. registry.opensuse.org/isv/percona/ppg/staging/18/containers/ubi9). Empty: REPOSITORY.'
         )
         booleanParam(
             name: 'DESTROY_ENV',
             defaultValue: true,
             description: 'Destroy VM after tests'
+        )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
         )
     }
     environment {
@@ -96,6 +107,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group docker/${COMPONENT}"
                 }
             }
         }

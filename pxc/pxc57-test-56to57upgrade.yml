@@ -231,7 +231,6 @@
         artifact-num-to-keep: 3
         days-to-keep: -1
         num-to-keep: 2
-    properties:
     - build-blocker:
         blocking-jobs:
           - "qa-pxc57-build"

@@ -198,7 +198,7 @@ void runlogsbackup(String product_to_test, String param_test_type) {
 pipeline {
 
     agent {
-        label 'min-centos-7-x64'
+        label 'min-bookworm-x64'
     }
 
     options {
@@ -269,10 +269,10 @@ pipeline {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${params.product_to_test}-${params.node_to_test}-${params.test_repo}-${params.test_type}"                              
                 }   
                 echo "${JENWORKSPACE}"
-                installMolecule()
+                installMoleculeBookwormMysql()
                     sh '''
-                        sudo yum install -y epel-release 
-                        sudo yum install -y git unzip jq ansible
+                        sudo apt update -y
+                        sudo apt install -y git unzip jq ansible
                         ansible-galaxy install panchal_yash.percona_xtradb_cluster_role
                         rm -rf package-testing                    
                         git clone https://github.com/Percona-QA/package-testing --branch master
@@ -349,7 +349,7 @@ pipeline {
 
                                 sh """
 
-                                    sudo yum install wget -y
+                                    sudo apt install -y wget
                                     echo "run the keyring tests"
                                     wget https://raw.githubusercontent.com/Percona-QA/package-testing/master/scripts/pxc-keyring-test-pks.sh
                                     chmod +x pxc-keyring-test-pks.sh
@@ -378,7 +378,7 @@ pipeline {
                                 
                                     sh """
                                         echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQD6iGdDs3A9vLPFPmJO3pE5TnKBT6grWis3YFcmrMCIj5RsnIdrRRg6Ull0h8ErP+4pyXEGvmwMgEWJ0NBPZL0KynQufLUTFstInEiujLpUsEfj8HpBK25w+/VukT2nX/7UagitH1cZRarAmObtU67cAtOFwBCyM1v2SoeYCKpPyxA2+MVeVVYJnkn3yUTCYDwt77XgeqS4qZ4VyuckiASLAD0/0A3wb81lm2hDB5tZOO50A6ZxdHw9SWGAgEA/i3O+4DPkJ2zd5OntaEIrSHHNT1I8D/BJyFYI9odVdnX+wwfKimqNMnn4Di3lZs2HYdiJ6CP12lp1JrksXH+zqQWvJVwM1rxJ/e638OS9rSfRlzL5TwlEKFTaE48KehpJFjXK0mpG3fbV7NU9K49Gi3gnxNKUEwINlJGLK8d04zlO2gnpkQcrq0HBIN6LAEcDsVRDrNZsERO5I9tw+bBxmmzEeMiU/2NEeLHqqoYPqO3Y27S9xZUvBoI86HcOQwlTwnk= root@yash-ThinkPad-P15-Gen-2i" >> ~/.ssh/authorized_keys
-                                        sudo yum install wget -y
+                                        sudo apt install -y wget
                                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
                                         unzip -o /tmp/awscliv2.zip -d /tmp 
                                         cd /tmp/aws && sudo ./install

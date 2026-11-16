@@ -280,9 +280,39 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     molecule ${action} -s ${scenario}
                     cd -
 
+                    if [ "${action}" = "create" ]; then
+                        # Molecule's ephemeral directory is not a fixed path - with concurrent
+                        # builds sharing this agent, Molecule may put it under the usual
+                        # ~/.cache/molecule/<role>/<scenario> location or under a randomized
+                        # ~/.ansible/tmp/molecule.*.<scenario> directory to avoid colliding with
+                        # another build using the same scenario name. Locate whichever key was
+                        # just written (the most recently modified match) instead of assuming
+                        # a fixed path, then copy it into this build's own workspace so later
+                        # steps (e.g. the post-build log backup) have a stable place to read it.
+                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/"
+                        BOOTSTRAP_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        if [ -z "\$BOOTSTRAP_KEY" ]; then
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-bootstrap-${param_test_type}/${scenario}" >&2
+                            exit 1
+                        fi
+                        cp "\$BOOTSTRAP_KEY" "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                    fi
+
                     cd ${product_to_test}-common-${param_test_type}
                     molecule ${action} -s ${scenario}
                     cd -
+
+                    if [ "${action}" = "create" ]; then
+                        mkdir -p "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/"
+                        COMMON_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        if [ -z "\$COMMON_KEY" ]; then
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-common-${param_test_type}/${scenario}" >&2
+                            exit 1
+                        fi
+                        cp "\$COMMON_KEY" "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                    fi
                 """
             }else{
 
@@ -434,15 +464,18 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
-                    KEYPATH_COMMON="/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    // Use the workspace copy of the SSH key made right after "molecule create"
+                    // (see runMoleculeAction) instead of Molecule's ephemeral cache directory,
+                    // which is shared across builds and can be recreated/removed by another build.
+                    KEYPATH_BOOTSTRAP="${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/${param_test_type}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/${param_test_type}/ssh_key-us-west-1"
 
 
-                    if(("${params.node_to_test}" == "ubuntu-noble") || ("${params.node_to_test}" == "ubuntu-focal") || ("${params.node_to_test}" == "ubuntu-jammy") || ("${params.node_to_test}" == "ubuntu-noble-arm") || ("${params.node_to_test}" == "ubuntu-jammy-arm")){
-                        SSH_USER="ubuntu"            
-                    }else if(("${params.node_to_test}" == "debian-11") ||("${params.node_to_test}" == "debian-12") || ("${params.node_to_test}" == "debian-11-arm") || ("${params.node_to_test}" == "debian-12-arm") || ("${params.node_to_test}" == "debian-10")){
+                    if(("${params.node_to_test}" == "ubuntu-resolute") || ("${params.node_to_test}" == "ubuntu-resolute-arm") || ("${params.node_to_test}" == "ubuntu-noble") || ("${params.node_to_test}" == "ubuntu-focal") || ("${params.node_to_test}" == "ubuntu-jammy") || ("${params.node_to_test}" == "ubuntu-noble-arm") || ("${params.node_to_test}" == "ubuntu-jammy-arm") || ("${params.node_to_test}" == "ubuntu-focal-arm") || ("${params.node_to_test}" == "ubuntu-bionic")){
+                        SSH_USER="ubuntu"
+                    }else if(("${params.node_to_test}" == "debian-11") ||("${params.node_to_test}" == "debian-12") || ("${params.node_to_test}" == "debian-11-arm") || ("${params.node_to_test}" == "debian-12-arm") || ("${params.node_to_test}" == "debian-10") || ("${params.node_to_test}" == "debian-13") || ("${params.node_to_test}" == "debian-13-arm")){
                         SSH_USER="admin"
-                    }else if(("${params.node_to_test}" == "amazon-linux-2023-arm") || ("${params.node_to_test}" == "amazon-linux-2023") || ("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") || ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm")){
+                    }else if(("${params.node_to_test}" == "amazon-linux-2023-arm") || ("${params.node_to_test}" == "amazon-linux-2023") || ("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") || ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm") || ("${params.node_to_test}" == "rhel-10") || ("${params.node_to_test}" == "rhel-10-arm")){
                         SSH_USER="ec2-user"
                     }else if(("${params.node_to_test}" == "centos-7")){
                         SSH_USER="centos"
@@ -707,13 +740,13 @@ def setup(){
                 script {
                     try {
                         echo "Installing Molecule Bookworm..."
-                        installMoleculeBookworm()
+                        installMoleculeBookwormMysql()
                         echo "Installation completed successfully"
                     } catch (Exception e) {
                         echo "First attempt failed: ${e.getMessage()}"
                         echo "Retrying installation..."
                         try {
-                            installMoleculeBookworm()
+                            installMoleculeBookwormMysql()
                             echo "Installation completed successfully on retry"
                         } catch (Exception retryException) {
                             echo "Retry failed: ${retryException.getMessage()}"
@@ -742,7 +775,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc_innovation"]'
+                    script: 'return ["pxc97", "pxc84", "pxc80", "pxc57", "pxc_innovation"]'
                 ]
             ]
         ],
@@ -808,6 +841,33 @@ properties([
                                         'amazon-linux-2023-arm'
                         ]
 
+                        def non_pro_pxc97 = [
+                                        'ubuntu-resolute',
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-resolute-arm',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm',
+                                        'debian-13',
+                                        'debian-12',
+                                        'debian-13-arm',
+                                        'debian-12-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-9',
+                                        'rhel-10',
+                                        'rhel-8-arm',
+                                        'rhel-9-arm',
+                                        'rhel-10-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
+                                        'amazon-linux-2023',
+                                        'amazon-linux-2023-arm'
+                        ]
+
                         def pxc_innovation = [
                                         'ubuntu-noble',
                                         'ubuntu-noble-arm',
@@ -848,6 +908,8 @@ properties([
                             return non_pro_pxc80
                         } else if (product_to_test == "pxc84") {
                             return non_pro_pxc84
+                        } else if (product_to_test == "pxc97") {
+                            return non_pro_pxc97
                         } else if (product_to_test == "pxc_innovation") {
                             return pxc_innovation
                         } else {
@@ -911,7 +973,11 @@ properties([
                         } 
                         else if (product_to_test == "pxc84") {
                             result.add("min_upgrade_pxc_84")
-                        } 
+                        }
+                        else if (product_to_test == "pxc97") {
+                            result.add("min_upgrade_pxc_97")
+                            result.add("maj_upgrade_pxc84_to_pxc97")
+                        }
                         else if (product_to_test == "pxc_innovation") {
                             result.add("min_upgrade_pxc_innovation")
                         }
@@ -1119,6 +1185,107 @@ pipeline {
                             post{
                                 always {
                                     post_upgrade("min_upgrade")
+                                }
+                            }
+                }
+
+                stage("MIN_UPGRADE_PXC97") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "min_upgrade_pxc_97"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc97" }
+                                }
+                            }
+
+                            environment {
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                                MIN_UPGRADE_TEST = "PXC97_MINOR_UPGRADE"
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+
+                            steps {
+                                setup()
+                                upgrade("min_upgrade")
+                            }
+                            post{
+                                always {
+                                    post_upgrade("min_upgrade")
+                                }
+                            }
+                }
+
+                stage("MAJOR_UPGRADE_PXC84_TO_PXC97") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "maj_upgrade_pxc84_to_pxc97"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc97"}
+                                }
+                            }
+
+                            environment {
+
+                                UPGRADE_MAJ_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/maj_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_MAJ_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/maj_upgrade/common_instance_private_ip.json"
+
+                                UPGRADE_MAJ_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/maj_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_MAJ_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/maj_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+                            steps {
+                                setup()
+
+                                script{
+                                    echo "maj_upgrade STAGE INSIDE (PXC84 -> PXC97)"
+                                    def param_test_type = "maj_upgrade"
+                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "maj_upgrade", "main", "no")
+                                    setInventories("maj_upgrade")
+                                    echo "2. Run Install scripts and tests for running PXC maj_upgrade tests.. Molecule converge step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "maj_upgrade", "main", "no")
+                                        }
+                                    echo "3. Run maj_upgrade scripts and playbooks for running PXC maj_upgrade tests.. Molecule side-effect step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "maj_upgrade", params.test_repo, "yes")
+                                        }
+                                }
+                            }
+                            post{
+                                always{
+                                    script{
+                                        def param_test_type = "maj_upgrade"
+                                        echo "4. Take Backups of the Logs.. for PXC maj_upgrade tests"
+                                        setInventories("maj_upgrade")
+                                        runlogsbackup(params.product_to_test, "maj_upgrade")
+                                        echo "5. Destroy the Molecule instances for PXC maj_upgrade tests.."
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "maj_upgrade", params.test_repo, "yes")
+                                    }
+
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+                                    }
+
                                 }
                             }
                 }

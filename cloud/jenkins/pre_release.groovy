@@ -41,9 +41,28 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timestamps()
         timeout(time: 10, unit: 'MINUTES')
+        skipDefaultCheckout()
     }
 
     stages {
+        stage('Checkout Pipeline Repository') {
+            steps {
+                script {
+                    deleteDir()
+                    def branchSpec = scm.branches?.first()?.name ?: '*/master'
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: branchSpec]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout']
+                        ],
+                        userRemoteConfigs: [[
+                            url: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+                        ]]
+                    ])
+                }
+            }
+        }
         stage('Validate Parameters') {
             steps {
                 script {
@@ -138,8 +157,9 @@ pipeline {
                     sh """
                         export PATH="\$HOME/.local/bin:\$PATH"
                         uv run cloud/scripts/generate_release_images_file.py ${operatorMap[params.OPERATOR]} ${params.VERSION}
+                        uv run cloud/scripts/generate_image_digests.py release_versions.txt release_image_digests.txt
                     """
-                    archiveArtifacts artifacts: 'release_versions.txt', allowEmptyArchive: false, fingerprint: true
+                    archiveArtifacts artifacts: 'release_versions.txt, release_image_digests.txt', allowEmptyArchive: false, fingerprint: true
                 }
             }
         }
@@ -280,6 +300,7 @@ pipeline {
         success {
             script {
                 def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
+                def digestArtifactUrl = "${env.BUILD_URL}artifact/release_image_digests.txt"
                 def message
                 if (params.CREATE_BRANCH == 'YES') {
                     message = """
@@ -289,6 +310,7 @@ pipeline {
                         *Release Branch:* ${env.RELEASE_BRANCH}
                         *Update Branch:* ${updateBranch}
                         *Build:* ${env.BUILD_URL}
+                        *Image Digests:* <${digestArtifactUrl}|release_image_digests.txt>
                         *Next Step:* Create PR from ${updateBranch} to ${env.RELEASE_BRANCH}
                     """.stripIndent()
                 } else {
@@ -297,6 +319,7 @@ pipeline {
                         *Version:* ${params.VERSION}
                         *Operator:* ${params.OPERATOR}
                         *Build:* ${env.BUILD_URL}
+                        *Image Digests:* <${digestArtifactUrl}|digests.txt>
                         *Note:* Generated artifacts only. Branch creation was skipped by request.
                     """.stripIndent()
                 }
@@ -330,7 +353,13 @@ pipeline {
             }
         }
         always {
-            deleteDir()
+            script {
+                try {
+                    deleteDir()
+                } catch (Exception exc) {
+                    echo "Workspace cleanup skipped: ${exc.message}"
+                }
+            }
         }
     }
 }

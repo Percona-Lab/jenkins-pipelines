@@ -3,9 +3,13 @@ String OWNER_SLACK = ''
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: '',
             description: 'Commit hash for the branch',
@@ -119,6 +123,8 @@ pipeline {
                         # tagged subnet with a ladder of instance types. The primary subnet's
                         # AZ (us-east-1e) is a legacy AZ without t3/m5, so the ladder only
                         # uses previous-generation types that exist in every us-east-1 AZ.
+                        # Tag at launch, so the VM is never running while invisible to pmm3-ami-staging-stop-robot.
+                        TAGS="[{Key=Name,Value=${VM_NAME}},{Key=iit-billing-tag,Value=pmm},{Key=stop-after-days,Value=${DAYS}}]"
                         INSTANCE_ID=""
                         for SUBNET_ID in $SUBNET_IDS; do
                             for INSTANCE_TYPE in t2.large m4.large t2.xlarge; do
@@ -134,6 +140,7 @@ pipeline {
                                         --query 'Instances[].InstanceId' \
                                         --block-device-mappings \
                                         '[{ "DeviceName": "/dev/sdb","Ebs": {"DeleteOnTermination": true} }]' \
+                                        --tag-specifications "ResourceType=instance,Tags=$TAGS" "ResourceType=volume,Tags=$TAGS" \
                                         --output text
                                 ); then
                                     break 2
@@ -151,24 +158,6 @@ pipeline {
                         echo "$INSTANCE_ID" > INSTANCE_ID
                         echo "INSTANCE_ID: $INSTANCE_ID"
 
-                        aws ec2 create-tags  \
-                            --resources $INSTANCE_ID \
-                            --region $AWS_DEFAULT_REGION \
-                            --tags Key=Name,Value=${VM_NAME} \
-                            Key=iit-billing-tag,Value=pmm \
-                            Key=stop-after-days,Value=${DAYS}
-
-
-                        aws ec2 describe-instances \
-                            --instance-ids $INSTANCE_ID \
-                            --region $AWS_DEFAULT_REGION \
-                            --output text \
-                            --query 'Reservations[].Instances[].PublicIpAddress' \
-                            | tee PUBLIC_IP
-
-                        echo "PUBLIC_IP: $(cat PUBLIC_IP)"
-
-
                         aws ec2 describe-instances \
                             --instance-ids $INSTANCE_ID \
                             --region $AWS_DEFAULT_REGION \
@@ -179,6 +168,30 @@ pipeline {
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
+
+                        # A pending instance can have no public IP yet: read straight after run-instances it once came
+                        # back empty, and the SSH wait below looped on "admin@" until the caller's timeout aborted it.
+                        PUBLIC_IP=""
+                        for attempt in $(seq 1 24); do
+                            PUBLIC_IP=$(
+                                aws ec2 describe-instances \
+                                    --instance-ids $INSTANCE_ID \
+                                    --region $AWS_DEFAULT_REGION \
+                                    --output text \
+                                    --query 'Reservations[].Instances[].PublicIpAddress'
+                            )
+                            if [ -n "$PUBLIC_IP" ] && [ "$PUBLIC_IP" != "None" ]; then
+                                break
+                            fi
+                            PUBLIC_IP=""
+                            sleep 5
+                        done
+                        if [ -z "$PUBLIC_IP" ]; then
+                            echo "ERROR: instance $INSTANCE_ID has no public IP 2 minutes after reaching running"
+                            exit 1
+                        fi
+                        echo "$PUBLIC_IP" > PUBLIC_IP
+                        echo "PUBLIC_IP: $PUBLIC_IP"
                     '''
                 }
                 script {
@@ -189,9 +202,10 @@ pipeline {
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
-                        until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} date; do
-                            sleep 5
-                        done
+                        if ! timeout 600 bash -c 'until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} date; do sleep 5; done'; then
+                            echo "ERROR: no SSH to admin@${PUBLIC_IP} within 10 minutes"
+                            exit 1
+                        fi
 
                         if [ -n "$SSH_KEY" ]; then
                             echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} 'cat - >> .ssh/authorized_keys'
@@ -203,6 +217,12 @@ pipeline {
                             set -o xtrace
 
                             sudo dnf -y install podman-docker
+
+                            # A restart during first-boot pmm-init leaves the admin password at admin, not the instance ID.
+                            timeout 600 bash -c 'until podman exec pmm-server supervisorctl status pmm-init 2>/dev/null | grep -q EXITED; do sleep 5; done'
+                            echo PMM_ENABLE_TELEMETRY=0 >> /home/admin/.config/systemd/user/pmm-server.env
+                            systemctl --user restart pmm-server
+                            timeout 300 bash -c 'until curl -ksf -o /dev/null https://127.0.0.1/v1/server/readyz; do sleep 5; done'
 
                             curl -L -s https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 | sudo tee /usr/bin/docker-compose > /dev/null
                             sudo chmod +x /usr/bin/docker-compose
@@ -229,7 +249,7 @@ pipeline {
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
                             sudo rm -rf pmm-qa
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git
+                            sudo git clone --depth 1 --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git
                             cd pmm-qa/codeceptjs-e2e
                             docker compose up -d mysql
                             docker compose up -d mongo
@@ -260,9 +280,12 @@ pipeline {
                 }
             }
         }
-        failure {
+        unsuccessful {
             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                 sh '''
+                    # read the file, not the env var: that is only set after `wait instance-running`,
+                    # so a build aborted mid-launch would leave nothing to clean up
+                    INSTANCE_ID=$(cat INSTANCE_ID 2>/dev/null || true)
                     if [ -n "${INSTANCE_ID}" ]; then
                         aws ec2 --region us-east-1 terminate-instances --instance-ids ${INSTANCE_ID}
                     fi
