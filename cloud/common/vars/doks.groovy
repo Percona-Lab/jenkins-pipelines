@@ -1,69 +1,63 @@
-def getPlatformVersion(String prefixVersion) {
+String getPlatformVersion(String prefixVersion) {
     return prefixVersion
 }
 
-def getLatestPlatformVersion(Map testVariables) {
-    return withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
-        sh(
+String getLatestPlatformVersion(Map testVariables) {
+    def result = ""
+    testVariables.libraries.credentials.withDOKSCredentials {
+        result = sh(
             script: "doctl kubernetes options versions | awk 'NR==2 { print \$2 }'",
             returnStdout: true
         ).trim()
     }
+    return result
 }
 
-def getMachineType(String arch) {
+String getMachineType(String arch) {
     error("Architecture selection is not supported for DOKS: ${arch}")
 }
 
-void createCluster(Map clusterCfg) {
+void createCluster(Map clusterCfg, Map libraries) {
     def clusterFullName = "${clusterCfg.clusterName}-${clusterCfg.clusterSuffix}"
 
-    timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
-            sh """
+    libraries.credentials.withDOKSCredentials {
+        libraries.helpers.retryCommand(
+            command: """
                 set -euo pipefail
-
-                export KUBECONFIG=${clusterCfg.kubeconfig}
+                
                 cluster="${clusterFullName}"
                 cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "${clusterCfg.platformVersion}" '.[] | select(.kubernetes_version==\$v) | .slug')
+
+                doctl kubernetes cluster create "\$cluster" \\
+                    --region "${clusterCfg.region}" \\
+                    --version "\$cluster_version" \\
+                    --tag "delete-cluster-after-hours:6" \\
+                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+            """,
+            afterCommand: """
+                export KUBECONFIG=${clusterCfg.kubeconfig}
+                doctl kubernetes cluster kubeconfig save "${clusterFullName}"
+                
+                cluster_id=\$(doctl kubernetes cluster get "${clusterFullName}" --format ID --no-header)
                 project_id=\$(doctl projects list --output json | jq -er 'first(.[] | select(.name == "cloud-team") | .id)')
-
-                create_cluster() {
-                    doctl kubernetes cluster create "\$cluster" \
-                        --region "${clusterCfg.region}" \
-                        --version "\$cluster_version" \
-                        --tag "delete-cluster-after-hours:6" \
-                        --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
-
-                    doctl kubernetes cluster kubeconfig save "\$cluster"
-                }
-
-                assign_cluster_to_project() {
-                    cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
-                    urn="do:kubernetes:\$cluster_id"
-
-                    doctl projects resources assign "\$project_id" --resource "\$urn"
-                }
-
-                max_retries=15
-                for ((i=1;i<=max_retries;i++)); do
-                    if create_cluster && assign_cluster_to_project; then
-                        break
-                    fi
-
-                    echo "Retry \$i/\$max_retries"
-                    sleep 2
-                done
-            """
-        }
+                urn="do:kubernetes:\$cluster_id"
+                doctl projects resources assign "\$project_id" --resource "\$urn"
+                kubectl get nodes
+            """,
+            cleanupFunction: {
+                shutdownCluster(clusterCfg, libraries)
+            },
+            maxRetries: 3,
+            delaySeconds: 5
+        )
     }
 }
 
-void shutdownCluster(Map clusterCfg) {
+void shutdownCluster(Map clusterCfg, Map libraries) {
     def clusterFullName = "${clusterCfg.clusterName}-${clusterCfg.clusterSuffix}"
 
     timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+        libraries.credentials.withDOKSCredentials {
             sh """
                 doctl kubernetes cluster delete ${clusterFullName} --force --dangerous || true
             """

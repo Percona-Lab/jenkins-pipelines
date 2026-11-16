@@ -1,4 +1,4 @@
-def withGitHubCredentials(Closure body) {
+void withGitHubCredentials(Closure body) {
     withCredentials([
         string(
             credentialsId: 'GITHUB_API_TOKEN',
@@ -59,6 +59,104 @@ void withDockerCredentials(Closure body) {
                 }
             }
         }
+    }
+}
+
+void withAWSCredentials(Closure body) {
+    withCredentials([aws(
+        credentialsId: 'eks-cicd',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    )]) {
+        body()
+    }
+}
+
+void withAWSLatestVersionCredentials(Closure body) {
+    withCredentials([aws(
+        credentialsId: 'AMI/OVF',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    )]) {
+        body()
+    }
+}
+
+void withDOKSCredentials(Closure body) {
+    withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+        body()
+    }
+}
+
+void withAzureCredentials(Closure body) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        body()
+    }
+}
+
+void withGCPCredentials(Closure body) {
+    withCredentials([
+        string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'),
+        file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')
+    ]) {
+        body()
+    }
+}
+
+void withGCPProjectOnlyCredentials(Closure body) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT')]) {
+        body()
+    }
+}
+
+void withOpenShiftCredentials(Closure body) {
+    withCredentials([
+        aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
+        file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'),
+        file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'),
+        usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')
+    ]) {
+        sshagent(['aws-openshift-41-key']) {
+            body()
+        }
+    }
+}
+
+void withGCPAuth(Closure body) {
+    withGCPCredentials {
+        sh '''
+            gcloud auth activate-service-account --key-file "$CLIENT_SECRET_FILE"
+            gcloud config set project "$GCP_PROJECT"
+        '''
+        body()
+    }
+}
+
+void withAzureAuth(Closure body) {
+    withAzureCredentials {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+        body()
+    }
+}
+
+void activateGoogleCredentials() {
+    withGCPCredentials {
+        sh '''
+            gcloud auth activate-service-account --key-file "$CLIENT_SECRET_FILE"
+            gcloud config set project "$GCP_PROJECT"
+        '''
+    }
+}
+
+void activateAzureCredentials() {
+    withAzureCredentials {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
     }
 }
 

@@ -1,0 +1,41 @@
+additionalTrustBundlePolicy: Proxyonly
+credentialsMode: Mint
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: <worker-type>
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 1
+metadata:
+  creationTimestamp: null
+  name: <cluster-name>
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: <region>
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 6
+      team: cloud
+      product: <product>
+      creation-time: <creation-time>
+
+publish: External

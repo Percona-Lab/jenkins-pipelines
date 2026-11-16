@@ -1,96 +1,91 @@
-def getPlatformVersion(String prefixVersion) {
+String getPlatformVersion(String prefixVersion) {
     return prefixVersion
 }
 
-def getLatestPlatformVersion(Map testVariables) {
+String getLatestPlatformVersion(Map testVariables) {
     return sh(
         script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'",
         returnStdout: true
     ).trim()
 }
 
-def getMachineType(String arch) {
+String getMachineType(String arch) {
     error("Architecture selection is not supported for OpenShift: ${arch}")
 }
 
-void createCluster(Map clusterCfg) {
+void createCluster(Map clusterCfg, Map libraries) {
     def clusterSuffix = clusterCfg.clusterSuffix
     def workerType = clusterCfg.machineType ?: 'm5.xlarge'
+    def creationTime = System.currentTimeMillis() / 1000 as long
 
-    timeout(time: 60, unit: 'MINUTES') {
-        withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
-            withEnv(["CLUSTER_SUFFIX=${clusterSuffix}", "CLUSTER_NAME=${clusterCfg.clusterName}"]) {
-                sh """
-                    mkdir -p openshift/\$CLUSTER_SUFFIX
-                    timestamp="\$(date +%s)"
-tee openshift/\$CLUSTER_SUFFIX/install-config.yaml << EOF
-additionalTrustBundlePolicy: Proxyonly
-credentialsMode: Mint
-apiVersion: v1
-baseDomain: cd.percona.com
-compute:
-- architecture: amd64
-  hyperthreading: Enabled
-  name: worker
-  platform:
-    aws:
-      type: ${workerType}
-  replicas: 3
-controlPlane:
-  architecture: amd64
-  hyperthreading: Enabled
-  name: master
-  platform: {}
-  replicas: 1
-metadata:
-  creationTimestamp: null
-  name: \$CLUSTER_NAME-\$CLUSTER_SUFFIX
-networking:
-  clusterNetwork:
-  - cidr: 10.128.0.0/14
-    hostPrefix: 23
-  machineNetwork:
-  - cidr: 10.0.0.0/16
-  networkType: OVNKubernetes
-  serviceNetwork:
-  - 172.30.0.0/16
-platform:
-  aws:
-    region: ${clusterCfg.region}
-    userTags:
-      iit-billing-tag: openshift
-      delete-cluster-after-hours: 6
-      team: cloud
-      product: ${clusterCfg.product}
-      creation-time: \$timestamp
-
-publish: External
-EOF
-                    cat \$OPENSHIFT_CONF_FILE >> openshift/\$CLUSTER_SUFFIX/install-config.yaml
-                """
-                sshagent(['aws-openshift-41-key']) {
-                    sh '''
+    libraries.credentials.withOpenShiftCredentials {
+        withEnv([
+            "CLUSTER_SUFFIX=${clusterSuffix}",
+            "CLUSTER_NAME=${clusterCfg.clusterName}",
+            "KUBECONFIG=openshift/${clusterSuffix}/auth/kubeconfig",
+            "WORKER_TYPE=${workerType}",
+            "CREATION_TIME=${creationTime}"
+        ]) {
+            libraries.helpers.retryCommand(
+                command: '''
+                    timeout 60m bash -c '
+                        mkdir -p openshift/$CLUSTER_SUFFIX
+                        
+                        # Generate install-config from template
+                        sed \
+                            -e "s|<worker-type>|$WORKER_TYPE|g" \
+                            -e "s|<cluster-name>|$CLUSTER_NAME-$CLUSTER_SUFFIX|g" \
+                            -e "s|<region>|''' + clusterCfg.region + '''|g" \
+                            -e "s|<product>|''' + clusterCfg.product + '''|g" \
+                            -e "s|<creation-time>|$CREATION_TIME|g" \
+                            cloud/common/files/openshift-cluster-template.yaml > openshift/$CLUSTER_SUFFIX/install-config.yaml
+                        
+                        cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
+                        
                         /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
                             /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
                             exit 1
                         }
-                        export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                        TMP=$(mktemp)
-                        oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
-                        oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
-                        oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
-                        rm -rf $TMP
-                    '''
-                }
-            }
+                    '
+                ''',
+                afterCommand: """
+                    export KUBECONFIG=openshift/${clusterSuffix}/auth/kubeconfig
+                    
+                    # Wait for API server to be fully ready
+                    for i in \$(seq 1 60); do
+                        if kubectl cluster-info >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
+                            echo "Cluster API server is ready"
+                            break
+                        fi
+                        echo "Waiting for cluster API server... (\$i/60)"
+                        sleep 10
+                    done
+                    
+                    # Configure Docker registry credentials
+                    TMP=\$(mktemp)
+                    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > \$TMP
+                    oc registry login --registry='docker.io' --auth-basic="\$DOCKER_READ_USER:\$DOCKER_READ_PASS" --to=\$TMP
+                    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=\$TMP
+                    rm -rf \$TMP
+                    kubectl get nodes
+                """,
+                cleanupFunction: {
+                    shutdownCluster(clusterCfg, libraries)
+                },
+                maxRetries: 3,
+                delaySeconds: 5
+            )
         }
     }
 
-    enableVolumeSnapshotResources(clusterSuffix)
-    verifyVolumeSnapshotResources(clusterSuffix)
+    // Post-creation configurations
+    withEnv(["KUBECONFIG=openshift/${clusterSuffix}/auth/kubeconfig"]) {
+        enableVolumeSnapshotResources(clusterSuffix)
+        verifyVolumeSnapshotResources(clusterSuffix)
 
-    if (clusterCfg.kubeconfig) {
-        sh "cp openshift/${clusterSuffix}/auth/kubeconfig ${clusterCfg.kubeconfig}"
+        if (clusterCfg.kubeconfig) {
+            sh "cp openshift/${clusterSuffix}/auth/kubeconfig ${clusterCfg.kubeconfig}"
+        }
     }
 }
 
@@ -105,15 +100,7 @@ void enableVolumeSnapshotResources(String clusterSuffix) {
             sleep 10
         done
 
-        cat <<EOF | kubectl apply -f -
-apiVersion: operator.openshift.io/v1
-kind: CSISnapshotController
-metadata:
-  name: cluster
-spec:
-  managementState: Managed
-EOF
-
+        kubectl apply -f cloud/common/files/openshift-csi-snapshot-template.yaml
         kubectl get csisnapshotcontroller cluster -o yaml
     """
 }
@@ -146,16 +133,14 @@ void verifyVolumeSnapshotResources(String clusterSuffix) {
     """
 }
 
-void shutdownCluster(Map clusterCfg) {
+void shutdownCluster(Map clusterCfg, Map libraries) {
     def clusterSuffix = clusterCfg.clusterSuffix
 
     timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-            sshagent(['aws-openshift-41-key']) {
-                sh """
-                    /usr/local/bin/openshift-install destroy cluster --dir=openshift/${clusterSuffix} || true
-                """
-            }
+        libraries.credentials.withOpenShiftCredentials {
+            sh """
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/${clusterSuffix} || true
+            """
         }
     }
 }

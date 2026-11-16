@@ -105,8 +105,7 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pg',
 
-                        platform              : 'rke2',
-                        platform_provider     : 'rancher',
+                        platform              : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VERSION,
                         platform_arch         : PLATFORM_ARCH,

@@ -1,93 +1,75 @@
-def getPlatformVersion(String prefixVersion) {
+String getPlatformVersion(String prefixVersion) {
     return prefixVersion
 }
 
-def getLatestPlatformVersion(Map testVariables) {
-    return withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh(
+String getLatestPlatformVersion(Map testVariables) {
+    def result = ""
+    libraries.credentials.withAWSLatestVersionCredentials {
+        result = sh(
             script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'",
             returnStdout: true
         ).trim()
     }
+    return result
 }
 
-def getMachineType(String arch) {
+String getMachineType(String arch) {
     error("Architecture selection is not supported for EKS: ${arch}")
 }
 
-void createCluster(Map clusterCfg) {
+void createCluster(Map clusterCfg, Map libraries) {
     def clusterSuffix = clusterCfg.clusterSuffix
     def clusterFullName = "${clusterCfg.clusterName}-${clusterSuffix}"
+    def creationTime = System.currentTimeMillis() / 1000 as long
 
-    timeout(time: 30, unit: 'MINUTES') {
-        sh """
-            timestamp="\$(date +%s)"
-tee cluster-${clusterSuffix}.yaml << EOF
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-metadata:
-  name: ${clusterFullName}
-  region: ${clusterCfg.region}
-  version: "${clusterCfg.platformVersion}"
-  tags:
-    'delete-cluster-after-hours': '6'
-    'creation-time': '\$timestamp'
-    'team': 'cloud'
-iam:
-  withOIDC: true
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-- name: snapshot-controller
-nodeGroups:
-- name: ng-1
-  minSize: 3
-  maxSize: 4
-  iam:
-    attachPolicyARNs:
-    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-    - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-  instancesDistribution:
-    instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-  tags:
-    'iit-billing-tag': 'jenkins-eks'
-    'delete-cluster-after-hours': '6'
-    'team': 'cloud'
-    'product': '${clusterCfg.product}'
-EOF
-        """
+    libraries.credentials.withAWSCredentials {
+        libraries.helpers.retryCommand(
+            command: """
+                timeout 30m bash -c '
+                    # Generate cluster config from template
+                    sed \\
+                        -e 's|<cluster-name>|${clusterFullName}|g' \\
+                        -e 's|<region>|${clusterCfg.region}|g' \\
+                        -e 's|<platform-version>|${clusterCfg.platformVersion}|g' \\
+                        -e 's|<creation-time>|${creationTime}|g' \\
+                        -e 's|<product>|${clusterCfg.product}|g' \\
+                        cloud/common/files/eks-cluster-template.yaml > cluster-${clusterSuffix}.yaml
 
-        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh """
+                    export KUBECONFIG=${clusterCfg.kubeconfig}
+                    eksctl create cluster -f cluster-${clusterSuffix}.yaml
+                    kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
+                    kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class- --overwrite 2>/dev/null || true
+                    kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+                    kubectl get storageclass
+                '
+            """,
+            afterCommand: """
                 export KUBECONFIG=${clusterCfg.kubeconfig}
-
-                eksctl create cluster -f cluster-${clusterSuffix}.yaml
-
-                # Use GP3 storage class as default, recommended by the provider
-                kubectl apply -f cloud/common/files/eks-storage-gp3.yaml
-
-                # Remove GP2 storage class default label, for old clusters
-                kubectl annotate storageclass gp2 \
-                    storageclass.kubernetes.io/is-default-class- \
-                    --overwrite 2>/dev/null || true
-
-                kubectl create clusterrolebinding cluster-admin-binding1 \
-                    --clusterrole=cluster-admin \
-                    --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
-
-                kubectl get storageclass
-            """
-        }
+                verifyVolumeSnapshotResources "${clusterCfg.kubeconfig}", ${libraries}
+                
+                # Wait for API server to be fully ready
+                for i in \$(seq 1 60); do
+                    if kubectl cluster-info >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
+                        echo "Cluster API server is ready"
+                        break
+                    fi
+                    echo "Waiting for cluster API server... (\$i/60)"
+                    sleep 10
+                done
+                
+                kubectl get nodes
+            """,
+            cleanupFunction: {
+                shutdownCluster(clusterCfg, libraries)
+            },
+            maxRetries: 3,
+            delaySeconds: 5
+        )
     }
-
-    verifyVolumeSnapshotResources(clusterCfg.kubeconfig)
 }
 
 void verifyVolumeSnapshotResources(String kubeconfig) {
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+    libraries.credentials.withAWSCredentials {
         sh """
             export KUBECONFIG=${kubeconfig}
             export PATH=/home/ec2-user/.local/bin:\$PATH
@@ -116,13 +98,13 @@ void verifyVolumeSnapshotResources(String kubeconfig) {
     }
 }
 
-void shutdownCluster(Map clusterCfg) {
+void shutdownCluster(Map clusterCfg, Map libraries) {
     def clusterSuffix = clusterCfg.clusterSuffix
     def clusterFullName = "${clusterCfg.clusterName}-${clusterSuffix}"
     def region = clusterCfg.region
 
     timeout(time: 30, unit: 'MINUTES') {
-        withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        libraries.credentials.withAWSCredentials {
             sh """
                 VPC_ID=\$(eksctl get cluster --name ${clusterFullName} --region ${region} -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
                 if [ -n "\$VPC_ID" ]; then

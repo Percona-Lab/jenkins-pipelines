@@ -85,7 +85,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb',
                         platform              : 'eks',
-                        platform_provider     : 'eks',
                         platform_version      : PLATFORM_VER,
                         region                : EKS_REGION,
                         cluster_wide          : CLUSTER_WIDE,

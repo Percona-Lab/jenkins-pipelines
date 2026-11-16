@@ -262,12 +262,12 @@ void installProviderDependencies(Map libraries, String operator, String provider
 
     if (needsGoogleAuth(operator, provider)) {
         installGoogleCLI()
-        libraries.gcloud.auth()
+        libraries.credentials.activateGoogleCredentials()
     }
 
     if (needsAzureCli(operator, provider)) {
         installAzureCLI()
-        libraries.azure.auth()
+        libraries.credentials.activateAzureCredentials()
     }
 
     installClusterProviderTools(provider, platformVersion)

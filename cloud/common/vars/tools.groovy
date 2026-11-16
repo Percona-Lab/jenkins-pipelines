@@ -383,7 +383,7 @@ String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerL
     return params.JENKINS_AGENT == 'Hetzner' ? hetznerLabel : awsLabel
 }
 
-void kubernetesCleanupCluster(String kubeconfig) {
+void kubectlCleanupCluster(String kubeconfig) {
     sh """
         export KUBECONFIG=${kubeconfig}
 
@@ -410,39 +410,32 @@ void kubernetesCleanupCluster(String kubeconfig) {
     """
 }
 
-void kubernetesCleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
-    def clusterName = "${testVariables.cluster_name}-${clusterSuffix}"
-    def kubeconfig = "${testVariables.kubeconfigPath}/${clusterName}"
+void kubectlCleanupFailedNamespaces(Map testVariables, String testName, String clusterSuffix) {
+    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
 
-    echo "Cleaning failed test namespaces for ${testName} on ${clusterName}"
+    withEnv([
+        "FAILED_TEST_NAME=${testName}",
+        "KUBECONFIG=${kubeconfig}"
+    ]) {
+        sh '''
+            set +e
 
-    sh """
-        set +e
-        export FAILED_TEST_NAME='${testName}'
-        export KUBECONFIG='${kubeconfig}'
-        if [ ! -s "\$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-            echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for \$KUBECONFIG"
-            exit 0
-        fi
-        kubectl get namespaces --request-timeout=10s --no-headers \
-            | awk '{print \$1}' \
-            | while read -r namespace; do
-                case "\$namespace" in
-                    "\$FAILED_TEST_NAME"-*|kuttl*)
-                        echo "Removing finalizers from resources in namespace: \$namespace"
-                        kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
-                            | while read -r resource; do
-                                kubectl get "\$resource" -n "\$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
-                                    | while read -r object; do
-                                        kubectl patch "\$object" -n "\$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
-                                    done
-                            done
-                        echo "Deleting namespace: \$namespace"
-                        kubectl delete namespace "\$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
-                        ;;
-                esac
-            done
-    """
+            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                exit 0
+            fi
+
+            kubectl get namespaces --request-timeout=10s --no-headers -o name \
+                | while read -r ns; do
+                    namespace=$(echo "$ns" | sed 's|^namespace/||')
+                    case "$namespace" in
+                        "$FAILED_TEST_NAME"-*|kuttl*)
+                            kubectl patch namespace "$namespace" --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' --request-timeout=10s >/dev/null 2>&1 || true
+                            kubectl delete namespace "$namespace" --force --grace-period=0 --request-timeout=10s >/dev/null 2>&1 || true
+                            ;;
+                    esac
+                done
+        '''
+    }
 }
 
 void stashClonedGitFiles() {

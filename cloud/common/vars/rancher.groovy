@@ -8,7 +8,7 @@ String cluster(Map clusterCfg) {
     return "${clusterName}-${clusterSuffix}"
 }
 
-void createCluster(Map clusterCfg) {
+void createCluster(Map clusterCfg, Map libraries) {
     def prefix = cluster(clusterCfg)
     def envVars = [
         "PREFIX=${prefix}",
@@ -29,33 +29,37 @@ void createCluster(Map clusterCfg) {
         "KUBECONFIG=${clusterCfg.kubeconfig}"
     ]
 
-    // Default timeout for cluster creation is 60 minutes
-    timeout(time: 60, unit: 'MINUTES') {
-        withEnv(envVars) {
-            sh '''
-                set -euo pipefail
-
-                for attempt in {1..3}; do
-                    echo "Creating Rancher (attempt ${attempt}/3)..."
-
-                    if python3 cloud/scripts/create_rancher.py "$PREFIX" --save-kubeconfig true; then
-                        break
-                    fi
-
-                    if [ "$attempt" -eq 3 ]; then
-                        echo "Failed to create Rancher after 3 attempts"
-                        exit 1
-                    fi
-
-                    echo "Retrying in 10 seconds..."
-                    sleep 10
-                done
-            '''
+    withEnv(envVars) {
+        timeout(time: 60, unit: 'MINUTES') {
+            libraries.helpers.retryCommand(
+                command: '''
+                    set -euo pipefail
+                    python3 cloud/scripts/create_rancher.py "$PREFIX" --save-kubeconfig true
+                ''',
+                afterCommand: '''
+                    # Wait for API server to be fully ready
+                    for i in $(seq 1 60); do
+                        if kubectl cluster-info >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
+                            echo "Cluster API server is ready"
+                            break
+                        fi
+                        echo "Waiting for cluster API server... ($i/60)"
+                        sleep 10
+                    done
+                    
+                    kubectl get nodes
+                ''',
+                cleanupFunction: {
+                    shutdownCluster(clusterCfg, libraries)
+                },
+                maxRetries: 3,
+                delaySeconds: 5
+            )
         }
     }
 }
 
-void shutdownCluster(Map clusterCfg) {
+void shutdownCluster(Map clusterCfg, Map libraries) {
     withEnv([
         "PREFIX=${cluster(clusterCfg)}",
         "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: 'us-central1-a'}",
@@ -101,7 +105,9 @@ String getPlatformVersion(String prefixVersion) {
 String getMachineType(String arch) {
     switch (arch) {
         case 'amd64':
-            return 'e2-standard-4'
+            return 'n1-standard-4'
+        case 'arm64':
+            return 't2a-standard-4'
         default:
             error("Architecture ${arch} is not supported for Rancher")
     }

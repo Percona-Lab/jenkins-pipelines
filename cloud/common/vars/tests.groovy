@@ -42,6 +42,14 @@ String getReleaseVersionsParam(String releaseVersions, String paramName, String 
         returnStdout: true
     ).trim()
 
+    // Para rancher, tenta também rke2 se não encontrar
+    if (!param && keyName.toLowerCase() == 'rancher') {
+        param = sh(
+            script: "grep -iE '^\\s*rke2=' ${releaseVersions} | cut -d = -f 2 | tr -d '\\\"' | tail -1",
+            returnStdout: true
+        ).trim()
+    }
+
     if (!param) {
         error("${keyName} not found in params file ${releaseVersions}")
     }
@@ -205,7 +213,6 @@ void validateTestVariables(Map testVariables) {
         'libraries',
         'operator',
         'platform',
-        'platform_provider',
         'platform_version',
         'job_name',
         'git_branch',
@@ -223,22 +230,13 @@ void validateTestVariables(Map testVariables) {
         error("Missing required test variables: ${missingKeys.join(', ')}")
     }
 
-    def platformProviders = [
-        aks      : 'azure',
-        doks     : 'doks',
-        eks      : 'eks',
-        gke      : 'gcloud',
-        minikube : 'minikube',
-        openshift: 'openshift',
-        rke2     : 'rancher'
-    ]
-    def provider = testVariables.platform_provider.toLowerCase()
     def platform = testVariables.platform.toLowerCase()
-    if (!testVariables.libraries.containsKey(provider)) {
-        error("Unsupported platform provider: ${testVariables.platform_provider}")
+    def validPlatforms = ['aks', 'doks', 'eks', 'gke', 'minikube', 'openshift', 'rancher']
+    if (!(platform in validPlatforms)) {
+        error("Unsupported platform: ${testVariables.platform}")
     }
-    if (platformProviders[platform] != provider) {
-        error("Unsupported platform/provider combination: ${testVariables.platform}/${testVariables.platform_provider}")
+    if (!testVariables.libraries.containsKey(platform)) {
+        error("Library not found for platform: ${testVariables.platform}")
     }
 
     def validOperators = ['pg', 'ps', 'psmdb', 'pxc']
@@ -256,20 +254,20 @@ void validateTestVariables(Map testVariables) {
     }
 
     def supportedArchitectures = [
-        gcloud : ['amd64', 'arm64'],
-        rancher: ['amd64']
+        gke    : ['amd64', 'arm64'],
+        rancher: ['amd64', 'arm64']
     ]
     def architecture = testVariables.platform_arch?.toLowerCase()
-    if (supportedArchitectures.containsKey(provider) && !architecture) {
-        error("platform_arch is required for ${provider}")
+    if (supportedArchitectures.containsKey(platform) && !architecture) {
+        error("platform_arch is required for ${platform}")
     }
     if (architecture) {
-        if (!(architecture in (supportedArchitectures[provider] ?: []))) {
-            error("Architecture ${testVariables.platform_arch} is not supported for ${provider}")
+        if (!(architecture in (supportedArchitectures[platform] ?: []))) {
+            error("Architecture ${testVariables.platform_arch} is not supported for ${platform}")
         }
     }
 
-    if (testVariables.worker_count != null && provider != 'rancher') {
+    if (testVariables.worker_count != null && platform != 'rancher') {
         error('worker_count is supported only for rancher')
     }
     if (isReleaseRun(testVariables) && !testVariables.release_versions?.toString()?.trim()) {
@@ -300,7 +298,6 @@ void validateTestVariables(Map testVariables) {
         'platform',
         'platform_arch',
         'platform_channel',
-        'platform_provider',
         'platform_version',
         'pre_test_sh',
         'project_id',
@@ -327,8 +324,9 @@ void resolveReleaseRunParams(Map testVariables) {
     echo "Forcing channel=stable, because it's a release run!"
 
     testVariables.images = resolveImages(testVariables)
+def platform = testVariables.platform.toLowerCase()
 
-    if (testVariables.platform_provider?.toLowerCase() == 'rancher') {
+    if (platform == 'rancher') {
         ['rancher_version': 'RANCHER', 'cert_manager_version': 'CERT_MANAGER'].each { field, key ->
             if (!testVariables[field] || testVariables[field] == 'latest') {
                 testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
@@ -338,7 +336,8 @@ void resolveReleaseRunParams(Map testVariables) {
 }
 
 void resolvePlatformVersion(Map testVariables) {
-    def library = testVariables.libraries[testVariables.platform_provider]
+def platform = testVariables.platform.toLowerCase()
+    def library = testVariables.libraries[platform]
     def platformVersion = testVariables.platform_version
 
     if (platformVersion?.toLowerCase() in ['min', 'max']) {
@@ -357,8 +356,10 @@ void resolvePlatformVersion(Map testVariables) {
 }
 
 void resolveMachineType(Map testVariables) {
-    if (testVariables.platform_arch && testVariables.platform_provider) {
-        testVariables.machine_type = testVariables.libraries[testVariables.platform_provider].getMachineType(
+def platform = testVariables.platform.toLowerCase()
+
+    if (testVariables.platform_arch && platform) {
+        testVariables.machine_type = testVariables.libraries[platform].getMachineType(
             testVariables.platform_arch
         )
     }
@@ -788,46 +789,6 @@ String defineTestCommand(Map testVariables, String testName) {
     }
 }
 
-void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
-    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-
-    echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-
-    withEnv([
-        "FAILED_TEST_NAME=${testName}",
-        "KUBECONFIG=${kubeconfig}"
-    ]) {
-        sh '''
-            set +e
-
-            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
-                exit 0
-            fi
-
-            kubectl get namespaces --request-timeout=10s --no-headers \
-                | awk '{print $1}' \
-                | while read -r namespace; do
-                    case "$namespace" in
-                        "$FAILED_TEST_NAME"-*|kuttl*)
-                            echo "Removing finalizers from resources in namespace: $namespace"
-                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
-                                | while read -r resource; do
-                                    kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
-                                        | while read -r object; do
-                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
-                                        done
-                                done
-
-                            echo "Deleting namespace: $namespace"
-                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
-                            ;;
-                    esac
-                done
-        '''
-    }
-}
-
 // Below functions are annotated with @NonCPS because they are called from parallel stages and manipulate shared state.
 @com.cloudbees.groovy.cps.NonCPS
 Integer claimNextSkippedTest(List tests, String clusterSuffix) {
@@ -926,7 +887,7 @@ void runTest(Map testConfig) {
 
             echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
             try {
-                testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
+                testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
             }
@@ -977,22 +938,23 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         zone            : testVariables.zone ?: '',
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
     ]
+    def platform = testVariables.platform.toLowerCase()
 
-    if (testVariables.platform_provider.toLowerCase() == 'rancher') {
+    if (platform == 'rancher') {
         clusterCfg.rancherVersion = testVariables.rancher_version
         clusterCfg.certManagerVersion = testVariables.cert_manager_version
         clusterCfg.deleteAfterHours = 6
         clusterCfg.workerCount = testVariables.worker_count ?: 4
     }
 
-    def createCluster = { testVariables.libraries[testVariables.platform_provider].createCluster(clusterCfg) }
+    def createCluster = { testVariables.libraries[platform].createCluster(clusterCfg, testVariables.libraries) }
     def clusterCleanup = {
         if (testVariables.skip_kubeconfig) {
             return
         }
-        testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+        testVariables.libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
     }
-    def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
+    def shutdownCluster = { testVariables.libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries) }
 
     try {
         while (true) {
@@ -1039,9 +1001,9 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 }
 
 void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariables) {
-    def provider = testVariables.platform_provider.toLowerCase()
+    def platform = testVariables.platform.toLowerCase()
 
-    if (provider == 'eks') {
+    if (platform == 'eks') {
         withCredentials([
             aws(
                 credentialsId: 'eks-cicd',
@@ -1055,8 +1017,8 @@ void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariable
         return
     }
 
-    if (provider == 'doks') {
-        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+    if (platform == 'doks') {
+        testVariables.libraries.credentials.withDOKSCredentials {
             clusterRunner(clusterSuffix, testVariables)
         }
         return
@@ -1080,7 +1042,7 @@ Map buildParallelClusterStages(Map testVariables) {
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
-                            testVariables.platform_provider,
+                            testVariables.platform,
                             testVariables.platform_version
                         )
                         clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
@@ -1341,6 +1303,7 @@ void makeReportJUnit(List tests, Map testVariables) {
 
 void shutdownLeftoverClusters(Map testVariables) {
     def libraries = testVariables.libraries
+def platform = testVariables.platform.toLowerCase()
 
     testVariables.clusters.each { clusterSuffix ->
         try {
@@ -1354,10 +1317,10 @@ void shutdownLeftoverClusters(Map testVariables) {
             ]
 
             if (!testVariables.skip_kubeconfig) {
-                libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+                libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
             }
 
-            libraries[testVariables.platform_provider].shutdownCluster(clusterCfg)
+            libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries)
         } catch (err) {
             echo "Cleanup failed for ${clusterSuffix}: ${err}"
         }

@@ -89,7 +89,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb',
                         platform              : 'aks',
-                        platform_provider     : 'azure',
                         platform_version      : PLATFORM_VER,
                         region                : params.AKS_LOCATION ?: getLocation(JOB_NAME),
                         cluster_wide          : CLUSTER_WIDE,

@@ -89,7 +89,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pxc',
                         platform              : 'gke',
-                        platform_provider     : 'gcloud',
                         platform_channel      : GKE_RELEASE_CHANNEL,
                         platform_version      : PLATFORM_VER,
                         platform_arch         : 'amd64',
