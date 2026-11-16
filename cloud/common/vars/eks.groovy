@@ -23,7 +23,7 @@ void createCluster(Map clusterCfg) {
     - "echo 'vm.nr_hugepages=1024' >> /etc/sysctl.conf"
     - "echo 'vm.hugetlb_shm_group=26' >> /etc/sysctl.conf"
     - "sysctl -p"
-''" : ""
+""" : ""
 
     timeout(time: 30, unit: 'MINUTES') {
         sh """
@@ -49,13 +49,14 @@ addons:
 nodeGroups:
 - name: ng-1
   minSize: 3
-  maxSize: 4
+  maxSize: 5
   iam:
     attachPolicyARNs:
     - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
     - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
     - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
     - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+    - arn:aws:iam::aws:policy/AmazonS3FullAccess
   instancesDistribution:
     instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
 ${preBootstrapCommands}  tags:
