@@ -71,7 +71,7 @@ pipeline {
                 script {
                     libraries.dependencies.prepareNode(
                         libraries,
-                        '',
+                        'script',
                         'pxc',
                         'minikube'
                     )
@@ -104,6 +104,7 @@ pipeline {
                         source_repo           : sourceRepo,
                         job_name              : JOB_NAME,
                         debug_tests           : DEBUG_TESTS,
+                        test_executor_type    : 'script',
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
                         skip_kubeconfig       : true,
                         pre_test_sh           : 'sudo rm -rf /tmp/hostpath-provisioner/*',
@@ -111,7 +112,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'docker-32gb', 'docker-x64'),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_PXC         : IMAGE_PXC,
@@ -139,8 +140,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'pxc'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }

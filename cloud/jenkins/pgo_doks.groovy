@@ -16,22 +16,26 @@ String jenkinsAgentLabel() {
     return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
 }
 
+// PG_VER is derived from IMAGE_POSTGRESQL by the tests library; these entries are exported after it.
 Map pgExtraEnvs() {
-    def communityRun = PILLAR_VERSION.endsWith('-community')
-    if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
-        error('PostgreSQL 19 community images support UBI9 only.')
+    def envs = [SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS]
+
+    if (PILLAR_VERSION.endsWith('-community')) {
+        if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
+            error('PostgreSQL 19 community images support UBI9 only.')
+        }
+        envs.PG_VER = PILLAR_VERSION.replace('-community', '')
+        envs.PG_DISTRIBUTION = 'community'
+    } else if (PILLAR_VERSION == 'none' && !IMAGE_POSTGRESQL && PG_VER) {
+        envs.PG_VER = PG_VER
     }
 
-    return [
-        SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS,
-        PG_VER            : communityRun ? PILLAR_VERSION.replace('-community', '') : PG_VER,
-        PG_DISTRIBUTION   : communityRun ? 'community' : ''
-    ]
+    return envs
 }
 
 pipeline {
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-pr.csv', 'run-minikube.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19-community'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions. PostgreSQL 19 community supports UBI9 only.')
@@ -116,7 +120,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_POSTGRESQL  : IMAGE_POSTGRESQL,
@@ -142,8 +146,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'pg'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }

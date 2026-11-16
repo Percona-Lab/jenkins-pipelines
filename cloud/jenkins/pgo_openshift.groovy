@@ -16,17 +16,21 @@ String jenkinsAgentLabel() {
     return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
 }
 
+// PG_VER is derived from IMAGE_POSTGRESQL by the tests library; these entries are exported after it.
 Map pgExtraEnvs() {
-    def communityRun = PILLAR_VERSION.endsWith('-community')
-    if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
-        error('PostgreSQL 19 community images support UBI9 only.')
+    def envs = [SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS]
+
+    if (PILLAR_VERSION.endsWith('-community')) {
+        if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
+            error('PostgreSQL 19 community images support UBI9 only.')
+        }
+        envs.PG_VER = PILLAR_VERSION.replace('-community', '')
+        envs.PG_DISTRIBUTION = 'community'
+    } else if (PILLAR_VERSION == 'none' && !IMAGE_POSTGRESQL && PG_VER) {
+        envs.PG_VER = PG_VER
     }
 
-    return [
-        SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS,
-        PG_VER            : communityRun ? PILLAR_VERSION.replace('-community', '') : PG_VER,
-        PG_DISTRIBUTION   : communityRun ? 'community' : ''
-    ]
+    return envs
 }
 
 pipeline {
@@ -117,7 +121,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'min-al2023-x64'),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_POSTGRESQL  : IMAGE_POSTGRESQL,
@@ -143,8 +147,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'pg'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }

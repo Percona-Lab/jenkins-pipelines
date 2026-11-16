@@ -379,10 +379,6 @@ boolean gitTagExists(String tagName) {
     return exists
 }
 
-String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerLabel = 'docker-x64-min') {
-    return params.JENKINS_AGENT == 'Hetzner' ? hetznerLabel : awsLabel
-}
-
 void kubernetesCleanupCluster(String kubeconfig) {
     sh """
         export KUBECONFIG=${kubeconfig}

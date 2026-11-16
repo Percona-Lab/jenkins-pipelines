@@ -24,6 +24,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'ARCH', choices: ['amd64', 'arm64'], description: 'Architecture')
         choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80', '57'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
@@ -73,7 +74,7 @@ pipeline {
                 script {
                     libraries.dependencies.prepareNode(
                         libraries,
-                        '',
+                        'script',
                         'pxc',
                         'gcloud'
                     )
@@ -92,7 +93,7 @@ pipeline {
                         platform_provider     : 'gcloud',
                         platform_channel      : GKE_RELEASE_CHANNEL,
                         platform_version      : PLATFORM_VER,
-                        platform_arch         : 'amd64',
+                        platform_arch         : ARCH,
                         zone                  : GKE_REGION,
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
@@ -100,12 +101,13 @@ pipeline {
                         source_repo           : sourceRepo,
                         job_name              : JOB_NAME,
                         debug_tests           : DEBUG_TESTS,
+                        test_executor_type    : 'script',
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
                         clusters              : clusters,
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_PXC         : IMAGE_PXC,
@@ -133,8 +135,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'pxc'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }

@@ -24,10 +24,10 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['release', 'distro', 'backups'], description: 'Choose test suite from e2e-tests/tests.yaml (used only if TEST_LIST not specified).')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70'], description: 'Set to 70/80/83 for a release run. Release runs force RANCHER_RELEASE_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70'], description: 'Set to 70/80/83 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
-        choice(name: 'RANCHER_RELEASE_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VER=latest. Release runs override this to stable.')
-        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from RANCHER_RELEASE_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
+        choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VER=latest. Release runs override this to stable.')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
         choice(name: 'ARCH', choices: ['amd64'], description: 'Platform architecture used to select the machine type.')
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version. In release runs, latest or empty is replaced with RANCHER from source/e2e-tests/release_versions.')
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
@@ -89,7 +89,7 @@ pipeline {
                         operator              : 'psmdb',
                         platform              : 'rke2',
                         platform_provider     : 'rancher',
-                        platform_channel      : RANCHER_RELEASE_CHANNEL,
+                        platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VER,
                         platform_arch         : ARCH,
                         rancher_version       : RANCHER_VERSION,
@@ -107,7 +107,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'min-al2023-x64'),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_MONGOD      : IMAGE_MONGOD,
@@ -132,8 +132,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'psmdb'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }
@@ -150,8 +149,7 @@ pipeline {
                     env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: operatorImage,
-                        branch       : GIT_BRANCH,
-                        platform     : 'linux/amd64,linux/arm64'
+                        branch       : GIT_BRANCH
                     )
                 }
             }

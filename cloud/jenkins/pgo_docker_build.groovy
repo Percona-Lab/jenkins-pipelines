@@ -1,5 +1,5 @@
-void checkImageForDocker(String IMAGE_SUFFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+void checkImageForDocker(String IMAGE_SUFFIX) {
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
             IMAGE_NAME='percona-postgresql-operator'
@@ -26,7 +26,7 @@ pipeline {
             name: 'GIT_REPO')
     }
     agent {
-         label 'docker'
+        label 'docker'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -61,8 +61,8 @@ pipeline {
                         sudo rm -rf source
                         ./cloud/local/checkout
                     """
-                    stash includes: "cloud/**" , name: "checkout"
-                    stash includes: "source/**", name: "sourceFILES"
+                    stash includes: 'cloud/**' , name: 'checkout'
+                    stash includes: 'source/**', name: 'sourceFILES'
 
                     sh '''
                         rm -rf cloud
@@ -73,8 +73,8 @@ pipeline {
 
         stage('Build and push PGO docker images') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'),string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
+                unstash 'sourceFILES'
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key'), string(credentialsId: 'SYSDIG-API-KEY', variable: 'SYSDIG_API_KEY')]) {
                     sh """
                         cd ./source/
                         TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
@@ -96,63 +96,63 @@ pipeline {
         }
         stage('Trivy Checks') {
             parallel {
-                stage('pgo-apiserver'){
+                stage('pgo-apiserver') {
                     steps {
                         checkImageForDocker('\$GIT_BRANCH-pgo-apiserver')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-apiserver.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: '*-apiserver.xml'
                         }
                     }
                 }
-                stage('pgo-event'){
+                stage('pgo-event') {
                     steps {
                         checkImageForDocker('\$GIT_BRANCH-pgo-event')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-event.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: '*-event.xml'
                         }
                     }
                 }
-                stage('pgo-rmdata'){
+                stage('pgo-rmdata') {
                     steps {
                         checkImageForDocker('\$GIT_BRANCH-pgo-rmdata')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-rmdata.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: '*-rmdata.xml'
                         }
                     }
                 }
-                stage('pgo-schedule'){
+                stage('pgo-schedule') {
                     steps {
                         checkImageForDocker('\$GIT_BRANCH-pgo-scheduler')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-schedule.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: '*-schedule.xml'
                         }
                     }
                 }
-                stage('postgres-operator'){
+                stage('postgres-operator') {
                     steps {
                         checkImageForDocker('\$GIT_BRANCH-postgres-operator')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-operator.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: '*-operator.xml'
                         }
                     }
                 }
-                stage('pgo-deployer'){
+                stage('pgo-deployer') {
                     steps {
                         checkImageForDocker('\$GIT_BRANCH-pgo-deployer')
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgo-deployer.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: '*-pgo-deployer.xml'
                         }
                     }
                 }

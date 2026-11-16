@@ -23,7 +23,7 @@ void createCluster(Map clusterCfg) {
     - "echo 'vm.nr_hugepages=1024' >> /etc/sysctl.conf"
     - "echo 'vm.hugetlb_shm_group=26' >> /etc/sysctl.conf"
     - "sysctl -p"
-""" : ""
+''" : ""
 
     timeout(time: 30, unit: 'MINUTES') {
         sh """
