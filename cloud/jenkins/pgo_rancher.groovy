@@ -148,19 +148,6 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch: GIT_BRANCH,
-                        operator: 'pg'
-                    )
-                }
-            }
-        }
-
         stage('Init Tests') {
             steps {
                 script {
@@ -172,10 +159,26 @@ pipeline {
                         echo 'All tests will be re-run, ignoring previous execution results!'
                     }
 
-                    libraries.tests.loadCloudSecret('pg')
+                    // Cloud secrets and the source stash are prepared in buildParallelClusterStages,
+                    // after the operator image build, so the secrets never enter the Docker build context.
+                }
+            }
+        }
 
-                    stash includes: 'cloud/**', name: 'pipelineFILES'
-                    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch: GIT_BRANCH,
+                        operator: 'pg'
+                    )
                 }
             }
         }
