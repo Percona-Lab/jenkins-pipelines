@@ -112,6 +112,12 @@ pipeline {
                 'All'
             ]
         )
+        text(
+            name: 'EXPECTED_VERSIONS',
+            defaultValue: '',
+            description: 'Expected versions of the OBS-built packages, one package=version per line (OBS QA sets it). ' +
+                         'pg_tde_version() is checked against the percona-pg_tde line. Empty: no exact-version check.'
+        )
         string(
             name: 'RUN_LABELS',
             defaultValue: 'Manual',
