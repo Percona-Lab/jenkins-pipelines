@@ -827,6 +827,23 @@ Double elapsedSeconds(Object elapsedMillis) {
     return String.format('%.1f', ((elapsedMillis ?: 0) as Double) / 1000) as Double
 }
 
+// Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
+void prepareTestSources(Map testVariables) {
+    loadCloudSecret(testVariables.operator)
+    testVariables.libraries.tools.stashClonedGitFiles()
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+Integer countSkippedTests(List tests) {
+    synchronized (tests) {
+        return tests.count { test -> test.result == 'skipped' } as Integer
+    }
+}
+
+Boolean hasPendingTests(Map testVariables) {
+    return countSkippedTests(testVariables.tests ?: []) > 0
+}
+
 @com.cloudbees.groovy.cps.NonCPS
 void addCluster(List clusters, String clusterSuffix) {
     synchronized (clusters) {

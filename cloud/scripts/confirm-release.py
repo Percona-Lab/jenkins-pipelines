@@ -15,9 +15,8 @@ from urllib.request import Request, urlopen
 import yaml
 
 
-EXTRA_CRD_CHARTS = {
-    "psmdb": ["psmdb-operator-crds"],
-}
+HELM_METADATA_PREFIXES = ("helm.sh/", "meta.helm.sh/")
+CRD_DIFF_MAX_LINES = 100
 
 OPERATOR_REPOSITORIES = {
     "psmdb": "percona-server-mongodb-operator",
@@ -75,17 +74,26 @@ def render_helm_template(
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc is not None]
 
 
-def strip_descriptions(node: Any, parent_key: Optional[str] = None) -> Any:
-    if isinstance(node, dict):
-        result = {}
-        for key, value in node.items():
-            if key == "description" and parent_key != "properties" and isinstance(value, str):
-                continue
-            result[key] = strip_descriptions(value, key)
-        return result
-    if isinstance(node, list):
-        return [strip_descriptions(item, parent_key) for item in node]
-    return node
+def without_helm_keys(mapping: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    return {
+        key: value
+        for key, value in (mapping or {}).items()
+        if not key.startswith(HELM_METADATA_PREFIXES)
+    }
+
+
+def normalize_crd(doc: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = doc.get("metadata", {})
+    return {
+        "apiVersion": doc.get("apiVersion"),
+        "kind": doc.get("kind"),
+        "metadata": {
+            "name": metadata.get("name"),
+            "annotations": without_helm_keys(metadata.get("annotations")),
+            "labels": without_helm_keys(metadata.get("labels")),
+        },
+        "spec": doc.get("spec"),
+    }
 
 
 def documents_by_kind(docs: Iterable[Any], kind: str) -> List[Dict[str, Any]]:
@@ -96,11 +104,22 @@ def first_document(docs: Iterable[Any], kind: str) -> Optional[Dict[str, Any]]:
     return next(iter(documents_by_kind(docs, kind)), None)
 
 
+def main_rbac_document(docs: Iterable[Any], kind: str) -> Optional[Dict[str, Any]]:
+    return next(
+        (
+            doc
+            for doc in documents_by_kind(docs, kind)
+            if not doc.get("metadata", {}).get("name", "").endswith("-leaderelection")
+        ),
+        None,
+    )
+
+
 def crds_by_name(docs: Iterable[Any]) -> Dict[str, Any]:
     result = {}
     for doc in documents_by_kind(docs, "CustomResourceDefinition"):
         name = doc.get("metadata", {}).get("name", "<unknown>")
-        result[name] = strip_descriptions(doc)
+        result[name] = normalize_crd(doc)
     return result
 
 
@@ -120,36 +139,60 @@ def load_chart_crds(chart_dir: Path) -> List[Any]:
 
 
 def classify_crds(
-    operator_crds: Dict[str, Any], helm_crds: Dict[str, Any]
+    source: Dict[str, Any], target: Dict[str, Any]
 ) -> Tuple[List[str], List[str], List[str], List[str]]:
-    missing = sorted(operator_crds.keys() - helm_crds.keys())
-    extra = sorted(helm_crds.keys() - operator_crds.keys())
+    missing = sorted(source.keys() - target.keys())
+    extra = sorted(target.keys() - source.keys())
     identical = []
     different = []
-    for name in sorted(operator_crds.keys() & helm_crds.keys()):
-        if operator_crds[name] == helm_crds[name]:
+    for name in sorted(source.keys() & target.keys()):
+        if source[name] == target[name]:
             identical.append(name)
         else:
             different.append(name)
     return identical, missing, extra, different
 
 
-def chart_crd_errors(
-    chart_name: str, missing: List[str], extra: List[str], different: List[str]
-) -> List[str]:
+def crd_diff(name: str, source_label: str, target_label: str, source: Any, target: Any) -> str:
+    return unified_diff(
+        f"CRD diff {name} ({source_label} vs {target_label})",
+        source_label,
+        target_label,
+        yaml.safe_dump(source, sort_keys=True).splitlines(),
+        yaml.safe_dump(target, sort_keys=True).splitlines(),
+        CRD_DIFF_MAX_LINES,
+    )
+
+
+def compare_crds(
+    source_label: str,
+    source: Dict[str, Any],
+    target_label: str,
+    target: Dict[str, Any],
+) -> Tuple[List[str], List[str]]:
+    identical, missing, extra, different = classify_crds(source, target)
+    log_list("CRDs", f"{target_label} CRDs", sorted(target))
+    log_list("CRDs", "identical", identical)
+    log_list("CRDs", f"only in {source_label}", missing)
+    log_list("CRDs", f"only in {target_label}", extra)
+    log_list("CRDs", "content differs", different)
     errors = [
-        f"CRD '{name}' is present in operator repo but missing from Helm chart '{chart_name}'"
+        f"CRD '{name}' is present in {source_label} but missing from {target_label}"
         for name in missing
     ]
     errors.extend(
-        f"CRD '{name}' is present in Helm chart '{chart_name}' but missing from operator repo"
+        f"CRD '{name}' is present in {target_label} but missing from {source_label}"
         for name in extra
     )
     errors.extend(
-        f"CRD '{name}' differs between operator repo and Helm chart '{chart_name}'"
+        f"CRD '{name}' differs between {source_label} and {target_label}"
         for name in different
     )
-    return errors
+    diffs = [
+        crd_diff(name, source_label, target_label, source[name], target[name])
+        for name in different
+    ]
+    return errors, diffs
 
 
 def load_helm_crds(
@@ -170,36 +213,56 @@ def load_helm_crds(
     return helm_crds, []
 
 
-def check_chart_crds(
-    chart_dir: Path, chart_name: str, operator_crds: Dict[str, Any]
-) -> List[str]:
-    helm_crds, errors = load_helm_crds(chart_dir, chart_name)
-    if helm_crds is None:
-        return errors
-    identical, missing, extra, different = classify_crds(operator_crds, helm_crds)
-    log_list("CRDs", f"helm '{chart_name}' CRDs", sorted(helm_crds))
-    log_list("CRDs", "identical", identical)
-    log_list("CRDs", "only in operator", missing)
-    log_list("CRDs", f"only in helm '{chart_name}'", extra)
-    log_list("CRDs", "content differs", different)
-    return chart_crd_errors(chart_name, missing, extra, different)
+def crd_chart_names(helm_dir: Path, abbrev: str) -> List[str]:
+    crds_chart = f"{abbrev}-operator-crds"
+    names = [f"{abbrev}-operator"]
+    if (helm_dir / "charts" / crds_chart).exists():
+        names.append(crds_chart)
+    return names
 
 
-def check_crds(operator_path: Path, helm_dir: Path, abbrev: str) -> List[str]:
+def check_crds(
+    operator_dir: Path, helm_dir: Path, abbrev: str
+) -> Tuple[List[str], List[str]]:
+    operator_path = operator_dir / "deploy" / "crd.yaml"
     log("CRDs", f"operator: {operator_path}")
     if not operator_path.exists():
         log("CRDs", "operator CRD file is missing")
-        return [f"Missing CRD file in operator repo: {operator_path}"]
+        return [f"Missing CRD file in operator repo: {operator_path}"], []
 
     operator_crds = crds_by_name(load_yaml_docs(operator_path))
     log_list("CRDs", "operator CRDs", sorted(operator_crds))
-    chart_names = [f"{abbrev}-operator", *EXTRA_CRD_CHARTS.get(abbrev, [])]
-    errors = []
-    for chart_name in chart_names:
-        errors.extend(
-            check_chart_crds(helm_dir / "charts" / chart_name, chart_name, operator_crds)
+    if not operator_crds:
+        return [f"No CRDs found in operator repo: {operator_path}"], []
+
+    errors: List[str] = []
+    diffs: List[str] = []
+    for bundle in ("bundle.yaml", "cw-bundle.yaml"):
+        bundle_path = operator_dir / "deploy" / bundle
+        log("CRDs", f"operator bundle: {bundle_path}")
+        if not bundle_path.exists():
+            errors.append(f"Missing {bundle} in operator repo: {bundle_path}")
+            continue
+        bundle_errors, bundle_diffs = compare_crds(
+            "operator crd.yaml",
+            operator_crds,
+            f"operator {bundle}",
+            crds_by_name(load_yaml_docs(bundle_path)),
         )
-    return errors
+        errors.extend(bundle_errors)
+        diffs.extend(bundle_diffs)
+
+    for chart_name in crd_chart_names(helm_dir, abbrev):
+        helm_crds, chart_errors = load_helm_crds(helm_dir / "charts" / chart_name, chart_name)
+        if helm_crds is None:
+            errors.extend(chart_errors)
+            continue
+        chart_errors, chart_diffs = compare_crds(
+            "operator crd.yaml", operator_crds, f"helm chart '{chart_name}'", helm_crds
+        )
+        errors.extend(chart_errors)
+        diffs.extend(chart_diffs)
+    return errors, diffs
 
 
 def dict_image_ref(value: Any) -> Optional[str]:
@@ -584,14 +647,19 @@ def unified_diff(
     helm_label: str,
     operator_lines: List[str],
     helm_lines: List[str],
+    max_lines: Optional[int] = None,
 ) -> str:
-    lines = difflib.unified_diff(
-        operator_lines,
-        helm_lines,
-        fromfile=operator_label,
-        tofile=helm_label,
-        lineterm="",
+    lines = list(
+        difflib.unified_diff(
+            operator_lines,
+            helm_lines,
+            fromfile=operator_label,
+            tofile=helm_label,
+            lineterm="",
+        )
     )
+    if max_lines and len(lines) > max_lines:
+        lines = lines[:max_lines] + [f"... {len(lines) - max_lines} more diff line(s)"]
     return f"  --- {title} ---\n" + "\n".join(f"    {line}" for line in lines)
 
 
@@ -645,12 +713,12 @@ def load_rbac_docs(
     if not operator_path.exists():
         log("RBAC", f"{mode}: operator file is missing")
         return None, None, [f"Missing {mode} RBAC file in operator repo: {operator_path}"]
-    operator_doc = first_document(load_yaml_docs(operator_path), kind)
+    operator_doc = main_rbac_document(load_yaml_docs(operator_path), kind)
     if operator_doc is None:
         log("RBAC", f"{mode}: no {kind} in {operator_path.name}")
         return None, None, [f"No {kind} found in operator repo's {operator_path.name}"]
     try:
-        helm_doc = first_document(render_helm_template(chart_dir, set_args), kind)
+        helm_doc = main_rbac_document(render_helm_template(chart_dir, set_args), kind)
     except RuntimeError as exc:
         log("RBAC", f"{mode}: helm template failed: {exc}")
         return None, None, [f"Failed to render Helm chart for {mode} RBAC: {exc}"]
@@ -758,11 +826,28 @@ def operator_container(deployment: Optional[Dict[str, Any]]) -> Optional[Dict[st
     return containers[0] if containers else None
 
 
-def env_lines(container: Dict[str, Any]) -> List[str]:
-    names = sorted(
-        entry.get("name") for entry in container.get("env", []) if entry.get("name")
+def compact(value: Any) -> str:
+    return json.dumps(value, sort_keys=True)
+
+
+def env_value(entry: Dict[str, Any], namespace: Optional[str]) -> str:
+    field_path = (entry.get("valueFrom") or {}).get("fieldRef", {}).get("fieldPath")
+    if field_path:
+        return f"fieldRef:{field_path}"
+    if "valueFrom" in entry:
+        return compact(entry["valueFrom"])
+    value = entry.get("value", "")
+    if namespace and value == namespace:
+        return "fieldRef:metadata.namespace"
+    return value
+
+
+def env_lines(container: Dict[str, Any], namespace: Optional[str]) -> List[str]:
+    entries = sorted(
+        (entry for entry in container.get("env", []) if entry.get("name")),
+        key=lambda entry: entry["name"],
     )
-    return [f"env: {name}" for name in names]
+    return [f"env: {entry['name']}={env_value(entry, namespace)}" for entry in entries]
 
 
 def port_lines(container: Dict[str, Any]) -> List[str]:
@@ -774,25 +859,29 @@ def port_lines(container: Dict[str, Any]) -> List[str]:
 
 
 def probe_lines(container: Dict[str, Any]) -> List[str]:
-    lines = []
-    for probe_name in ("livenessProbe", "readinessProbe"):
-        http_get = (container.get(probe_name) or {}).get("httpGet")
-        if not http_get:
-            continue
-        lines.append(
-            f"{probe_name}: {http_get.get('path')}:{http_get.get('port')}/"
-            f"{http_get.get('scheme')}"
-        )
-    return lines
+    return [
+        f"{probe_name}: {compact(container[probe_name])}"
+        for probe_name in ("livenessProbe", "readinessProbe", "startupProbe")
+        if container.get(probe_name)
+    ]
 
 
-def deployment_lines(container: Dict[str, Any]) -> List[str]:
+def deployment_lines(deployment: Dict[str, Any], container: Dict[str, Any]) -> List[str]:
+    pod_spec = deployment.get("spec", {}).get("template", {}).get("spec", {})
+    namespace = deployment.get("metadata", {}).get("namespace")
     return [
         f"name: {container.get('name')}",
+        f"image: {container.get('image')}",
+        f"imagePullPolicy: {container.get('imagePullPolicy')}",
         f"command: {container.get('command') or []}",
-        *env_lines(container),
+        f"args: {container.get('args') or []}",
+        *env_lines(container, namespace),
         *port_lines(container),
         *probe_lines(container),
+        f"resources: {compact(container.get('resources') or {})}",
+        f"securityContext: {compact(container.get('securityContext') or {})}",
+        f"pod securityContext: {compact(pod_spec.get('securityContext') or {})}",
+        f"terminationGracePeriodSeconds: {pod_spec.get('terminationGracePeriodSeconds')}",
     ]
 
 
@@ -836,10 +925,10 @@ def deployment_summaries(
     if operator_spec is None or helm_spec is None:
         log("Deployment", f"{mode}: no operator container to compare")
         return None, None, [f"Deployment ({mode}) has no operator container to compare"]
-    operator_summary = deployment_lines(operator_spec) + service_lines(
+    operator_summary = deployment_lines(operator_deployment, operator_spec) + service_lines(
         first_document(operator_docs, "Service")
     )
-    helm_summary = deployment_lines(helm_spec) + service_lines(
+    helm_summary = deployment_lines(helm_deployment, helm_spec) + service_lines(
         first_document(helm_docs, "Service")
     )
     return operator_summary, helm_summary, []
@@ -946,9 +1035,7 @@ def main() -> int:
     log("confirm-release", f"operator repo: {operator_dir}")
     log("confirm-release", f"helm repo: {helm_dir}")
 
-    crd_errors = check_crds(
-        operator_dir / "deploy" / "crd.yaml", helm_dir, args.abbrev
-    )
+    crd_errors, crd_diffs = check_crds(operator_dir, helm_dir, args.abbrev)
     image_errors, images = check_images(
         operator_dir / "deploy" / "cr.yaml", db_chart / "values.yaml"
     )
@@ -1010,7 +1097,7 @@ def main() -> int:
     print(f"Confirm release: {args.abbrev} {args.version}")
     print("=" * 80)
     print_group("HELM / OPERATOR")
-    print_section("CRDs", crd_errors)
+    print_section("CRDs", crd_errors, crd_diffs)
     print_section("Images (cr.yaml vs values.yaml)", image_errors)
     print_section("README (values.yaml vs README.md)", readme_errors)
     print_section("RBAC", rbac_errors, rbac_diffs)

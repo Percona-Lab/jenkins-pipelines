@@ -8,7 +8,7 @@ def call(Map cfg = [:]) {
     def image = cfg.image ?: env.IMAGE_PXC ?: env.IMAGE_MYSQL ?: env.IMAGE_MONGOD ?: env.IMAGE_POSTGRESQL ?: env.IMAGE
     def operatorImage = cfg.operatorImage ?: cfg.imageOperator ?: env.IMAGE_OPERATOR
 
-    def failedTests = tests.findAll { it['result'] == 'failure' }
+    def failedTests = tests.findAll { it['result'] in ['failure', 'error'] }
     def passedCount = tests.count { it['result'] == 'passed' }
     def failedCount = failedTests.size()
     def skippedCount = tests.count { it['result'] == 'skipped' }
@@ -64,7 +64,8 @@ def call(Map cfg = [:]) {
             } catch (ignored) {
                 mins = 0.0
             }
-            message += "- `${t['name']}` on ${t['cluster']} (${String.format('%.1f', mins)} min)\n"
+            def timedOut = t['result'] == 'error' ? ', timed out' : ''
+            message += "- `${t['name']}` on ${t['cluster']} (${String.format('%.1f', mins)} min${timedOut})\n"
         }
     }
 

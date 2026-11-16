@@ -139,18 +139,6 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH
-                    )
-                }
-            }
-        }
-
         stage('Init Tests') {
             steps {
                 script {
@@ -160,6 +148,23 @@ pipeline {
                         ignorePreviousRun : IGNORE_PREVIOUS_RUN,
                         operator          : 'ps'
                     ])
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH
+                    )
                 }
             }
         }
