@@ -908,7 +908,7 @@ void runTest(Map testConfig) {
     def clusterSuffix = testConfig.clusterSuffix
     def retries = (testConfig.retries ?: 1) as Integer
     def maxAttempts = retries + 1
-    def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 120) as Integer
+    def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 60) as Integer
     def timeStart = System.currentTimeMillis()
     def finalResult = 'failure'
 
@@ -1013,12 +1013,12 @@ void runTest(Map testConfig) {
     }
 }
 
-// GKE, Rancher and DOKS already retry inside createCluster; the others make a single attempt.
+// GKE and Rancher already retry inside createCluster; the others make a single attempt per call.
 Integer clusterCreateAttempts(Map testVariables) {
     if (testVariables.cluster_create_attempts) {
         return testVariables.cluster_create_attempts as Integer
     }
-    return (testVariables.platform_provider?.toLowerCase() in ['eks', 'azure', 'openshift']) ? 2 : 1
+    return (testVariables.platform_provider?.toLowerCase() in ['eks', 'azure', 'openshift', 'doks']) ? 2 : 1
 }
 
 void clusterRunner(String clusterSuffix, Map testVariables) {
@@ -1090,6 +1090,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                         } catch (Exception shutdownErr) {
                             echo "Warning: cleanup of the partial cluster failed: ${shutdownErr.getMessage()}"
                         }
+                        sleep(time: 30, unit: 'SECONDS')
                     }
                 }
             }
