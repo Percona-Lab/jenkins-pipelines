@@ -670,14 +670,44 @@ parameters {
             } // script
           } // steps
         } // stage
+        stage('Get PS build info') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            when {
+                // Same condition as 'Run docker tests on ps80'
+                expression {
+                    params.COMPONENT != 'experimental' && params.BRANCH ==~ /^release-\d+\.\d+\.\d+-\d+$/
+                }
+            }
+            steps {
+                script {
+                    // test-ps-docker-image compares `mysqld --version` with the expected version and revision.
+                    // The revision is read from the pushed image and checked against the head of BRANCH.
+                    env.PS_TEST_VERSION = params.BRANCH.replaceFirst(/^release-/, '')
+                    env.PS_TEST_REVISION = getImageRevision(
+                        image: "${params.ORGANIZATION}/percona-server:${env.PS_TEST_VERSION}-amd64",
+                        binary: 'mysqld',
+                        gitRef: params.BRANCH,
+                        gitRepos: ['https://github.com/percona/percona-server.git',
+                                   'https://github.com/percona/percona-server-private.git'])
+                    echo "PS tests: version ${env.PS_TEST_VERSION}, revision ${env.PS_TEST_REVISION}"
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
         stage('Run docker tests on ps80') {
             agent {
                 label 'launcher-x64'
             }
             when {
-                // test-ps-docker-image tests the released version listed in package-testing VERSIONS,
-                // so it only makes sense for release builds. Branch builds (trunk, 8.4, 9.7) and
-                // -fr (experimental) images are not covered by it.
+                // Only release builds are tested: branch builds (trunk, 8.4, 9.7) have no matching
+                // PRODUCT_TO_TEST for every line (e.g. trunk) and -fr (experimental) images are not
+                // covered by test-ps-docker-image.
                 expression {
                     params.COMPONENT != 'experimental' && params.BRANCH ==~ /^release-\d+\.\d+\.\d+-\d+$/
                 }
@@ -687,8 +717,8 @@ parameters {
             }
             steps {
                 script {
-                    // test-ps-docker-image has no version parameter: PRODUCT_TO_TEST selects the
-                    // PS line (e.g. PS84) and the version is taken from package-testing VERSIONS.
+                    // PRODUCT_TO_TEST selects the PS line (e.g. PS84), the version and revision of the
+                    // image built here are passed as overrides, so VERSIONS is not used for them.
                     def ps = params.BRANCH.replaceFirst(/^release-/, '').tokenize('.')
                     String product = "PS${ps[0]}${ps[1]}".toString()
                     if (!(product in ['PS80', 'PS84', 'PS97'])) {
@@ -703,7 +733,9 @@ parameters {
                                  credentialsId: 'JNKPERCONA_PS80_TOKEN',
                                  parameters: [
                                      DOCKER_ACC: params.ORGANIZATION,
-                                     PRODUCT_TO_TEST: product
+                                     PRODUCT_TO_TEST: product,
+                                     PS_VERSION_OVERRIDE: env.PS_TEST_VERSION,
+                                     PS_REVISION_OVERRIDE: env.PS_TEST_REVISION
                                  ])
                 }
             }
