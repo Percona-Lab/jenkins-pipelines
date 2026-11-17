@@ -41,6 +41,10 @@
         default: ""
         description:
     - string:
+        name: SERVER_TARBALL_URL
+        default: ""
+        description: "URL of a server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. If set, bootstrap.sh is not used. DOCKER_OS must match the OS of that build"
+    - string:
         name: USE_BINARIES_FROM_BUILD_ID
         default: "lastSuccessfulBuild"
         description: Specific percona-xtrabackup-9.x-compile-param build id to use binaries from.
