@@ -1,6 +1,7 @@
 - job:
     name: ps80-ami
     project-type: pipeline
+    disabled: true
     description: |
         Do not edit this job through the web!
     pipeline-scm:
