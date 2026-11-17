@@ -7,6 +7,7 @@
 #      XTRABACKUP_TARGET
 #      XTRABACKUP_TARGET_VERSION
 #      BOOTSTRAP_URL
+#      SERVER_TARBALL_URL
 #      WITH_AZURITE
 
 set -o errexit
@@ -120,6 +121,16 @@ elif [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
     mkdir server
     tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-$(uname -m).tar.gz -C server
     mv server/*/* server/
+elif [[ -n ${SERVER_TARBALL_URL} ]]; then
+    # The tarball replaces the bootstrap.sh download. It holds one top
+    # directory, like the release tarballs.
+    wget --progress=dot:giga \
+      -O server-tarball/${XTRABACKUP_TARGET}/server.tar.gz \
+      "${SERVER_TARBALL_URL}"
+    rm -rf server
+    mkdir server
+    tar xfz server-tarball/${XTRABACKUP_TARGET}/server.tar.gz -C server --strip-components=1
+    rm -f server-tarball/${XTRABACKUP_TARGET}/server.tar.gz
 else
     if [[ -n ${BOOTSTRAP_URL} ]]; then
       sudo rm -f bootstrap.sh

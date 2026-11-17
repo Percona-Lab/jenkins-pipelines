@@ -37,6 +37,10 @@ pipeline {
             defaultValue: '',
             description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified in PXB24_REPO',
             name: 'BOOTSTRAP_URL')
+        string(
+            defaultValue: '',
+            description: 'URL of a server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. If set, bootstrap.sh is not used. DOCKER_OS must match the OS of that build',
+            name: 'SERVER_TARBALL_URL')
         booleanParam(
             defaultValue: false,
             description: 'Starts Microsoft Azurite emulator and tests xbcloud against it',
