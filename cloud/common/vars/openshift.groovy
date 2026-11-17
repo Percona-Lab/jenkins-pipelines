@@ -74,6 +74,10 @@ void createCluster(Map clusterCfg, Map libraries) {
                         rm -rf \$TMP
                         kubectl get nodes
                     """,
+                    afterFunction: {
+                        enableVolumeSnapshotResources(clusterSuffix)
+                        verifyVolumeSnapshotResources(clusterSuffix)
+                    },
                     cleanupFunction: {
                         shutdownCluster(clusterCfg, libraries)
                     },
@@ -87,14 +91,8 @@ void createCluster(Map clusterCfg, Map libraries) {
         }
     }
 
-    // Post-creation configurations
-    withEnv(["KUBECONFIG=openshift/${clusterSuffix}/auth/kubeconfig"]) {
-        enableVolumeSnapshotResources(clusterSuffix)
-        verifyVolumeSnapshotResources(clusterSuffix)
-
-        if (clusterCfg.kubeconfig) {
-            sh "cp openshift/${clusterSuffix}/auth/kubeconfig ${clusterCfg.kubeconfig}"
-        }
+    if (clusterCfg.kubeconfig) {
+        sh "cp openshift/${clusterSuffix}/auth/kubeconfig ${clusterCfg.kubeconfig}"
     }
 }
 

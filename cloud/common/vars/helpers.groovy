@@ -1,5 +1,6 @@
-// Runs `command` and then `afterCommand`. If either fails, runs `cleanupCommand` (shell) and/or
-// `cleanupFunction` (closure) and starts over from `command`. Aborts are rethrown without retry or cleanup.
+// Runs `command`, then `afterCommand` (shell) and `afterFunction` (closure). If any fails, runs
+// `cleanupCommand` (shell) and/or `cleanupFunction` (closure) and starts over from `command`.
+// Aborts are rethrown without retry or cleanup.
 void retryCommand(Map cfg = [:]) {
     String command = cfg.command ?: error('command is required')
     Integer maxRetries = cfg.maxRetries ?: 3
@@ -10,6 +11,9 @@ void retryCommand(Map cfg = [:]) {
             sh(script: command)
             if (cfg.afterCommand) {
                 sh(script: cfg.afterCommand)
+            }
+            if (cfg.afterFunction) {
+                cfg.afterFunction.call()
             }
             return
         } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {

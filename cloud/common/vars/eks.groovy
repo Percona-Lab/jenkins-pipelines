@@ -64,14 +64,15 @@ void createCluster(Map clusterCfg, Map libraries) {
                 kubectl get storageclass
                 kubectl get nodes
             """,
+            afterFunction: {
+                verifyVolumeSnapshotResources(clusterCfg.kubeconfig, libraries)
+            },
             cleanupFunction: {
                 shutdownCluster(clusterCfg, libraries)
             },
             maxRetries: 3,
             delaySeconds: 5
         )
-
-        verifyVolumeSnapshotResources(clusterCfg.kubeconfig, libraries)
     }
 }
 
