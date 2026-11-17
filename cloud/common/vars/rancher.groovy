@@ -74,9 +74,7 @@ void shutdownCluster(Map clusterCfg, Map libraries = [:]) {
     }
 }
 
-String getLatestPlatformVersion(Map platformCfg) {
-    def channel = platformCfg.platform_channel
-
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     return sh(
         script: """
             curl -fsSL https://update.rke2.io/v1-release/channels \
@@ -86,8 +84,8 @@ String getLatestPlatformVersion(Map platformCfg) {
     ).trim()
 }
 
-String getPlatformVersion(String prefixVersion) {
-    def parts = prefixVersion.tokenize('.')
+String getPlatformVersion(String version, Map libraries) {
+    def parts = version.tokenize('.')
     def channel = "v${parts[0]}.${parts[1]}"
 
     return sh(

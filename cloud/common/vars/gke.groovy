@@ -1,10 +1,10 @@
-String getPlatformVersion(String prefixVersion) {
-    return prefixVersion
+String getPlatformVersion(String version, Map libraries) {
+    return version
 }
 
-String getLatestPlatformVersion(Map testVariables) {
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     return sh(
-        script: "gcloud container get-server-config --region=${testVariables.zone} --flatten=channels --filter='channels.channel=${testVariables.platform_channel}' --format='value(channels.validVersions)' | cut -d- -f1",
+        script: "gcloud container get-server-config --region=${location} --flatten=channels --filter='channels.channel=${channel}' --format='value(channels.validVersions)' | cut -d- -f1",
         returnStdout: true
     ).trim()
 }

@@ -1,10 +1,10 @@
-String getPlatformVersion(String prefixVersion) {
-    return prefixVersion
+String getPlatformVersion(String version, Map libraries) {
+    return version
 }
 
-String getLatestPlatformVersion(Map testVariables) {
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     return sh(
-        script: "az aks get-versions --location ${testVariables.region} --output json | jq -r '(.values // [] | .[].patchVersions | keys[]), (.orchestrators // [] | .[].orchestratorVersion)' | sort --version-sort | tail -1",
+        script: "az aks get-versions --location ${location} --output json | jq -r '(.values // [] | .[].patchVersions | keys[]), (.orchestrators // [] | .[].orchestratorVersion)' | sort --version-sort | tail -1",
         returnStdout: true
     ).trim()
 }

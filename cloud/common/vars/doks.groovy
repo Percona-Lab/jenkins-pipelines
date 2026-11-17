@@ -1,10 +1,20 @@
-String getPlatformVersion(String prefixVersion) {
-    return prefixVersion
+// Checked once while preparing the job, so an unavailable version fails fast instead of on every create attempt.
+String getPlatformVersion(String version, Map libraries) {
+    libraries.credentials.withDOKSCredentials {
+        def offered = sh(
+            script: """doctl kubernetes options versions --output json | jq -e --arg v "${version}" 'any(.[]; .kubernetes_version == \$v)' >/dev/null""",
+            returnStatus: true
+        ) == 0
+        if (!offered) {
+            error("DOKS does not offer Kubernetes version ${version}")
+        }
+    }
+    return version
 }
 
-String getLatestPlatformVersion(Map testVariables) {
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     def result = ""
-    testVariables.libraries.credentials.withDOKSCredentials {
+    libraries.credentials.withDOKSCredentials {
         result = sh(
             script: "doctl kubernetes options versions | awk 'NR==2 { print \$2 }'",
             returnStdout: true

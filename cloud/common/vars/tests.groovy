@@ -343,13 +343,18 @@ void resolvePlatformVersion(Map testVariables) {
             "${platformVersionKeyPrefix(testVariables.platform)}_${platformVersion.toUpperCase()}"
         )
     } else if (platformVersion == 'latest') {
-        platformVersion = library.getLatestPlatformVersion(testVariables)
+        platformVersion = library.getLatestPlatformVersion(
+            // Each job sets either region (AKS, EKS, DOKS, OpenShift) or zone (GKE, Rancher).
+            testVariables.region ?: testVariables.zone,
+            testVariables.platform_channel,
+            testVariables.libraries
+        )
 
         testVariables.platform_version = platformVersion
         return
     }
 
-    testVariables.platform_version = library.getPlatformVersion(platformVersion)
+    testVariables.platform_version = library.getPlatformVersion(platformVersion, testVariables.libraries)
 }
 
 void resolveMachineType(Map testVariables) {

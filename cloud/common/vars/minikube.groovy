@@ -1,9 +1,9 @@
-String getPlatformVersion(String prefixVersion) {
-    return prefixVersion
+String getPlatformVersion(String version, Map libraries) {
+    return version
 }
 
-String getLatestPlatformVersion(Map testVariables) {
-    return testVariables.platform_version
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
+    return 'latest'
 }
 
 String getMachineType(String arch) {

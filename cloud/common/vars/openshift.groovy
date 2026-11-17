@@ -1,8 +1,8 @@
-String getPlatformVersion(String prefixVersion) {
-    return prefixVersion
+String getPlatformVersion(String version, Map libraries) {
+    return version
 }
 
-String getLatestPlatformVersion(Map testVariables) {
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     return sh(
         script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'",
         returnStdout: true

@@ -1,10 +1,10 @@
-String getPlatformVersion(String prefixVersion) {
-    return prefixVersion
+String getPlatformVersion(String version, Map libraries) {
+    return version
 }
 
-String getLatestPlatformVersion(Map testVariables) {
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     def result = ""
-    testVariables.libraries.credentials.withAWSLatestVersionCredentials {
+    libraries.credentials.withAWSLatestVersionCredentials {
         result = sh(
             script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'",
             returnStdout: true
