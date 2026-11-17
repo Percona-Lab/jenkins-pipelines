@@ -892,7 +892,7 @@ EOF
                                     if [ -n "${PMM_ADMIN_PASSWORD}" ]; then
                                         PMM_PW="${PMM_ADMIN_PASSWORD}"
                                     else
-                                        PMM_PW="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
+                                        PMM_PW="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)Aa1-"
                                     fi
                                     PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
                                     GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)

@@ -122,7 +122,7 @@ pipeline {
     // --- GLOBAL SETTINGS & VERSIONS ---
     string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "X.X.X" (release, docker clients amd64 only), "pmm3-rc" (Release Candidate), "latest-tarball" (docker clients amd64 only), or a feature build tarball URL from pmm-submodules ("https://....tar.gz").')
     choice(name: 'ENABLE_PULL_MODE', choices: ['no', 'yes'], description: 'Enable Pull Mode for Clients')
-    string(name: 'ADMIN_PASSWORD', defaultValue: 'pmm3admin!', description: 'Admin password applied after provisioning.')
+    string(name: 'ADMIN_PASSWORD', defaultValue: 'PMM3testuser!', description: 'Admin password applied after provisioning.')
     string(name: 'SSH_KEY', defaultValue: '', description: 'Public SSH key for "ec2-user". Paste your OpenSSH public key to enable SSH access to AWS instances')
 
     // --- CLIENT SELECTION ---
@@ -314,6 +314,8 @@ pipeline {
               if (env.AMI_ADMIN_PASS) {
                  currentPass = env.AMI_ADMIN_PASS
               }
+              def finalPass = currentPass
+              def passwordNote = ''
 
               // Pass values via withEnv so the password is not Groovy-interpolated
               // into the shell command and does not appear in the build log.
@@ -322,21 +324,27 @@ pipeline {
                   "GR_CURR_PASS=${currentPass}",
                   "GR_HOST=${env.PMM_SERVER_IP}"
               ]) {
-                  try {
-                      sh '''
+                  // PMM 3.11+ refuses passwords that break Grafana's password policy (PMM-14023):
+                  // 12+ characters with upper and lower case, a digit and a symbol.
+                  def status = sh(returnStdout: true, script: '''
                         set +x
-                        curl -fsk -X PUT -H "Content-Type: application/json" \
+                        curl -sk -o pmm-password-change.json -w "%{http_code}" -X PUT -H "Content-Type: application/json" \
                           -d "{\\"password\\":\\"${GR_NEW_PASS}\\"}" \
-                          "https://admin:${GR_CURR_PASS}@${GR_HOST}/graph/api/admin/users/1/password"
-                      '''
-                  } catch(e) {
-                      echo "Warning: Password update failed: ${e.message}. Proceeding."
+                          "https://admin:${GR_CURR_PASS}@${GR_HOST}/graph/api/admin/users/1/password" || true
+                      ''').trim()
+                  if (status == '200') {
+                      finalPass = params.ADMIN_PASSWORD
+                  } else {
+                      def reason = sh(returnStdout: true, script: 'cat pmm-password-change.json 2>/dev/null || true').trim()
+                      passwordNote = "\nWarning: setting ADMIN_PASSWORD failed (HTTP ${status}: ${reason}); the admin password was left unchanged."
+                      echo "Warning: Password update failed (HTTP ${status}): ${reason}. The admin password was left unchanged."
                   }
+                  sh 'rm -f pmm-password-change.json'
               }
 
               if (env.SLACK_DM) {
                 slackSend botUser: true, channel: env.SLACK_DM, color: '#00FF00',
-                message: "[${env.JOB_NAME}]: All systems GO! 🚀\nOwner: @${env.OWNER}\nPMM URL: https://${env.PMM_SERVER_IP}\nPassword: ${params.ADMIN_PASSWORD}\nType: ${params.SERVER_TYPE}\nEnvironment is ready. Pipeline is holding for 24h.\nURL: ${env.BUILD_URL}"
+                message: "[${env.JOB_NAME}]: All systems GO! 🚀\nOwner: @${env.OWNER}\nPMM URL: https://${env.PMM_SERVER_IP}\nPassword: ${finalPass}${passwordNote}\nType: ${params.SERVER_TYPE}\nEnvironment is ready. Pipeline is holding for 24h.\nURL: ${env.BUILD_URL}"
               }
             }
           }

@@ -192,7 +192,7 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
         AMI_ID            : amiId,
         CLIENT_VERSION    : params.CLIENT_VERSION,
         SERVER_ARCH       : 'amd64',
-        ADMIN_PASSWORD    : 'pmm3admin!',
+        ADMIN_PASSWORD    : 'PMM3testuser!',
         HELM_CHART_BRANCH : 'main',
         OPENSHIFT_VERSION : 'latest',
         K8S_VERSION       : '1.34',
@@ -277,8 +277,8 @@ timestamps {
     branches['nightly / docker'] = nightlyGha('nightly / docker', serverImage, amiId)
     branches['nightly / docker arm64'] = nightlyGha('nightly / docker arm64', serverImage, amiId, [SERVER_ARCH: 'arm64'])
     branches['nightly / ami'] = nightlyGha('nightly / ami', serverImage, amiId, [SERVER_TYPE: 'ami'])
-    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1'])
-    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1'])
+    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'PMM3testuser!'])
+    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'PMM3testuser!'])
 
     compatVersions.each { ver ->
         def name = "compat / client ${ver}"
@@ -316,7 +316,7 @@ timestamps {
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz'),
         string(name: 'ENABLE_PULL_MODE',  value: 'no'),
-        string(name: 'ADMIN_PASSWORD',    value: 'pmm3admin!'),
+        string(name: 'ADMIN_PASSWORD',    value: 'PMM3testuser!'),
         string(name: 'PSMDB_VERSION',     value: '8.0'),
         string(name: 'MODB_VERSION',      value: '8.0'),
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
