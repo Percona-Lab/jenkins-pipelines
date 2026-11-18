@@ -1,45 +1,29 @@
+Map imageBuildContext(String imagePostfix) {
+    return [
+        'orchestrator': ['./orchestrator/Dockerfile', './orchestrator'],
+        'backup8.0'   : ['./percona-xtrabackup-8.0/Dockerfile', './percona-xtrabackup-8.0'],
+        'backup8.4'   : ['./percona-xtrabackup-8.x/Dockerfile', './percona-xtrabackup-8.x'],
+        'router8.0'   : ['./mysql-router/Dockerfile', './mysql-router'],
+        'router8.4'   : ['./mysql-router/Dockerfile.84', './mysql-router'],
+        'psmysql8.0'  : ['./percona-server-8.0/Dockerfile', './percona-server-8.0'],
+        'psmysql8.4'  : ['./percona-server-8.4/Dockerfile', './percona-server-8.4'],
+        'toolkit'     : ['./percona-toolkit/Dockerfile', './percona-toolkit'],
+        'haproxy'     : ['./haproxy/Dockerfile', './haproxy'],
+    ][imagePostfix]
+}
+
 void build(String IMAGE_POSTFIX){
+    def spec = imageBuildContext(IMAGE_POSTFIX)
+    if (!spec) {
+        error("Unknown image postfix: ${IMAGE_POSTFIX}")
+    }
     sh """
         set -e
 
         cd ./source/
-        if [ "${IMAGE_POSTFIX}" == "orchestrator" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./orchestrator/Dockerfile ./orchestrator
-        elif [ "${IMAGE_POSTFIX}" == "backup8.0" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./percona-xtrabackup-8.0/Dockerfile ./percona-xtrabackup-8.0
-        elif [ "${IMAGE_POSTFIX}" == "router8.0" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./mysql-router/Dockerfile ./mysql-router
-        elif [ "${IMAGE_POSTFIX}" == "psmysql8.0" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./percona-server-8.0/Dockerfile ./percona-server-8.0
-        elif [ "${IMAGE_POSTFIX}" == "backup8.4" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./percona-xtrabackup-8.x/Dockerfile ./percona-xtrabackup-8.x
-        elif [ "${IMAGE_POSTFIX}" == "psmysql8.4" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./percona-server-8.4/Dockerfile ./percona-server-8.4
-        elif [ "${IMAGE_POSTFIX}" == "router8.4" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./mysql-router/Dockerfile.84 ./mysql-router
-        elif [ "${IMAGE_POSTFIX}" == "toolkit" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./percona-toolkit/Dockerfile ./percona-toolkit
-        elif [ "${IMAGE_POSTFIX}" == "haproxy" ]; then
-            docker build --no-cache --squash --progress plain \
-                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-                -f ./haproxy/Dockerfile ./haproxy
-        fi
+        docker build --no-cache --squash --progress plain \
+            -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+            -f ${spec[0]} ${spec[1]}
     """
 }
 void pushImageToDocker(String IMAGE_POSTFIX){

@@ -24,6 +24,10 @@
             - 'us-east-2'
           description: 'AWS region where the cluster is deployed'
       - bool:
+          name: USE_ONDEMAND
+          default: false
+          description: 'Use on-demand instances instead of spot (for RC/Release testing)'
+      - bool:
           name: DRY_RUN
           default: false
           description: 'Perform a dry run without actually destroying resources'

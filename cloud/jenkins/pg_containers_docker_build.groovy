@@ -3,9 +3,9 @@ void buildUpgrade(String IMAGE_POSTFIX){
         PG_VER='18'
         IMAGE_POSTFIX='upgrade'
         cd ./source/
-        docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=${GIT_PD_BRANCH} \
+        docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} \
           -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
-          -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
+          -f ./percona-distribution-postgresql-upgrade/Dockerfile ./percona-distribution-postgresql-upgrade
     """
 }
 void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){

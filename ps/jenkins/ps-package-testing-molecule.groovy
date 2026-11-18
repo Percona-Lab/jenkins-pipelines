@@ -36,8 +36,6 @@ def ps90PackageTesting() {
 
 def ps80PackageTesting() {
     return [
-        'debian-11',
-        'debian-11-arm',
         'debian-12',
         'debian-12-arm',
         'oracle-8',
@@ -54,8 +52,13 @@ def ps80PackageTesting() {
         'ubuntu-jammy-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
-        'amazon-linux-2023',
-        'amazon-linux-2023-arm'
+    ]
+}
+
+def ps26PackageTesting() {
+    return [
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
     ]
 }
 
@@ -131,12 +134,14 @@ def ps57PackageTesting() {
         "amazon-linux-2",
         "ubuntu-jammy",
         "oracle-9",
+        "debian-11",
         "debian-12",
-        "rocky-8"
+        "rocky-8",
+        "rocky-9"
     ]
 }
 
-List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()
+List allOS = ps90PackageTesting() + ps80PackageTesting() + ps26PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()
 
 def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
     def tests = [:]
@@ -232,20 +237,6 @@ def deleteBuildInstances(){
     }
 }
 
-def installMolecule() {
-        sh """
-            sudo apt update -y
-            sudo apt install -y python3 python3-pip python3-dev python3-venv
-            python3 -m venv virtenv
-            . virtenv/bin/activate
-            python3 --version
-            python3 -m pip install --upgrade pip
-            python3 -m pip install --upgrade "setuptools<81"
-            python3 -m pip install --upgrade setuptools-rust
-            python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
-        """
-}
-
 def loadEnvFile(envFilePath) {
     def envMap = []
     def envFileContent = readFile(file: envFilePath).trim().split('\n')
@@ -272,7 +263,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "client_test"]'
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "ps_26", "client_test"]'
                 ]
             ]
         ],
@@ -304,7 +295,7 @@ properties([
                         if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97") {
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97" || product_to_test == "ps_26" ) {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -506,7 +497,7 @@ pipeline {
             stage('Prepare') {
                 steps {
                     script {
-                        installMolecule()
+                        installMoleculeBookwormMysql()
                     }
                 }
             }
@@ -550,10 +541,22 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
-                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                        def ps80OS = ps80PackageTesting()
+                                        // PS 5.7 has no ARM packages, so ps_57 -> ps_80 major upgrade can't run on ARM
+                                        if (action_to_test == "major_upgrade" && major_upgrade_from_product == "ps_57") {
+                                            ps80OS = ps80OS.findAll { !it.endsWith('-arm') }
+                                        }
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps80OS, "molecule/ps/")
+                                        }
+                                    }
+                                    else if (product_to_test == "ps_26") {
+                                        moleculeParallelTestALL(allOS, ps26PackageTesting(), "molecule/ps/")
                                     }
                                     else if (product_to_test == "ps_84") {
-                                        moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_97") {
                                         moleculeParallelTestALL(allOS, ps97PackageTesting(), "molecule/ps/")

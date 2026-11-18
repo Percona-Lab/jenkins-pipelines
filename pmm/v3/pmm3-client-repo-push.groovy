@@ -17,6 +17,11 @@ pipeline {
             description: 'Upload path for the packages',
             name: 'UPLOAD_PATH'
         )
+        choice(
+            choices: ['x86_64', 'aarch64'],
+            description: 'CPU architecture of the packages being pushed',
+            name: 'TARBALL_ARCH'
+        )
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -32,11 +37,25 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
                         sh """
-                            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i \${KEY_PATH} \${USER}@repo.ci.percona.com "
-                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${params.UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
-                            "
+                            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i \${KEY_PATH} \${USER}@repo.ci.percona.com << 'ENDSSH'
+                                set -o errexit
+                                set -o xtrace
+
+                                DEPLOY_HOST=jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com
+                                DEPLOY_DIR=/data/downloads/TESTING/pmm
+
+                                for tarball in ${params.UPLOAD_PATH}/binary/tarball/*.tar.gz; do
+                                    base=\$(basename "\${tarball}" .tar.gz)
+                                    scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                                        "\${tarball}" "\${DEPLOY_HOST}:\${DEPLOY_DIR}/\${base}-${params.TARBALL_ARCH}.tar.gz"
+                                    if [ "${params.TARBALL_ARCH}" = "x86_64" ]; then
+                                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
+                                            "\${tarball}" "\${DEPLOY_HOST}:\${DEPLOY_DIR}/\${base}.tar.gz"
+                                    fi
+                                done
+ENDSSH
                         """
-                    }  
+                    }
                 }
             }
         }

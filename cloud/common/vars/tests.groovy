@@ -1,10 +1,35 @@
 void loadCloudSecret(String operator) {
-    withCredentials([file(
-        credentialsId: "cloud-secret-file-${operator}",
-        variable: 'CLOUD_SECRET_FILE'
-    )]) {
+    def credentialsId
+    switch (operator) {
+        case 'pg':
+        case 'pxc':
+            credentialsId = 'cloud-secret-file'
+            break
+        case 'ps':
+            credentialsId = 'cloud-secret-file-ps'
+            break
+        case 'psmdb':
+            credentialsId = 'cloud-secret-file-psmdb'
+            break
+        default:
+            error("Unsupported operator for cloud secret credentials: ${operator}")
+    }
+
+    withCredentials([
+        file(
+            credentialsId: credentialsId,
+            variable: 'CLOUD_SECRET_FILE'
+        ),
+        file(
+            credentialsId: 'cloud-minio-secret-file',
+            variable: 'CLOUD_MINIO_SECRET_FILE'
+        )
+    ]) {
         sh '''
             cp "$CLOUD_SECRET_FILE" source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
+            cp "$CLOUD_MINIO_SECRET_FILE" source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         '''
     }
 }
@@ -29,91 +54,336 @@ String getClusterFullName(String clusterName, String clusterSuffix) {
     return "${clusterName}-${clusterSuffix}"
 }
 
-String getReleaseParamName(String imageName, String pillarVersion, String operator) {
-    def versionedImages = [
-        "psmdb-operator": [
+String imageTag(String image) {
+    if (!image?.trim()) {
+        return ''
+    }
+
+    def parts = image.tokenize(':')
+    return parts.size() > 1 ? parts[-1] : ''
+}
+
+String getDbTag(Map testVariables) {
+    def dbImage = [
+        testVariables.images?.IMAGE_MONGOD,
+        testVariables.images?.IMAGE_MYSQL,
+        testVariables.images?.IMAGE_PXC,
+        testVariables.images?.IMAGE_POSTGRESQL
+    ].find { it?.trim() }
+
+    return imageTag(dbImage)
+}
+
+String getMongoVersionFromPillar(String pillarVersion, String imageMongod = '') {
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase('none')) {
+        def matcher = pillarVersion =~ /^(\d+)(\d)$/
+        if (matcher) {
+            return "${matcher[0][1]}.${matcher[0][2]}"
+        }
+    }
+
+    def imageMatcher = imageTag(imageMongod) =~ /(\d+)\.(\d+)/
+    if (imageMatcher) {
+        return "${imageMatcher[0][1]}.${imageMatcher[0][2]}"
+    }
+
+    if (pillarVersion?.trim() && !pillarVersion.equalsIgnoreCase('none')) {
+        error("Unable to detect MongoDB version from PILLAR_VERSION: ${pillarVersion} or IMAGE_MONGOD: ${imageMongod}")
+    }
+
+    return ''
+}
+
+String getDbVersion(Map testVariables) {
+    return [
+        testVariables.pillar_version,
+        testVariables.db_version,
+        testVariables.db_tag
+    ].find { it?.toString()?.trim() && !it.toString().equalsIgnoreCase('none') } ?: ''
+}
+
+String getMinorPlatformVersion(String platformVersion) {
+    def matcher = platformVersion =~ /v?(\d+\.\d+)/
+    return matcher ? matcher[0][1] : platformVersion
+}
+
+String buildJobDescription(Map testVariables) {
+    def cw = "${testVariables.cluster_wide}" == 'YES' ? 'CW' : 'NON-CW'
+    def arch = testVariables.platform_arch ?: ''
+
+    return [
+        getMinorPlatformVersion("${testVariables.platform_version}"),
+        arch,
+        getDbVersion(testVariables),
+        cw
+    ].findAll { it?.trim() }.join(' ')
+}
+
+void printTestVariables(Map testVariables) {
+    def sensitivePattern = ~/(?i).*(password|secret|token|key|credential).*/
+    def sanitized = testVariables.collectEntries { key, value ->
+        if (key == 'libraries') {
+            return [(key): '<libraries>']
+        }
+
+        if (key == 'tests') {
+            return [(key): "<${value?.size() ?: 0} tests>"]
+        }
+
+        if ("${key}" ==~ sensitivePattern) {
+            return [(key): '<redacted>']
+        }
+
+        if (value instanceof Map) {
+            return [(key): value.collectEntries { nestedKey, nestedValue ->
+                [(nestedKey): ("${nestedKey}" ==~ sensitivePattern ? '<redacted>' : nestedValue)]
+            }]
+        }
+
+        return [(key): value]
+    }
+
+    echo '=========================[ Test variables ]========================='
+    echo groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(sanitized))
+}
+
+String getReleaseParamName(String imageName, String pillarVersion, String operator, String ubiVersion = null) {
+    if (operator?.equalsIgnoreCase('pg') && pillarVersion.endsWith('-community')) {
+        def pgVersion = pillarVersion.replace('-community', '')
+        def logcollectorKey = (ubiVersion == 'UBI10') ? 'IMAGE_LOGCOLLECTOR_UBI10' : 'IMAGE_LOGCOLLECTOR'
+        def communityImages = [
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}_${ubiVersion}_COMMUNITY",
+            IMAGE_PGBOUNCER : 'IMAGE_PGBOUNCER_COMMUNITY',
+            IMAGE_BACKREST  : 'IMAGE_PGBACKREST_COMMUNITY',
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE_${ubiVersion}_COMMUNITY",
+            IMAGE_LOGCOLLECTOR: logcollectorKey
+        ]
+        return communityImages[imageName] ?: imageName
+    }
+
+    def ubiSuffix = (ubiVersion && ubiVersion != 'UBI9') ? "_${ubiVersion}" : ''
+    def pgVersion = pillarVersion.replace('-postgis', '')
+    def logcollectorKey = (ubiVersion == 'UBI10') ? 'IMAGE_LOGCOLLECTOR_UBI10' : 'IMAGE_LOGCOLLECTOR'
+
+    def operatorImages = [
+        psmdb: [
             IMAGE_MONGOD: "IMAGE_MONGOD${pillarVersion}"
         ],
-        "ps-operator": [
-            IMAGE_MYSQL: "IMAGE_MYSQL${pillarVersion}"
+        ps: [
+            IMAGE_MYSQL : "IMAGE_MYSQL${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}",
+            IMAGE_ROUTER: "IMAGE_ROUTER${pillarVersion}"
         ],
-        "pxc-operator": [
-            IMAGE_PXC: "IMAGE_PXC${pillarVersion}"
+        pxc: [
+            IMAGE_PXC   : "IMAGE_PXC${pillarVersion}",
+            IMAGE_BACKUP: "IMAGE_BACKUP${pillarVersion}"
         ],
-        "pg-operator": [
-            IMAGE_PGBOUNCER: "IMAGE_PGBOUNCER${pillarVersion}",
-            IMAGE_BACKREST : "IMAGE_BACKREST${pillarVersion}"
+        pg: [
+            IMAGE_POSTGRESQL: "IMAGE_POSTGRESQL${pgVersion}${ubiSuffix}",
+            IMAGE_PGBOUNCER : "IMAGE_PGBOUNCER${pgVersion}",
+            IMAGE_BACKREST  : "IMAGE_BACKREST${pgVersion}",
+            IMAGE_UPGRADE   : "IMAGE_UPGRADE${ubiSuffix}",
+            IMAGE_LOGCOLLECTOR: logcollectorKey
         ]
     ]
 
-    return versionedImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
+    if (operator?.equalsIgnoreCase('pg') &&
+        imageName == 'IMAGE_POSTGRESQL' &&
+        pillarVersion.endsWith('-postgis')) {
+        return "IMAGE_POSTGIS${pgVersion}${ubiSuffix}"
+        }
+
+    return operatorImages[operator?.toLowerCase()]?.get(imageName) ?: imageName
+}
+
+Boolean isReleaseRun(Map testVariables) {
+    return "${testVariables.pillar_version}" != 'none'
+}
+
+void validateTestVariables(Map testVariables) {
+    def requiredKeys = [
+        'libraries',
+        'operator',
+        'platform',
+        'platform_version',
+        'job_name',
+        'git_branch',
+        'cluster_wide',
+        'pillar_version',
+        'images'
+    ]
+    def missingKeys = requiredKeys.findAll { key ->
+        def value = testVariables[key]
+        value == null ||
+            (value instanceof CharSequence && !value.toString().trim()) ||
+            (value instanceof Map && value.isEmpty())
+    }
+    if (missingKeys) {
+        error("Missing required test variables: ${missingKeys.join(', ')}")
+    }
+
+    def platform = testVariables.platform.toLowerCase()
+    def validPlatforms = ['aks', 'doks', 'eks', 'gke', 'minikube', 'openshift', 'rancher']
+    if (!(platform in validPlatforms)) {
+        error("Unsupported platform: ${testVariables.platform}")
+    }
+    if (!testVariables.libraries.containsKey(platform)) {
+        error("Library not found for platform: ${testVariables.platform}")
+    }
+
+    def validOperators = ['pg', 'ps', 'psmdb', 'pxc']
+    if (!(testVariables.operator in validOperators)) {
+        error("Unsupported operator: ${testVariables.operator}")
+    }
+    if (!(testVariables.cluster_wide in ['YES', 'NO'])) {
+        error("cluster_wide must be YES or NO, got: ${testVariables.cluster_wide}")
+    }
+    if (testVariables.debug_tests && !(testVariables.debug_tests in ['YES', 'NO'])) {
+        error("debug_tests must be YES or NO, got: ${testVariables.debug_tests}")
+    }
+    if (testVariables.test_executor_type && !(testVariables.test_executor_type in ['kuttl', 'make'])) {
+        error("Unsupported test_executor_type: ${testVariables.test_executor_type}")
+    }
+
+    def supportedArchitectures = [
+        gke    : ['amd64', 'arm64'],
+        rancher: ['amd64', 'arm64']
+    ]
+    def architecture = testVariables.platform_arch?.toLowerCase()
+    if (supportedArchitectures.containsKey(platform) && !architecture) {
+        error("platform_arch is required for ${platform}")
+    }
+    if (architecture) {
+        if (!(architecture in (supportedArchitectures[platform] ?: []))) {
+            error("Architecture ${testVariables.platform_arch} is not supported for ${platform}")
+        }
+    }
+
+    if (testVariables.worker_count != null && platform != 'rancher') {
+        error('worker_count is supported only for rancher')
+    }
+    if (isReleaseRun(testVariables) && !testVariables.release_versions?.toString()?.trim()) {
+        error('release_versions is required for release runs')
+    }
+
+    def knownKeys = [
+        'cert_manager_version',
+        'cluster_suffix_prefix',
+        'cluster_wide',
+        'clusters',
+        'db_tag',
+        'db_version',
+        'debug_tests',
+        'default_operator_image',
+        'extra_envs',
+        'git_branch',
+        'images',
+        'jenkins_agent_label',
+        'job_name',
+        'kubeconfig',
+        'kubeconfigPath',
+        'libraries',
+        'machine_type',
+        'numClusters',
+        'operator',
+        'pillar_version',
+        'platform',
+        'platform_arch',
+        'platform_channel',
+        'platform_version',
+        'pre_test_sh',
+        'project_id',
+        'rancher_version',
+        'region',
+        'release_versions',
+        'retries',
+        'skip_kubeconfig',
+        'source_repo',
+        'test_executor_type',
+        'test_timeout_minutes',
+        'ubi_version',
+        'worker_count',
+        'zone'
+    ]
+    def unknownKeys = testVariables.keySet().findAll { !(it in knownKeys) }
+    if (unknownKeys) {
+        echo "Warning: unknown test variables: ${unknownKeys.sort().join(', ')}"
+    }
+}
+
+void resolveReleaseRunParams(Map testVariables) {
+    echo '=========================[ Getting parameters for release test ]========================='
+    testVariables.platform_channel = 'stable'
+    echo "Forcing channel=stable, because it's a release run!"
+
+    testVariables.images = resolveImages(testVariables)
+
+    if (testVariables.platform.toLowerCase() == 'rancher') {
+        ['rancher_version': 'RANCHER', 'cert_manager_version': 'CERT_MANAGER'].each { field, key ->
+            if (!testVariables[field] || testVariables[field] == 'latest') {
+                testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
+            }
+        }
+    }
+}
+
+// Kubernetes min/max versions are keyed by the distribution in release_versions (RKE2_MIN for Rancher,
+// RANCHER itself is the Rancher chart version).
+String platformVersionKeyPrefix(String platform) {
+    return platform.toLowerCase() == 'rancher' ? 'RKE2' : platform.toUpperCase()
+}
+
+void resolvePlatformVersion(Map testVariables) {
+    def library = testVariables.libraries[testVariables.platform.toLowerCase()]
+    def platformVersion = testVariables.platform_version
+
+    if (platformVersion?.toLowerCase() in ['min', 'max']) {
+        platformVersion = getReleaseVersionsParam(
+            testVariables.release_versions,
+            "${platformVersionKeyPrefix(testVariables.platform)}_${platformVersion.toUpperCase()}"
+        )
+    } else if (platformVersion == 'latest') {
+        platformVersion = library.getLatestPlatformVersion(
+            // Each job sets either region (AKS, EKS, DOKS, OpenShift) or zone (GKE, Rancher).
+            testVariables.region ?: testVariables.zone,
+            testVariables.platform_channel,
+            testVariables.libraries
+        )
+
+        testVariables.platform_version = platformVersion
+        return
+    }
+
+    testVariables.platform_version = library.getPlatformVersion(platformVersion, testVariables.libraries)
+}
+
+void resolveMachineType(Map testVariables) {
+    if (testVariables.platform_arch) {
+        testVariables.machine_type = testVariables.libraries[testVariables.platform.toLowerCase()].getMachineType(
+            testVariables.platform_arch
+        )
+    }
 }
 
 Map prepareVersions(Map testVariables) {
-    def libraries = testVariables.libraries
-    def platformFromReleaseVersions = false
+    validateTestVariables(testVariables)
 
-    if ("${testVariables.pillar_version}" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        testVariables.platform_channel = "stable"
-        echo "Forcing channel=stable, because it's a release run!"
+    testVariables.clusters = testVariables.clusters ?: []
+    testVariables.kubeconfigPath = testVariables.kubeconfigPath ?: '/tmp'
+    testVariables.numClusters = testVariables.numClusters ?: 1
+    testVariables.retries = testVariables.retries ?: 1
 
-        testVariables.images = resolveImages(testVariables)
-
-        switch (testVariables.platform_provider?.toLowerCase()) {
-            case "rancher":
-                ["rancher_version": "RANCHER", "cert_manager_version": "CERT_MANAGER"].each { field, key ->
-                    if (!testVariables[field] || testVariables[field] == "latest") {
-                        testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
-                    }
-                }
-                break
-
-            case "gcloud":
-            case "azure":
-            case "redhat":
-            case "digitalocean":
-                break
-
-            default:
-                error("Unsupported platform_provider: ${testVariables.platform_provider}")
-        }
-
-        if (testVariables.platform_version?.toLowerCase() in ["min", "max"]) {
-            def platformPrefix = [
-                "gcloud"      : "GKE",
-                "azure"       : "AKS",
-                "redhat"      : "OPENSHIFT",
-                "digitalocean": "DOKS",
-                "rancher"     : "RKE2",
-            ][testVariables.platform_provider?.toLowerCase()]
-
-            testVariables.platform_version = getReleaseVersionsParam(
-                testVariables.release_versions,
-                "${platformPrefix}_${testVariables.platform_version.toUpperCase()}"
-            )
-
-            platformFromReleaseVersions = true
-        }
-
+    if (isReleaseRun(testVariables)) {
+        resolveReleaseRunParams(testVariables)
     } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
+        echo '=========================[ Not a release run. Using job params only! ]========================='
     }
 
-    if (testVariables.platform_version == "latest" && testVariables.platform_channel && testVariables.platform_provider) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getLatestPlatformVersion(
-            testVariables.platform_channel
-        )
-    } else if (!platformFromReleaseVersions) {
-        testVariables.platform_version = libraries[testVariables.platform_provider].getPlatformVersion(
-            testVariables.platform_version
-        )
-    }
+    resolvePlatformVersion(testVariables)
+    resolveMachineType(testVariables)
 
-    if (testVariables.platform_arch && testVariables.platform_provider) {
-        testVariables.machine_type = libraries[testVariables.platform_provider].getMachineType(
-            testVariables.platform_arch
-        )
+    if (!testVariables.db_tag) {
+        testVariables.db_tag = getDbTag(testVariables)
     }
 
     testVariables.git_short_commit = sh(
@@ -131,26 +401,70 @@ Map prepareVersions(Map testVariables) {
     return testVariables
 }
 
-List loadTestList(String testList, String testSuite) {
-    echo "=========================[ Loading tests ]========================="
+List csvTestNames(String testSuite) {
     def suiteFileName = "source/e2e-tests/${testSuite}"
+    echo "Loading tests from ${suiteFileName}"
 
+    return readCSV(file: suiteFileName).collect { record -> record[0] }.findAll { it?.trim() }
+}
+
+String selectTestsPlatform(Map testVariables) {
+    def platform = testVariables.platform ?: ''
+    if (testVariables.platform_arch?.toLowerCase() == 'arm64' && platform) {
+        return "${platform}-arm64"
+    }
+    return platform
+}
+
+String selectTestsOperatorMode(Map opts) {
+    if (opts.operatorMode) {
+        return opts.operatorMode
+    }
+    return (opts.clusterWide == 'YES') ? 'cluster-wide' : 'namespaced'
+}
+
+List selectedTestNames(String testSuite, Map opts) {
+    def platformArg = opts.platform ? "--platform ${opts.platform}" : ''
+    def mongoVersion = getMongoVersionFromPillar(
+        "${opts.pillarVersion ?: ''}",
+        "${opts.imageMongod ?: env.IMAGE_MONGOD ?: ''}"
+    )
+    def mongoVersionArg = mongoVersion ? "--mongo-version ${mongoVersion}" : ''
+    def operatorMode = selectTestsOperatorMode(opts)
+    def output = sh(
+        script: """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            cd source
+            uv run e2e-tests/select_tests.py list --suite ${testSuite} ${platformArg} ${mongoVersionArg} --operator-mode ${operatorMode} --format lines
+        """,
+        returnStdout: true
+    ).trim()
+
+    return output.split('\n').findAll { it }
+}
+
+List loadTestNames(String testList, String testSuite, Map opts = [:]) {
     if (testList?.trim()) {
-        suiteFileName = "source/e2e-tests/run-custom.csv"
-
-        writeFile file: suiteFileName, text: testList
-
-        sh """
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
+        def records = testList.split('\n').findAll { it.trim() }
+        echo "Custom test suite contains following tests:\n${records.join('\n')}"
+        return records
     }
 
-    def tests = readCSV(file: suiteFileName).collect { record ->
+    if (testSuite?.endsWith('.csv')) {
+        return csvTestNames(testSuite)
+    }
+
+    return selectedTestNames(testSuite, opts)
+}
+
+List loadTestList(String testList, String testSuite, Map opts = [:]) {
+    echo '=========================[ Loading tests ]========================='
+
+    def tests = loadTestNames(testList, testSuite, opts).collect { name ->
         [
-            name   : record[0],
-            cluster: "NA",
-            result : "skipped",
+            name   : name,
+            cluster: 'NA',
+            result : 'skipped',
             time   : 0.0,
         ]
     }
@@ -161,20 +475,95 @@ List loadTestList(String testList, String testSuite) {
     return tests
 }
 
-String artifactFileName(Map cfg) {
-    return "${cfg.gitBranch}-${cfg.gitShortCommit}-${cfg.testName}-${cfg.platformVersion}-${cfg.dbTag}-CW_${cfg.clusterWide}-${cfg.paramsHash}"
+void initTestRun(Map testVariables, Map config) {
+    testVariables.tests = loadTestList(config.testList, config.testSuite, [
+        platform      : selectTestsPlatform(testVariables),
+        clusterWide   : testVariables.cluster_wide,
+        pillarVersion : testVariables.pillar_version,
+        imageMongod   : testVariables.images?.IMAGE_MONGOD
+    ])
+
+    if (config.ignorePreviousRun == 'NO') {
+        updateListWithLastExecutionStatus(testVariables)
+    } else {
+        echo 'All tests will be re-run, ignoring previous execution results!'
+        purgePreviousRunArtifacts(testVariables)
+    }
+    // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
+    // never part of the operator Docker build context.
 }
 
-Map buildArtifactParams(Map testVariables, String testName) {
+// Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
+void prepareTestSources(Map testVariables) {
+    loadCloudSecret(testVariables.operator)
+    testVariables.libraries.tools.stashClonedGitFiles()
+}
+
+Boolean hasPendingTests(Map testVariables) {
+    return countSkippedTests(testVariables.tests ?: []) > 0
+}
+
+void initTests(List tests, Map testVariables, Map config) {
+    echo '=========================[ Initializing the tests ]========================='
+
+    echo 'Populating tests into the tests array!'
+    def suiteFileName = "source/e2e-tests/${config.testSuite}"
+
+    if (config.testList?.trim()) {
+        suiteFileName = 'source/e2e-tests/run-custom.csv'
+        writeFile file: suiteFileName, text: config.testList
+        sh """
+            echo "Custom test suite contains following tests:"
+            cat ${suiteFileName}
+        """
+    }
+
+    readCSV(file: suiteFileName).each { record ->
+        tests.add([name: record[0], cluster: 'NA', result: 'skipped', time: '0'])
+    }
+
+    echo 'Marking passed tests in the tests map!'
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        if (config.ignorePreviousRun == 'NO') {
+            sh """
+                aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
+            """
+
+            tests.each { test ->
+                def file = artifactFileName(testVariables, test.name)
+                def retFileExists = sh(
+                    script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} >/dev/null 2>&1",
+                    returnStatus: true
+                )
+                if (retFileExists == 0) {
+                    test.result = 'passed'
+                }
+            }
+        } else {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" --recursive --exclude "*" --include "*-${testVariables.params_hash}" || :
+            """
+        }
+    }
+
+    withCredentials([file(credentialsId: config.cloudSecretCredentialId, variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp \$CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            ${config.secretFileMode ? "chmod ${config.secretFileMode} source/e2e-tests/conf/cloud-secret.yml" : ''}
+        """
+    }
+}
+
+String artifactFileName(Map testVariables, String testName) {
     return [
-        gitBranch     : testVariables.git_branch,
-        gitShortCommit: testVariables.git_short_commit,
-        testName      : testName,
-        platformVersion : testVariables.platform_version,
-        dbTag         : testVariables.db_tag,
-        clusterWide   : testVariables.cluster_wide,
-        paramsHash    : testVariables.params_hash
-    ]
+        testVariables.git_branch,
+        testVariables.git_short_commit,
+        testName,
+        testVariables.platform_version,
+        getDbVersion(testVariables),
+        "CW_${testVariables.cluster_wide}",
+        testVariables.params_hash
+    ].findAll { it?.toString()?.trim() }.join('-').replaceAll(/[^a-zA-Z0-9._-]/, '-')
 }
 
 String buildParamsHash(Map testVariables) {
@@ -185,7 +574,7 @@ String buildParamsHash(Map testVariables) {
         testVariables.cluster_wide,
         testVariables.platform_arch,
         testVariables.platform_channel,
-        testVariables.pillar_version
+        getDbVersion(testVariables),
     ].findAll { it != null }
 
     testVariables.images.values().findAll { it }.each { imageValue ->
@@ -219,8 +608,8 @@ void pushArtifactFile(String fileName, String gitShortCommit) {
     }
 }
 
-void updateListWithLastExecutionStatus(Map testVariables) {
-    echo "=========================[ Checking previous execution ]========================="
+void purgePreviousRunArtifacts(Map testVariables) {
+    echo '=========================[ Removing artifacts of previous execution ]========================='
 
     withCredentials([aws(
         credentialsId: 'AMI/OVF',
@@ -228,31 +617,49 @@ void updateListWithLastExecutionStatus(Map testVariables) {
         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
     )]) {
         sh """
-            aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
+            aws s3 rm "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" \
+                --recursive \
+                --exclude "*" \
+                --include "*-${testVariables.params_hash}" || :
         """
+    }
+}
 
-        testVariables.tests.each { test ->
-            def file = artifactFileName(buildArtifactParams(testVariables, test.name))
-            def retFileExists = sh(
-                script: """
-                    aws s3api head-object \
-                        --bucket percona-jenkins-artifactory \
-                        --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} \
-                        >/dev/null 2>&1
-                """,
-                returnStatus: true
-            )
+void updateListWithLastExecutionStatus(Map testVariables) {
+    echo '=========================[ Checking previous execution ]========================='
 
-            if (retFileExists == 0) {
-                test.result = "passed"
-            }
+    def listing = ''
+    withCredentials([aws(
+        credentialsId: 'AMI/OVF',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    )]) {
+        // One listing for the whole commit prefix instead of one head-object call per test.
+        listing = sh(
+            script: """
+                aws s3 ls "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" \
+                    | awk '{print \$4}' || :
+            """,
+            returnStdout: true
+        ).trim()
+    }
+
+    def existingMarkers = listing ? (listing.split('\n').collect { it.trim() }.findAll { it } as Set) : ([] as Set)
+    def passedCount = 0
+
+    testVariables.tests.each { test ->
+        if (artifactFileName(testVariables, test.name) in existingMarkers) {
+            test.result = 'passed'
+            passedCount++
         }
     }
+
+    echo "${passedCount} of ${testVariables.tests.size()} tests already passed in a previous run"
 }
 
 Map resolveImages(Map testVariables) {
     def resolvedImages = [:]
-    def releaseRun = "${testVariables.pillar_version}" != "none"
+    def releaseRun = "${testVariables.pillar_version}" != 'none'
 
     testVariables.images.each { imageName, imageValue ->
         if (!releaseRun) {
@@ -263,7 +670,8 @@ Map resolveImages(Map testVariables) {
         def releaseParamName = getReleaseParamName(
             imageName,
             testVariables.pillar_version,
-            testVariables.operator
+            testVariables.operator,
+            testVariables.ubi_version
         )
 
         resolvedImages[imageName] = imageValue ?: getReleaseVersionsParam(
@@ -279,9 +687,14 @@ Map resolveImages(Map testVariables) {
 String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     def exports = []
 
-    exports << "export KUBECONFIG=${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    if (testVariables.kubeconfig) {
+        exports << "export KUBECONFIG=${testVariables.kubeconfig}"
+    } else if (!testVariables.skip_kubeconfig) {
+        exports << "export KUBECONFIG=${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+    }
+
     exports << "[[ '${testVariables.debug_tests}' == 'YES' ]] && export DEBUG_TESTS=1"
-    exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}'"
+    exports << "[[ '${testVariables.cluster_wide}' == 'YES' ]] && export OPERATOR_NS='${testVariables.operator}-operator'"
     exports << """
         [[ '${testVariables.images.IMAGE_OPERATOR}' ]] && \
             export IMAGE='${testVariables.images.IMAGE_OPERATOR}' || \
@@ -289,26 +702,101 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     """.stripIndent().trim()
 
     testVariables.images.each { imageName, imageValue ->
-        exports << "export ${imageName}='${imageValue ?: ""}'"
+        exports << "export ${imageName}='${imageValue ?: ''}'"
     }
 
     if (testVariables.images.IMAGE_POSTGRESQL) {
         exports << "export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')"
     }
 
-    testVariables.extra_envs?.each { key, value ->
-        exports << "export ${key}='${value ?: ""}'"
+    if (testVariables.test_executor_type == 'make') {
+        exports << 'export PATH="$HOME/.local/bin:$PATH"'
+        exports << 'export SKIP_DELETE=0'
+        exports << 'export COLUMNS=200'
     }
 
-    return exports.join("\n")
+    if (testVariables.test_executor_type == 'kuttl') {
+        exports << 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"'
+    }
+
+    testVariables.extra_envs?.each { key, value ->
+        exports << "export ${key}='${value ?: ''}'"
+    }
+
+    return exports.join('\n')
+}
+
+Map buildPsmdbTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'psmdb',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'make',
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
+Map buildPxcTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests,
+        cluster_wide           : config.cluster_wide,
+        operator               : 'pxc',
+        default_operator_image : config.default_operator_image,
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
+}
+
+Map buildPsTestVariables(Map config) {
+    return [
+        cluster_name           : config.cluster_name,
+        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
+        kubeconfig             : config.kubeconfig,
+        skip_kubeconfig        : config.skip_kubeconfig ?: false,
+        debug_tests            : config.debug_tests ?: 'NO',
+        cluster_wide           : config.cluster_wide,
+        operator               : 'ps',
+        default_operator_image : config.default_operator_image,
+        test_executor_type     : 'kuttl',
+        images                 : config.images,
+        extra_envs             : config.extra_envs ?: [:]
+    ]
 }
 
 String defineTestCommand(Map testVariables, String testName) {
-    if (testVariables.test_executor_type == "kuttl") {
-        return "kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$'"
-    }
+    switch (testVariables.test_executor_type) {
+        case 'kuttl':
+            return """
+                export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+                mkdir -p e2e-tests/{logs,reports}
+                set -o pipefail
+                kubectl kuttl test --config e2e-tests/kuttl.yaml --test '^${testName}\$' 2>&1 | tee e2e-tests/logs/${testName}.log
+            """
 
-    return "e2e-tests/${testName}/run"
+        case 'make':
+            return """
+                mkdir -p e2e-tests/{logs,reports}
+                set -o pipefail
+                make e2e-test TEST=${testName} 2>&1 | tee e2e-tests/logs/${testName}.log
+            """
+
+        default:
+            return """
+                mkdir -p e2e-tests/{logs,reports}
+                set -o pipefail
+                e2e-tests/${testName}/run 2>&1 | tee e2e-tests/logs/${testName}.log
+            """
+    }
 }
 
 void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
@@ -356,17 +844,24 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
 Integer claimNextSkippedTest(List tests, String clusterSuffix) {
     synchronized (tests) {
         def index = tests.findIndexOf { test ->
-            test.result == "skipped"
+            test.result == 'skipped'
         }
 
         if (index < 0) {
             return null
         }
 
-        tests[index].result = "failure"
+        tests[index].result = 'failure'
         tests[index].cluster = clusterSuffix
 
         return index
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+Integer countSkippedTests(List tests) {
+    synchronized (tests) {
+        return tests.count { test -> test.result == 'skipped' } as Integer
     }
 }
 
@@ -406,60 +901,114 @@ void removeCluster(List clusters, String clusterSuffix) {
 }
 
 void runTest(Map testConfig) {
-    def retryCount = 0
     def testVariables = testConfig.testVariables
     def testId = testConfig.testId
     def testName = testVariables.tests[testId].name
     def clusterSuffix = testConfig.clusterSuffix
+    def retries = (testConfig.retries ?: 1) as Integer
+    def maxAttempts = retries + 1
+    def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 60) as Integer
+    def timeStart = System.currentTimeMillis()
+    def finalResult = 'failure'
 
-    waitUntil {
-        def timeStart = System.currentTimeMillis()
+    updateTestResult(testVariables.tests, testId, 'failure')
 
-        try {
-            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}!"
-            updateTestResult(testVariables.tests, testId, "failure")
+    try {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts}, timeout ${testTimeoutMinutes} min)!"
 
-
-            timeout(time: 90, unit: 'MINUTES') {
+            def exitCode = 1
+            def timedOut = false
+            def attemptStart = System.currentTimeMillis()
+            try {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
 
-                sh """
-                    cd source
-
-                    ${exports}
-
-                    ${command}
-                """
+                timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
+                    exitCode = sh(
+                        script: """
+                            cd source
+                            ${exports}
+                            ${testVariables.pre_test_sh ?: ''}
+                            ${command}
+                        """,
+                        returnStatus: true
+                    )
+                }
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                // Only the per-test timeout above can fire after testTimeoutMinutes. Anything earlier
+                // is a user abort or an outer timeout, and must stop the runner instead of being
+                // counted as a test failure.
+                if (System.currentTimeMillis() - attemptStart < testTimeoutMinutes * 60000L) {
+                    throw exc
+                }
+                timedOut = true
+                echo "The ${testName} test timed out after ${testTimeoutMinutes} minutes"
+            } catch (exc) {
+                echo "Error occurred while running test ${testName}: ${exc}"
             }
 
-            pushArtifactFile(
-                artifactFileName(buildArtifactParams(testVariables, testName)),
-                testVariables.git_short_commit
-            )
+            if (exitCode == 0) {
+                pushArtifactFile(
+                    artifactFileName(testVariables, testName),
+                    testVariables.git_short_commit
+                )
+                updateTestResult(testVariables.tests, testId, 'passed')
+                return
+            }
 
-            updateTestResult(testVariables.tests, testId, "passed")
-            return true
-
-        } catch (exc) {
+            if (!timedOut) {
+                echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
+            }
             try {
-                cleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
+                testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                throw exc
             } catch (cleanupErr) {
                 echo "Warning: failed to cleanup namespaces for ${testName}: ${cleanupErr}"
             }
 
-            if (retryCount >= (testConfig.retries ?: 1)) {
-                currentBuild.result = 'FAILURE'
-                return true
+            if (timedOut) {
+                // A hung test usually hangs again; retrying would hold the cluster for another full timeout.
+                finalResult = 'error'
+                break
             }
 
-            retryCount++
-            return false
-
-        } finally {
-            updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
-            echo "The ${testName} test was finished!"
+            if (attempt < maxAttempts) {
+                catchError(
+                    buildResult: 'SUCCESS',
+                    stageResult: 'SUCCESS',
+                    message: "Retrying ${testName} on the same cluster"
+                ) {
+                    error("Retrying ${testName} on the same cluster")
+                }
+            }
         }
+
+        updateTestResult(testVariables.tests, testId, finalResult)
+
+        def failureMessage = finalResult == 'error' ?
+            "Test ${testName} timed out after ${testTimeoutMinutes} minutes" :
+            "Test ${testName} failed after ${maxAttempts} attempts"
+        catchError(
+            buildResult: 'FAILURE',
+            stageResult: 'FAILURE',
+            message: failureMessage
+        ) {
+            error(failureMessage)
+        }
+    } finally {
+        updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
+        try {
+            pushLogFile(testName, [
+                sourceDir     : 'source',
+                gitShortCommit: testVariables.git_short_commit
+            ])
+        } catch (logErr) {
+            echo "Warning: failed to push log for ${testName}: ${logErr}"
+        }
+        stash name: "report-${testName}", includes: "source/e2e-tests/reports/${testName}.*", allowEmpty: true
+        echo "The ${testName} test was finished!"
     }
 }
 
@@ -469,50 +1018,60 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     def clusterCfg = [
         clusterName     : testVariables.cluster_name,
         clusterSuffix   : clusterSuffix,
-        platformProvider: testVariables.platform_provider,
+        product         : "${testVariables.operator}-operator",
         platformVersion : testVariables.platform_version,
         platformChannel : testVariables.platform_channel,
-        platformArch    : testVariables.platform_arch,
         machineType     : testVariables.machine_type,
-        workerCountMin  : testVariables.worker_min_count ?: 4,
-        workerCountMax  : testVariables.worker_max_count ?: 6,
-        sourceRanges    : testVariables.source_ranges ?: "0.0.0.0/0",
-        region          : testVariables.region ?: "",
-        zone            : testVariables.zone ?: "",
+        region          : testVariables.region ?: '',
+        zone            : testVariables.zone ?: '',
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
-        debug           : testVariables.debug
+        platformArch    : testVariables.platform_arch ?: ''
     ]
 
-    if (testVariables.platform_provider == "rancher") {
+    def platform = testVariables.platform.toLowerCase()
+
+    if (platform == 'rancher') {
         clusterCfg.rancherVersion = testVariables.rancher_version
         clusterCfg.certManagerVersion = testVariables.cert_manager_version
+        clusterCfg.deleteAfterHours = 6
+        clusterCfg.workerCount = testVariables.worker_count ?: 4
     }
 
-    def createCluster = { testVariables.libraries[testVariables.platform_provider].createCluster(clusterCfg) }
-    def clusterCleanup = { testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig) }
-    def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
+    // Retries, and cleanup of a failed attempt, are done inside each provider's createCluster.
+    def createCluster = { testVariables.libraries[platform].createCluster(clusterCfg, testVariables.libraries) }
+    def clusterCleanup = {
+        if (testVariables.skip_kubeconfig) {
+            return
+        }
+        testVariables.libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
+    }
+    def shutdownCluster = { testVariables.libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries) }
 
     try {
-        while (true) {
-            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
-            if (testId == null) {
-                break
-            }
-
+        // The cluster is created before a test is claimed, so a failed creation leaves every test in
+        // the queue for the other runners instead of recording one of them as failed.
+        while (countSkippedTests(testVariables.tests) > 0) {
             if (!clusterCreated) {
                 clusterCreated = true
                 createdClusters.add(clusterSuffix)
                 addCluster(testVariables.clusters, clusterSuffix)
 
-                echo "=========================[ Cleanup existing cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="  
+                echo "=========================[ Cleanup existing cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 try {
                     shutdownCluster.call()
+                } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+                    throw e
                 } catch (Exception e) {
                     echo "Cluster shutdown failed, maybe cluster does not exist or is already deleted: ${e.getMessage()}"
                 }
 
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
+            }
+
+            def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+            if (testId == null) {
+                break
             }
 
             runTest(
@@ -536,21 +1095,78 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
     }
 }
 
-Map getParallelStages(Map testVariables) {
+void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariables) {
+    def platform = testVariables.platform.toLowerCase()
+
+    if (platform == 'eks') {
+        withCredentials([
+            aws(
+                credentialsId: 'eks-cicd',
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ),
+            file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')
+        ]) {
+            clusterRunner(clusterSuffix, testVariables)
+        }
+        return
+    }
+
+    if (platform == 'doks') {
+        testVariables.libraries.credentials.withDOKSCredentials {
+            clusterRunner(clusterSuffix, testVariables)
+        }
+        return
+    }
+
+    clusterRunner(clusterSuffix, testVariables)
+}
+
+Map buildParallelClusterStages(Map testVariables) {
     def parallelStages = [:]
+    def pendingTests = countSkippedTests(testVariables.tests ?: [])
 
-    testVariables.clusters = testVariables.clusters ?: []
-    testVariables.numClusters = testVariables.numClusters ?: 1
-    testVariables.clusterCfg = testVariables.clusterCfg ?: [:]
-    testVariables.kubeconfigPath = testVariables.kubeconfigPath ?: "/tmp"
-    testVariables.retries = testVariables.retries ?: 1
+    // Never start more agents and clusters than there are tests left to run.
+    def maxClusters = testVariables.numClusters as Integer
+    def clusterCount = pendingTests < maxClusters ? pendingTests : maxClusters
+    echo "Starting ${clusterCount} of ${maxClusters} clusters for ${pendingTests} pending tests"
 
-    for (int i = 1; i <= testVariables.numClusters; i++) {
-        def clusterSuffix = "cluster${i}"
+    if (clusterCount > 0) {
+        prepareTestSources(testVariables)
+    }
+
+    // Always declare every cluster branch so the stage view keeps the same columns between builds;
+    // branches that are not needed are shown as skipped instead of disappearing.
+    for (int i = 1; i <= maxClusters; i++) {
+        def clusterSuffix = "${testVariables.cluster_suffix_prefix ?: 'cluster'}${i}"
+
+        if (i > clusterCount) {
+            parallelStages[clusterSuffix] = {
+                stage(clusterSuffix) {
+                    echo "SKIP: ${clusterSuffix} is not needed, only ${pendingTests} tests are pending."
+                    org.jenkinsci.plugins.pipeline.modeldefinition.Utils.markStageSkippedForConditional(clusterSuffix)
+                }
+            }
+            continue
+        }
 
         parallelStages[clusterSuffix] = {
             stage(clusterSuffix) {
-                clusterRunner(clusterSuffix, testVariables)
+                if (testVariables.jenkins_agent_label) {
+                    node(testVariables.jenkins_agent_label) {
+                        testVariables.libraries.tools.unstashClonedGitFiles()
+                        testVariables.libraries.dependencies.prepareNode(
+                            testVariables.libraries,
+                            testVariables.test_executor_type,
+                            testVariables.operator,
+                            testVariables.platform,
+                            testVariables.platform_version
+                        )
+                        clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
+                    }
+                } else {
+                    clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
+                }
             }
         }
     }
@@ -558,35 +1174,316 @@ Map getParallelStages(Map testVariables) {
     return parallelStages
 }
 
-void makeReport(List tests, Map testVariables) {
-    echo "=========================[ Generating Test Report ]========================="
-    tests = tests ?: []
-
-    def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
-    tests.each { test ->
-        testsReport += "<testcase name=\"${test.name}\" time=\"${test.time}\"><${test.result}/></testcase>\n"
+String formatTime(def time) {
+    if (!time || time == 'N/A') {
+        return 'N/A'
     }
 
-    testsReport += "</testsuite>\n"
+    try {
+        def totalSeconds = time as Double
+        def hours = (totalSeconds / 3600) as Integer
+        def minutes = ((totalSeconds % 3600) / 60) as Integer
+        def seconds = (totalSeconds % 60) as Integer
 
-    echo "=========================[ Generating Parameters Report ]========================="
+        return String.format('%02d:%02d:%02d', hours, minutes, seconds)
+    } catch (Exception e) {
+        println("Error converting time: ${e.message}")
+        return time.toString()
+    }
+}
+
+void pushLogFile(String testName, Map config = [:]) {
+    def sourceDir = config.sourceDir ?: 'source'
+    def gitShortCommit = config.gitShortCommit ?: env.GIT_SHORT_COMMIT
+    def logFilePath = "${sourceDir}/e2e-tests/logs/${testName}.log"
+    def logFileName = "${testName}.log"
+
+    echo "Push logfile ${logFileName} to S3!"
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/${gitShortCommit}
+            if [ ! -f ${logFilePath} ]; then
+                mkdir -p ${sourceDir}/e2e-tests/logs
+                cat > ${logFilePath} <<EOF
+Log file ${logFileName} was not found in Jenkins workspace.
+The test may have timed out or terminated before the test runner created/flushed the log.
+Build URL: ${BUILD_URL}
+EOF
+            fi
+            aws s3 ls \$S3_PATH/${logFileName} || :
+            aws s3 cp --content-type text/plain --quiet ${logFilePath} \$S3_PATH/${logFileName}
+        """
+    }
+}
+
+void pushReportFile(String reportHtml, String gitShortCommit) {
+    echo "Push ${reportHtml} to S3!"
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/${gitShortCommit}
+            aws s3 cp --content-type text/html --quiet ${reportHtml} \$S3_PATH/${reportHtml} || :
+        """
+    }
+}
+
+void normalizeReports(List tests, String sourceDir = 'source') {
+    def reportsDir = "${sourceDir}/e2e-tests/reports"
+    sh "mkdir -p ${reportsDir}"
+
+    for (int i = 0; i < tests.size(); i++) {
+        def testName = tests[i]['name']
+        def testResult = tests[i]['result']
+        def testTime = tests[i]['time'] ?: 0
+
+        if (testResult == 'skipped') {
+            continue
+        }
+
+        try {
+            unstash "report-${testName}"
+        } catch (ignored) {
+        }
+
+        def xmlFile = "${reportsDir}/${testName}.xml"
+        def htmlFile = "${reportsDir}/${testName}.html"
+
+        // Always collapse to a single testcase per test so python (multi-method) and
+        // bash-wrapper tests are counted identically in JUnit. Detail stays in the HTML.
+        def failures = testResult == 'failure' ? 1 : 0
+        def errors = testResult == 'error' ? 1 : 0
+        def resultElement = ''
+        if (testResult == 'failure') {
+            resultElement = '<failure message="Jenkins reported test failure">Jenkins reported this test as failed. See the HTML report for details.</failure>'
+        } else if (testResult == 'error') {
+            resultElement = '<error message="Jenkins reported test error">Jenkins reported this test as errored (infrastructure/timeout). See the HTML report for details.</error>'
+        }
+
+        writeFile file: xmlFile, text: """<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">
+<testsuite name="psmdb-e2e" errors="${errors}" failures="${failures}" skipped="0" tests="1" time="${testTime}">
+<testcase classname="" name="${testName}" time="${testTime}">
+${resultElement}
+</testcase>
+</testsuite>
+</testsuites>"""
+
+        if (!fileExists(htmlFile)) {
+            def formattedTime = formatTime(testTime)
+            def resultCapitalized
+            def logMessage
+            if (testResult == 'failure') {
+                resultCapitalized = 'Failed'
+                logMessage = 'Test did not produce a report'
+            } else if (testResult == 'error') {
+                resultCapitalized = 'Error'
+                logMessage = 'Test errored (infrastructure/timeout) and did not produce a report'
+            } else {
+                resultCapitalized = 'Passed'
+                logMessage = 'Test marked as passed (from previous run)'
+            }
+
+            writeFile file: htmlFile, text: """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title id="head-title">${testName}.html</title>
+</head>
+<body>
+<div id="data-container" data-jsonblob='{"environment": {"Note": "Placeholder report generated because the test report was missing"}, "tests": {"${testName}": [{"extras": [], "result": "${resultCapitalized}", "testId": "${testName}", "duration": "${formattedTime}", "resultsTableRow": ["<td class=\\"col-result\\">${resultCapitalized}</td>", "<td>-</td>", "<td class=\\"col-testId\\">${testName}</td>", "<td class=\\"col-duration\\">${formattedTime}</td>", "<td>-</td>"], "log": "${logMessage}"}]}}'></div>
+</body>
+</html>"""
+        }
+    }
+}
+
+void formatReportDuration(String htmlFile) {
+    def marker = ' tests ran in '
+    def suffix = ' seconds'
+    def html = readFile(htmlFile)
+
+    def valueStart = html.indexOf(marker)
+    if (valueStart < 0) {
+        return
+    }
+    valueStart += marker.length()
+
+    def valueEnd = html.indexOf(suffix, valueStart)
+    if (valueEnd < 0) {
+        return
+    }
+
+    def formatted = formatTime(html.substring(valueStart, valueEnd))
+    writeFile file: htmlFile, text: html.substring(0, valueStart) + formatted + html.substring(valueEnd + suffix.length())
+}
+
+void writePipelineParameters(String pipelineParameters) {
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
+    )
+}
+
+void publishPytestReports(Map config) {
+    def tests = config.tests ?: []
+    def sourceDir = config.sourceDir ?: 'source'
+    def reportHtml = config.reportHtml ?: 'e2e-test-report.html'
+    def gitShortCommit = config.gitShortCommit ?: env.GIT_SHORT_COMMIT
+    def gitBranch = config.gitBranch ?: env.GIT_BRANCH
+    def title = config.title ?: "PSMDB e2e tests - ${gitBranch} (${gitShortCommit})"
+    def pushToS3 = config.containsKey('pushToS3') ? config.pushToS3 : true
+
+    // HTML only. JUnit results come from TestsReport.xml (makeReportJUnit), which the pipelines publish;
+    // publishing a second merged XML here counted every test twice.
+    echo '=========================[ Publishing pytest HTML report ]========================='
+
+    def startedTests = tests.findAll { test ->
+        def result = test.containsKey('result') ? test.result : test['result']
+        result && result != 'skipped'
+    }
+
+    if (!startedTests) {
+        echo 'No started tests; skipping pytest report merge.'
+        return
+    }
+
+    try {
+        normalizeReports(tests, sourceDir)
+
+        sh """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            cd ${sourceDir}
+            uv run pytest_html_merger -i e2e-tests/reports -o "\$WORKSPACE/${reportHtml}" -t "${title}"
+        """
+
+        if (fileExists(reportHtml)) {
+            formatReportDuration(reportHtml)
+        }
+
+        archiveArtifacts artifacts: reportHtml, allowEmptyArchive: true
+
+        if (pushToS3 && gitShortCommit && fileExists(reportHtml)) {
+            pushReportFile(reportHtml, gitShortCommit)
+
+            def reportUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/${env.JOB_NAME}/${gitShortCommit}/${reportHtml}"
+            def reportLink = "<a href=\"${reportUrl}\">Test report</a>"
+            currentBuild.description = currentBuild.description ? "${currentBuild.description} | ${reportLink}" : reportLink
+        }
+    } catch (err) {
+        echo "Warning: optional HTML report publish failed: ${err}"
+    }
+}
+
+void makeReport(List tests, Map testVariables) {
+    echo '=========================[ Generating Parameters Report ]========================='
 
     def pipelineParameters = "testsuite name=${testVariables.job_name}\n"
     testVariables.images.each { key, value ->
         pipelineParameters += "${key}=${value ?: 'e2e_defaults'}\n"
     }
 
-    pipelineParameters += "platform_version=${testVariables.platform_version ?: 'e2e_defaults'}\n"
-    pipelineParameters += "platform_channel=${testVariables.platform_channel ?: 'e2e_defaults'}\n"
-    pipelineParameters += "platform_arch=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
-    pipelineParameters += "cluster_wide=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_VERSION=${testVariables.platform_version ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_CHANNEL=${testVariables.platform_channel ?: 'e2e_defaults'}\n"
+    pipelineParameters += "PLATFORM_ARCH=${testVariables.platform_arch ?: 'e2e_defaults'}\n"
+    pipelineParameters += "CLUSTER_WIDE=${testVariables.cluster_wide ?: 'e2e_defaults'}\n"
 
-    writeFile file: "TestsReport.xml", text: testsReport
-    writeFile file: "PipelineParameters.txt", text: pipelineParameters
+    writePipelineParameters(pipelineParameters)
+
+    publishPytestReports(
+        tests         : tests,
+        gitShortCommit: testVariables.git_short_commit,
+        gitBranch     : testVariables.git_branch,
+        title         : "${testVariables.operator} e2e tests - ${testVariables.git_branch ?: env.GIT_BRANCH} (${testVariables.git_short_commit})"
+    )
+}
+
+void makeReportJUnit(List tests, Map testVariables) {
+    echo '=========================[ Generating Test Report ]========================='
+    def testsReport = "<testsuite name=\"${testVariables.job_name}\">\n"
+    tests.each { test ->
+        testsReport += '<testcase name="' + test.name + '" time="' + test.time + '"><' + test.result + '/></testcase>\n'
+    }
+    testsReport += '</testsuite>\n'
+
+    echo '=========================[ Generating Parameters Report ]========================='
+    def pipelineParameters = "testsuite name=${testVariables.job_name}\n"
+    testVariables.images.each { key, value ->
+        pipelineParameters += "${key}=${value ?: 'e2e_defaults'}\n"
+    }
+    pipelineParameters += "PLATFORM_VER=${testVariables.platform_version}"
+    if (testVariables.platform == 'gke') {
+        pipelineParameters += "\nGKE_RELEASE_CHANNEL=${testVariables.platform_channel}"
+    }
+
+    writeFile file: 'TestsReport.xml', text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 
     addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
         text: "<pre>${pipelineParameters}</pre>"
     )
+}
+
+void shutdownLeftoverClusters(Map testVariables) {
+    def libraries = testVariables.libraries
+
+    testVariables.clusters.each { clusterSuffix ->
+        try {
+            def clusterCfg = [
+                clusterName  : testVariables.cluster_name,
+                clusterSuffix: clusterSuffix,
+                region       : testVariables.region,
+                zone         : testVariables.zone,
+                projectId    : testVariables.project_id,
+                kubeconfig   : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+            ]
+
+            if (!testVariables.skip_kubeconfig) {
+                libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
+            }
+
+            libraries[testVariables.platform.toLowerCase()].shutdownCluster(clusterCfg, libraries)
+        } catch (err) {
+            echo "Cleanup failed for ${clusterSuffix}: ${err}"
+        }
+    }
+}
+
+void finalizeJob(Map testVariables) {
+    if (!testVariables?.libraries) {
+        echo 'Skipping finalize: libraries not loaded'
+        return
+    }
+
+    echo 'CLUSTER ASSIGNMENTS\n' +
+        (testVariables.tests ?: []).toString()
+            .replace('], ', ']\n')
+            .replace(']]', ']')
+            .replaceFirst('\\[', '')
+
+    if (testVariables.tests) {
+        makeReportJUnit(testVariables.tests, testVariables)
+        if (testVariables.test_executor_type == 'make') {
+            makeReport(testVariables.tests, testVariables)
+        }
+    }
+
+    try {
+        def sendJobSlack = load('cloud/common/sendJobSlackNotification.groovy')
+        sendJobSlack.call(
+            tests          : testVariables.tests,
+            gitBranch      : testVariables.git_branch,
+            platformVer    : testVariables.platform_version,
+            platformChannel: testVariables.platform_channel,
+            platformArch   : testVariables.platform_arch,
+            clusterWide    : testVariables.cluster_wide,
+            image          : testVariables.images?.IMAGE_MYSQL ?: testVariables.images?.IMAGE_MONGOD ?: testVariables.images?.IMAGE_PXC ?: testVariables.images?.IMAGE_POSTGRESQL,
+            operatorImage  : testVariables.images?.IMAGE_OPERATOR
+        )
+    } catch (err) {
+        echo "Slack helper load/call failed: ${err}"
+    }
+
+    shutdownLeftoverClusters(testVariables)
+    testVariables.libraries.tools.dockerCleanupVolumes()
 }
 
 return this

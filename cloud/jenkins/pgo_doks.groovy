@@ -3,11 +3,15 @@ clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getPillarVersionKey() {
-    return "$PILLAR_VERSION".replace('-postgis', '')
+    return "$PILLAR_VERSION".replace('-postgis', '').replace('-community', '')
 }
 
 Boolean usePostgisImage() {
     return "$PILLAR_VERSION".endsWith('-postgis')
+}
+
+Boolean useCommunityImages() {
+    return "$PILLAR_VERSION".endsWith('-community')
 }
 
 String getParam(String paramName, String keyName = null) {
@@ -26,16 +30,24 @@ void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
         def pillarVersionKey = getPillarVersionKey()
+        if (useCommunityImages() && pillarVersionKey == '19' && "$UBI_VERSION" != 'UBI9') {
+            error('PostgreSQL 19 community images support UBI9 only.')
+        }
         def postgresImageKey = usePostgisImage() ? "IMAGE_POSTGIS${pillarVersionKey}" : "IMAGE_POSTGRESQL${pillarVersionKey}"
+        def ubiSuffix = ("$UBI_VERSION" == "UBI9") ? "" : "_${UBI_VERSION}"
+        if (useCommunityImages()) {
+            postgresImageKey = "IMAGE_POSTGRESQL${pillarVersionKey}_${UBI_VERSION}_COMMUNITY"
+        } else {
+            postgresImageKey += ubiSuffix
+        }
         env.IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
         env.IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", postgresImageKey)
-        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${pillarVersionKey}")
-        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${pillarVersionKey}")
+        env.IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", useCommunityImages() ? "IMAGE_PGBOUNCER_COMMUNITY" : "IMAGE_PGBOUNCER${pillarVersionKey}")
+        env.IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", useCommunityImages() ? "IMAGE_PGBACKREST_COMMUNITY" : "IMAGE_BACKREST${pillarVersionKey}")
         env.IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         env.IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        env.IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        env.IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
+        env.IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE", useCommunityImages() ? "IMAGE_UPGRADE_${UBI_VERSION}_COMMUNITY" : "IMAGE_UPGRADE${ubiSuffix}")
+        env.IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR", ("$UBI_VERSION" == "UBI10") ? "IMAGE_LOGCOLLECTOR_UBI10" : "IMAGE_LOGCOLLECTOR")
 
 
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
@@ -49,6 +61,17 @@ void initParams() {
         withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
             PLATFORM_VER = sh(script: "doctl kubernetes options versions | awk 'NR==2 { print \$2 }'", returnStdout: true).trim()
             echo "Latest platform version is $PLATFORM_VER"
+        }
+    }
+
+    // Fail fast on an unavailable version instead of on every create attempt.
+    withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+        def offered = sh(
+            script: """doctl kubernetes options versions --output json | jq -e --arg v "${PLATFORM_VER}" 'any(.[]; .kubernetes_version == \$v)' >/dev/null""",
+            returnStatus: true
+        ) == 0
+        if (!offered) {
+            error("DOKS does not offer Kubernetes version ${PLATFORM_VER}")
         }
     }
 
@@ -72,7 +95,7 @@ void prepareSources() {
 
 void createHash() {
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_UPGRADE-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = ("jenkins-" + JOB_NAME.replaceAll('_', '-') + "-" + GIT_SHORT_COMMIT).toLowerCase().trim()
 }
 
@@ -115,7 +138,7 @@ void dockerBuildPush() {
                 sg docker -c "
                     echo '$PASS' | docker login -u '$USER' --password-stdin
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
+                    make build
                     docker logout
                 "
                 sudo rm -rf build
@@ -201,6 +224,32 @@ void clusterRunner(String cluster) {
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
+    def maxAttempts = 2
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            createClusterOnce(CLUSTER_SUFFIX)
+            return
+        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+            throw e
+        } catch (Exception e) {
+            if (attempt == maxAttempts) {
+                throw e
+            }
+            echo "Cluster creation failed (attempt ${attempt}/${maxAttempts}): ${e.getMessage()}. Deleting the partial cluster before retrying."
+            try {
+                shutdownCluster(CLUSTER_SUFFIX)
+            } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException ie) {
+                throw ie
+            } catch (Exception shutdownErr) {
+                echo "Warning: cleanup of the partial cluster failed: ${shutdownErr.getMessage()}"
+            }
+            sleep(time: 30, unit: 'SECONDS')
+        }
+    }
+}
+
+void createClusterOnce(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
@@ -211,31 +260,37 @@ void createCluster(String CLUSTER_SUFFIX) {
             cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
             cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
 
-            create_cluster() {
-                doctl kubernetes cluster create "\$cluster" \
-                    --region "$DO_REGION" \
-                    --version "\$cluster_version" \
-                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+            if [ -z "\$cluster_version" ]; then
+                echo "DOKS does not offer Kubernetes version $PLATFORM_VER" >&2
+                exit 1
+            fi
 
-                doctl kubernetes cluster kubeconfig save "\$cluster"
-            }
+            # Retries and cleanup of a failed create are done by createCluster().
+            doctl kubernetes cluster create "\$cluster" \
+                --region "$DO_REGION" \
+                --version "\$cluster_version" \
+                --tag "delete-cluster-after-hours:6" \
+                --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+            doctl kubernetes cluster kubeconfig save "\$cluster"
+
+            # A cluster that is "running" in DO but unreachable or without Ready nodes counts as a failed create.
+            for ((n=1;n<=30;n++)); do
+                [ -n "\$(kubectl get nodes --no-headers 2>/dev/null)" ] && break
+                sleep 10
+            done
+            kubectl wait --for=condition=Ready nodes --all --timeout=300s
 
             assign_cluster_to_project() {
-                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
-                urn="do:kubernetes:\$cluster_id"
-
-                doctl projects resources assign "$PROJECT" --resource "\$urn"
+                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header) &&
+                doctl projects resources assign "$PROJECT" --resource "do:kubernetes:\$cluster_id"
             }
 
-            max_retries=15
-            for ((i=1;i<=max_retries;i++)); do
-                if create_cluster && assign_cluster_to_project; then
-                    break
-                fi
-
-                echo "Retry \$i/\$max_retries"
-                sleep 2
-            done
+            # Project assignment is bookkeeping only: retry it on its own and never recreate the cluster for it.
+            for ((i=1;i<=5;i++)); do
+                assign_cluster_to_project && break
+                echo "Project assignment failed (attempt \$i/5)"
+                sleep 10
+            done || true
         """
     }
 }
@@ -263,16 +318,21 @@ void runTest(Integer TEST_ID) {
                             export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
                             export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')
                         fi
+                        export K8S_UPGRADE_PLATFORM=doks
+                        export K8S_UPGRADE_REGION=$DO_REGION
                         export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
                         export IMAGE_BACKREST=$IMAGE_BACKREST
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                        export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
-                        export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                         export IMAGE_UPGRADE=$IMAGE_UPGRADE
+                        export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
                         export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
+                        if [[ "$PILLAR_VERSION" == *-community ]]; then
+                            export PG_DISTRIBUTION=community
+                            export PG_VER="\${PILLAR_VERSION%-community}"
+                        fi
 
                         kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
@@ -281,6 +341,20 @@ void runTest(Integer TEST_ID) {
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
+        }
+        catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+            // Only the 90 minute test timeout may be handled here. A user abort or the stage timeout
+            // fires earlier and must stop the build instead of being retried as a test failure.
+            if (new Date().getTime() - timeStart < 90 * 60 * 1000) {
+                throw exc
+            }
+            echo "The $testName test timed out after 90 minutes"
+            if (retryCount >= 1) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
         }
         catch (exc) {
             echo "Error occurred while running test $testName: $exc"
@@ -331,9 +405,8 @@ void makeReport() {
         IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
         IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
         IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-        IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
-        IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
         IMAGE_UPGRADE=${IMAGE_UPGRADE ?: 'e2e_defaults'}
+        IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
         PLATFORM_VER=$PLATFORM_VER
     """.trim().replaceAll('  ', '')
 
@@ -348,7 +421,8 @@ void makeReport() {
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            DOKS_CLUSTER_NAME="${CLUSTER_NAME}-${CLUSTER_SUFFIX}"
+            export KUBECONFIG="/tmp/\$DOKS_CLUSTER_NAME"
             namespaces=\$(kubectl get ns -o json 2>/dev/null || echo '{}')
             echo "\$namespaces" \
             | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
@@ -361,7 +435,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete svc --all -n "\$ns" || true
             done
 
-            doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
+            doctl kubernetes cluster delete "\$DOKS_CLUSTER_NAME" --force --dangerous || true
         """
     }
     clusters.remove("$CLUSTER_SUFFIX")
@@ -369,10 +443,11 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     parameters {
-        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-pr.csv', 'run-minikube.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-pr.csv', 'run-minikube.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '15', '15-postgis', '16', '16-postgis', '17', '17-postgis', '18', '18-postgis'], description: 'For release runs. PG version to test. Use -postgis to take PostGIS images from release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '14', '14-postgis', '14-community', '15', '15-postgis', '15-community', '16', '16-postgis', '16-community', '17', '17-postgis', '17-community', '18', '18-postgis', '18-community', '19-community'], description: 'For release runs. PG version to test. Use -postgis or -community to select those images from release_versions. PostgreSQL 19 community supports UBI9 only.')
+        choice(name: 'UBI_VERSION', choices: ['UBI9', 'UBI8', 'UBI10'], description: 'Base image for official, PostGIS, and community pillars. Official/PostGIS UBI9 uses unsuffixed keys; community is UBI8/UBI9 only.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean Kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
@@ -381,11 +456,10 @@ pipeline {
         string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
         string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
         string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
-        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
-        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
-        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-logcollector')
         string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital Ocean region to use for cluster')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
         choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
@@ -462,6 +536,46 @@ pipeline {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
+                    }
+                }
+                stage('cluster6') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster6')
+                    }
+                }
+                stage('cluster7') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster7')
+                    }
+                }
+                stage('cluster8') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster8')
                     }
                 }
             }

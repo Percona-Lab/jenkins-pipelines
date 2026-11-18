@@ -14,4 +14,4 @@
       lightweight-checkout: false
       script-path: ps/jenkins/check_mysql_repo.groovy
     triggers:
-      - timed: "H * 8-28 1,4,7,10 *"
+      - timed: "H * 8-28 * *"

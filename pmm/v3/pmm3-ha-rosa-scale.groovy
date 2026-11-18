@@ -18,7 +18,7 @@ pipeline {
         choice(
             name: 'WORKER_NODE_COUNT',
             choices: ['3', '4', '5', '6'],
-            description: 'Target worker node count (baseline is 3, max 6)'
+            description: 'Target worker node count (baseline is 4, max 6)'
         )
     }
 
@@ -26,14 +26,16 @@ pipeline {
         REGION = "us-east-2"
         CREATE_JOB = "pmm3-ha-rosa"
         MACHINEPOOL = "workers"
-        KUBECONFIG = "${HOME}/.kube/rosa-scale-${BUILD_NUMBER}"
+        KUBECONFIG = "${WORKSPACE}/kubeconfig"
         PATH = "${HOME}/.local/bin:${PATH}"
     }
 
     stages {
         stage('Install Tools') {
             steps {
-                withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
+                                                 usernameVariable: 'ROSA_CLIENT_ID',
+                                                 passwordVariable: 'ROSA_CLIENT_SECRET')]) {
                     sh '''
                         mkdir -p $HOME/.local/bin
 
@@ -51,13 +53,13 @@ pipeline {
                             rm -f oc.tar.gz
                         fi
 
-                        rosa login --token="${ROSA_TOKEN}"
+                        rosa login --client-id="${ROSA_CLIENT_ID}" --client-secret="${ROSA_CLIENT_SECRET}"
                     '''
                 }
             }
         }
 
-        stage('Fetch Admin Credentials') {
+        stage('Fetch kubeconfig') {
             steps {
                 script {
                     def cluster = params.CLUSTER_NAME.trim()
@@ -66,11 +68,10 @@ pipeline {
                     }
                     env.CLUSTER_NAME = cluster
                     def buildNumber = cluster.substring('pmm-ha-rosa-'.length())
-                    // Reuse cluster-admin password, the one create build already generated
                     copyArtifacts(
                         projectName: env.CREATE_JOB,
                         selector: specific(buildNumber),
-                        filter: 'api-url.txt,cluster-admin-password.txt'
+                        filter: 'kubeconfig'
                     )
                 }
             }
@@ -95,13 +96,6 @@ pipeline {
                             --region="${REGION}" \
                             --replicas="${WORKER_NODE_COUNT}" \
                             "${MACHINEPOOL}"
-
-                        set +x
-                        oc login "$(cat api-url.txt)" \
-                            --username=cluster-admin \
-                            --password="$(cat cluster-admin-password.txt)" \
-                            --insecure-skip-tls-verify=true
-                        set -x
 
                         echo "Waiting for exactly ${WORKER_NODE_COUNT} Ready worker nodes (timeout: 20m)..."
                         for i in $(seq 1 40); do

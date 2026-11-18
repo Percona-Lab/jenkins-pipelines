@@ -63,7 +63,7 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '100', artifactNumToKeepStr: '10'))
         retry(conditions: [agent()], count: 2)
     }
     stages {
@@ -88,6 +88,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group ppg/${SCENARIO}"
                 }
             }
         }

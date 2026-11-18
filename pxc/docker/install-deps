@@ -264,7 +264,7 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 10 ]]; then
         retry yum -y install ${PKGLIST_DEVTOOLSET15}
     elif [[ ${RHVER} -eq 9 ]]; then
-        retry yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}
+        retry yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}
     elif [[ ${RHVER} -eq 8 ]]; then
         retry yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}
     elif [[ ${RHVER} -eq 7 ]]; then

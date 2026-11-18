@@ -1,3 +1,73 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
+def notifySlack(String color, String message) {
+    if (!params.NOTIFY) {
+        return
+    }
+
+    def text = "[${env.JOB_NAME}]: ${message}\nCluster: ${env.CLUSTER_NAME ?: 'not created'} | Owner: @${env.OWNER ?: 'unknown'} | Build: ${env.BUILD_URL}"
+
+    slackSend botUser: true, channel: '#pmm-notifications', color: color, message: text
+}
+
+// Writes ${WORKSPACE}/kubeconfig with a ServiceAccount token inside it, so the artifact works with a
+// bare kubectl. The token never expires, so it stays valid until the cluster is deleted.
+def mintAdminKubeconfig() {
+    sh '''
+        set +x   # Jenkins runs sh with -xe; keep the token out of the console
+
+        MINT_OUT="${WORKSPACE}/kubeconfig"
+
+        kubectl -n kube-system create serviceaccount pmm-ha-admin
+        kubectl create clusterrolebinding pmm-ha-admin \
+            --clusterrole=cluster-admin \
+            --serviceaccount=kube-system:pmm-ha-admin
+
+        # Unlike "kubectl create token", the token in this Secret never expires.
+        kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pmm-ha-admin-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: pmm-ha-admin
+type: kubernetes.io/service-account-token
+EOF
+
+        echo "Waiting for the token controller to populate the secret..."
+        for i in $(seq 1 30); do
+            TOKEN=$(kubectl -n kube-system get secret pmm-ha-admin-token -o jsonpath='{.data.token}' | base64 -d)
+            if [ -n "${TOKEN}" ]; then
+                break
+            fi
+            sleep 2
+        done
+
+        if [ -z "${TOKEN}" ]; then
+            echo "ERROR: the token secret was not populated after 60 seconds."
+            exit 1
+        fi
+
+        # Copy the working config so the server URL and TLS settings carry over as-is.
+        kubectl config view --raw --minify --flatten > "${MINT_OUT}"
+
+        # Swap the copied credential for the ServiceAccount token
+        kubectl --kubeconfig "${MINT_OUT}" config unset users
+        kubectl --kubeconfig "${MINT_OUT}" config set-credentials pmm-ha-admin --token="${TOKEN}"
+        kubectl --kubeconfig "${MINT_OUT}" config set-context --current --user=pmm-ha-admin
+        chmod 600 "${MINT_OUT}"
+
+        # Check the file works with the AWS credentials taken away. Nothing else in this build
+        # touches it, so this is its only test.
+        env -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
+            kubectl --kubeconfig "${MINT_OUT}" get nodes
+    '''
+}
+
 def cleanupCluster() {
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
@@ -17,7 +87,7 @@ def cleanupCluster() {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
 
     options {
@@ -26,25 +96,64 @@ pipeline {
     }
 
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         choice(
             name: 'K8S_VERSION',
             choices: ['1.35', '1.34', '1.33'],
             description: 'Select Kubernetes cluster version'
         )
+        choice(
+            name: 'WORKER_COUNT',
+            choices: ['7', '8', '9', '10', '11', '12', '6'],
+            description: 'Worker nodes in the spot nodegroup. 7 fits the minimal RESOURCE_PROFILE; raise it when overriding replicas via HELM_VALUES. Ignored with the chart profile, which always uses 12.'
+        )
+        booleanParam(
+            name: 'DEPLOY_PMM',
+            defaultValue: true,
+            description: 'Deploy PMM HA after the cluster is created. Uncheck to get a bare cluster - the PMM parameters below are then ignored.'
+        )
         string(
             name: 'HELM_CHART_BRANCH',
             defaultValue: 'main',
-            description: 'Branch of percona-helm-charts repo'
+            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. main or a branch based on it.'
+        )
+        choice(
+            name: 'RESOURCE_PROFILE',
+            choices: ['minimal', 'chart'],
+            description: 'PMM HA resources: "minimal" fits the default 7 workers, "chart" keeps the pmm-ha chart values and always creates 12 workers.'
         )
         string(
             name: 'PMM_IMAGE_REPOSITORY',
             defaultValue: '',
-            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
+            description: 'PMM image repository override (initial value is pulled from the Helm chart), i.e. "perconalab/pmm-server-fb" for feature builds'
         )
         string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM image tag override (initial value is pulled from the Helm chart)'
+            description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
+        )
+        string(
+            name: 'PMM_CLIENT_IMAGE_REPOSITORY',
+            defaultValue: '',
+            description: 'PMM Client image repository override. Empty follows PMM_IMAGE_REPOSITORY, i.e. "perconalab/pmm-server-fb" gives "perconalab/pmm-client-fb", or the Helm chart value when that is empty too'
+        )
+        string(
+            name: 'PMM_CLIENT_IMAGE_TAG',
+            defaultValue: '',
+            description: 'PMM Client image tag override. Empty uses PMM_IMAGE_TAG, or the Helm chart value when that is empty too'
+        )
+        text(
+            name: 'PMM_ENV_VARIABLE',
+            defaultValue: '',
+            description: 'Environment variables for the PMM Server containers, one KEY=VALUE per line. Merged into the pmmEnv values of the chart. Example: PMM_DEBUG=1'
+        )
+        string(
+            name: 'HELM_VALUES',
+            defaultValue: '',
+            description: 'Extra pmm-ha chart overrides passed to helm --set, they win over every other parameter. Example: replicas=2,storage.size=20Gi'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -61,17 +170,46 @@ pipeline {
             defaultValue: false,
             description: 'Enable external access for PMM HA (creates LoadBalancer)'
         )
+        booleanParam(
+            name: 'NOTIFY',
+            defaultValue: true,
+            description: 'Post the build status to #pmm-notifications and DM the build owner'
+        )
     }
 
      environment {
         CLUSTER_NAME = "pmm-ha-test-${BUILD_NUMBER}"
         REGION = "us-east-2"
-        KUBECONFIG = "${WORKSPACE}/kubeconfig"
+        // The build's own config. Kept out of the workspace so ${WORKSPACE}/kubeconfig is only the artifact.
+        KUBECONFIG = "${HOME}/.kube/eks-${BUILD_NUMBER}"
     }
 
     stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    // sets env.OWNER, used by notifySlack
+                    getPMMBuildParams('pmm-ha-')
+                    notifySlack('#0000FF', 'build started')
+                }
+            }
+        }
+
         stage('Write Cluster Config') {
             steps {
+                script {
+                    // environment{} block vars are applied via withEnv and are only visible to steps in
+                    // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
+                    // via buildVariables to any caller using build job: 'pmm3-ha-eks'.
+                    env.CLUSTER_NAME = env.CLUSTER_NAME
+
+                    // The chart profile does not fit on fewer workers, so it overrides WORKER_COUNT.
+                    env.NODE_COUNT = params.RESOURCE_PROFILE == 'chart' ? '12' : params.WORKER_COUNT
+
+                    // The client follows the server image unless it is given its own.
+                    env.PMM_CLIENT_REPO = params.PMM_CLIENT_IMAGE_REPOSITORY ?: params.PMM_IMAGE_REPOSITORY.replace('pmm-server', 'pmm-client')
+                    env.PMM_CLIENT_TAG = params.PMM_CLIENT_IMAGE_TAG ?: params.PMM_IMAGE_TAG
+                }
                 sh '''
                     cat > cluster-config.yaml <<EOF
 apiVersion: eksctl.io/v1alpha5
@@ -111,9 +249,9 @@ managedNodeGroups:
       - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 6
+    minSize: ${NODE_COUNT}
     maxSize: 12
-    desiredCapacity: 6
+    desiredCapacity: ${NODE_COUNT}
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -161,42 +299,43 @@ EOF
             }
         }
 
-        stage('Configure Cluster Access') {
+        stage('Grant pmm-qa GHA Access') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        grant_admin() {
-                            local arn="$1"
+                        # Granting the pmm-qa GitHub Actions OIDC role edit access scoped
+                        # to the pmm namespace. QA workflows test against the PMM HA this
+                        # job deploys. Cluster-scoped objects (operator CRDs, storage
+                        # classes, nodes) stay with this job's credentials. The role name
+                        # is defined by the gha_pmm_qa_eks module in percona-cd-platform.
+                        # No fallback on purpose: a missing role fails the stage here
+                        # instead of surfacing later as an opaque GHA auth error.
+                        GHA_ROLE_ARN=$(aws iam get-role \
+                            --role-name percona-ci-platform-gha-pmm-qa-eks \
+                            --query Role.Arn --output text)
 
-                            aws eks create-access-entry \
-                                --cluster-name "${CLUSTER_NAME}" \
-                                --region "${REGION}" \
-                                --principal-arn "${arn}"
+                        aws eks create-access-entry \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}"
 
-                            aws eks associate-access-policy \
-                                --cluster-name "${CLUSTER_NAME}" \
-                                --region "${REGION}" \
-                                --principal-arn "${arn}" \
-                                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-                                --access-scope type=cluster
-                        }
-
-                        # Granting access to IAM group members
-                        for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
-                            grant_admin "${arn}"
-                        done
-
-                        # Granting access to SSO admin role
-                        grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
+                        aws eks associate-access-policy \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn "${GHA_ROLE_ARN}" \
+                            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy \
+                            --access-scope type=namespace,namespaces=pmm
                     '''
                 }
             }
         }
 
-        stage('Export kubeconfig') {
+        stage('Configure kubectl Access') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
+                        mkdir -p "${HOME}/.kube"
+
                         aws eks update-kubeconfig \
                             --name "${CLUSTER_NAME}" \
                             --region "${REGION}" \
@@ -205,6 +344,9 @@ EOF
                         kubectl cluster-info
                         kubectl get nodes
                     '''
+
+                    // kubectl still authenticates through IAM here - the ServiceAccount is what replaces it.
+                    mintAdminKubeconfig()
                 }
             }
         }
@@ -258,6 +400,9 @@ EOF
         }
 
         stage('Install PMM HA') {
+            when {
+                expression { params.DEPLOY_PMM }
+            }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     dir('helm-charts') {
@@ -294,20 +439,95 @@ EOF
                             --from-literal=GF_PASSWORD="${GF_PW}" \
                             --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
                             --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
+                            --from-literal=PMM_HA_VM_USERNAME="victoriametrics_pmm" \
+                            --from-literal=PMM_HA_VM_PASSWORD="${VM_PW}" \
                             --dry-run=client -o yaml | kubectl apply -f -
 
                         helm dependency update helm-charts/charts/pmm-ha
 
+                        # Fold PMM_ENV_VARIABLE into the pmmEnv values of the chart. They end up in a
+                        # ConfigMap, whose data must be strings, hence --set-string rather than --set.
+                        PMM_ENV_ARGS=""
+                        for kv in ${PMM_ENV_VARIABLE}; do
+                            case "${kv}" in
+                                *=*) PMM_ENV_ARGS="${PMM_ENV_ARGS} --set-string pmmEnv.${kv}" ;;
+                                *)   echo "ERROR: PMM_ENV_VARIABLE entry '${kv}' is not a KEY=VALUE pair"; exit 1 ;;
+                            esac
+                        done
+
+                        # Smaller resources that fit PMM HA on the default 7 workers. helm applies -f
+                        # before --set, so HELM_VALUES can still override any of these.
+                        RESOURCE_ARGS=""
+                        if [ "${RESOURCE_PROFILE}" = "minimal" ]; then
+                            RESOURCE_ARGS="-f minimal-resources.yaml"
+                            cat > minimal-resources.yaml <<'EOF'
+pmmResources:
+  requests:
+    cpu: "2"
+    memory: "3Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+clickhouse:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  keeper:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+  storage:
+    size: 20Gi
+victoriaMetrics:
+  vmselect:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+  vmagent:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+  vmstorage:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+EOF
+                        fi
+
                         set +e
 
                         helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                            ${RESOURCE_ARGS} \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             --wait --timeout 15m \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
-                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
+                            ${PMM_CLIENT_REPO:+--set pmmClient.image.repository=${PMM_CLIENT_REPO}} \
+                            ${PMM_CLIENT_TAG:+--set pmmClient.image.tag=${PMM_CLIENT_TAG}} \
+                            --set-string pmmEnv.PMM_DEV_TELEMETRY_DISABLE_SEND=1 \
+                            ${PMM_ENV_ARGS} \
+                            ${HELM_VALUES:+--set ${HELM_VALUES}}
 
                         HELM_EXIT_CODE=$?
 
@@ -337,6 +557,25 @@ EOF
 
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=600s
+                        kubectl wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=600s
+
+                        # The PG operator restarts the pg-db pods to add the pmm-client sidecar once pmm-token-init writes the
+                        # PMM token; tests started during that restart hit PMM-15716, so wait until every pod has the sidecar.
+                        kubectl wait --for=condition=complete job -l app.kubernetes.io/instance=pmm-ha,app.kubernetes.io/component=pmm-token-init -n pmm --timeout=600s
+                        PG_PODS='postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres'
+                        for i in $(seq 90); do
+                          pods=$(kubectl get pods -n pmm -l "$PG_PODS" -o jsonpath='{range .items[*]}{.spec.containers[*].name};{end}')
+                          [ -n "$pods" ] && [ "$(echo "$pods" | grep -o ';' | wc -l)" -eq "$(echo "$pods" | grep -o 'pmm-client' | wc -l)" ] && break
+                          [ "$i" -lt 90 ] || { echo "pg-db pods did not get the pmm-client sidecar within 15m"; kubectl get pods -n pmm -l "$PG_PODS"; exit 1; }
+                          sleep 10
+                        done
+                        kubectl wait --for=condition=ready pod -l "$PG_PODS" -n pmm --timeout=600s
                         kubectl get pods -n pmm
                     '''
                 }
@@ -345,7 +584,7 @@ EOF
 
         stage('Configure External Access') {
             when {
-                expression { params.ENABLE_EXTERNAL_ACCESS }
+                expression { params.DEPLOY_PMM && params.ENABLE_EXTERNAL_ACCESS }
             }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
@@ -383,9 +622,6 @@ EOF
 
         stage('Cluster Summary') {
             steps {
-                script {
-                    env.PMM_URL = env.PMM_URL ?: "https://localhost:8443"
-                }
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set +x
@@ -404,6 +640,18 @@ EOF
                         kubectl get storageclass
                         echo ""
 
+                        echo "kubectl access (local):"
+                        echo "  # Download the kubeconfig artifact - no aws CLI or credentials needed."
+                        echo "  export KUBECONFIG=./kubeconfig"
+                        echo ""
+
+                        echo "Scale workers:"
+                        echo "  Run the pmm3-ha-eks-scale job with CLUSTER_NAME=${CLUSTER_NAME} (6-12 workers)"
+                        echo ""
+
+                        # Everything below describes PMM, so a bare cluster stops here.
+                        [ "${DEPLOY_PMM}" = "true" ] || exit 0
+
                         echo "Internal Component Credentials"
                         echo "------------------------------"
 
@@ -414,14 +662,10 @@ EOF
                         echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
                         echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
                         echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
-                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
+                        echo "VictoriaMetrics: $(get_secret PMM_HA_VM_USERNAME) / $(get_secret PMM_HA_VM_PASSWORD)"
                         echo ""
 
-                        echo "Access Information"
-                        echo "------------------------------"
-
-                        echo "kubectl access (local):"
-                        echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
+                        echo "PMM access:"
                         echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
                         echo "  # Then access https://localhost:8443"
                         echo ""
@@ -448,17 +692,23 @@ EOF
     post {
         success {
             script {
-                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | PMM: ${env.PMM_URL}"
+                // env.PMM_URL is only set when the LoadBalancer stage ran.
+                def pmmStatus = params.DEPLOY_PMM ? (env.PMM_URL ?: 'port-forward required') : 'not deployed'
+
+                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | PMM: ${pmmStatus}"
+                notifySlack('#00FF00', "cluster is ready, it expires in ${params.RETENTION_DAYS} day(s)\nPMM: ${pmmStatus}")
             }
             echo "Cluster ${CLUSTER_NAME} created successfully."
             echo "Download the kubeconfig artifact to access the cluster."
         }
         failure {
+            notifySlack('#FF0000', 'build failed, cleaning up')
             echo "Build FAILED — cleaning up cluster"
             archiveArtifacts artifacts: 'helm-debug/**', allowEmptyArchive: true
             cleanupCluster()
         }
         aborted {
+            notifySlack('#808080', 'build aborted, cleaning up')
             echo "Build ABORTED — cleaning up cluster"
             cleanupCluster()
         }

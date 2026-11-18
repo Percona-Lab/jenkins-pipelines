@@ -83,7 +83,7 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(numToKeepStr: '50'))
         retry(conditions: [agent()], count: 2)
     }
     stages {
@@ -104,6 +104,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group psp/performance_tests"
                 }
             }
         }

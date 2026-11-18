@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(psp_repo, psp_branch, version, testsuite, percona_server_version, io_method, tde_branch) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nTestsuite: ${testsuite}\nPercona_Server_Version: ${percona_server_version}\nIO_Method: ${io_method}\nTDE_Branch: ${tde_branch}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
@@ -80,7 +84,8 @@ pipeline {
         withCredentials(moleculeDistributionJenkinsCreds())
         disableConcurrentBuilds()
         buildDiscarder(logRotator(
-            numToKeepStr: '10',
+            daysToKeepStr: '30',
+            numToKeepStr: '100',
             artifactNumToKeepStr: '10'
         ))
         retry(conditions: [agent()], count: 2)
@@ -103,6 +108,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group psp/server_tests"
                 }
             }
         }

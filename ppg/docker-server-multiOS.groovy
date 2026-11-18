@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(repo, version, tag, with_postgis) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nDocker-tag: ${tag}\nWith_PostGIS: ${with_postgis}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
@@ -33,13 +37,10 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
-        choice(
+        string(
             name: 'REPOSITORY',
-            description: 'Docker hub repository to use for docker images.',
-            choices: [
-                'percona',
-                'perconalab'
-            ]
+            defaultValue: 'percona',
+            description: 'Image repository prefix; the image name is appended to it. e.g. percona, perconalab, or an OBS registry path.'
         )
         booleanParam(
             name: 'WITH_POSTGIS',
@@ -50,6 +51,11 @@ pipeline {
             defaultValue: true,
             description: 'Destroy VM after tests'
         )
+        string(
+            name: 'RUN_LABELS',
+            defaultValue: 'Manual',
+            description: 'Optional comma-separated labels to categorize this run, e.g. Manual, Nightly, Release.'
+        )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -57,7 +63,7 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        buildDiscarder(logRotator(numToKeepStr: '100'))
+        buildDiscarder(logRotator(daysToKeepStr: '30', numToKeepStr: '100', artifactNumToKeepStr: '10'))
         disableConcurrentBuilds()
         retry(conditions: [agent()], count: 2)
     }
@@ -83,6 +89,7 @@ pipeline {
             steps {
                 script {
                     installMoleculePython39()
+                    sh "python3 tools/render.py --group docker/ppg-docker"
                 }
             }
         }

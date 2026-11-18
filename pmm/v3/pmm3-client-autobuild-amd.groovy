@@ -163,6 +163,14 @@ pipeline {
                         }
                     }
                 }
+                stage('Set package release') {
+                    when {
+                        expression { params.DESTINATION == 'experimental' }
+                    }
+                    steps {
+                        sh 'echo "$(cat VERSION)-$(date +%s)" > VERSION.new && mv VERSION.new VERSION'
+                    }
+                }
                 stage('Build client source rpm') {
                     steps {
                         sh '''
@@ -229,11 +237,6 @@ pipeline {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
                             }
                         }
-                        stage('Build client binary deb Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                            }
-                        }
                         stage('Build client binary deb Jammy') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
@@ -272,7 +275,8 @@ pipeline {
                     env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                     build job: 'pmm3-client-repo-push', parameters: [
                         string(name: 'DESTINATION', value: params.DESTINATION),
-                        string(name: 'UPLOAD_PATH', value: env.UPLOAD_PATH)
+                        string(name: 'UPLOAD_PATH', value: env.UPLOAD_PATH),
+                        string(name: 'TARBALL_ARCH', value: 'x86_64')
                     ]
                 }
             }

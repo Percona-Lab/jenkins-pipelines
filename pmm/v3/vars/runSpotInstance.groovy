@@ -1,127 +1,109 @@
-def call(String INSTANCE_TYPE) {
-  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}"]) {
+def call(String INSTANCE_TYPE, boolean USE_ONDEMAND = false, String ARCH = 'x86_64') {
+  // t4g.xlarge alone often has no spot capacity. These three are interchangeable (arm64,
+  // 4 vCPU, 16 GiB), so trying all of them usually finds one. Other types are left as-is.
+  String CANDIDATE_TYPES = (ARCH == 'arm64' && INSTANCE_TYPE == 't4g.xlarge') ? 't4g.xlarge m6g.xlarge m7g.xlarge' : INSTANCE_TYPE
+
+  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}", "USE_ONDEMAND=${USE_ONDEMAND}", "ARCH=${ARCH}", "CANDIDATE_TYPES=${CANDIDATE_TYPES}"]) {
     withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
             set -o xtrace
-            declare IMAGE_ID SUBNET SG1 SG2 SG3 SPOT_PRICE
+            declare IMAGE_ID SUBNETS MARKET_OPTS TAGS
 
             IMAGE_ID=$(
                 aws ec2 describe-images \
                     --owners self \
-                    --filters "Name=tag:iit-billing-tag,Values=pmm-worker-3" "Name=architecture,Values=x86_64" \
+                    --filters "Name=tag:iit-billing-tag,Values=pmm-worker-3" "Name=architecture,Values=${ARCH}" \
                     --region us-east-2 \
                     --output text \
                     --query 'Images[0].ImageId'
             )
-            SUBNET=$(
+            if [ -z "$IMAGE_ID" ] || [ "$IMAGE_ID" = "None" ]; then
+                echo "No pmm-worker-3 AMI tagged for $ARCH in us-east-2"
+                exit 1
+            fi
+
+            # capacity is per-AZ, so walk every pmm-staging subnet instead of drawing one
+            SUBNETS=$(
                 aws ec2 describe-subnets \
                     --region us-east-2 \
                     --output text \
                     --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
                     --query 'Subnets[].SubnetId' \
                     | tr '\t' '\n' \
-                    | sort --random-sort \
-                    | head -1
+                    | sort --random-sort
             )
-            SPOT_PRICE=$(
-                aws ec2 describe-spot-price-history \
-                    --instance-types $INSTANCE_TYPE \
-                    --region us-east-2 \
-                    --output text \
-                    --product-description "Linux/UNIX (Amazon VPC)" \
-                    --query 'SpotPriceHistory[0].SpotPrice'
-            )
+            if [ -z "$SUBNETS" ]; then
+                echo "No pmm-staging subnets found in us-east-2"
+                exit 1
+            fi
 
-            PRICE_MULTIPLIER=1
-            while true; do
-                # increase price by 15% each time
-                SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
-                echo $SPOT_PRICE > SPOT_PRICE
+            MARKET_OPTS=""
+            if [ "$USE_ONDEMAND" != "true" ]; then
+                MARKET_OPTS="--instance-market-options MarketType=spot"
+            fi
 
-                cat > config.json <<EOF
-                  {
-                    "DryRun": false,
-                    "InstanceCount": 1,
-                    "InstanceInterruptionBehavior": "terminate",
-                    "LaunchSpecification": {
-                        "EbsOptimized": false,
-                        "ImageId": "$IMAGE_ID",
-                        "InstanceType": "$INSTANCE_TYPE",
-                        "KeyName": "jenkins",
-                        "Monitoring": {
-                            "Enabled": false
-                        },
-                        "IamInstanceProfile": {
-                            "Name": "pmm-staging-slave"
-                        },
-                        "SecurityGroupIds": [
-                            "sg-cd39dba6",
-                            "sg-9f3cdef4",
-                            "sg-0cbb55499c1e70fb7"
-                        ],
-                        "SubnetId": "$SUBNET"
-                    },
-                    "SpotPrice": "$SPOT_PRICE",
-                    "Type": "persistent"
-                  }
-EOF
+            # tag at launch, so the VM is never running while invisible to aws-staging-stop
+            TAGS="[{Key=Name,Value=$VM_NAME},{Key=iit-billing-tag,Value=pmm-staging},{Key=stop-after-days,Value=$DAYS},{Key=owner,Value=$OWNER}]"
 
-                REQUEST_ID=$(
-                    aws ec2 request-spot-instances \
-                        --output text \
+            : > AMI_ID
+            for SUBNET in $SUBNETS; do
+                for TYPE in $CANDIDATE_TYPES; do
+                    # run-instances answers synchronously: either an id, or an error and no VM
+                    if aws ec2 run-instances \
                         --region us-east-2 \
-                        --cli-input-json file://config.json \
-                        --query 'SpotInstanceRequests[].SpotInstanceRequestId' \
-                        | tee REQUEST_ID
-                )
-
-                ATTEMPTS=2
-                until [ -s IP ] || [ $ATTEMPTS -eq 0 ]; do
-                    sleep 5
-                    aws ec2 describe-instances \
-                        --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
-                        --query 'Reservations[].Instances[].PublicIpAddress' \
+                        --image-id "$IMAGE_ID" \
+                        --instance-type "$TYPE" \
+                        --key-name jenkins \
+                        --iam-instance-profile Name=pmm-staging-slave \
+                        --security-group-ids sg-cd39dba6 sg-9f3cdef4 sg-0cbb55499c1e70fb7 \
+                        --subnet-id "$SUBNET" \
+                        --count 1 \
+                        $MARKET_OPTS \
+                        --tag-specifications "ResourceType=instance,Tags=$TAGS" "ResourceType=volume,Tags=$TAGS" \
                         --output text \
-                        --region us-east-2 \
-                        | tee IP
-                    ATTEMPTS=$((ATTEMPTS-1))
+                        --query 'Instances[].InstanceId' > AMI_ID 2> run.err
+                    then
+                        break 2
+                    fi
+
+                    # only a capacity refusal is worth another subnet or type
+                    cat run.err
+                    grep -qE 'InsufficientInstanceCapacity|InsufficientFreeAddressesInSubnet|SpotMaxPriceTooLow|MaxSpotInstanceCountExceeded|InstanceLimitExceeded|Unsupported' run.err || exit 1
                 done
-
-                if [ -s IP ]; then
-                    break
-                fi
-
-                aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
-                PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
             done
 
-            AMI_ID=$(
-                aws ec2 describe-instances \
-                    --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
-                    --query 'Reservations[].Instances[].InstanceId' \
-                    --output text \
-                    --region us-east-2 \
-                    | tee AMI_ID
-            )
+            AMI_ID=$(cat AMI_ID)
+            if [ -z "$AMI_ID" ]; then
+                echo "Could not launch $INSTANCE_TYPE [tried $CANDIDATE_TYPES] in any pmm-staging subnet"
+                exit 1
+            fi
 
-            VOLUMES=$(
-                aws ec2 describe-instances \
-                    --region us-east-2 \
-                    --output text \
-                    --instance-ids $AMI_ID \
-                    --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId'
-            )
+            # run-instances leaves no pending request, so there is never anything to cancel
+            : > REQUEST_ID
 
-            aws ec2 create-tags  \
-                --region us-east-2 \
-                --resources $REQUEST_ID $AMI_ID $VOLUMES \
-                --tags Key=Name,Value=${VM_NAME} \
-                       Key=iit-billing-tag,Value=pmm-staging \
-                       Key=stop-after-days,Value=${DAYS} \
-                       Key=owner,Value=$OWNER
+            if [ "$USE_ONDEMAND" = "true" ]; then
+                echo "on-demand ($TYPE)" > SPOT_PRICE
+            else
+                echo "spot ($TYPE)" > SPOT_PRICE
+            fi
 
             # wait for the instance to be ready
+            aws ec2 wait instance-running --instance-ids $AMI_ID
             aws ec2 wait instance-status-ok --instance-ids $AMI_ID
+
+            aws ec2 describe-instances \
+                --region us-east-2 \
+                --output text \
+                --instance-ids $AMI_ID \
+                --query 'Reservations[].Instances[].PublicIpAddress' \
+                | tee IP
+
+            # the ssh wait loop in the caller never times out, so fail here instead of hanging
+            IP=$(cat IP)
+            if [ -z "$IP" ] || [ "$IP" = "None" ]; then
+                echo "Instance $AMI_ID in $SUBNET has no public IP"
+                exit 1
+            fi
         '''
         env.SPOT_PRICE = sh(returnStdout: true, script: "cat SPOT_PRICE").trim()
         env.REQUEST_ID = sh(returnStdout: true, script: "cat REQUEST_ID").trim()

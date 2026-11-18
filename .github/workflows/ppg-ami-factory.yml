@@ -1,0 +1,403 @@
+# EL package-test AMI factory: Oracle Linux + Rocky Linux.
+# Bakes OL and Rocky 8/9/10 x86_64+arm64 AMIs with Packer over AWS Session
+# Manager (no inbound SSH), authenticated via GitHub OIDC (no static keys), and
+# promotes each via a fresh-boot smoke test. Consumer: pg.cd molecule jobs use
+# the static AMI pins in vars/moleculeEnvPPG.groovy, refreshed weekly by the
+# update-molecule-env job through a dated PR (one new PR per refresh, the
+# previous one closed as superseded). ppg-ami-pins-check.yml goes red when
+# master's pins lag the newest promoted AMIs.
+# Rocky lineage roots are seeded once per combo via dispatch (just ci-seed-rocky).
+#
+# Triggers: PR validate-only (pull_request -> check job, no AWS), recipe change
+# (paths), weekly security rebake (cron), manual.
+# Actions are pinned to commit SHAs; the trailing "# vX.Y.Z" records the tag.
+
+name: ppg-ami-factory
+run-name: ppg AMI factory (${{ inputs.env || 'prod' }}, ${{ github.event_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      combos:
+        description: 'JSON matrix include list, e.g. [{"os":"rocky","os_major":"9","arch":"x86_64","seed":true}]; os defaults to oraclelinux, seed to false'
+        required: false
+        default: '[{"os":"oraclelinux","os_major":"9","arch":"x86_64"}]'
+      env:
+        description: 'prod (real factory tags) or test (isolated tags, never consumed by pg.cd)'
+        required: false
+        default: 'prod'
+        type: choice
+        options: [prod, test]
+  push:
+    branches: [master]
+    paths:
+      - 'ppg/packer/**'
+      - '.github/workflows/ppg-ami-factory.yml'
+  pull_request:
+    paths:
+      - 'ppg/packer/**'
+      - '.github/workflows/ppg-ami-factory.yml'
+  schedule:
+    - cron: '0 6 * * 1' # weekly Mon 06:00 UTC - absorb OL + Rocky security errata
+
+permissions:
+  contents: read # workflow-level default: read-only
+
+concurrency:
+  group: ppg-ami-factory-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-central-1
+  FACTORY_ENV: ${{ github.event.inputs.env || 'prod' }}
+
+jobs:
+  # No-AWS gate: a malformed template or bad combo fails HERE, before bake spins
+  # up any EC2. Runs scripts/check.sh, the SAME file `just check` runs, so the
+  # CI and local gates cannot drift. No id-token, so this job can never assume
+  # the factory role.
+  check:
+    name: Validate templates (no AWS)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@3286471d6cc6756d056a0b199fea5e0becdbc189 # v3.3.0
+        with:
+          version: '1.15.4' # exact, matches the bake job
+
+      - name: fmt-check + validate (fail before any EC2 spend)
+        working-directory: ppg/packer
+        run: |
+          set -euo pipefail
+          bash scripts/check.sh
+
+  bake:
+    name: ${{ matrix.os || 'oraclelinux' }} ${{ matrix.os_major }} ${{ matrix.arch }}
+    needs: check # no EC2 launches until templates validate
+    if: github.event_name != 'pull_request' # PRs run the no-AWS check only
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write # ONLY this job mints the OIDC token
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        include: ${{ fromJSON(github.event.inputs.combos || '[{"os":"oraclelinux","os_major":"8","arch":"x86_64"},{"os":"oraclelinux","os_major":"8","arch":"arm64"},{"os":"oraclelinux","os_major":"9","arch":"x86_64"},{"os":"oraclelinux","os_major":"9","arch":"arm64"},{"os":"oraclelinux","os_major":"10","arch":"x86_64"},{"os":"oraclelinux","os_major":"10","arch":"arm64"},{"os":"rocky","os_major":"8","arch":"x86_64"},{"os":"rocky","os_major":"8","arch":"arm64"},{"os":"rocky","os_major":"9","arch":"x86_64"},{"os":"rocky","os_major":"9","arch":"arm64"},{"os":"rocky","os_major":"10","arch":"x86_64"},{"os":"rocky","os_major":"10","arch":"arm64"}]') }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          # No repo secret needed: falls back to the prod OIDC role ARN when the secret is unset.
+          # Security is the role's OIDC trust (master-only), not ARN secrecy; a fork may override.
+          role-to-assume: ${{ secrets.PPG_AMI_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-ami-factory' }}
+          role-session-name: ppg-ami-factory-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Session Manager plugin
+        env:
+          # Pinned to an immutable versioned URL + verified SHA256 (supply-chain): never
+          # `latest`. The plugin is installed in a job holding AWS OIDC creds, so the bytes
+          # are integrity-checked. Bump deliberately and re-record the digest of the new
+          # version's .deb (curl the versioned URL, sha256sum it).
+          SMP_VERSION: 1.2.835.0
+          SMP_SHA256: 7c6dcad12518571cc7959a713e6a8ae1bdf6ed66fd9bee37dc189e39ca58ae03
+        run: |
+          set -euo pipefail
+          if ! command -v session-manager-plugin >/dev/null; then
+            curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/${SMP_VERSION}/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/smp.deb
+            echo "${SMP_SHA256}  /tmp/smp.deb" | sha256sum -c -
+            sudo dpkg -i /tmp/smp.deb
+          fi
+          session-manager-plugin --version
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@3286471d6cc6756d056a0b199fea5e0becdbc189 # v3.3.0
+        with:
+          # Exact version, never a constraint: setup-packer uses this string verbatim
+          # as the tool-cache path segment, so a space/'>' in a constraint like
+          # ">= 1.12.0" breaks the post-install `packer version` check. Bump deliberately.
+          version: '1.15.4'
+
+      - name: Packer init
+        working-directory: ppg/packer
+        run: packer init .
+
+      - name: Build candidate AMI (${{ matrix.os || 'oraclelinux' }} ${{ matrix.os_major }} ${{ matrix.arch }}, env=${{ env.FACTORY_ENV }})
+        id: build
+        working-directory: ppg/packer
+        # Matrix values via env, not inline ${{ }}, so they reach packer as data
+        # (quoted shell vars) and cannot break out of the run shell.
+        env:
+          OS: ${{ matrix.os || 'oraclelinux' }}
+          SEED: ${{ matrix.seed || false }}
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          rm -f manifest.json
+          packer build -color=false \
+            -var "os=${OS}" \
+            -var "seed=${SEED}" \
+            -var "os_major=${OS_MAJOR}" \
+            -var "arch=${ARCH}" \
+            -var "region=${AWS_REGION}" \
+            -var "env=${FACTORY_ENV}" .
+          AMI=$(python3 -c "import json;print(json.load(open('manifest.json'))['builds'][-1]['artifact_id'].split(':')[-1])")
+          echo "ami=$AMI" >> "$GITHUB_OUTPUT"
+          echo "built candidate: $AMI"
+          {
+            echo "### ${OS} ${OS_MAJOR} ${ARCH}"
+            echo "- built: $AMI"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke test (boot + install)
+        working-directory: ppg/packer
+        env:
+          AMI: ${{ steps.build.outputs.ami }}
+          OS: ${{ matrix.os || 'oraclelinux' }}
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          echo "smoke candidate: $AMI"
+          # `packer init` is CI infra (plugin download); a transient init failure must NOT
+          # deregister a good candidate. Only a real boot/install (build) failure does.
+          # Deregister ONLY on a real boot/install failure (never on a later promote-tag failure).
+          ( cd smoke && packer init . ) || { echo "smoke packer init failed (CI infra, not a candidate defect); keeping $AMI"; echo "- smoke: init failed (kept $AMI)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          ( cd smoke && packer build -color=false \
+              -var "candidate_ami=$AMI" -var "os=${OS}" -var "os_major=${OS_MAJOR}" \
+              -var "arch=${ARCH}" -var "region=${AWS_REGION}" . ) \
+          || { echo "smoke (boot+install) failed; deregistering $AMI + its snapshots"; aws ec2 deregister-image --delete-associated-snapshots --region "$AWS_REGION" --image-id "$AMI"; echo "- smoke: FAIL (deregistered $AMI)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          echo "- smoke: pass" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote (env=${{ env.FACTORY_ENV }})
+        working-directory: ppg/packer
+        env:
+          AMI: ${{ steps.build.outputs.ami }}
+        run: |
+          set -euo pipefail
+          pr=ppg-package-test; [ "$FACTORY_ENV" = "test" ] && pr=ppg-test-package-test
+          # Promote SEPARATELY with retry: a transient tag failure must NOT delete a smoke-passed AMI.
+          for a in 1 2 3 4 5; do
+            aws ec2 create-tags --region "$AWS_REGION" --resources "$AMI" --tags Key=role,Value="$pr" Key=smoke,Value=passed && { echo "promoted $AMI -> $pr"; break; }
+            [ "$a" = 5 ] && { echo "promotion FAILED after retries for smoke-passed $AMI; left intact for manual promote"; echo "- promote: FAILED ($AMI left for manual promote)" >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+            echo "promote attempt $a failed; retry in $((a * 5))s"; sleep $((a * 5))
+          done
+          echo "- promote: $pr" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prune superseded (older than the master pin)
+        # Prod only: the test role has no consumer pins to floor on, and its
+        # images are cleaned by `just prune-test`.
+        if: env.FACTORY_ENV == 'prod'
+        working-directory: ppg/packer
+        # Promote already ran, so a prune failure cannot un-ship the AMI: it
+        # fails only this leg (fail-fast is off) and pages via the notify job.
+        # No continue-on-error: a step failing under it keeps the job green
+        # (outcome=failure, conclusion=success), which makes the notify job's
+        # failure() unreachable. The script appends counts to
+        # $GITHUB_STEP_SUMMARY and exits non-zero on any failed deregister,
+        # failed snapshot cleanup, or image older than the pin left behind.
+        env:
+          OS: ${{ matrix.os || 'oraclelinux' }}
+          OS_MAJOR: ${{ matrix.os_major }}
+          ARCH: ${{ matrix.arch }}
+          AMI: ${{ steps.build.outputs.ami }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Deregister this combo's promoted bases older than master's pin. The pin and
+          # every newer image survive (same rule as `just prune-superseded`).
+          # deprecate_at only marks, it never deletes, so without this the inventory grows.
+          : "${AMI:?build output ami is empty, refusing to prune unguarded}"
+          # PROMOTED_AMI guards the prune against EC2 eventual consistency: the script
+          # refuses to act unless the just-promoted AMI is the newest visible match.
+          # OS_NAME scopes the prune to this matrix leg's os so combos sharing an
+          # os_major + arch (oraclelinux 9 vs rocky 9) never prune each other.
+          # The pins come from master at prune time, not from this run's checkout,
+          # so a re-run of an old workflow run cannot protect stale pins.
+          git fetch --quiet --depth 1 origin master
+          git show FETCH_HEAD:vars/moleculeEnvPPG.groovy > "${RUNNER_TEMP}/pins.groovy"
+          # Images named by open same-repo refresh PRs are protected too: merging
+          # such a PR must never point pg.cd at a deregistered image.
+          # The listing is assigned first so a gh failure stops the step (set -e)
+          # instead of pruning with no PR protection.
+          open_heads=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=master&per_page=100" \
+                        --jq '.[] | select(.head.repo.owner.login == "'"${GITHUB_REPOSITORY_OWNER}"'") | select(.head.ref | test("^ppg-ami-refresh(-[0-9]{8})?$")) | .head.ref')
+          protect_files=""
+          for head in ${open_heads}; do
+            git fetch --quiet --depth 1 origin "$head"
+            git show FETCH_HEAD:vars/moleculeEnvPPG.groovy > "${RUNNER_TEMP}/pins-${head}.groovy"
+            protect_files="${protect_files:+${protect_files}:}${RUNNER_TEMP}/pins-${head}.groovy"
+          done
+          PINS_FILE="${RUNNER_TEMP}/pins.groovy" PROTECT_FILES="$protect_files" PROMOTED_AMI="$AMI" OS_NAME="$OS" bash scripts/prune-superseded.sh ppg-package-test "$OS_MAJOR" "$ARCH" 1 "$AWS_REGION"
+
+  update-molecule-env:
+    name: Update moleculeEnvPPG.groovy (OL/Rocky AMI IDs)
+    needs: bake
+    # Every prod bake from master publishes: the weekly schedule, a recipe push
+    # (its bake promotes 12 new AMIs, and an unpublished promote would start the
+    # daily staleness clock with no PR to merge), and a manual prod dispatch so
+    # a failed Monday can be repaired the same day. The resolver reads the
+    # promote tags of every combo, never this run's matrix, and test bakes
+    # promote to a different role tag, so a partial or test-env combo list
+    # cannot drive the pins. !cancelled() rather than success(): a partial bake
+    # still refreshes the pins, a failed combo keeps last week's AMI.
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && (inputs.env || 'prod') == 'prod'))
+      && !cancelled() && needs.bake.result != 'skipped'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: master
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ secrets.PPG_AMI_FACTORY_ROLE_ARN || 'arn:aws:iam::119175775298:role/percona-ci-platform-gha-ppg-ami-factory' }}
+          role-session-name: ppg-ami-factory-update-env-${{ github.run_id }}-${{ github.run_attempt }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve latest OL/Rocky AMIs and rewrite moleculeEnvPPG.groovy
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'boto3==1.43.74' 'botocore==1.43.74'
+          python3 ppg/packer/scripts/update_molecule_env.py
+
+      - name: Commit and open a PR if changed
+        # master rejects direct pushes (protected branch, changes must go through
+        # a pull request), so the refresh is published as a PR from a branch
+        # named after the run date. A new branch and PR every refresh keeps it
+        # visible: the PR date is the refresh date, CODEOWNERS requests the
+        # reviewers on creation, and every earlier refresh PR is closed as
+        # superseded, also when this run has nothing new to publish (a stale
+        # open refresh PR would otherwise pin an image the prune may remove). A
+        # same-day re-run reuses that day's PR. Needs pull-requests: write plus
+        # the repo setting "Allow GitHub Actions to create and approve pull
+        # requests".
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          same_repo='select(.head.repo.owner.login == "'"${GITHUB_REPOSITORY_OWNER}"'")'
+          refresh_head='select(.head.ref | test("^ppg-ami-refresh(-[0-9]{8})?$"))'
+          # All open same-repo refresh PRs, paginated so none hides behind newer PRs.
+          open_refresh_prs=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=master&per_page=100" \
+            --jq ".[] | ${same_repo} | ${refresh_head} | .number")
+          pr_number=""
+          if git diff --quiet -- vars/moleculeEnvPPG.groovy; then
+            echo "no AMI ID changes; nothing to publish"
+          else
+            refresh_date=$(date -u +%Y-%m-%d)
+            branch="ppg-ami-refresh-${refresh_date//-/}"
+            changed_pins=$(git diff -U0 -- vars/moleculeEnvPPG.groovy | grep -c '^+[^+]')
+            run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            body_file="${RUNNER_TEMP}/refresh-pr-body.md"
+            printf '%s\n' \
+              '**Refresh**' \
+              "- Points ${changed_pins} OL/Rocky package-test pins in \`vars/moleculeEnvPPG.groovy\` at the newest promoted AMIs as of ${refresh_date}." \
+              "- Each AMI passed the factory boot smoke test before promotion to \`role=ppg-package-test\`. Bakes: [factory run](${run_url})." \
+              '' \
+              '**Merge**' \
+              '- Approve and merge as-is. PPG molecule jobs keep the previous AMIs until then, and the daily pins check fails 3 days after the bake.' \
+              '- If it conflicts with master, close it and re-run the factory from master. Resolving the conflict by hand can drop the refresh.' \
+              '- A newer refresh closes this PR automatically, so an unmerged one never needs cleanup.' \
+              > "$body_file"
+            git config user.name "ppg-ami-factory-bot"
+            git config user.email "actions@github.com"
+            git checkout -B "$branch"
+            git add vars/moleculeEnvPPG.groovy
+            git commit -m "Auto-update OL/Rocky molecule AMI IDs (ppg-ami-factory refresh ${refresh_date})"
+            # Force only matters for a same-day re-run: the branch is bot-owned and
+            # rebuilt from master, manual commits on it do not survive.
+            git push --force origin "HEAD:$branch"
+            pr_number=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=master&head=${GITHUB_REPOSITORY_OWNER}:${branch}&per_page=100" \
+              --jq ".[] | ${same_repo} | .number" | head -n 1)
+            if [ -z "$pr_number" ]; then
+              # A failed create must not leave an orphan branch behind: the next
+              # run publishes from a new dated branch and only closes PRs.
+              if ! pr_url=$(gh pr create --head "$branch" --base master \
+                --title "Auto-update OL/Rocky molecule AMI IDs (${refresh_date})" \
+                --body-file "$body_file"); then
+                echo "FAIL: could not open the refresh PR, deleting branch $branch"
+                git push origin --delete "$branch"
+                exit 1
+              fi
+              pr_number=${pr_url##*/}
+              echo "opened PR #${pr_number}"
+            else
+              echo "open PR #${pr_number} for $branch already exists; branch force-updated"
+            fi
+            # The published PR must carry the pins file, otherwise the refresh is
+            # lost silently (a merge of master into the branch did exactly that).
+            gh pr diff "$pr_number" --name-only > changed-files.txt
+            grep -Fxq 'vars/moleculeEnvPPG.groovy' changed-files.txt \
+              || { echo "FAIL: PR #${pr_number} does not change vars/moleculeEnvPPG.groovy"; exit 1; }
+          fi
+          # Close every other open refresh PR (older dated branches and the legacy
+          # rolling branch). One failed close is reported and the rest still run,
+          # the step fails at the end so a stale PR never stays open unnoticed.
+          close_failures=0
+          for old_pr in $open_refresh_prs; do
+            [ "$old_pr" = "$pr_number" ] && continue
+            if [ -n "$pr_number" ]; then
+              reason="Superseded by #${pr_number}."
+            else
+              reason="Superseded: master already carries the newest promoted AMIs."
+            fi
+            if gh pr close "$old_pr" --comment "$reason" --delete-branch; then
+              echo "closed superseded PR #${old_pr}"
+            else
+              echo "::warning::could not close superseded PR #${old_pr}"
+              close_failures=$((close_failures + 1))
+            fi
+          done
+          if [ "$close_failures" -gt 0 ]; then
+            echo "FAIL: ${close_failures} superseded refresh PR(s) could not be closed"
+            exit 1
+          fi
+
+  notify:
+    # update-molecule-env is listed so its failures (AMI resolution, PR creation)
+    # alert too; with needs: bake alone they would stay Slack-silent.
+    needs: [bake, update-molecule-env]
+    # failure() is true when ANY ancestor failed, including a check failure on a
+    # pull_request run where bake was skipped. Never ping the webhook for PR lint.
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    # Job-level so the step `if` below reads it reliably; a step-scoped env can be
+    # unavailable to its own step's `if`, which would skip the alert silently.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.RELEASES_CI_SLACK_WEBHOOK }}
+    steps:
+      - name: Refuse to alert into the void
+        # On the canonical repo a missing webhook secret is itself a failure:
+        # a skipped alert hid three red weeks in a row. Forks stay quiet.
+        if: env.SLACK_WEBHOOK == '' && github.repository == 'Percona-Lab/jenkins-pipelines'
+        run: |
+          echo "::error::RELEASES_CI_SLACK_WEBHOOK is not set in this repository, the failure alert was not delivered"
+          exit 1
+
+      - name: Slack on failure
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "PPG AMI factory FAILED - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

@@ -5,17 +5,17 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 def pdpxcOperatingSystems84() {
     return [
-        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023'
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute'
     ]
 }
 
-def pdpxcOperatingSystems80() {
+def pdpxcOperatingSystems97() {
     return [
-        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-11', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023'
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9','rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute'
     ]
 }
 
-List allOS = pdpxcOperatingSystems84() + pdpxcOperatingSystems80()
+List allOS = pdpxcOperatingSystems84() + pdpxcOperatingSystems97()
 
 def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
     def tests = [:]
@@ -150,14 +150,14 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormMysql()
              }
            }
         }
         stage('Test') {
           steps {
                 script {
-                    def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdpxcOperatingSystems84() : pdpxcOperatingSystems80()
+                    def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdpxcOperatingSystems84() : pdpxcOperatingSystems97()
                     echo "selectedOSList: ${selectedOSList}"
                     moleculeParallelTestALL(allOS, selectedOSList, env.MOLECULE_DIR)
                 }
@@ -167,7 +167,7 @@ pipeline {
     post {
         always {
           script {
-              def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdpxcOperatingSystems84() : pdpxcOperatingSystems80()
+              def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdpxcOperatingSystems84() : pdpxcOperatingSystems97()
               moleculeParallelPostDestroyALL(allOS, selectedOSList, env.MOLECULE_DIR)
          }
       }

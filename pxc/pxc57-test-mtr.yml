@@ -302,7 +302,6 @@
         artifact-num-to-keep: 3
         days-to-keep: 10
         num-to-keep: 10
-    properties:
     - build-blocker:
         blocking-jobs:
           - "percona-xtrabackup-2.4-binaries"

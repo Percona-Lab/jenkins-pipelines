@@ -39,7 +39,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormMongo()
              }
            }
         }
@@ -54,6 +54,11 @@ pipeline {
                             throw e
                         }
                     }
+                }
+            }
+            post {
+                always {
+                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                 }
             }
          }

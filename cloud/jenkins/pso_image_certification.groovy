@@ -2,22 +2,26 @@ def certificationTests = []
 def certification
 def certifiableImages = [
     'IMAGE_OPERATOR',
+    'IMAGE_MYSQL97',
     'IMAGE_MYSQL84',
     'IMAGE_MYSQL80',
+    'IMAGE_BACKUP97',
     'IMAGE_BACKUP84',
     'IMAGE_BACKUP80',
+    'IMAGE_ROUTER97',
     'IMAGE_ROUTER84',
     'IMAGE_ROUTER80',
     'IMAGE_BINLOG_SERVER',
     'IMAGE_HAPROXY',
     'IMAGE_ORCHESTRATOR',
     'IMAGE_TOOLKIT',
-    'IMAGE_PMM_CLIENT'
+    'IMAGE_PMM_CLIENT',
+    'IMAGE_LOG_COLLECTOR'
 ]
 
 def imageTag(image) {
-    def parts = image.tokenize(":")
-    return parts.size() > 1 ? parts[-1] : "latest"
+    def parts = image.tokenize(':')
+    return parts.size() > 1 ? parts[-1] : 'latest'
 }
 
 def target(src, projectId, tag, credentials) {
@@ -39,18 +43,21 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_OPERATOR':
             return target(image, projectId, params.RELEASE, credentials)
 
+        case 'IMAGE_MYSQL97':
         case 'IMAGE_MYSQL84':
         case 'IMAGE_MYSQL80':
             return target(image, projectId, "${params.RELEASE}-ps-${imageTag(image)}", credentials)
 
+        case 'IMAGE_BACKUP97':
         case 'IMAGE_BACKUP84':
         case 'IMAGE_BACKUP80':
             return target(image, projectId, "${params.RELEASE}-backup-${imageTag(image)}", credentials)
 
+        case 'IMAGE_ROUTER97':
         case 'IMAGE_ROUTER84':
         case 'IMAGE_ROUTER80':
             return target(image, projectId, "${params.RELEASE}-router-${imageTag(image)}", credentials)
-        
+
         case 'IMAGE_BINLOG_SERVER':
             return target(image, projectId, "${params.RELEASE}-binlog-server", credentials)
 
@@ -62,9 +69,12 @@ def buildTargetImage(key, image, params) {
 
         case 'IMAGE_TOOLKIT':
             return target(image, projectId, "${params.RELEASE}-toolkit", credentials)
-        
+
         case 'IMAGE_PMM_CLIENT':
             return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
+
+        case 'IMAGE_LOG_COLLECTOR':
+            return target(image, projectId, "${params.RELEASE}-logcollector-${imageTag(image)}", credentials)
 
         default:
             echo "Skipping ${key}"
@@ -88,10 +98,13 @@ pipeline {
         )
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
+        booleanParam(name: 'IMAGE_MYSQL97', defaultValue: true, description: 'Certify IMAGE_MYSQL97')
         booleanParam(name: 'IMAGE_MYSQL84', defaultValue: true, description: 'Certify IMAGE_MYSQL84')
         booleanParam(name: 'IMAGE_MYSQL80', defaultValue: true, description: 'Certify IMAGE_MYSQL80')
+        booleanParam(name: 'IMAGE_BACKUP97', defaultValue: true, description: 'Certify IMAGE_BACKUP97')
         booleanParam(name: 'IMAGE_BACKUP84', defaultValue: true, description: 'Certify IMAGE_BACKUP84')
         booleanParam(name: 'IMAGE_BACKUP80', defaultValue: true, description: 'Certify IMAGE_BACKUP80')
+        booleanParam(name: 'IMAGE_ROUTER97', defaultValue: true, description: 'Certify IMAGE_ROUTER97')
         booleanParam(name: 'IMAGE_ROUTER84', defaultValue: true, description: 'Certify IMAGE_ROUTER84')
         booleanParam(name: 'IMAGE_ROUTER80', defaultValue: true, description: 'Certify IMAGE_ROUTER80')
         booleanParam(name: 'IMAGE_BINLOG_SERVER', defaultValue: true, description: 'Certify IMAGE_BINLOG_SERVER')
@@ -99,6 +112,7 @@ pipeline {
         booleanParam(name: 'IMAGE_ORCHESTRATOR', defaultValue: true, description: 'Certify IMAGE_ORCHESTRATOR')
         booleanParam(name: 'IMAGE_TOOLKIT', defaultValue: true, description: 'Certify IMAGE_TOOLKIT')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
+        booleanParam(name: 'IMAGE_LOG_COLLECTOR', defaultValue: true, description: 'Certify IMAGE_LOG_COLLECTOR')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
@@ -107,7 +121,7 @@ pipeline {
         stage('Prepare Sources') {
             steps {
                 script {
-                    certification = load "cloud/common/imageCertification.groovy"
+                    certification = load 'cloud/common/imageCertification.groovy'
 
                     def release = certification.requireReleaseVersion(params)
                     currentBuild.displayName = release
@@ -124,7 +138,7 @@ pipeline {
         stage('Certify Image') {
             steps {
                 script {
-                    certification = certification ?: load("cloud/common/imageCertification.groovy")
+                    certification = certification ?: load('cloud/common/imageCertification.groovy')
 
                     def images = certification.loadReleaseVersions()
 
@@ -150,7 +164,7 @@ pipeline {
                     }
 
                     if (!imagesToCertify) {
-                        error("Select at least one image to certify")
+                        error('Select at least one image to certify')
                     }
 
                     imagesToCertify.each { key, image ->
@@ -186,7 +200,7 @@ pipeline {
     post {
         always {
             script {
-                certification = certification ?: load("cloud/common/imageCertification.groovy")
+                certification = certification ?: load('cloud/common/imageCertification.groovy')
 
                 certification.publishResults()
                 certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM, params.RELEASE)

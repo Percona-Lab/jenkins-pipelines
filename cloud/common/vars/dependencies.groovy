@@ -73,10 +73,99 @@ void install(Map config = [:]) {
     }
 }
 
+void installUv() {
+    sh '''
+        set -euo pipefail
+        export PATH="$HOME/.local/bin:$PATH"
+        if command -v uv >/dev/null 2>&1; then
+            echo "uv already installed: $(uv --version)"
+        else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            export PATH="$HOME/.local/bin:$PATH"
+        fi
+        uv --version
+    '''
+}
+
+void syncPythonDeps(String sourceDir = 'source') {
+    sh """
+        set -euo pipefail
+        export PATH="\$HOME/.local/bin:\$PATH"
+        cd ${sourceDir}
+        uv sync --locked
+    """
+}
+
 void installGoogleCLI() {
     sh '''
         sudo cp cloud/common/files/google-cloud-sdk.repo /etc/yum.repos.d/google-cloud-sdk.repo
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+        command -v gsutil
+        gsutil version -l | head -n1
+    '''
+}
+
+void installPxcTools() {
+    sh '''
+        # install cfssl for PXC operator tests
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssl_1.6.5_linux_amd64 -o /usr/local/bin/cfssl
+        sudo curl -fsSL https://github.com/cloudflare/cfssl/releases/download/v1.6.5/cfssljson_1.6.5_linux_amd64 -o /usr/local/bin/cfssljson
+        sudo chmod +x /usr/local/bin/cfssl /usr/local/bin/cfssljson
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable pxb-84-lts
+        sudo yum install -y percona-xtrabackup-84
+    '''
+}
+
+void installKuttl(String version = '0.27.0') {
+    sh """
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+        command -v kubectl-krew >/dev/null || {
+            curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+            ./krew-linux_amd64 install krew
+        }
+
+        command -v kubectl-assert >/dev/null || kubectl krew install assert
+
+        dir="\$(mktemp -d)"
+        git clone -q https://github.com/kubernetes-sigs/krew-index.git "\$dir"
+        commit=\$(git -C "\$dir" log -S"v${version}" --format='%H' -- plugins/kuttl.yaml | tail -1)
+        rm -rf "\$dir"
+
+        kubectl krew install --manifest-url "https://raw.githubusercontent.com/kubernetes-sigs/krew-index/\$commit/plugins/kuttl.yaml"
+        kubectl kuttl --version
+    """
+}
+
+void installOpenshiftClient(String platformVersion) {
+    withEnv(["PLATFORM_VER=${platformVersion}"]) {
+        sh '''
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+        '''
+    }
+}
+
+void installEksctl() {
+    sh '''
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+    '''
+}
+
+void installDoctl() {
+    sh '''
+        client_version=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | cut -d '"' -f4 | sed 's/^v//')
+        curl -sL "https://github.com/digitalocean/doctl/releases/download/v$client_version/doctl-$client_version-linux-amd64.tar.gz" | tar -xz && sudo mv doctl /usr/local/bin
+        doctl version
+    '''
+}
+
+void installMinikube() {
+    sh '''
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo chmod +x /usr/local/bin/minikube
+        minikube version
     '''
 }
 
@@ -95,6 +184,120 @@ void installAzureCLI() {
             fi
         fi
     '''
+}
+
+void installTrivy(String version = '0.76.0') {
+    withEnv(["TRIVY_VERSION=${version}"]) {
+        sh '''
+            set -eu
+            case "$(uname -m)" in
+                aarch64|arm64) TRIVY_ARCH=ARM64 ;;
+                x86_64|amd64)  TRIVY_ARCH=64bit ;;
+                *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+            esac
+
+            [ "$(trivy --version 2>/dev/null | sed -n 's/.*Version: \\([0-9.]*\\).*/\\1/p')" = "$TRIVY_VERSION" ] && exit 0
+
+            archive="trivy_${TRIVY_VERSION}_Linux-${TRIVY_ARCH}.tar.gz"
+            url="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+
+            curl -fsSLO "$url/$archive"
+            curl -fsSL "$url/trivy_${TRIVY_VERSION}_checksums.txt" | grep " $archive\$" | sha256sum -c -
+            sudo tar -xzf "$archive" -C /usr/local/bin trivy
+            rm -f "$archive"
+            trivy --version
+        '''
+    }
+}
+
+void installExecutorDependencies(String testExecutorType) {
+    switch (testExecutorType) {
+        case 'kuttl':
+            installKuttl()
+            break
+
+        case 'make':
+            installUv()
+            syncPythonDeps()
+            break
+    }
+}
+
+// Callers pass the platform name (gke/aks); the old provider names (gcloud/azure) are still accepted.
+Boolean needsGoogleAuth(String operator, String provider) {
+    return provider in ['gke', 'gcloud', 'rancher'] || operator == 'psmdb' || operator == 'pxc'
+}
+
+Boolean needsAzureCli(String operator, String provider) {
+    return provider in ['aks', 'azure'] || operator == 'psmdb' || operator == 'pxc'
+}
+
+void installClusterProviderTools(String provider, String platformVersion) {
+    if (provider == 'eks') {
+        installEksctl()
+        return
+    }
+
+    if (provider == 'doks') {
+        installDoctl()
+        return
+    }
+
+    if (provider == 'minikube') {
+        installMinikube()
+        return
+    }
+
+    if (provider == 'openshift') {
+        installOpenshiftClient(platformVersion ?: 'latest')
+    }
+}
+
+void installProviderDependencies(Map libraries, String operator, String provider, String platformVersion = '') {
+    // PSMDB and PXC require Google and Azure CLIs on every provider.
+    // Rancher uses Google CLI because clusters run on GCE.
+
+    if (operator == 'pxc') {
+        installPxcTools()
+    }
+
+    if (needsGoogleAuth(operator, provider)) {
+        installGoogleCLI()
+        libraries.credentials.activateGoogleCredentials()
+    }
+
+    if (needsAzureCli(operator, provider)) {
+        installAzureCLI()
+        libraries.credentials.activateAzureCredentials()
+    }
+
+    installClusterProviderTools(provider, platformVersion)
+}
+
+void retryDependencyInstallation(Closure installation) {
+    int maxAttempts = 3
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            installation()
+            return
+        } catch (Exception error) {
+            if (attempt == maxAttempts) {
+                throw error
+            }
+
+            echo "Dependency installation failed on attempt ${attempt}/${maxAttempts}. Retrying in 10 seconds..."
+            sleep(time: 10, unit: 'SECONDS')
+        }
+    }
+}
+
+void prepareNode(Map libraries, String testExecutorType, String operator, String provider, String platformVersion = '') {
+    retryDependencyInstallation {
+        install()
+        installExecutorDependencies(testExecutorType)
+        installProviderDependencies(libraries, operator, provider, platformVersion)
+    }
 }
 
 return this
