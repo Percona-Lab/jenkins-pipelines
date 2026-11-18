@@ -298,9 +298,11 @@ void validateTestVariables(Map testVariables) {
         'release_versions',
         'retries',
         'skip_kubeconfig',
+        'slot_start_delay_seconds',
         'source_repo',
         'test_executor_type',
         'test_timeout_minutes',
+        'tests_per_cluster',
         'ubi_version',
         'worker_count',
         'zone'
@@ -929,6 +931,7 @@ void runTest(Map testConfig) {
                         script: """
                             cd source
                             ${exports}
+                            ${testConfig.slotExports ?: ''}
                             ${testVariables.pre_test_sh ?: ''}
                             ${command}
                         """,
@@ -1012,6 +1015,78 @@ void runTest(Map testConfig) {
     }
 }
 
+Integer testsPerCluster(Map testVariables) {
+    def value = (testVariables.tests_per_cluster ?: 1) as Integer
+    return value < 1 ? 1 : value
+}
+
+// Runs up to tests_per_cluster tests at the same time on one cluster. Each slot takes the next test
+// from the shared queue, so a slot that finishes a short test starts the next one at once.
+// Only tests that can share a cluster belong in such a run: tests that install cert-manager or
+// chaos-mesh, change the CRD or run the operator cluster-wide must run with tests_per_cluster = 1.
+void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubeconfig) {
+    def slots = testsPerCluster(testVariables)
+    def startDelay = (testVariables.slot_start_delay_seconds ?: 0) as Integer
+    def branches = [:]
+
+    echo "Running up to ${slots} tests at a time on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+
+    for (int i = 1; i <= slots; i++) {
+        def slotIndex = i
+        def slotDir = "${clusterKubeconfig}-slot${slotIndex}"
+
+        branches["${clusterSuffix}-slot${slotIndex}"] = {
+            if (startDelay > 0 && slotIndex > 1) {
+                sleep(time: startDelay * (slotIndex - 1), unit: 'SECONDS')
+            }
+
+            while (true) {
+                def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+                if (testId == null) {
+                    break
+                }
+                def testName = testVariables.tests[testId].name
+
+                // A fresh kubeconfig per test: the harness writes the test namespace into its context.
+                // A helm home per slot: deploy_s3_storage runs `helm repo remove/add`, which races in a shared one.
+                sh """
+                    rm -rf '${slotDir}'
+                    mkdir -p '${slotDir}'
+                    cp '${clusterKubeconfig}' '${slotDir}/kubeconfig'
+                """
+
+                // DELETE_CRD_ON_START=0: a test must not delete the CRD under the tests that run next to it.
+                // SKIP_DELETE=1: the teardown after a test also removes cert-manager and RBAC, so the
+                // runner deletes only the test's own namespaces below instead.
+                runTest(
+                    testId: testId,
+                    clusterSuffix: clusterSuffix,
+                    testVariables: testVariables,
+                    retries: testVariables.retries ?: 1,
+                    slotExports: """
+                        export KUBECONFIG='${slotDir}/kubeconfig'
+                        export HELM_CONFIG_HOME='${slotDir}/helm'
+                        export HELM_CACHE_HOME='${slotDir}/helm-cache'
+                        export DELETE_CRD_ON_START=0
+                        export SKIP_DELETE=1
+                    """.stripIndent().trim()
+                )
+
+                // Free the CPU and memory of a finished test before the slot starts the next one.
+                try {
+                    testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+                } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+                    throw exc
+                } catch (cleanupErr) {
+                    echo "Warning: failed to delete namespaces of ${testName}: ${cleanupErr}"
+                }
+            }
+        }
+    }
+
+    parallel branches
+}
+
 void clusterRunner(String clusterSuffix, Map testVariables) {
     def createdClusters = []
     def clusterCreated = false
@@ -1067,6 +1142,11 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
+            }
+
+            if (testsPerCluster(testVariables) > 1) {
+                runTestSlots(clusterSuffix, testVariables, clusterCfg.kubeconfig)
+                break
             }
 
             def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
