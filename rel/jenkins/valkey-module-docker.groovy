@@ -18,6 +18,20 @@ String modVar(String prefix, String module) {
     ).trim()
 }
 
+
+// Optional pin of repo.percona.com to one mirror (e.g. when the geo-routed
+// EU/US mirror an agent resolves to is out of sync). Empty = normal DNS.
+String repoMirrorArg() {
+    def ip = (params.REPO_MIRROR_IP ?: '').trim()
+    if (!ip) {
+        return ''
+    }
+    if (!(ip ==~ /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/)) {
+        error "REPO_MIRROR_IP must be an IPv4 address, got: '${ip}'"
+    }
+    return "--add-host repo.percona.com:${ip}"
+}
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -43,6 +57,10 @@ pipeline {
             choices: 'experimental\ntesting\nrelease',
             description: 'Percona repo channel the module .so is pulled from',
             name: 'REPO_CHANNEL')
+        string(
+            defaultValue: '',
+            description: 'Optional: pin repo.percona.com to this mirror IP for image builds (empty = DNS). US mirror: 15.204.182.114',
+            name: 'REPO_MIRROR_IP')
         string(
             defaultValue: 'perconalab/valkey-mod',
             description: 'DockerHub image prefix; each module is pushed as <prefix>-<module>',
@@ -136,6 +154,7 @@ pipeline {
                                     --build-arg MODULE_VERSION=${ver} \
                                     --build-arg MODULE_SOURCE=${src} \
                                     --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    ${repoMirrorArg()} \
                                     --platform linux/amd64 \
                                     -t ${img}:${ver}-amd64 \
                                     -f Dockerfile.module .
@@ -201,6 +220,7 @@ pipeline {
                                         --build-arg MODULE_VERSION=${ver} \
                                         --build-arg MODULE_SOURCE=${src} \
                                         --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        ${repoMirrorArg()} \
                                         --platform linux/amd64 \
                                         -t ${img}:${ver}-amd64 \
                                         -f Dockerfile.module .
@@ -209,6 +229,7 @@ pipeline {
                                         --build-arg MODULE_VERSION=${ver} \
                                         --build-arg MODULE_SOURCE=${src} \
                                         --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        ${repoMirrorArg()} \
                                         --platform linux/arm64 \
                                         -t ${img}:${ver}-arm64 \
                                         -f Dockerfile.module .
