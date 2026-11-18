@@ -105,8 +105,7 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pg',
 
-                        platform              : 'rke2',
-                        platform_provider     : 'rancher',
+                        platform              : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VERSION,
                         platform_arch         : PLATFORM_ARCH,
@@ -237,8 +236,8 @@ pipeline {
                             kubeconfig   : "/tmp/${testVariables.cluster_name}-${clusterSuffix}"
                         ]
 
-                        libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
-                        libraries.rancher.shutdownCluster(clusterCfg)
+                        libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
+                        libraries.rancher.shutdownCluster(clusterCfg, libraries)
                     } catch (err) {
                         echo "Cleanup failed for ${clusterSuffix}: ${err}"
                     }

@@ -205,7 +205,6 @@ void validateTestVariables(Map testVariables) {
         'libraries',
         'operator',
         'platform',
-        'platform_provider',
         'platform_version',
         'job_name',
         'git_branch',
@@ -223,22 +222,13 @@ void validateTestVariables(Map testVariables) {
         error("Missing required test variables: ${missingKeys.join(', ')}")
     }
 
-    def platformProviders = [
-        aks      : 'azure',
-        doks     : 'doks',
-        eks      : 'eks',
-        gke      : 'gcloud',
-        minikube : 'minikube',
-        openshift: 'openshift',
-        rke2     : 'rancher'
-    ]
-    def provider = testVariables.platform_provider.toLowerCase()
     def platform = testVariables.platform.toLowerCase()
-    if (!testVariables.libraries.containsKey(provider)) {
-        error("Unsupported platform provider: ${testVariables.platform_provider}")
+    def validPlatforms = ['aks', 'doks', 'eks', 'gke', 'minikube', 'openshift', 'rancher']
+    if (!(platform in validPlatforms)) {
+        error("Unsupported platform: ${testVariables.platform}")
     }
-    if (platformProviders[platform] != provider) {
-        error("Unsupported platform/provider combination: ${testVariables.platform}/${testVariables.platform_provider}")
+    if (!testVariables.libraries.containsKey(platform)) {
+        error("Library not found for platform: ${testVariables.platform}")
     }
 
     def validOperators = ['pg', 'ps', 'psmdb', 'pxc']
@@ -256,20 +246,20 @@ void validateTestVariables(Map testVariables) {
     }
 
     def supportedArchitectures = [
-        gcloud : ['amd64', 'arm64'],
-        rancher: ['amd64']
+        gke    : ['amd64', 'arm64'],
+        rancher: ['amd64', 'arm64']
     ]
     def architecture = testVariables.platform_arch?.toLowerCase()
-    if (supportedArchitectures.containsKey(provider) && !architecture) {
-        error("platform_arch is required for ${provider}")
+    if (supportedArchitectures.containsKey(platform) && !architecture) {
+        error("platform_arch is required for ${platform}")
     }
     if (architecture) {
-        if (!(architecture in (supportedArchitectures[provider] ?: []))) {
-            error("Architecture ${testVariables.platform_arch} is not supported for ${provider}")
+        if (!(architecture in (supportedArchitectures[platform] ?: []))) {
+            error("Architecture ${testVariables.platform_arch} is not supported for ${platform}")
         }
     }
 
-    if (testVariables.worker_count != null && provider != 'rancher') {
+    if (testVariables.worker_count != null && platform != 'rancher') {
         error('worker_count is supported only for rancher')
     }
     if (isReleaseRun(testVariables) && !testVariables.release_versions?.toString()?.trim()) {
@@ -280,7 +270,6 @@ void validateTestVariables(Map testVariables) {
         'cert_manager_version',
         'cluster_suffix_prefix',
         'cluster_wide',
-        'cluster_create_attempts',
         'clusters',
         'db_tag',
         'db_version',
@@ -301,7 +290,6 @@ void validateTestVariables(Map testVariables) {
         'platform',
         'platform_arch',
         'platform_channel',
-        'platform_provider',
         'platform_version',
         'pre_test_sh',
         'project_id',
@@ -330,7 +318,7 @@ void resolveReleaseRunParams(Map testVariables) {
 
     testVariables.images = resolveImages(testVariables)
 
-    if (testVariables.platform_provider?.toLowerCase() == 'rancher') {
+    if (testVariables.platform.toLowerCase() == 'rancher') {
         ['rancher_version': 'RANCHER', 'cert_manager_version': 'CERT_MANAGER'].each { field, key ->
             if (!testVariables[field] || testVariables[field] == 'latest') {
                 testVariables[field] = getReleaseVersionsParam(testVariables.release_versions, key)
@@ -339,28 +327,39 @@ void resolveReleaseRunParams(Map testVariables) {
     }
 }
 
+// Kubernetes min/max versions are keyed by the distribution in release_versions (RKE2_MIN for Rancher,
+// RANCHER itself is the Rancher chart version).
+String platformVersionKeyPrefix(String platform) {
+    return platform.toLowerCase() == 'rancher' ? 'RKE2' : platform.toUpperCase()
+}
+
 void resolvePlatformVersion(Map testVariables) {
-    def library = testVariables.libraries[testVariables.platform_provider]
+    def library = testVariables.libraries[testVariables.platform.toLowerCase()]
     def platformVersion = testVariables.platform_version
 
     if (platformVersion?.toLowerCase() in ['min', 'max']) {
         platformVersion = getReleaseVersionsParam(
             testVariables.release_versions,
-            "${testVariables.platform.toUpperCase()}_${platformVersion.toUpperCase()}"
+            "${platformVersionKeyPrefix(testVariables.platform)}_${platformVersion.toUpperCase()}"
         )
     } else if (platformVersion == 'latest') {
-        platformVersion = library.getLatestPlatformVersion(testVariables)
+        platformVersion = library.getLatestPlatformVersion(
+            // Each job sets either region (AKS, EKS, DOKS, OpenShift) or zone (GKE, Rancher).
+            testVariables.region ?: testVariables.zone,
+            testVariables.platform_channel,
+            testVariables.libraries
+        )
 
         testVariables.platform_version = platformVersion
         return
     }
 
-    testVariables.platform_version = library.getPlatformVersion(platformVersion)
+    testVariables.platform_version = library.getPlatformVersion(platformVersion, testVariables.libraries)
 }
 
 void resolveMachineType(Map testVariables) {
-    if (testVariables.platform_arch && testVariables.platform_provider) {
-        testVariables.machine_type = testVariables.libraries[testVariables.platform_provider].getMachineType(
+    if (testVariables.platform_arch) {
+        testVariables.machine_type = testVariables.libraries[testVariables.platform.toLowerCase()].getMachineType(
             testVariables.platform_arch
         )
     }
@@ -962,7 +961,7 @@ void runTest(Map testConfig) {
                 echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
             }
             try {
-                testVariables.libraries.tools.kubernetesCleanupFailedTestNamespaces(testVariables, testName, clusterSuffix)
+                testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
             } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
                 throw exc
             } catch (cleanupErr) {
@@ -1013,14 +1012,6 @@ void runTest(Map testConfig) {
     }
 }
 
-// GKE and Rancher already retry inside createCluster; the others make a single attempt per call.
-Integer clusterCreateAttempts(Map testVariables) {
-    if (testVariables.cluster_create_attempts) {
-        return testVariables.cluster_create_attempts as Integer
-    }
-    return (testVariables.platform_provider?.toLowerCase() in ['eks', 'azure', 'openshift', 'doks']) ? 2 : 1
-}
-
 void clusterRunner(String clusterSuffix, Map testVariables) {
     def createdClusters = []
     def clusterCreated = false
@@ -1033,25 +1024,28 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         machineType     : testVariables.machine_type,
         region          : testVariables.region ?: '',
         zone            : testVariables.zone ?: '',
-        kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+        kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
+        platformArch    : testVariables.platform_arch ?: ''
     ]
 
-    if (testVariables.platform_provider.toLowerCase() == 'rancher') {
+    def platform = testVariables.platform.toLowerCase()
+
+    if (platform == 'rancher') {
         clusterCfg.rancherVersion = testVariables.rancher_version
         clusterCfg.certManagerVersion = testVariables.cert_manager_version
         clusterCfg.deleteAfterHours = 6
         clusterCfg.workerCount = testVariables.worker_count ?: 4
     }
 
-    def createCluster = { testVariables.libraries[testVariables.platform_provider].createCluster(clusterCfg) }
+    // Retries, and cleanup of a failed attempt, are done inside each provider's createCluster.
+    def createCluster = { testVariables.libraries[platform].createCluster(clusterCfg, testVariables.libraries) }
     def clusterCleanup = {
         if (testVariables.skip_kubeconfig) {
             return
         }
-        testVariables.libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+        testVariables.libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
     }
-    def shutdownCluster = { testVariables.libraries[testVariables.platform_provider].shutdownCluster(clusterCfg) }
-    def createAttempts = clusterCreateAttempts(testVariables)
+    def shutdownCluster = { testVariables.libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries) }
 
     try {
         // The cluster is created before a test is claimed, so a failed creation leaves every test in
@@ -1071,28 +1065,8 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                     echo "Cluster shutdown failed, maybe cluster does not exist or is already deleted: ${e.getMessage()}"
                 }
 
-                for (int attempt = 1; attempt <= createAttempts; attempt++) {
-                    echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${createAttempts}) ]========================="
-                    try {
-                        createCluster.call()
-                        break
-                    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-                        throw e
-                    } catch (Exception e) {
-                        if (attempt == createAttempts) {
-                            throw e
-                        }
-                        echo "Cluster creation failed: ${e.getMessage()}. Deleting the partial cluster before retrying."
-                        try {
-                            shutdownCluster.call()
-                        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException ie) {
-                            throw ie
-                        } catch (Exception shutdownErr) {
-                            echo "Warning: cleanup of the partial cluster failed: ${shutdownErr.getMessage()}"
-                        }
-                        sleep(time: 30, unit: 'SECONDS')
-                    }
-                }
+                echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
+                createCluster.call()
             }
 
             def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
@@ -1122,9 +1096,9 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 }
 
 void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariables) {
-    def provider = testVariables.platform_provider.toLowerCase()
+    def platform = testVariables.platform.toLowerCase()
 
-    if (provider == 'eks') {
+    if (platform == 'eks') {
         withCredentials([
             aws(
                 credentialsId: 'eks-cicd',
@@ -1138,8 +1112,8 @@ void clusterRunnerWithProviderCredentials(String clusterSuffix, Map testVariable
         return
     }
 
-    if (provider == 'doks') {
-        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+    if (platform == 'doks') {
+        testVariables.libraries.credentials.withDOKSCredentials {
             clusterRunner(clusterSuffix, testVariables)
         }
         return
@@ -1185,7 +1159,7 @@ Map buildParallelClusterStages(Map testVariables) {
                             testVariables.libraries,
                             testVariables.test_executor_type,
                             testVariables.operator,
-                            testVariables.platform_provider,
+                            testVariables.platform,
                             testVariables.platform_version
                         )
                         clusterRunnerWithProviderCredentials(clusterSuffix, testVariables)
@@ -1463,10 +1437,10 @@ void shutdownLeftoverClusters(Map testVariables) {
             ]
 
             if (!testVariables.skip_kubeconfig) {
-                libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
+                libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
             }
 
-            libraries[testVariables.platform_provider].shutdownCluster(clusterCfg)
+            libraries[testVariables.platform.toLowerCase()].shutdownCluster(clusterCfg, libraries)
         } catch (err) {
             echo "Cleanup failed for ${clusterSuffix}: ${err}"
         }

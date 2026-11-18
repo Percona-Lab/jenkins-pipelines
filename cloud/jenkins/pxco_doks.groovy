@@ -88,7 +88,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pxc',
                         platform              : 'doks',
-                        platform_provider     : 'doks',
                         platform_version      : PLATFORM_VER,
                         region                : DO_REGION,
                         cluster_wide          : CLUSTER_WIDE,
