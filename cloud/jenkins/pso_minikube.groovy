@@ -87,7 +87,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'ps',
                         platform              : 'minikube',
-                        platform_provider     : 'minikube',
                         platform_version      : PLATFORM_VER,
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,

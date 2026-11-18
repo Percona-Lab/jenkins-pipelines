@@ -88,7 +88,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'ps',
                         platform              : 'openshift',
-                        platform_provider     : 'openshift',
                         platform_version      : PLATFORM_VER,
                         machine_type          : 'm5.2xlarge',
                         region                : AWS_REGION,

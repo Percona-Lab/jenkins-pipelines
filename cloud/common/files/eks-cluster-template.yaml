@@ -1,0 +1,36 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: <cluster-name>
+  region: <region>
+  version: "<platform-version>"
+  tags:
+    'delete-cluster-after-hours': '6'
+    'creation-time': '<creation-time>'
+    'team': 'cloud'
+iam:
+  withOIDC: true
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+- name: snapshot-controller
+nodeGroups:
+- name: ng-1
+  minSize: 3
+  maxSize: 5
+  iam:
+    attachPolicyARNs:
+    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+    - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+    - arn:aws:iam::aws:policy/AmazonS3FullAccess
+  instancesDistribution:
+    instanceTypes: ["m5.xlarge", "m5.2xlarge"]
+<pre-bootstrap-commands>
+  tags:
+    'iit-billing-tag': 'jenkins-eks'
+    'delete-cluster-after-hours': '6'
+    'team': 'cloud'
+    'product': '<product>'

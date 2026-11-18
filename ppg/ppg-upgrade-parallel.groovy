@@ -53,7 +53,7 @@ pipeline {
         booleanParam(
             name: 'USE_OBS_REPO',
             defaultValue: false,
-            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. OBS only ever carries the latest minor of each major, so the FROM version always installs from repo.percona.com regardless of this setting.'
+            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. A minor upgrade always installs the FROM version from repo.percona.com (OBS only carries the latest minor of each major); a major upgrade installs it from OBS too, see FROM_OBS_PROJECT.'
         )
         string(
             defaultValue: '',
@@ -64,6 +64,11 @@ pipeline {
             defaultValue: '',
             description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
             name: 'OBS_PROJECT'
+        )
+        string(
+            defaultValue: '',
+            description: 'Major upgrades with USE_OBS_REPO only: full OBS project to install the FROM version from, e.g. isv:percona:ppg:staging:17. Leave empty for OBS_PROJECT with the major replaced by the previous one (...:staging:18 -&gt; ...:staging:17).',
+            name: 'FROM_OBS_PROJECT'
         )
         text(
             defaultValue: '',
