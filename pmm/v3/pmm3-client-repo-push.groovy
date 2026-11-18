@@ -5,7 +5,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'master'
+        label 'cli'
     }
     parameters {
         choice(
@@ -33,7 +33,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // Upload packages to the repo defined in `DESTINATION`
-                sync2ProdPMMClientRepo(params.DESTINATION, params.UPLOAD_PATH, 'pmm3-client')
+                sync2ProdPMMClientRepo(params.DESTINATION, params.UPLOAD_PATH, 'pmm3-client', 'cli')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
                         sh """

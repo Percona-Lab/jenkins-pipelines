@@ -3,6 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+// Worker for the sign and upload steps. It follows USE_ONDEMAND like the build agent.
+def uploadNode() {
+    return params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
+}
+
 pipeline {
     agent {
         label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
@@ -67,14 +72,14 @@ pipeline {
             steps {
                 sh "${PATH_TO_SCRIPTS}/build-client-source"
                 stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                uploadTarball('source')
+                uploadTarball('source', uploadNode())
             }
         }
         stage('Build client binary') {
             steps {
                 sh "${PATH_TO_SCRIPTS}/build-client-binary"
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                uploadTarball('binary')
+                uploadTarball('binary', uploadNode())
             }
         }
         stage('Build server binaries') {
