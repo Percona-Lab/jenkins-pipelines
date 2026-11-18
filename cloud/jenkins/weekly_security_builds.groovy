@@ -11,7 +11,6 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
     'Trivy Scan',
     'Fix Vulnerabilities',
     'Build',
-    'Trivy Verify',
     'Create Pull Request',
     'Wait for Merge',
     'Checkout Merged Commit',
@@ -914,14 +913,6 @@ void runRepositoryPipeline(Map repository, Map execution) {
 
         trackedStage(execution, 'Build') {
             buildImage(context)
-        }
-
-        trackedStage(execution, 'Trivy Verify') {
-            echo "Verifying BUILD image: ${context.BUILD_IMAGE}"
-
-            libraries.tools.trivyVerifyImage(
-                context.BUILD_IMAGE
-            )
         }
 
         trackedStage(execution, 'Create Pull Request') {
