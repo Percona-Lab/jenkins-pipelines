@@ -396,6 +396,76 @@ stage('Check by Trivy') {
         }
     }
 }
+        stage('Get PXB build info') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            steps {
+                script {
+                    // XB_VERSION gives the PXB line for PRODUCT_TO_TEST (e.g. PXB84) and the version
+                    // of the image built here (X.Y.Z-N tag), the revision is read from the pushed
+                    // image and checked against the head of BRANCH.
+                    def xb = sh(returnStdout: true, script: '''
+                        curl -fsSL https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION -o XB_VERSION
+                        . ./XB_VERSION
+                        echo "${XB_VERSION_MAJOR} ${XB_VERSION_MINOR} ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}"
+                    ''').trim().tokenize(' ')
+                    if (xb.size() != 3) {
+                        error "Unable to read PXB version from XB_VERSION for ${params.BRANCH}"
+                    }
+                    String product = "PXB${xb[0]}${xb[1]}".toString()
+                    if (!(product in ['PXB24', 'PXB80', 'PXB84', 'PXB97'])) {
+                        // other 9.x releases are Innovation releases
+                        product = (xb[0] == '9') ? 'PXB_INN_LTS' : ''
+                    }
+                    if (!product) {
+                        error "No pxb-docker-tests PRODUCT_TO_TEST matches PXB ${xb[0]}.${xb[1]}"
+                    }
+                    env.PXB_TEST_PRODUCT = product
+                    env.PXB_TEST_VERSION = xb[2]
+                    env.PXB_TEST_REVISION = getImageRevision(
+                        image: "${params.ORGANIZATION}/percona-xtrabackup:${env.PXB_TEST_VERSION}.${params.RPM_RELEASE}-amd64",
+                        binary: 'xtrabackup',
+                        gitRef: params.BRANCH,
+                        gitRepos: [params.GIT_REPO])
+                    echo "PXB tests: ${env.PXB_TEST_PRODUCT}, version ${env.PXB_TEST_VERSION}, revision ${env.PXB_TEST_REVISION}"
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
+        stage('Run docker tests on pxb.cd') {
+            agent {
+                label 'launcher-x64'
+            }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    // PRODUCT_TO_TEST selects the PXB line, the version and revision of the image built
+                    // here are passed as overrides, so VERSIONS is not used for them.
+                    runRemoteJob(server: 'https://pxb.cd.percona.com',
+                                 job: 'pxb-docker-tests',
+                                 credentialsId: 'JNKPERCONA_PXB_TOKEN',
+                                 allowUnstable: true,
+                                 parameters: [
+                                     PXB_DOCKER_ACC: params.ORGANIZATION,
+                                     PRODUCT_TO_TEST: env.PXB_TEST_PRODUCT,
+                                     PXB_VERSION_OVERRIDE: env.PXB_TEST_VERSION,
+                                     PXB_REVISION_OVERRIDE: env.PXB_TEST_REVISION
+                                 ])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         always {
@@ -403,7 +473,7 @@ stage('Check by Trivy') {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ""}"
             }
             deleteDir()
         }
