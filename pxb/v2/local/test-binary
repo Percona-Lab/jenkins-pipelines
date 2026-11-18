@@ -121,9 +121,10 @@ elif [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
     mkdir server
     tar xfz server-tarball/${XTRABACKUP_TARGET}/Percona-XtraDB-Cluster-$(uname -m).tar.gz -C server
     mv server/*/* server/
-elif [[ -n ${SERVER_TARBALL_URL} ]]; then
-    # The tarball replaces the bootstrap.sh download. It holds one top
-    # directory, like the release tarballs.
+elif [[ -n ${SERVER_TARBALL_URL} && ${XTRABACKUP_TARGET} == xtradb* ]]; then
+    # The tarball is a Percona Server build, so only the xtradb targets use it.
+    # It replaces the bootstrap.sh download and holds one top directory, like
+    # the release tarballs.
     wget --progress=dot:giga \
       -O server-tarball/${XTRABACKUP_TARGET}/server.tar.gz \
       "${SERVER_TARBALL_URL}"
