@@ -477,28 +477,6 @@ ENDSSH
                 }
             }
         }        
-        stage('Run post-release tests GH Actions') {
-            steps{
-                script{
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        sh '''
-                            curl -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/percona/pmm-qa/actions/workflows/package-test-single.yml/dispatches" \
-                                -d '{"ref":"main","inputs":{"playbook": "pmm3-client", "package": "pmm3-client", "repository": "release", "metrics_mode": "auto"}}'
-                        '''
-                        sh '''
-                            curl -v -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/percona/pmm-qa/actions/workflows/e2e-upgrade-tests-matrix-full.yml/dispatches" \
-                                -d '{"ref":"main","inputs":{"pmm_ui_tests_branch": "main", "pmm_qa_branch": "main", "repository": "release", "versions_range": 1}}'
-                        '''
-                    }
-                }
-            }
-        }
         stage('Scan Image for Vulnerabilities') {
             steps {
                 script {

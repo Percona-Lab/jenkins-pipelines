@@ -29,10 +29,6 @@ wget_loop() {
     retry wget --progress=dot:giga -O "${DOWNLOAD_ROOT}/${FILE}" "${URL}"
 }
 
-# Distro facts. Empty on apt-based systems; computed inside the yum block below.
-RHVER=""
-DIST=""
-
 if [ -f /usr/bin/yum ]; then
   # AL2023 does not define %rhel, so use a sentinel to keep the RHVER
   # arithmetic comparisons throughout this block reliable.
@@ -50,9 +46,8 @@ if [ -f /usr/bin/yum ]; then
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
-  # percona-release supplies the (deprecated) tools repo with qpress for the
-  # OL8/OL9/CentOS7 (8.0) builds below. AL2023 (RHVER sentinel 2023) and OL10
-  # build 8.4+/9.7+, which do not install qpress, so they skip it.
+  # Percona's tools repository supplies qpress on the older RHEL-family images.
+  # AL2023 (RHVER sentinel 2023) and OL10 skip this repository.
   if [[ ${RHVER} -lt 10 ]]; then
       yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
       percona-release enable-only tools testing
@@ -62,14 +57,16 @@ if [ -f /usr/bin/yum ]; then
 
   PKGLIST+=" wget"
 
-  # AL2023 has no EPEL and needs none (packages come from the distro base repos),
-  # so it intentionally matches no branch here.
+  # AL2023 has no EPEL. spal-release enables SPAL, its supplementary repository,
+  # which provides ccache and netcat.
   if [[ ${RHVER} -eq 10 ]]; then
       retry yum -y install oracle-epel-release-el10
   elif [[ ${RHVER} -eq 8 ]]; then
       retry yum -y install oracle-epel-release-el8
   elif [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 7 ]]; then
       retry yum -y install epel-release
+  elif [[ "${DIST}" == ".amzn2023" ]]; then
+      retry yum -y install spal-release
   fi
 
   if [[ ${RHVER} -eq 8 ]]; then
@@ -139,13 +136,11 @@ if [ -f /usr/bin/yum ]; then
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
 
-  # AL2023 does not ship a few of the above packages. Drop them word-wise so the
-  # final yum install does not fail (order-independent, unlike a substring strip).
-  # systemd-devel (added in the PXC-specific block below) substitutes
-  # libudev-devel. perl-Sys-MemInfo and ccache are not required to build pxb on
-  # AL2023; skip them.
+  # AL2023 does not ship perl-Sys-MemInfo, and systemd-devel (added in the AL2023
+  # toolchain block below) provides libudev-devel. Drop both word-wise
+  # (order-independent, unlike a substring strip).
   if [[ "${DIST}" == ".amzn2023" ]]; then
-      AL2023_SKIP=" perl-Sys-MemInfo ccache libudev-devel "
+      AL2023_SKIP=" perl-Sys-MemInfo libudev-devel "
       _filtered=""
       for pkg in ${PKGLIST}; do
           [[ "${AL2023_SKIP}" == *" ${pkg} "* ]] && continue
@@ -161,22 +156,17 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" mysql-devel"
   fi
 
-  # PXC specific (common list; only scons and the netcat package name differ by distro)
+  # PXC specific
   PKGLIST+=" libmicrohttpd-devel re2-devel check-devel libgcrypt-devel libev-devel vim-common \
-    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools \
+    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
     "
-  if [[ "${DIST}" == ".amzn2023" ]]; then
-      # AL2023: scons is not packaged (modern builds use cmake); netcat is nmap-ncat.
-      PKGLIST+=" nmap-ncat"
-  elif [[ $(uname -m) != "x86_64" ]]; then
-      # aarch64: scons is not packaged on OL8; modern PXB/PXC build with cmake.
-      PKGLIST+=" netcat"
-  else
-      PKGLIST+=" scons netcat"
+  # AL2023 does not package scons, and aarch64 skips it (modern builds use cmake).
+  if [[ "${DIST}" != ".amzn2023" ]] && [[ $(uname -m) == "x86_64" ]]; then
+      PKGLIST+=" scons"
   fi
 
-  # qpress comes from Percona repo (disabled on OL10 and AL2023; not needed
-  # for 8.4+/9.7+ which is the only set that targets AL2023).
+  # No qpress package is installed on AL2023 or OL10.
+  # PXB 8.0 tests that require qpress skip when it is absent.
   if [[ ${RHVER} -lt 10 ]] && [[ "${DIST}" != ".amzn2023" ]]; then
       PKGLIST+=" qpress"
   fi
@@ -288,7 +278,7 @@ if [ -f /usr/bin/yum ]; then
     if [[ ${RHVER} -eq 10 ]]; then
         retry yum -y install ${PKGLIST_DEVTOOLSET15}
     elif [[ ${RHVER} -eq 9 ]]; then
-        retry yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}
+        retry yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}
     elif [[ ${RHVER} -eq 8 ]]; then
         retry yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}
     elif [[ ${RHVER} -eq 7 ]]; then

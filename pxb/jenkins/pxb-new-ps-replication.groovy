@@ -108,6 +108,7 @@ pipeline {
     PXB_VERSION = "${params.PXB_VERSION}";
     PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
+    SERVER_QA_BRANCH = "${params.SERVER_QA_BRANCH}";
     SELECT_TEST_PYTEST = "${params.SELECT_TEST_PYTEST}";
   }
   parameters {
@@ -139,7 +140,7 @@ pipeline {
     string(
       name: 'PXB_BUILD_DOCKER_OS_RHEL',
       defaultValue: 'oraclelinux:9',
-      description: 'DOCKER_OS used to build the PXB binary for the RedHat-family test host (oracle-9). Must be a valid DOCKER_OS choice of the target compile pipeline. Valid 8.0 choices: centos:8, oraclelinux:9, ubuntu:focal, ubuntu:jammy, ubuntu:noble, debian:bullseye, debian:bookworm. Valid 9.x choices: oraclelinux:9, ubuntu:jammy, ubuntu:noble, debian:bookworm, debian:trixie.'
+      description: 'DOCKER_OS used to build the PXB binary for the RedHat-family test host (oracle-9). Must be a valid DOCKER_OS choice of the target compile pipeline. Valid 8.x choices: centos:8, oraclelinux:9, ubuntu:focal, ubuntu:jammy, ubuntu:noble, debian:bullseye, debian:bookworm. Valid 9.x choices: oraclelinux:9, ubuntu:jammy, ubuntu:noble, debian:bookworm, debian:trixie.'
     )
     string(
       name: 'PXB_BUILD_DOCKER_OS_DEB',
@@ -172,6 +173,11 @@ pipeline {
       name: 'TESTING_BRANCH'
     )
     string(
+      defaultValue: 'main',
+      description: 'Branch for server-qa repository (checked out to /server-qa in the molecule prepare stage)',
+      name: 'SERVER_QA_BRANCH'
+    )
+    string(
       name: 'SELECT_TEST_PYTEST',
       defaultValue: 'all',
       description: 'Pytest -k filter expression. Use "all" to run every test from replication_backup_tests.py, or a pytest -k expression like "test_replication_gtid_multithreaded or test_replication_gtid_singlethreaded"'
@@ -201,8 +207,19 @@ pipeline {
       }
       steps {
         script {
-          def pxbMajor = params.PXB_VERSION.tokenize('.')[0]
-          def compileJob = (pxbMajor == '9') ? 'percona-xtrabackup-9.x-compile-pipeline' : 'percona-xtrabackup-8.0-compile-pipeline'
+          // PXB_VERSION also drives the compile-pipeline choice: 8.0 has its own pipeline,
+          // the 8.1 pipeline owns the whole post-8.0 line (8.1, 8.4, ...), 9.x its own.
+          def pxbVer = params.PXB_VERSION.tokenize('-')[0].tokenize('.')
+          def pxbMajor = pxbVer[0].toInteger()
+          def pxbMinor = (pxbVer.size() > 1 ? pxbVer[1] : '0').toInteger()
+          def compileJob
+          if (pxbMajor >= 9) {
+            compileJob = 'percona-xtrabackup-9.x-compile-pipeline'
+          } else if (pxbMajor == 8 && pxbMinor > 0) {
+            compileJob = 'percona-xtrabackup-8.1-compile-pipeline'
+          } else {
+            compileJob = 'percona-xtrabackup-8.0-compile-pipeline'
+          }
 
           // Build one PXB binary on the given DOCKER_OS via the compile pipeline and
           // resolve the public S3 URL of the resulting tarball.

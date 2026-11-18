@@ -21,6 +21,7 @@ Map<String, String> clientVMs = [:]
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin", SSH_KEY = "") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -40,6 +41,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'AMI_ID', value: AMI_ID)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
@@ -55,6 +57,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
         booleanParam(name: 'DEPLOY_PMM', value: true),
@@ -77,6 +80,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
@@ -107,6 +111,8 @@ pipeline {
   agent none
 
   parameters {
+    booleanParam(name: 'USE_ONDEMAND', defaultValue: false,
+                 description: 'Use on-demand instances instead of spot (for RC/Release testing).')
     // --- SERVER CONFIGURATION ---
     choice(name: 'SERVER_TYPE', choices: ['docker', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type: docker (Basic Setup), ami (AWS EC2 AMI), helm (OpenShift), ha (High Availability).')
 
@@ -114,9 +120,9 @@ pipeline {
     string(name: 'AMI_ID', defaultValue: 'ami-0669b163befffb6c3', description: '[AMI Only] AWS AMI ID (e.g., ami-0669b163befffb6c3). Ignored for others.')
 
     // --- GLOBAL SETTINGS & VERSIONS ---
-    string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "latest" or "X.X.X" (release), "pmm3-rc" (Release Candidate), or a feature build URL provided in pmm-submodules repo (http://...).')
+    string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "X.X.X" (release, docker clients amd64 only), "pmm3-rc" (Release Candidate), "latest-tarball" (docker clients amd64 only), or a feature build tarball URL from pmm-submodules ("https://....tar.gz").')
     choice(name: 'ENABLE_PULL_MODE', choices: ['no', 'yes'], description: 'Enable Pull Mode for Clients')
-    string(name: 'ADMIN_PASSWORD', defaultValue: 'pmm3admin!', description: 'Admin password applied after provisioning.')
+    string(name: 'ADMIN_PASSWORD', defaultValue: 'PMM3testuser!', description: 'Admin password applied after provisioning.')
     string(name: 'SSH_KEY', defaultValue: '', description: 'Public SSH key for "ec2-user". Paste your OpenSSH public key to enable SSH access to AWS instances')
 
     // --- CLIENT SELECTION ---
@@ -140,12 +146,12 @@ pipeline {
 
     // --- DB VERSIONS ---
     choice(name: 'PXC_VERSION', choices: ['8.0', '8.4', '5.7'], description: 'Version for PXC nodes')
-    choice(name: 'PS_VERSION', choices: ['8.4', '8.0', '5.7', '5.7.30', '5.6'], description: 'Version for PS nodes')
-    choice(name: 'MS_VERSION', choices: ['8.4', '8.0', '5.7', '5.6'], description: 'Version for MySQL nodes')
-    choice(name: 'PGSQL_VERSION', choices: ['17', '18', '16', '15', '14', '13'], description: 'Version for PGSQL nodes')
-    choice(name: 'PDPGSQL_VERSION', choices: ['17', '18', '16', '15', '14', '13'], description: 'Version for Percona Dist PGSQL nodes')
-    choice(name: 'PSMDB_VERSION', choices: ['8.0', '7.0', '6.0', '5.0', '4.4'], description: 'Version for PSMDB nodes')
-    choice(name: 'MODB_VERSION', choices: ['8.0', '7.0', '6.0', '5.0', '4.4'], description: 'Version for MongoDB nodes')
+    choice(name: 'PS_VERSION', choices: ['8.4', '8.0', '5.7'], description: 'Version for PS nodes')
+    choice(name: 'MS_VERSION', choices: ['8.4', '8.0', '5.7'], description: 'Version for MySQL nodes')
+    choice(name: 'PGSQL_VERSION', choices: ['17', '18', '16', '15', '14'], description: 'Version for PGSQL nodes')
+    choice(name: 'PDPGSQL_VERSION', choices: ['17', '18', '16', '15', '14'], description: 'Version for Percona Dist PGSQL nodes')
+    choice(name: 'PSMDB_VERSION', choices: ['8.0', '7.0', '6.0'], description: 'Version for PSMDB nodes')
+    choice(name: 'MODB_VERSION', choices: ['8.0', '7.0', '6.0'], description: 'Version for MongoDB nodes')
 
     // --- HELM/HA SPECIFIC ---
     string(name: 'HELM_CHART_BRANCH', defaultValue: 'pmmha-v3', description: '[HA Only] Helm chart branch')
@@ -164,7 +170,7 @@ pipeline {
 
   stages {
     stage('Build Environment') {
-      agent { label 'min-noble-x64' }
+      agent { label params.USE_ONDEMAND ? 'min-noble-x64-ondemand' : 'min-noble-x64' }
 
       stages {
         stage('Prepare') {
@@ -446,22 +452,24 @@ pipeline {
 void cleanupResources(String slackStatus = 'aborted/failed/cleaned up') {
     // 1. Clean Server based on Type
     if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
-         build job: 'pmm3-ami-staging-stop', parameters: [ string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID) ]
+         build job: 'pmm3-ami-staging-stop', parameters: [ booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND), string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID) ]
     }
     else if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
          build job: 'openshift-cluster-destroy', parameters: [
+            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
             string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
             string(name: 'DESTROY_REASON', value: 'testing-complete')
          ]
     }
     else if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
          build job: 'pmm3-ha-eks-cleanup', parameters: [
+            booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
             string(name: 'ACTION', value: 'DELETE_CLUSTER'),
             string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME)
          ]
     }
     else if (env.VM_NAME) {
-         build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: env.VM_NAME) ]
+         build job: 'aws-staging-stop', parameters: [ booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND), string(name: 'VM', value: env.VM_NAME) ]
     }
 
     // 2. Clean Clients from the in-memory map populated by runClientWithRetry.
@@ -469,7 +477,7 @@ void cleanupResources(String slackStatus = 'aborted/failed/cleaned up') {
     // agent is gone before this post block runs.
     clientVMs.each { label, ip ->
         echo "Stopping Client VM (${label}) with IP ${ip}"
-        build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: ip) ]
+        build job: 'aws-staging-stop', parameters: [ booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND), string(name: 'VM', value: ip) ]
     }
 
     if (env.SLACK_DM) {
@@ -486,6 +494,7 @@ void runClientWithRetry(String clientsString, String filenameLabel) {
         while (count < retries && !success) {
             count++
             def b = build job: 'pmm3-aws-staging-start', propagate: false, parameters: [
+                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                 string(name: 'DOCKER_VERSION', value: params.DOCKER_VERSION),
                 string(name: 'CLIENT_VERSION', value: params.CLIENT_VERSION),
                 string(name: 'CLIENT_INSTANCE', value: 'yes'),

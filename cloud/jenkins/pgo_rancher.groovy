@@ -80,20 +80,8 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'pg-operator',
+                        'pg',
                         'rancher'
-                    )
-                }
-            }
-        }
-
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch: GIT_BRANCH,
-                        operator: 'pg-operator'
                     )
                 }
             }
@@ -115,10 +103,9 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'pg-operator',
+                        operator              : 'pg',
 
-                        platform              : 'rke2',
-                        platform_provider     : 'rancher',
+                        platform              : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VERSION,
                         platform_arch         : PLATFORM_ARCH,
@@ -171,10 +158,26 @@ pipeline {
                         echo 'All tests will be re-run, ignoring previous execution results!'
                     }
 
-                    libraries.tests.loadCloudSecret('pg')
+                    // Cloud secrets and the source stash are prepared in buildParallelClusterStages,
+                    // after the operator image build, so the secrets never enter the Docker build context.
+                }
+            }
+        }
 
-                    stash includes: 'cloud/**', name: 'pipelineFILES'
-                    stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch: GIT_BRANCH,
+                        operator: 'pg'
+                    )
                 }
             }
         }
@@ -198,7 +201,7 @@ pipeline {
     post {
         always {
             script {
-                echo "CLUSTER ASSIGNMENTS\n" +
+                echo 'CLUSTER ASSIGNMENTS\n' +
                     testVariables.tests.toString()
                         .replace('], ', ']\n')
                         .replace(']]', ']')
@@ -233,8 +236,8 @@ pipeline {
                             kubeconfig   : "/tmp/${testVariables.cluster_name}-${clusterSuffix}"
                         ]
 
-                        libraries.tools.kubernetesCleanupCluster(clusterCfg.kubeconfig)
-                        libraries.rancher.shutdownCluster(clusterCfg)
+                        libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
+                        libraries.rancher.shutdownCluster(clusterCfg, libraries)
                     } catch (err) {
                         echo "Cleanup failed for ${clusterSuffix}: ${err}"
                     }

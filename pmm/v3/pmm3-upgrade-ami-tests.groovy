@@ -17,6 +17,7 @@ void runUpgradeJob(String PMM_QA_PRE_UPGRADE_GIT_BRANCH, PMM_QA_GIT_BRANCH, AMI_
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENT_REPOSITORY', value: CLIENT_REPOSITORY),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
     ]
 }
 
@@ -71,7 +72,7 @@ def generateStage(String PMM_QA_PRE_UPGRADE_GIT_BRANCH, PMM_QA_GIT_BRANCH, amiVe
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
         string(
@@ -82,6 +83,10 @@ pipeline {
             defaultValue: true,
             description: 'Teting for RC version if true, if false - testing for latest dev version',
             name: 'IS_RC_TESTING')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
     }
     options {
         timeout(time: 300, unit: 'MINUTES')

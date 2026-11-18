@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, boolean USE_ONDEMAND) {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'SERVER_ARCH', value: params.SERVER_ARCH),
+        string(name: 'SERVER_ARCH', value: 'arm64'),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -24,6 +24,7 @@ void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS, boolean USE_ONDE
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
@@ -116,10 +117,6 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION',
             trim: true)
-        choice(
-            choices: ['amd64', 'arm64'],
-            description: 'Architecture of the PMM server staging VM',
-            name: 'SERVER_ARCH')
         string(
             defaultValue: latestVersion,
             description: 'PMM Version for testing',
@@ -139,7 +136,7 @@ pipeline {
             description: 'PMM Client tarball link or FB-code',
             name: 'TARBALL')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'Password for pmm server admin user',
             name: 'ADMIN_PASSWORD')
         string(
@@ -158,9 +155,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
-    }
-    triggers {
-        cron('0 2 * * *')
     }
     stages {
         stage('Setup Server Instance') {
@@ -231,15 +225,6 @@ pipeline {
                     }
                     steps {
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                }
-                stage('Debian 11 Bullseye - ARM64') {
-                    agent {
-                        label params.USE_ONDEMAND ? 'min-bullseye-arm64-ondemand' : 'min-bullseye-arm64'
-                    }
-                    steps{
-                        setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }

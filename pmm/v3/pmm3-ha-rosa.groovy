@@ -21,10 +21,12 @@ def mintAdminKubeconfig() {
 
         MINT_OUT="${WORKSPACE}/kubeconfig"
 
-        kubectl -n kube-system create serviceaccount pmm-ha-admin
+        # apply rather than create, so a retry after a lost API connection does not trip over them
+        kubectl -n kube-system create serviceaccount pmm-ha-admin --dry-run=client -o yaml | kubectl apply -f -
         kubectl create clusterrolebinding pmm-ha-admin \
             --clusterrole=cluster-admin \
-            --serviceaccount=kube-system:pmm-ha-admin
+            --serviceaccount=kube-system:pmm-ha-admin \
+            --dry-run=client -o yaml | kubectl apply -f -
 
         # Unlike "kubectl create token", the token in this Secret never expires.
         kubectl apply -f - <<'EOF'
@@ -66,14 +68,67 @@ EOF
     '''
 }
 
+// A few minutes after a ROSA HCP cluster turns ready, its API hostname can stop resolving
+// ("dial tcp: lookup api...: no such host"). The p3.openshiftapps.com SOA lets resolvers cache
+// that NXDOMAIN for 15 minutes, so a retry of a few seconds cannot ride it out: wait up to 20.
+def waitForClusterApi() {
+    sh '''
+        set +x
+        for i in $(seq 1 40); do
+            # Bounded, so a load balancer that accepts but never answers cannot stall the wait.
+            if OUT=$(oc get --raw /readyz --request-timeout=10s 2>&1); then
+                exit 0
+            fi
+            echo "Cluster API not reachable (${i}/40), retrying in 30s: $(echo "${OUT}" | tail -n 1)"
+            sleep 30
+        done
+        echo "ERROR: the cluster API is still not reachable after 20 minutes."
+        exit 1
+    '''
+}
+
+// helm leaves a release locked in pending-install/-upgrade when it loses the API mid-operation,
+// and every later "helm upgrade --install" then fails with "another operation is in progress".
+// Nothing else runs helm against this cluster, so such a lock is always stale.
+def clearStaleHelmLocks(String namespace) {
+    sh """
+        oc delete secret -n ${namespace} --ignore-not-found \
+            -l 'owner=helm,status in (pending-install,pending-upgrade,pending-rollback)'
+    """
+}
+
+// Runs body, and runs it again when it failed because the cluster API went away under it (the
+// DNS blip above). A failure while the API still answers is real and is rethrown right away, so
+// a broken chart does not run three times. body must be safe to repeat.
+def withClusterApiRetry(Closure body) {
+    def attempts = 3
+    for (int i = 1; i <= attempts; i++) {
+        waitForClusterApi()
+        try {
+            body()
+            return
+        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+            throw e   // aborted or timed out
+        } catch (err) {
+            def apiUp = sh(returnStatus: true, script: 'oc get --raw /readyz --request-timeout=10s >/dev/null 2>&1') == 0
+            if (apiUp || i == attempts) {
+                throw err
+            }
+            echo "The cluster API went away during this stage, running it again (attempt ${i + 1}/${attempts})"
+        }
+    }
+}
+
 def cleanupCluster() {
     withCredentials([aws(credentialsId: 'pmm-staging-slave'),
-                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                     usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
+                                      usernameVariable: 'ROSA_CLIENT_ID',
+                                      passwordVariable: 'ROSA_CLIENT_SECRET')]) {
         sh '''
             export AWS_RETRY_MODE=adaptive
             export AWS_MAX_ATTEMPTS=10
 
-            rosa login --token="${ROSA_TOKEN}"
+            rosa login --client-id="${ROSA_CLIENT_ID}" --client-secret="${ROSA_CLIENT_SECRET}"
 
             # Read before the delete below, while the cluster still exists. Empty if it never did.
             CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" \
@@ -169,8 +224,8 @@ pipeline {
         )
         choice(
             name: 'WORKER_COUNT',
-            choices: ['3', '4', '5', '6'],
-            description: 'Worker nodes in the machinepool. Each PMM replica requests 2 CPU / 3Gi, so raise this when overriding replicas via HELM_VALUES.'
+            choices: ['4', '5', '6', '3'],
+            description: 'Worker nodes in the machinepool. 4 fits the minimal RESOURCE_PROFILE; raise it when overriding replicas via HELM_VALUES. Ignored with the chart profile, which always uses 6.'
         )
         booleanParam(
             name: 'DEPLOY_PMM',
@@ -180,7 +235,12 @@ pipeline {
         string(
             name: 'HELM_CHART_BRANCH',
             defaultValue: 'main',
-            description: 'Branch of percona-helm-charts repo'
+            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. main or a branch based on it.'
+        )
+        choice(
+            name: 'RESOURCE_PROFILE',
+            choices: ['minimal', 'chart'],
+            description: 'PMM HA resources: "minimal" fits the default 4 workers, "chart" keeps the pmm-ha chart values and always creates 6 workers.'
         )
         string(
             name: 'PMM_IMAGE_REPOSITORY',
@@ -191,6 +251,16 @@ pipeline {
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
             description: 'PMM image tag override (initial value is pulled from the Helm chart), e.g. "PR-5500-a1234bc" for feature builds'
+        )
+        string(
+            name: 'PMM_CLIENT_IMAGE_REPOSITORY',
+            defaultValue: '',
+            description: 'PMM Client image repository override. Empty follows PMM_IMAGE_REPOSITORY, i.e. "perconalab/pmm-server-fb" gives "perconalab/pmm-client-fb", or the Helm chart value when that is empty too'
+        )
+        string(
+            name: 'PMM_CLIENT_IMAGE_TAG',
+            defaultValue: '',
+            description: 'PMM Client image tag override. Empty uses PMM_IMAGE_TAG, or the Helm chart value when that is empty too'
         )
         text(
             name: 'PMM_ENV_VARIABLE',
@@ -252,8 +322,17 @@ pipeline {
                     // this pipeline - re-assign through env.X= so it's persisted on the build and exposed
                     // via buildVariables to any caller using build job: 'pmm3-ha-rosa'.
                     env.CLUSTER_NAME = env.CLUSTER_NAME
+
+                    // The chart profile does not fit on fewer workers, so it overrides WORKER_COUNT.
+                    env.NODE_COUNT = params.RESOURCE_PROFILE == 'chart' ? '6' : params.WORKER_COUNT
+
+                    // The client follows the server image unless it is given its own.
+                    env.PMM_CLIENT_REPO = params.PMM_CLIENT_IMAGE_REPOSITORY ?: params.PMM_IMAGE_REPOSITORY.replace('pmm-server', 'pmm-client')
+                    env.PMM_CLIENT_TAG = params.PMM_CLIENT_IMAGE_TAG ?: params.PMM_IMAGE_TAG
                 }
-                withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'ROSA_SERVICE_ACCOUNT',
+                                                 usernameVariable: 'ROSA_CLIENT_ID',
+                                                 passwordVariable: 'ROSA_CLIENT_SECRET')]) {
                     sh '''
                         mkdir -p $HOME/.local/bin
 
@@ -275,7 +354,7 @@ pipeline {
                         oc version --client
                         
                         # Login once for the entire pipeline
-                        rosa login --token="${ROSA_TOKEN}"
+                        rosa login --client-id="${ROSA_CLIENT_ID}" --client-secret="${ROSA_CLIENT_SECRET}"
                     '''
                 }
             }
@@ -481,7 +560,7 @@ pipeline {
                         echo "Creating ROSA HCP cluster: ${CLUSTER_NAME}"
                         echo "  OpenShift version: ${OCP_VERSION}"
                         echo "  Instance type:     ${WORKER_INSTANCE_TYPE}"
-                        echo "  Workers:           ${WORKER_COUNT}"
+                        echo "  Workers:           ${NODE_COUNT}"
                         echo "  Subnets:           ${ALL_SUBNETS}"
 
                         # Create operator roles
@@ -513,6 +592,7 @@ pipeline {
                             --version "${RESOLVED_VERSION}" \
                             --hosted-cp \
                             --sts \
+                            --billing-account "${AWS_ACCOUNT_ID}" \
                             --role-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Installer-Role" \
                             --support-role-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Support-Role" \
                             --worker-iam-role "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Worker-Role" \
@@ -520,7 +600,7 @@ pipeline {
                             --oidc-config-id "${OIDC_ID}" \
                             --subnet-ids "${ALL_SUBNETS}" \
                             --compute-machine-type "${WORKER_INSTANCE_TYPE}" \
-                            --replicas "${WORKER_COUNT}" \
+                            --replicas "${NODE_COUNT}" \
                             --tags "iit-billing-tag pmm,created-by jenkins,build-number ${BUILD_NUMBER},retention-days ${RETENTION_DAYS},creation-time $(date -u +%s),delete-cluster-after-hours $((RETENTION_DAYS * 24)),purpose pmm-ha-rosa-testing" \
                             --yes
 
@@ -565,7 +645,9 @@ pipeline {
                         echo "Waiting for cluster authentication to become available..."
                         sleep 120
 
-                        for i in $(seq 1 12); do
+                        # The same 20 minutes waitForClusterApi gives: the login is the first call that can
+                        # hit the cached NXDOMAIN, and there is no context to probe with before it.
+                        for i in $(seq 1 40); do
                             if oc login "${API_URL}" \
                                 --username=cluster-admin \
                                 --password="${ADMIN_PW}" \
@@ -573,31 +655,40 @@ pipeline {
                                 echo "Login successful."
                                 break
                             fi
-                            echo "Login attempt ${i}/12 failed, retrying in 30s..."
-                            sleep 30
-                        done
-
-                        oc whoami
-
-                        echo "Waiting for all worker nodes to be ready (timeout: 20m)..."
-                        for i in $(seq 1 40); do
-                            READY_COUNT=$(oc get nodes --no-headers | grep -c " Ready " || true)
-                            echo "Ready nodes: ${READY_COUNT}/${WORKER_COUNT}"
-                            if [ "${READY_COUNT}" -ge "${WORKER_COUNT}" ]; then
-                                echo "All worker nodes are ready."
-                                break
-                            fi
                             if [ "$i" -eq 40 ]; then
-                                echo "ERROR: Timed out waiting for ${WORKER_COUNT} nodes to be ready after 20 minutes."
-                                oc get nodes
+                                echo "ERROR: could not log in to ${API_URL} after 20 minutes."
                                 exit 1
                             fi
+                            echo "Login attempt ${i}/40 failed, retrying in 30s..."
                             sleep 30
                         done
-                        oc get nodes -o wide
                     '''
 
-                    mintAdminKubeconfig()
+                    script {
+                        withClusterApiRetry {
+                            sh '''
+                                oc whoami
+
+                                echo "Waiting for all worker nodes to be ready (timeout: 20m)..."
+                                for i in $(seq 1 40); do
+                                    READY_COUNT=$(oc get nodes --no-headers | grep -c " Ready " || true)
+                                    echo "Ready nodes: ${READY_COUNT}/${NODE_COUNT}"
+                                    if [ "${READY_COUNT}" -ge "${NODE_COUNT}" ]; then
+                                        echo "All worker nodes are ready."
+                                        break
+                                    fi
+                                    if [ "$i" -eq 40 ]; then
+                                        echo "ERROR: Timed out waiting for ${NODE_COUNT} nodes to be ready after 20 minutes."
+                                        oc get nodes
+                                        exit 1
+                                    fi
+                                    sleep 30
+                                done
+                                oc get nodes -o wide
+                            '''
+                        }
+                        withClusterApiRetry { mintAdminKubeconfig() }
+                    }
                 }
             }
         }
@@ -605,17 +696,21 @@ pipeline {
         stage('Configure GP3 Storage Class') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        # Remove default annotation from all storage classes
-                        for sc in $(oc get storageclass -o name); do
-                            oc patch ${sc} -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' || true
-                        done
+                    script {
+                        withClusterApiRetry {
+                            sh '''
+                                # Remove default annotation from all storage classes
+                                for sc in $(oc get storageclass -o name); do
+                                    oc patch ${sc} -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}' || true
+                                done
 
-                        # Set gp3-csi as default
-                        oc patch storageclass gp3-csi -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+                                # Set gp3-csi as default
+                                oc patch storageclass gp3-csi -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 
-                        oc get storageclass
-                    '''
+                                oc get storageclass
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -623,41 +718,44 @@ pipeline {
         stage('Install Kyverno') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        helm repo add kyverno https://kyverno.github.io/kyverno/ || true
-                        helm repo update
+                    script {
+                        withClusterApiRetry {
+                            clearStaleHelmLocks('kyverno')
+                            sh '''
+                                helm repo add kyverno https://kyverno.github.io/kyverno/ || true
+                                helm repo update
 
-                        # Install Kyverno (version 3.6.1 compatible with OpenShift/K8s 1.31+)
-                        # HA deployment (3 admission replicas + PDB) prevents webhook outages
-                        # that block all pod creation in non-excluded namespaces
-                        helm upgrade --install kyverno kyverno/kyverno \
-                            --namespace kyverno --create-namespace \
-                            --version 3.6.1 \
-                            --set admissionController.replicas=3 \
-                            --set admissionController.podDisruptionBudget.minAvailable=1 \
-                            --set backgroundController.replicas=1 \
-                            --set cleanupController.replicas=1 \
-                            --set reportsController.replicas=1 \
-                            --wait --timeout 5m || echo "Kyverno install completed (post-hooks may timeout but pods should run)"
+                                # Install Kyverno (version 3.6.1 compatible with OpenShift/K8s 1.31+)
+                                # HA deployment (3 admission replicas + PDB) prevents webhook outages
+                                # that block all pod creation in non-excluded namespaces
+                                helm upgrade --install kyverno kyverno/kyverno \
+                                    --namespace kyverno --create-namespace \
+                                    --version 3.6.1 \
+                                    --set admissionController.replicas=3 \
+                                    --set admissionController.podDisruptionBudget.minAvailable=1 \
+                                    --set backgroundController.replicas=1 \
+                                    --set cleanupController.replicas=1 \
+                                    --set reportsController.replicas=1 \
+                                    --wait --timeout 5m || echo "Kyverno install completed (post-hooks may timeout but pods should run)"
 
-                        # Wait for admission controller to be ready
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=120s || true
+                                # Wait for admission controller to be ready
+                                oc wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=120s || true
 
-                        echo "Waiting for Kyverno webhook TLS to initialize..."
-                        for i in $(seq 1 20); do
-                            CERT=$(oc get secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno \
-                                -o jsonpath='{.data.tls\\.crt}' 2>/dev/null || true)
-                            if [ -n "${CERT}" ]; then
-                                echo "Kyverno webhook TLS is ready."
-                                break
-                            fi
-                            echo "  Waiting for TLS cert... (${i}/20)"
-                            sleep 10
-                        done
+                                echo "Waiting for Kyverno webhook TLS to initialize..."
+                                for i in $(seq 1 20); do
+                                    CERT=$(oc get secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno \
+                                        -o jsonpath='{.data.tls\\.crt}' 2>/dev/null || true)
+                                    if [ -n "${CERT}" ]; then
+                                        echo "Kyverno webhook TLS is ready."
+                                        break
+                                    fi
+                                    echo "  Waiting for TLS cert... (${i}/20)"
+                                    sleep 10
+                                done
 
-                        echo "Creating Docker Hub pull-through cache policy..."
+                                echo "Creating Docker Hub pull-through cache policy..."
 
-                        cat <<'EOF' | oc apply -f -
+                                cat <<'EOF' | oc apply -f -
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -710,7 +808,9 @@ spec:
                 path: /spec/initContainers/{{elementIndex}}/image
                 value: "reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers.\"{{element.name}}\".path}}:{{images.initContainers.\"{{element.name}}\".tag}}"
 EOF
-                    '''
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -725,154 +825,269 @@ EOF
                         git poll: false, branch: params.HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
                     }
 
-                    sh '''
-                        # The cluster's API hostname can suffer a brief DNS blip right after
-                        # creation, retry so one bad lookup doesn't kill a 20+ minute stage.
-                        retry() {
-                            for i in $(seq 1 5); do
-                                if "$@"; then
-                                    return 0
+                    script {
+                        withClusterApiRetry {
+                            clearStaleHelmLocks('pmm')
+                            sh '''
+                                # Covers a lookup that fails for a few seconds. An outage that outlasts
+                                # these retries fails the script and withClusterApiRetry reruns it.
+                                retry() {
+                                    for i in $(seq 1 5); do
+                                        if "$@"; then
+                                            return 0
+                                        fi
+                                        echo "Attempt ${i}/5 failed, retrying in 15s: $*"
+                                        sleep 15
+                                    done
+                                    echo "Giving up after 5 attempts: $*"
+                                    return 1
+                                }
+
+                                # Diagnostics are archived on failure, so drop an earlier attempt's.
+                                rm -rf helm-debug
+
+                                oc create namespace pmm --dry-run=client -o yaml | oc apply -f -
+
+                                # Newer charts need their OpenShift overlay, anyuid breaks it, so only older charts get anyuid.
+                                OPENSHIFT_VALUES="helm-charts/charts/pmm-ha/examples/values-openshift.yaml"
+                                OPENSHIFT_ARGS=""
+                                if [ -f "${OPENSHIFT_VALUES}" ]; then
+                                    OPENSHIFT_ARGS="-f ${OPENSHIFT_VALUES}"
+                                else
+                                    oc adm policy add-scc-to-group anyuid system:serviceaccounts:pmm
                                 fi
-                                echo "Attempt ${i}/5 failed, retrying in 15s: $*"
-                                sleep 15
-                            done
-                            echo "Giving up after 5 attempts: $*"
-                            return 1
-                        }
 
-                        oc create namespace pmm
+                                # Since PMM-14746 the dependencies chart pins a uid for the ClickHouse operator that
+                                # restricted-v2 refuses, and ships its own overlay to unset it.
+                                DEPS_OPENSHIFT_VALUES="helm-charts/charts/pmm-ha-dependencies/examples/values-openshift.yaml"
+                                DEPS_OPENSHIFT_ARGS=""
+                                if [ -f "${DEPS_OPENSHIFT_VALUES}" ]; then
+                                    DEPS_OPENSHIFT_ARGS="-f ${DEPS_OPENSHIFT_VALUES}"
+                                fi
 
-                        # Grant anyuid SCC to all service accounts in pmm namespace
-                        oc adm policy add-scc-to-group anyuid system:serviceaccounts:pmm
+                                # OpenShift uses dns-default.openshift-dns instead of kube-dns.kube-system
+                                sed -i 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' helm-charts/charts/pmm-ha/templates/haproxy-configmap.yaml
 
-                        # OpenShift uses dns-default.openshift-dns instead of kube-dns.kube-system
-                        sed -i 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' helm-charts/charts/pmm-ha/templates/haproxy-configmap.yaml
+                                helm repo add percona https://percona.github.io/percona-helm-charts/
+                                helm repo add vm https://victoriametrics.github.io/helm-charts/
+                                helm repo add altinity https://helm.altinity.com || true
+                                helm repo update
 
-                        helm repo add percona https://percona.github.io/percona-helm-charts/
-                        helm repo add vm https://victoriametrics.github.io/helm-charts/
-                        helm repo add altinity https://helm.altinity.com || true
-                        helm repo update
+                                helm dependency update helm-charts/charts/pmm-ha-dependencies
+                                helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm ${DEPS_OPENSHIFT_ARGS} --wait --timeout 10m
 
-                        helm dependency update helm-charts/charts/pmm-ha-dependencies
-                        helm upgrade --install pmm-operators helm-charts/charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
 
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
+                                # Wait for operator webhooks to be fully initialized
+                                # Operators report ready before their admission webhooks have TLS certificates configured
+                                echo "Waiting for operator webhooks to initialize..."
+                                sleep 60
 
-                        # Wait for operator webhooks to be fully initialized
-                        # Operators report ready before their admission webhooks have TLS certificates configured
-                        echo "Waiting for operator webhooks to initialize..."
-                        sleep 60
+                                # A rerun keeps the secret of the earlier attempt: the databases may
+                                # already be initialised with its passwords.
+                                EXISTING_SECRET=$(oc get secret pmm-secret -n pmm --ignore-not-found -o name)
+                                if [ -z "${EXISTING_SECRET}" ]; then
+                                    if [ -n "${PMM_ADMIN_PASSWORD}" ]; then
+                                        PMM_PW="${PMM_ADMIN_PASSWORD}"
+                                    else
+                                        PMM_PW="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
+                                    fi
+                                    PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                                    GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                                    CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                                    VM_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
 
-                        if [ -n "${PMM_ADMIN_PASSWORD}" ]; then
-                            PMM_PW="${PMM_ADMIN_PASSWORD}"
-                        else
-                            PMM_PW="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
-                        fi
-                        PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-                        GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-                        CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-                        VM_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                                    oc create secret generic pmm-secret -n pmm \
+                                        --from-literal=PMM_ADMIN_PASSWORD="${PMM_PW}" \
+                                        --from-literal=GF_SECURITY_ADMIN_PASSWORD="${PMM_PW}" \
+                                        --from-literal=PG_PASSWORD="${PG_PW}" \
+                                        --from-literal=GF_PASSWORD="${GF_PW}" \
+                                        --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
+                                        --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
+                                        --from-literal=PMM_HA_VM_USERNAME="victoriametrics_pmm" \
+                                        --from-literal=PMM_HA_VM_PASSWORD="${VM_PW}" \
+                                        --dry-run=client -o yaml | oc apply -f -
+                                fi
 
-                        oc create secret generic pmm-secret -n pmm \
-                            --from-literal=PMM_ADMIN_PASSWORD="${PMM_PW}" \
-                            --from-literal=GF_SECURITY_ADMIN_PASSWORD="${PMM_PW}" \
-                            --from-literal=PG_PASSWORD="${PG_PW}" \
-                            --from-literal=GF_PASSWORD="${GF_PW}" \
-                            --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
-                            --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
-                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
-                            --dry-run=client -o yaml | oc apply -f -
+                                helm dependency update helm-charts/charts/pmm-ha
 
-                        helm dependency update helm-charts/charts/pmm-ha
-
-                        # Fold PMM_ENV_VARIABLE into the pmmEnv values of the chart. They end up in a
-                        # ConfigMap, whose data must be strings, hence --set-string rather than --set.
-                        PMM_ENV_ARGS=""
-                        for kv in ${PMM_ENV_VARIABLE}; do
-                            case "${kv}" in
-                                *=*) PMM_ENV_ARGS="${PMM_ENV_ARGS} --set-string pmmEnv.${kv}" ;;
-                                *)   echo "ERROR: PMM_ENV_VARIABLE entry '${kv}' is not a KEY=VALUE pair"; exit 1 ;;
-                            esac
-                        done
-
-                        set +e
-
-                        # Install pmm-ha chart (creates component service accounts)
-                        # Resources stay at the chart defaults; raise WORKER_COUNT when pods do not fit
-                        helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
-                            --timeout 20m \
-                            --set secret.create=false \
-                            --set secret.name=pmm-secret \
-                            ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
-                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
-                            ${PMM_ENV_ARGS} \
-                            ${HELM_VALUES:+--set ${HELM_VALUES}}
-
-                        HELM_EXIT_CODE=$?
-
-                        set -e
-
-                        if [ "$HELM_EXIT_CODE" -ne 0 ]; then
-                            echo "Helm failed — collecting diagnostics"
-
-                            mkdir -p helm-debug
-
-                            oc get pods -n pmm -o wide > helm-debug/pods.txt || true
-                            oc get events -n pmm --sort-by=.metadata.creationTimestamp > helm-debug/events.txt || true
-
-                            for pod in $(oc get pods -n pmm --no-headers | awk '{print $1}'); do
-                                oc describe pod "$pod" -n pmm >> helm-debug/describe-$pod.txt || true
-
-                                for container in $(oc get pod "$pod" -n pmm -o jsonpath='{.spec.containers[*].name}'); do
-                                    oc logs "$pod" -n pmm -c "$container" \
-                                        --tail=200 > "helm-debug/${pod}-${container}.log" || true
+                                # Fold PMM_ENV_VARIABLE into the pmmEnv values of the chart. They end up in a
+                                # ConfigMap, whose data must be strings, hence --set-string rather than --set.
+                                PMM_ENV_ARGS=""
+                                for kv in ${PMM_ENV_VARIABLE}; do
+                                    case "${kv}" in
+                                        *=*) PMM_ENV_ARGS="${PMM_ENV_ARGS} --set-string pmmEnv.${kv}" ;;
+                                        *)   echo "ERROR: PMM_ENV_VARIABLE entry '${kv}' is not a KEY=VALUE pair"; exit 1 ;;
+                                    esac
                                 done
-                            done
 
-                            oc get statefulset pmm-ha -n pmm -o yaml > helm-debug/statefulset.yaml || true
+                                # Smaller resources that fit PMM HA on the default 4 workers. helm applies -f
+                                # before --set, so HELM_VALUES can still override any of these.
+                                RESOURCE_ARGS=""
+                                if [ "${RESOURCE_PROFILE}" = "minimal" ]; then
+                                    RESOURCE_ARGS="-f minimal-resources.yaml"
+                                    cat > minimal-resources.yaml <<'EOF'
+pmmResources:
+  requests:
+    cpu: "2"
+    memory: "3Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+clickhouse:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  keeper:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+  storage:
+    size: 20Gi
+victoriaMetrics:
+  vmselect:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+  vmagent:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+  vmstorage:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+EOF
+                                fi
 
-                            exit $HELM_EXIT_CODE
-                        fi
+                                set +e
 
-                        # Grant additional SCCs for monitoring components created by the chart
-                        # node-exporter needs host-level access (hostNetwork, hostPID, hostPath)
-                        oc adm policy add-scc-to-user node-exporter -z pmm-ha-prometheus-node-exporter -n pmm || true
-                        # kube-state-metrics needs seccomp + nonroot UID outside default range
-                        oc adm policy add-scc-to-user nonroot-v2 -z pmm-ha-kube-state-metrics -n pmm || true
+                                # On a rerun, a release an earlier attempt deployed is not upgraded: that re-runs the chart's
+                                # PostgreSQL credentials hook, which races the operator and rotates gfuser's password.
+                                # Only "release: not found" means a first install; any other error (the API
+                                # going away again) must not fall through to an upgrade of a live release.
+                                STATUS_OUT=$(helm status pmm-ha -n pmm 2>&1)
+                                STATUS_RC=$?
+                                if [ "$STATUS_RC" -eq 0 ] && echo "${STATUS_OUT}" | grep -q '^STATUS: deployed'; then
+                                    echo "pmm-ha was deployed by an earlier attempt, waiting for it instead of upgrading it"
+                                    HELM_EXIT_CODE=0
+                                elif [ "$STATUS_RC" -ne 0 ] && ! echo "${STATUS_OUT}" | grep -q 'release: not found'; then
+                                    echo "ERROR: cannot read the pmm-ha release status: ${STATUS_OUT}"
+                                    exit 1
+                                else
+                                    # Install pmm-ha chart (creates component service accounts)
+                                    helm upgrade --install pmm-ha helm-charts/charts/pmm-ha -n pmm \
+                                        ${OPENSHIFT_ARGS} \
+                                        ${RESOURCE_ARGS} \
+                                        --timeout 20m \
+                                        --set secret.create=false \
+                                        --set secret.name=pmm-secret \
+                                        ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
+                                        ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
+                                        ${PMM_CLIENT_REPO:+--set pmmClient.image.repository=${PMM_CLIENT_REPO}} \
+                                        ${PMM_CLIENT_TAG:+--set pmmClient.image.tag=${PMM_CLIENT_TAG}} \
+                                        --set-string pmmEnv.PMM_DEV_TELEMETRY_DISABLE_SEND=1 \
+                                        ${PMM_ENV_ARGS} \
+                                        ${HELM_VALUES:+--set ${HELM_VALUES}}
+                                    HELM_EXIT_CODE=$?
+                                fi
 
-                        echo "Waiting for all PMM HA components to be ready..."
+                                set -e
 
-                        # PMM servers
-                        retry oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
+                                if [ "$HELM_EXIT_CODE" -ne 0 ]; then
+                                    echo "Helm failed — collecting diagnostics"
 
-                        # ClickHouse
-                        retry oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
+                                    mkdir -p helm-debug
 
-                        # ClickHouse Keeper
-                        retry oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
+                                    oc get pods -n pmm -o wide > helm-debug/pods.txt || true
+                                    oc get events -n pmm --sort-by=.metadata.creationTimestamp > helm-debug/events.txt || true
 
-                        # PostgreSQL instances
-                        retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
+                                    for pod in $(oc get pods -n pmm --no-headers | awk '{print $1}'); do
+                                        oc describe pod "$pod" -n pmm >> helm-debug/describe-$pod.txt || true
 
-                        # PgBouncer
-                        retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
+                                        for container in $(oc get pod "$pod" -n pmm -o jsonpath='{.spec.containers[*].name}'); do
+                                            oc logs "$pod" -n pmm -c "$container" \
+                                                --tail=200 > "helm-debug/${pod}-${container}.log" || true
+                                        done
+                                    done
 
-                        # HAProxy
-                        retry oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
+                                    oc get statefulset pmm-ha -n pmm -o yaml > helm-debug/statefulset.yaml || true
 
-                        # VictoriaMetrics
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
-                        retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
+                                    exit $HELM_EXIT_CODE
+                                fi
 
-                        echo ""
-                        oc get pods -n pmm
-                    '''
+                                # Grant additional SCCs for monitoring components created by the chart
+                                # node-exporter needs host-level access (hostNetwork, hostPID, hostPath)
+                                oc adm policy add-scc-to-user node-exporter -z pmm-ha-prometheus-node-exporter -n pmm || true
+                                # kube-state-metrics needs seccomp + nonroot UID outside default range
+                                oc adm policy add-scc-to-user nonroot-v2 -z pmm-ha-kube-state-metrics -n pmm || true
+
+                                echo "Waiting for all PMM HA components to be ready..."
+
+                                # PMM servers
+                                retry oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
+
+                                # ClickHouse
+                                retry oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
+
+                                # ClickHouse Keeper
+                                retry oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
+
+                                # PostgreSQL instances
+                                retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
+
+                                # PgBouncer
+                                retry oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
+
+                                # HAProxy
+                                retry oc wait --for=condition=Available deployment/pmm-ha-haproxy -n pmm --timeout=15m
+
+                                # VictoriaMetrics
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
+                                retry oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
+
+                                # The PG operator restarts the pg-db pods to add the pmm-client sidecar once pmm-token-init writes the
+                                # PMM token; tests started during that restart hit PMM-15716, so wait until every pod has the sidecar.
+                                retry oc wait --for=condition=complete job -l app.kubernetes.io/instance=pmm-ha,app.kubernetes.io/component=pmm-token-init -n pmm --timeout=10m
+                                PG_PODS='postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres'
+                                for i in $(seq 90); do
+                                  pods=$(oc get pods -n pmm -l "$PG_PODS" -o jsonpath='{range .items[*]}{.spec.containers[*].name};{end}' || true)
+                                  [ -n "$pods" ] && [ "$(echo "$pods" | grep -o ';' | wc -l)" -eq "$(echo "$pods" | grep -o 'pmm-client' | wc -l)" ] && break
+                                  [ "$i" -lt 90 ] || { echo "pg-db pods did not get the pmm-client sidecar within 15m"; oc get pods -n pmm -l "$PG_PODS"; exit 1; }
+                                  sleep 10
+                                done
+                                retry oc wait --for=condition=ready pod -l "$PG_PODS" -n pmm --timeout=10m
+
+                                echo ""
+                                oc get pods -n pmm
+                            '''
+                        }
+                    }
                 }
             }
         }
@@ -884,10 +1099,11 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
-                        sh '''
-                            export KUBECONFIG="${KUBECONFIG}"
+                        withClusterApiRetry {
+                            sh '''
+                                export KUBECONFIG="${KUBECONFIG}"
 
-                            cat <<EOF | oc apply -f -
+                                cat <<EOF | oc apply -f -
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -908,19 +1124,20 @@ spec:
   wildcardPolicy: None
 EOF
 
-                            echo "Waiting for route to be available..."
-                            sleep 30
-                        '''
-
-                        def routeHost = sh(
-                            returnStdout: true,
-                            script: '''
-                                export KUBECONFIG="${KUBECONFIG}"
-                                oc get route pmm-ha-route -n pmm -o jsonpath='{.spec.host}'
+                                echo "Waiting for route to be available..."
+                                sleep 30
                             '''
-                        ).trim()
 
-                        env.PMM_URL = "https://${routeHost}"
+                            def routeHost = sh(
+                                returnStdout: true,
+                                script: '''
+                                    export KUBECONFIG="${KUBECONFIG}"
+                                    oc get route pmm-ha-route -n pmm -o jsonpath='{.spec.host}'
+                                '''
+                            ).trim()
+
+                            env.PMM_URL = "https://${routeHost}"
+                        }
                     }
                 }
             }
@@ -929,63 +1146,67 @@ EOF
         stage('Cluster Summary') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        set +x
-                        export KUBECONFIG="${KUBECONFIG}"
+                    script {
+                        withClusterApiRetry {
+                            sh '''
+                                set +x
+                                export KUBECONFIG="${KUBECONFIG}"
 
-                        echo "ROSA HCP Cluster Summary"
-                        echo "=============================="
+                                echo "ROSA HCP Cluster Summary"
+                                echo "=============================="
 
-                        echo "Name:    ${CLUSTER_NAME}"
-                        echo "Version: OpenShift ${OCP_VERSION}"
-                        echo "Region:  ${REGION}"
-                        echo "Build:   ${BUILD_NUMBER}"
-                        echo ""
+                                echo "Name:    ${CLUSTER_NAME}"
+                                echo "Version: OpenShift ${OCP_VERSION}"
+                                echo "Region:  ${REGION}"
+                                echo "Build:   ${BUILD_NUMBER}"
+                                echo ""
 
-                        oc get nodes -o wide
-                        echo ""
-                        oc get clusterversion
-                        echo ""
-                        oc get storageclass
-                        echo ""
+                                oc get nodes -o wide
+                                echo ""
+                                oc get clusterversion
+                                echo ""
+                                oc get storageclass
+                                echo ""
 
-                        echo "kubectl/oc access (local):"
-                        echo "  # Download the kubeconfig artifact - valid for the cluster's whole life."
-                        echo "  export KUBECONFIG=./kubeconfig"
-                        echo ""
+                                echo "kubectl/oc access (local):"
+                                echo "  # Download the kubeconfig artifact - valid for the cluster's whole life."
+                                echo "  export KUBECONFIG=./kubeconfig"
+                                echo ""
 
-                        echo "Scale workers:"
-                        echo "  Run the pmm3-ha-rosa-scale job with CLUSTER_NAME=${CLUSTER_NAME} (3-6 workers)"
-                        echo ""
+                                echo "Scale workers:"
+                                echo "  Run the pmm3-ha-rosa-scale job with CLUSTER_NAME=${CLUSTER_NAME} (3-6 workers)"
+                                echo ""
 
-                        # Everything below describes PMM, so a bare cluster stops here.
-                        [ "${DEPLOY_PMM}" = "true" ] || exit 0
+                                # Everything below describes PMM, so a bare cluster stops here.
+                                [ "${DEPLOY_PMM}" = "true" ] || exit 0
 
-                        echo "Internal Component Credentials"
-                        echo "------------------------------"
+                                echo "Internal Component Credentials"
+                                echo "------------------------------"
 
-                        get_secret() {
-                            oc get secret pmm-secret -n pmm \
-                                -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode
+                                get_secret() {
+                                    oc get secret pmm-secret -n pmm \
+                                        -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode
+                                }
+                                echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
+                                echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
+                                echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
+                                echo "VictoriaMetrics: $(get_secret PMM_HA_VM_USERNAME) / $(get_secret PMM_HA_VM_PASSWORD)"
+                                echo ""
+
+                                echo "PMM access:"
+                                echo "  oc port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
+                                echo "  # Then access https://localhost:8443"
+                                echo ""
+
+                                if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
+                                    echo "External Access (OpenShift Route)"
+                                    echo "------------------------------"
+                                    echo "  ${PMM_URL}"
+                                    echo ""
+                                fi
+                            '''
                         }
-                        echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
-                        echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
-                        echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
-                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
-                        echo ""
-
-                        echo "PMM access:"
-                        echo "  oc port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
-                        echo "  # Then access https://localhost:8443"
-                        echo ""
-
-                        if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
-                            echo "External Access (OpenShift Route)"
-                            echo "------------------------------"
-                            echo "  ${PMM_URL}"
-                            echo ""
-                        fi
-                    '''
+                    }
                 }
             }
         }

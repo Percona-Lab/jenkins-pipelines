@@ -1,8 +1,12 @@
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'list-all-vms',
             description: 'Name or IP of VM to stop. Also you can set "list-all-vms" value, in this case list of current VMs will be shown and pipeline will ask you VM again.',
@@ -22,7 +26,7 @@ pipeline {
                             set +o xtrace
 
                             aws ec2 describe-instances \
-                                --output table \
+                                --output text \
                                 --region us-east-2 \
                                 --filters "Name=tag:iit-billing-tag,Values=pmm-staging" \
                                           "Name=instance-state-name,Values=running" \
@@ -77,8 +81,8 @@ pipeline {
                         # cut on '|' instead of awk fields -- awk's whitespace splitting
                         # breaks when a short value like "None" doesn't butt up against the next '|'.
                         ROW=$(echo "${VMList}" | grep "${INPUT}")
-                        REQUEST_ID=$(echo "$ROW" | cut -d '|' -f2 | xargs)
-                        INSTANCE_ID=$(echo "$ROW" | cut -d '|' -f3 | xargs)
+                        REQUEST_ID=$(echo "$ROW" | awk '{print $1}')
+                        INSTANCE_ID=$(echo "$ROW" | awk '{print $2}')
                         set -x
                         echo $REQUEST_ID
                         echo $INSTANCE_ID

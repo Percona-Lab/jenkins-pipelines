@@ -24,11 +24,11 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80'], description: 'Set to 80/84 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '97', '84', '80'], description: 'Set to 97/84/80 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
         string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
-        choice(name: 'PLATFORM_ARCH', choices: ['amd64', 'arm64'], description: 'Platform architecture used to select the machine type.')
+        choice(name: 'PLATFORM_ARCH', choices: ['amd64'], description: 'Platform architecture used to select the machine type.')
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version. In release runs, latest or empty is replaced with RANCHER from source/e2e-tests/release_versions.')
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
@@ -45,6 +45,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
+        string(name: 'IMAGE_LOG_COLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
 
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Enable debug mode for tests')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Jenkins agent provider')
@@ -57,7 +58,7 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         timeout(time: 6, unit: 'HOURS')
-        copyArtifactPermission('weekly-pso');
+        copyArtifactPermission('weekly-pso')
     }
     stages {
         stage('Init Workspace') {
@@ -80,19 +81,8 @@ pipeline {
                     libraries.dependencies.prepareNode(
                         libraries,
                         'kuttl',
-                        'ps-operator',
+                        'ps',
                         'rancher'
-                    )
-                }
-            }
-        }
-
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH
                     )
                 }
             }
@@ -104,9 +94,8 @@ pipeline {
                     testVariables = libraries.tests.prepareVersions([
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
-                        operator              : 'ps-operator',
-                        platform              : 'rke2',
-                        platform_provider     : 'rancher',
+                        operator              : 'ps',
+                        platform              : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
                         platform_version      : PLATFORM_VERSION,
                         platform_arch         : PLATFORM_ARCH,
@@ -138,7 +127,8 @@ pipeline {
                             IMAGE_PMM_SERVER   : IMAGE_PMM_SERVER,
                             IMAGE_PMM3_CLIENT  : IMAGE_PMM3_CLIENT,
                             IMAGE_PMM3_SERVER  : IMAGE_PMM3_SERVER,
-                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER
+                            IMAGE_BINLOG_SERVER: IMAGE_BINLOG_SERVER,
+                            IMAGE_LOG_COLLECTOR: IMAGE_LOG_COLLECTOR
                         ]
                     ])
 
@@ -162,9 +152,26 @@ pipeline {
             }
         }
 
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH
+                    )
+                }
+            }
+        }
+
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             steps {
                 script {

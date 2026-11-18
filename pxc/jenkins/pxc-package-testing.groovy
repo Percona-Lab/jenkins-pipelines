@@ -280,9 +280,39 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     molecule ${action} -s ${scenario}
                     cd -
 
+                    if [ "${action}" = "create" ]; then
+                        # Molecule's ephemeral directory is not a fixed path - with concurrent
+                        # builds sharing this agent, Molecule may put it under the usual
+                        # ~/.cache/molecule/<role>/<scenario> location or under a randomized
+                        # ~/.ansible/tmp/molecule.*.<scenario> directory to avoid colliding with
+                        # another build using the same scenario name. Locate whichever key was
+                        # just written (the most recently modified match) instead of assuming
+                        # a fixed path, then copy it into this build's own workspace so later
+                        # steps (e.g. the post-build log backup) have a stable place to read it.
+                        mkdir -p "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/"
+                        BOOTSTRAP_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        if [ -z "\$BOOTSTRAP_KEY" ]; then
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-bootstrap-${param_test_type}/${scenario}" >&2
+                            exit 1
+                        fi
+                        cp "\$BOOTSTRAP_KEY" "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-bootstrap/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                    fi
+
                     cd ${product_to_test}-common-${param_test_type}
                     molecule ${action} -s ${scenario}
                     cd -
+
+                    if [ "${action}" = "create" ]; then
+                        mkdir -p "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/"
+                        COMMON_KEY=\$(find /home/admin/.cache/molecule /home/admin/.ansible/tmp -maxdepth 3 -type f -name "ssh_key-*" -path "*${scenario}*" -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+                        if [ -z "\$COMMON_KEY" ]; then
+                            echo "ERROR: could not locate Molecule ssh_key for ${product_to_test}-common-${param_test_type}/${scenario}" >&2
+                            exit 1
+                        fi
+                        cp "\$COMMON_KEY" "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                        chmod 600 "${WORKSPACE}/${product_to_test}-common/${scenario}/${param_test_type}/ssh_key-us-west-1"
+                    fi
                 """
             }else{
 
@@ -434,8 +464,11 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
-                    KEYPATH_COMMON="/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    // Use the workspace copy of the SSH key made right after "molecule create"
+                    // (see runMoleculeAction) instead of Molecule's ephemeral cache directory,
+                    // which is shared across builds and can be recreated/removed by another build.
+                    KEYPATH_BOOTSTRAP="${WORKSPACE}/${product_to_test}-bootstrap/${params.node_to_test}/${param_test_type}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="${WORKSPACE}/${product_to_test}-common/${params.node_to_test}/${param_test_type}/ssh_key-us-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-resolute") || ("${params.node_to_test}" == "ubuntu-resolute-arm") || ("${params.node_to_test}" == "ubuntu-noble") || ("${params.node_to_test}" == "ubuntu-focal") || ("${params.node_to_test}" == "ubuntu-jammy") || ("${params.node_to_test}" == "ubuntu-noble-arm") || ("${params.node_to_test}" == "ubuntu-jammy-arm") || ("${params.node_to_test}" == "ubuntu-focal-arm") || ("${params.node_to_test}" == "ubuntu-bionic")){

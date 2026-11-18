@@ -29,15 +29,28 @@ variable "os" {
     error_message = "Value of os must be oraclelinux or rocky."
   }
 }
-variable "os_major" { type = string }
-variable "arch" { type = string } # x86_64 | arm64
+variable "os_major" {
+  type = string
+  validation {
+    condition     = contains(["8", "9", "10"], var.os_major)
+    error_message = "Value of os_major must be 8, 9, or 10."
+  }
+}
+variable "arch" {
+  type = string # x86_64 | arm64
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.arch)
+    error_message = "Value of arch must be x86_64 or arm64."
+  }
+}
 variable "region" {
   type    = string
   default = "eu-central-1"
 }
 variable "subnet_id" {
-  type    = string
-  default = "subnet-068170595951ab3a9"
+  type        = string
+  default     = ""
+  description = "Pin the builder to one subnet. Empty (default) spreads launches across the default VPC's per-AZ subnets (see subnet_filter)."
 }
 variable "builder_instance_profile" {
   type    = string
@@ -49,7 +62,7 @@ variable "builder_security_group_name" {
 }
 
 locals {
-  instance_type = var.arch == "arm64" ? "t4g.large" : "t3.large"
+  instance_type = var.arch == "arm64" ? "m7g.large" : "t3.large"
   uname_arch    = var.arch == "arm64" ? "aarch64" : "x86_64"
   # Identity via /etc/os-release ID (release-file names cannot tell EL distros
   # apart once more are added: every clone ships /etc/redhat-release).
@@ -73,8 +86,15 @@ source "amazon-ebs" "smoke" {
   ssh_timeout                 = "10m"
   iam_instance_profile        = var.builder_instance_profile
   skip_profile_validation     = true # OIDC role has PassRole only, not iam:GetInstanceProfile
-  subnet_id                   = var.subnet_id
   associate_public_ip_address = true
+  # Same multi-AZ placement as refresh.pkr.hcl (subnet_id overrides the filter).
+  subnet_id = var.subnet_id
+  subnet_filter {
+    filters = {
+      "default-for-az" = "true"
+    }
+    random = true
+  }
   # Same pre-created no-ingress SG as the builder (disables Packer's temp SG).
   security_group_filter {
     filters = {
@@ -109,6 +129,8 @@ build {
       "sudo dnf -qy module disable postgresql 2>/dev/null || true",
       "sudo dnf -y install percona-postgresql17-server || sudo dnf -y install percona-ppg-server17",
       "echo \"PPG install ok: $(rpm -q percona-postgresql17-server 2>/dev/null || rpm -qa 'percona-ppg-server*' | head -1)\"",
+      "[ -z \"$(sudo find /boot -maxdepth 1 -name 'initramfs-*kdump.img')\" ] || { echo 'kdump wrote a crash-dump initramfs on first boot'; exit 1; }",
+      "[ \"$(systemctl is-enabled kdump.service 2>/dev/null || true)\" != enabled ] || { echo 'kdump.service came back enabled on first boot'; exit 1; }",
     ]
   }
 }

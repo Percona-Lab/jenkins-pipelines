@@ -25,12 +25,12 @@ pipeline {
         )
         choice(
             choices: ['amd64', 'arm64'],
-            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton t4g.xlarge)',
+            description: 'CPU architecture of the staging VM (arm64 = AWS Graviton, t4g/m6g/m7g.xlarge, first with capacity)',
             name: 'SERVER_ARCH'
         )
         string(
-            defaultValue: '3-dev-latest',
-            description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
+            defaultValue: 'latest-tarball',
+            description: 'PMM Client version ("3-dev-latest" for main branch, "X.X.X" for released version (docker clients amd64 only), "pmm3-rc" for Release Candidate, "latest-tarball" (docker clients amd64 only) or "https://....tar.gz" for feature build)',
             name: 'CLIENT_VERSION'
         )
         string(
@@ -39,7 +39,7 @@ pipeline {
             name: 'SSH_KEY'
         )
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD'
         )
@@ -55,7 +55,7 @@ pipeline {
         )
         choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
-            description: 'Stop the instance in X days ("0" value disables the automated instance removal)',
+            description: 'Stop the instance in X days ("0" disables the automated removal). On spot this is best effort and an interruption ends the VM earlier. Use USE_ONDEMAND to keep the VM for the whole period.',
             name: 'DAYS'
         )
         text(
@@ -71,27 +71,27 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.0', '8.4', '5.7', '5.7.30', '5.6'],
+            choices: ['8.0', '8.4', '5.7'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.0', '8.4', '5.7', '5.6'],
+            choices: ['8.0', '8.4', '5.7'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['16', '17', '18', '15','14', '13'],
+            choices: ['16', '17', '18', '15', '14'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16', '17', '18', '15', '14', '13'],
+            choices: ['16', '17', '18', '15', '14'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
-            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0'],
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
         text(
@@ -106,9 +106,8 @@ pipeline {
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
             --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
-            --database modb - Official MongoDB
             Additional options:
-                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|sharding(Sharded cluster)
             --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
             --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
             --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
@@ -266,6 +265,7 @@ pipeline {
                                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                                         -e PMM_WATCHTOWER_TOKEN=testToken \
                                         -e GF_SECURITY_ADMIN_PASSWORD="${ADMIN_PASSWORD}" \
+                                        -e PMM_ENABLE_TELEMETRY=0 \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
@@ -310,11 +310,7 @@ pipeline {
                         [ -z "${CLIENTS// }" ] && exit 0
 
                         export PATH=$PATH:/usr/sbin
-                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         mkdir -m 777 -p /tmp/backup_data
-                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                            export PMM_CLIENT_VERSION="latest"
-                        fi
 
                         if [[ "${CLIENT_INSTANCE}" = yes ]]; then
                             export EXTERNAL_PMM_SERVER_FLAG="--pmm-server-ip=${SERVER_IP}"
@@ -333,9 +329,10 @@ pipeline {
                         pushd /srv/pmm-qa/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
 
+                            # pmm-framework needs this value as-is; changing it installs nothing
                             ./pmm-framework/pmm-framework \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
-                                --client-version=${PMM_CLIENT_VERSION} \
+                                --client-version="${CLIENT_VERSION//[[:space:]]/}" \
                                 ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
                         popd
                     '''
@@ -364,17 +361,21 @@ pipeline {
                 }
             }
         }
-        failure {
+        unsuccessful {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
+                    # read the files, not the env vars: those are only set once runSpotInstance
+                    # finishes, so a build aborted mid-launch would leave nothing to clean up
+                    REQ=$(cat REQUEST_ID 2>/dev/null || true)
+                    AMI=$(cat AMI_ID 2>/dev/null || true)
                     # On-demand has no spot request, so gate each call on its own id:
-                    # cancel only a real REQUEST_ID, but always terminate a running AMI_ID.
-                    if [ -n "${REQUEST_ID}" ]; then
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                    # cancel only a real request, but always terminate a running instance.
+                    if [ -n "$REQ" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQ
                     fi
-                    if [ -n "${AMI_ID}" ]; then
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${AMI_ID}
+                    if [ -n "$AMI" ]; then
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids $AMI
                     fi
                 '''
             }

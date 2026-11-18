@@ -18,7 +18,7 @@ pipeline {
         choice(
             name: 'WORKER_NODE_COUNT',
             choices: ['6', '7', '8', '9', '10', '11', '12'],
-            description: 'Target worker node count, up or down. The baseline is whatever WORKER_COUNT pmm3-ha-eks was run with. Each PMM replica requests 2 CPU / 3Gi, so scaling below what the deployed replicas need will leave pods Pending.'
+            description: 'Target worker node count (baseline is 7, max 12)'
         )
     }
 

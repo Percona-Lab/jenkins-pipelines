@@ -55,6 +55,13 @@ def ps80PackageTesting() {
     ]
 }
 
+def ps26PackageTesting() {
+    return [
+        'ubuntu-noble',
+        'ubuntu-noble-arm',
+    ]
+}
+
 def ps84PackageTesting() {
     return [
         'debian-12',
@@ -127,12 +134,14 @@ def ps57PackageTesting() {
         "amazon-linux-2",
         "ubuntu-jammy",
         "oracle-9",
+        "debian-11",
         "debian-12",
-        "rocky-8"
+        "rocky-8",
+        "rocky-9"
     ]
 }
 
-List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()
+List allOS = ps90PackageTesting() + ps80PackageTesting() + ps26PackageTesting() + ps84PackageTesting() + ps57PackageTesting() + ps97PackageTesting()
 
 def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
     def tests = [:]
@@ -254,7 +263,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "client_test"]'
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "ps_97", "ps_26", "client_test"]'
                 ]
             ]
         ],
@@ -286,7 +295,7 @@ properties([
                         if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97") {
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84" || product_to_test == "ps_97" || product_to_test == "ps_26" ) {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -532,12 +541,22 @@ pipeline {
                                         }
                                     }
                                     else if (product_to_test == "ps_80") {
+                                        def ps80OS = ps80PackageTesting()
+                                        // PS 5.7 has no ARM packages, so ps_57 -> ps_80 major upgrade can't run on ARM
+                                        if (action_to_test == "major_upgrade" && major_upgrade_from_product == "ps_57") {
+                                            ps80OS = ps80OS.findAll { !it.endsWith('-arm') }
+                                        }
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                                            moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                            moleculeParallelTestALL(allOS, ps80OS, "molecule/ps/")
                                         }
                                     }
+                                    else if (product_to_test == "ps_26") {
+                                        moleculeParallelTestALL(allOS, ps26PackageTesting(), "molecule/ps/")
+                                    }
                                     else if (product_to_test == "ps_84") {
-                                        moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                        }
                                     }
                                     else if (product_to_test == "ps_97") {
                                         moleculeParallelTestALL(allOS, ps97PackageTesting(), "molecule/ps/")

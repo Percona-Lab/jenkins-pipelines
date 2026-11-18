@@ -7,6 +7,7 @@ def defaultAmiId = pmmVersion('v3-ami').values()[-1]
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin", SERVER_ARCH = "amd64") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'SERVER_ARCH', value: SERVER_ARCH),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -39,6 +40,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
         booleanParam(name: 'DEPLOY_PMM', value: true),
@@ -65,6 +67,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
@@ -87,6 +90,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
 
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'AMI_ID', value: AMI_ID)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
@@ -100,15 +104,20 @@ void runAMIStagingStart(String AMI_ID) {
 
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
+        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
         string(name: 'VM', value: IP),
     ]
 }
 
 pipeline {
     agent {
-        label 'cli'
+        label params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
@@ -134,7 +143,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
@@ -157,7 +166,6 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-    triggers { cron('0 0 * * *') }
     stages {
         stage('Prepare') {
             steps {
@@ -165,7 +173,12 @@ pipeline {
                     currentBuild.description = "[GHA] ${env.SERVER_TYPE}/${env.SERVER_ARCH} Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}"
                 }
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
@@ -275,7 +288,8 @@ pipeline {
                             "percona/pmm-qa" \
                             "nightly-e2e-tests-matrix.yml" \
                             "${PMM_QA_GIT_BRANCH}" \
-                            "${DISPATCH_AT}")
+                            "${DISPATCH_AT}" \
+                            "${VM_IP}")
                         echo "GH Actions run id: ${RUN_ID}"
                         echo "${RUN_ID}" > gh_run_id.txt
 
@@ -292,18 +306,20 @@ pipeline {
                 // match this build's outcome regardless of GH workflow result.
                 if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
                     build job: 'pmm3-ami-staging-stop', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }
                 if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
                     build job: 'openshift-cluster-destroy', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
-                        booleanParam(name: 'FORCE_MODE', value: true),
                     ]
                 }
                 if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
                     build job: 'pmm3-ha-eks-cleanup', parameters: [
+                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
                         string(name: 'ACTION', value: 'DELETE_CLUSTER'),
                         string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
                     ]

@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -120,6 +120,10 @@ pipeline {
         ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY')
     }
     parameters {
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release testing)',
+            name: 'USE_ONDEMAND')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -133,7 +137,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
@@ -173,7 +177,7 @@ pipeline {
                 QUERY_SOURCE=perfschema|slowlog
             --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
             Additional options:
-                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|sharding(Sharded cluster)
             --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
             --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
             --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
@@ -199,9 +203,12 @@ pipeline {
                     }
                 }
                 deleteDir()
-                git poll: false,
-                    branch: PMM_QA_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-qa.git'
+                checkout poll: false, scm: [
+                    $class: 'GitSCM',
+                    branches: [[name: PMM_QA_GIT_BRANCH]],
+                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm-qa.git']],
+                    extensions: [[$class: 'CloneOption', shallow: true, depth: 1]],
+                ]
 
                 sh '''
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
@@ -225,7 +232,7 @@ pipeline {
                                 sh """
                                     docker network create pmm-qa || true
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                    PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                    PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker compose up -d
                                     docker network connect pmm-qa pmm-server || true
                                 """
                             }
@@ -333,9 +340,28 @@ pipeline {
                                export PATH="`pwd`/pmm-client/bin:$PATH"
                             fi
                             export CHROMIUM_PATH=/usr/bin/chromium
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                            # A tag fully migrated to Playwright has no CodeceptJS tests left; the next stage runs it.
+                            DONT_FAIL_ON_EMPTY_RUN=true ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                         """
                     }
+                }
+            }
+        }
+        stage('Run Playwright UI Tests Tagged') {
+            options {
+                timeout(time: 60, unit: "MINUTES")
+            }
+            steps {
+                sh '''
+                    docker rm -f webhookd || true
+                    docker compose -f e2e_tests/docker-compose.yml up -d --no-deps webhookd
+                '''
+                dir('e2e_tests') {
+                    sh '''
+                        npm ci
+                        npx playwright install chromium
+                        CI=true npx playwright test --grep "${TAG}" --pass-with-no-tests
+                    '''
                 }
             }
         }
@@ -355,13 +381,13 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-agent.log > pmm-agent-full.log || true
                 docker stop webhookd || true
                 docker rm webhookd || true
-                cd codeceptjs-e2e && docker-compose down || true
+                cd codeceptjs-e2e && docker compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                env.PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/*.xml'
+                env.PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/*.xml, e2e_tests/output/junit.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'

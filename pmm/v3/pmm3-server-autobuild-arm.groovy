@@ -78,38 +78,15 @@ pipeline {
                 uploadTarball('binary')
             }
         }
-        stage('Build client source rpm') {
+        stage('Build server binaries') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm"
-                stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                sh '''
-                    set -o errexit
-
-                    ${PATH_TO_SCRIPTS}/build-client-rpm
-
-                    mkdir -p tmp/pmm-server/RPMS/
-                    cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                '''
-                stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                uploadRPM()
-            }
-        }
-        stage('Build server packages') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set -o errexit
 
-                        ${PATH_TO_SCRIPTS}/build-server-rpm-all
+                        ${PATH_TO_SCRIPTS}/build-server-binaries
                     '''
                 }
-                stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                uploadRPM()
             }
         }
         stage('Build server docker') {

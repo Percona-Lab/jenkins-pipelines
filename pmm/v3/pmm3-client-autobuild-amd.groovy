@@ -163,6 +163,14 @@ pipeline {
                         }
                     }
                 }
+                stage('Set package release') {
+                    when {
+                        expression { params.DESTINATION == 'experimental' }
+                    }
+                    steps {
+                        sh 'echo "$(cat VERSION)-$(date +%s)" > VERSION.new && mv VERSION.new VERSION'
+                    }
+                }
                 stage('Build client source rpm') {
                     steps {
                         sh '''
@@ -227,11 +235,6 @@ pipeline {
                         stage('Build client binary deb Bookworm') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
-                            }
-                        }
-                        stage('Build client binary deb Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
                             }
                         }
                         stage('Build client binary deb Jammy') {

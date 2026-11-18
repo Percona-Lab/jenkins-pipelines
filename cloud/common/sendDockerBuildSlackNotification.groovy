@@ -38,7 +38,7 @@ def call(Map cfg = [:]) {
     }
 
     if (failedImages) {
-        message += "\n*Failed images:*\n"
+        message += '\n*Failed images:*\n'
         failedImages.each { img ->
             message += "- `${img}`\n"
         }

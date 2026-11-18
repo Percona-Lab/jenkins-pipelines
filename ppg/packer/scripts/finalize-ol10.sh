@@ -15,6 +15,17 @@ system_info:
 CFG
 
 systemctl enable amazon-ssm-agent   # installed at launch by user_data; enable for the baked image
+
+# An armed kdump writes an unowned crash-dump initramfs onto /boot at boot
+# whenever the running kernel has none, and the boot-verify steps run
+# validate.sh right after such a boot. Package tests never take a crash dump:
+# turn it off here so every descendant image stays clean.
+kdump_state="$(systemctl is-enabled kdump.service 2>/dev/null || true)"
+if [[ "${kdump_state}" == enabled* ]]; then
+  systemctl disable --now kdump.service
+fi
+rm -f /boot/initramfs-*kdump.img
+
 dnf -y update                       # latest errata (the base ships a few behind)
 
 cloud-init clean --logs 2>/dev/null || true   # re-seed on first boot -> creates ec2-user
