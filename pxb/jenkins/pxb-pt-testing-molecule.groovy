@@ -287,6 +287,15 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         osList = pxb80PackageTesting()
                                     } else if (product_to_test == "pxb_84") {
                                         osList = pxb84PackageTesting()
+                                        // pxb_80 -> pxb_84 major upgrade installs PS/PXB 8.0 first, so only run on OS supported by PXB 8.0
+                                        // (skips debian-13, rhel-10, ubuntu-resolute and their ARM variants)
+                                        if (scenario_to_test == "major_upgrade") {
+                                            if (server_to_test != "ps-84") {
+                                                error("pxb_84 major_upgrade is only supported with server_to_test=ps-84")
+                                            }
+                                            def pxb80OS = pxb80PackageTesting()
+                                            osList = osList.findAll { pxb80OS.contains(it) }
+                                        }
                                     } else if (product_to_test == "pxb_97") {
                                         osList = pxb97PackageTesting()
                                     } else if (product_to_test == "pxb_innovation") {
