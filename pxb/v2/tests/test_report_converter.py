@@ -36,15 +36,18 @@ errmsg() { exit 91; }
 
 
 class ReportConverter(unittest.TestCase):
-    def exercise(self, *, rhel="%rhel", dist=".amzn2023", codename="", install_status=0):
+    def exercise(self, *, rhel="%rhel", dist=".amzn2023", codename="", install_status=0,
+                 converter=True):
         source = RUNNER.read_text()
         self.assertEqual(source.count(START), 1)
         self.assertEqual(source.count(END), 1)
         block = source[source.index(START):source.index(END)]
+        if converter:
+            block += '\neval "$SUBUNIT2JUNITXML_CMD"'
         with tempfile.TemporaryDirectory(prefix="pxb-report-converter-") as folder:
             work = Path(folder)
-            for script, label in (("subunit2junitxml", "legacy"),
-                                  ("subunit2junitxml_python3", "python3")):
+            scripts = (("subunit2junitxml", "legacy"), ("subunit2junitxml_python3", "python3"))
+            for script, label in scripts if converter else ():
                 path = work / script
                 path.write_text(f"#!/bin/sh\nprintf '{label}:%s\\n' \"$PYTHONPATH\"\n")
                 path.chmod(0o755)
@@ -53,7 +56,7 @@ class ReportConverter(unittest.TestCase):
                        RPM_DIST=dist, CODENAME_FIXTURE=codename, XTRABACKUP_TARGET="innodb80",
                        PYTHONPATH="", INSTALL_LOG=str(log), INSTALL_STATUS=str(install_status))
             result = subprocess.run(
-                ["bash", "-ec", FACTS + "\n" + block + '\neval "$SUBUNIT2JUNITXML_CMD"'],
+                ["bash", "-ec", FACTS + "\n" + block],
                 cwd=work, env=env, text=True, capture_output=True, timeout=10, check=False,
             )
             return result, log.read_text().splitlines() if log.exists() else []
@@ -69,6 +72,11 @@ class ReportConverter(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "python3:")
         self.assertEqual(installs, ["yum install -y python3-junitxml python3-subunit"])
+
+    def test_rhel9_tree_without_converter_installs_nothing(self):
+        result, installs = self.exercise(rhel="9", dist=".el9", converter=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(installs, [], "run.sh writes junit.xml there, no converter packages")
 
     def test_legacy_rhel_selection_is_unchanged(self):
         for rhel in ("7", "8"):
