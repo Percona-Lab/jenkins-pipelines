@@ -229,6 +229,9 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
         scenario_to_test = "${params.scenario_to_test}"
         REPO_TYPE = "${params.REPO_TYPE}"
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
+        // tasks/test_prep.yml downloads package-testing on the test nodes from github.com/<TESTING_GIT_ACCOUNT>/package-testing,
+        // so take the account from git_repo (e.g. https://github.com/<account>/package-testing.git)
+        TESTING_GIT_ACCOUNT = "${params.git_repo.tokenize('/')[-2]}"
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())
