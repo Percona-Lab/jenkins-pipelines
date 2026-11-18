@@ -22,6 +22,22 @@ if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
     SOURCE_IMAGE='oraclelinux:9'
 fi
 
+# Each line of SERVER_TARBALL_URLS holds "<DOCKER_OS> <CMAKE_BUILD_TYPE> <URL>".
+# An xtradb run takes the URL of its own OS and build type from that list, and
+# stops when the list has no such line. A set SERVER_TARBALL_URL is kept.
+function select_server_tarball_url() {
+  if [[ -n ${SERVER_TARBALL_URL} || -z ${SERVER_TARBALL_URLS} || ${XTRABACKUP_TARGET} != xtradb* ]]; then
+    return 0
+  fi
+  SERVER_TARBALL_URL=$(awk -v os="${SOURCE_IMAGE}" -v build_type="${CMAKE_BUILD_TYPE}" \
+    '{ sub(/\r$/, "") } $1 == os && $2 == build_type { print $3; exit }' <<< "${SERVER_TARBALL_URLS}")
+  if [[ -z ${SERVER_TARBALL_URL} ]]; then
+    echo "SERVER_TARBALL_URLS has no line for ${SOURCE_IMAGE} ${CMAKE_BUILD_TYPE}" >&2
+    return 1
+  fi
+}
+select_server_tarball_url
+
 function check_pxb_network() {
   if [[ $(docker network list | grep pxb_network) != *pxb_network* ]]; then
     docker network create pxb_network

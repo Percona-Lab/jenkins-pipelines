@@ -39,8 +39,12 @@ pipeline {
             name: 'BOOTSTRAP_URL')
         string(
             defaultValue: '',
-            description: 'URL of a server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. If set, bootstrap.sh is not used. DOCKER_OS must match the OS of that build',
+            description: 'URL of a Percona Server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. The xtradb target uses it in place of the bootstrap.sh download, the innodb target keeps bootstrap.sh. DOCKER_OS must match the OS of that build',
             name: 'SERVER_TARBALL_URL')
+        text(
+            defaultValue: '',
+            description: 'Percona Server tarballs for the xtradb target, one line per OS and build type as DOCKER_OS CMAKE_BUILD_TYPE URL, for example ubuntu:noble Debug https://.../binary.tar.gz. Each URL is the binary.tar.gz of a percona-server pipeline-parallel-mtr build of that OS and build type. The asan runs use the oraclelinux:9 lines. An xtradb run with no line for its OS and build type fails. The innodb target keeps bootstrap.sh. A set SERVER_TARBALL_URL wins over this list',
+            name: 'SERVER_TARBALL_URLS')
         booleanParam(
             defaultValue: false,
             description: 'Starts Microsoft Azurite emulator and tests xbcloud against it',

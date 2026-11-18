@@ -54,7 +54,7 @@
     - string:
         name: SERVER_TARBALL_URL
         default: ""
-        description: "URL of a server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. If set, bootstrap.sh is not used. DOCKER_OS must match the OS of that build"
+        description: "URL of a Percona Server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. The xtradb target uses it in place of the bootstrap.sh download, the innodb target keeps bootstrap.sh. DOCKER_OS must match the OS of that build"
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:
