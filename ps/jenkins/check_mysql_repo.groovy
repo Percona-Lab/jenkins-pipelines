@@ -35,16 +35,6 @@ pipeline {
     }
     parameters {
         booleanParam(
-            name: 'ENABLE_AI_ANALYSIS',
-            defaultValue: false,
-            description: 'Enable AI analysis (requires CURSOR_API_KEY env var or credential)'
-        )
-        string(
-            name: 'LLM_MODEL',
-            defaultValue: 'gemini-3-pro',
-            description: 'LLM model for AI analysis'
-        )
-        booleanParam(
             name: 'GENERATE_PER_COMPONENT_CSV',
             defaultValue: false,
             description: 'Generate per-component CSV breakdown in addition to the main report'
@@ -73,6 +63,8 @@ pipeline {
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps()
+        // Other jobs copy *_no_ai.csv.
+        copyArtifactPermission('*')
     }
     stages {
         stage('Check MySQL Repos') {
@@ -266,11 +258,7 @@ pipeline {
                             if (oldTag && newTag && oldTag != newTag) {
                                 echo "Comparing ${versionPattern}: ${oldTag} -> ${newTag}"
 
-                                // AI analysis: parameter takes precedence, then env var
-                                def enableAI = params.ENABLE_AI_ANALYSIS ?: (env.ENABLE_AI_ANALYSIS == 'true')
-                                def llmModel = params.LLM_MODEL ?: env.LLM_MODEL ?: 'gemini-3-pro'
-                                def aiFlags = enableAI ? "-a -m ${llmModel}" : ''
-                                def csvSuffix = enableAI ? "_ai_${llmModel}" : '_no_ai'
+                                def csvSuffix = '_no_ai'
                                 def componentCsvFlag = params.GENERATE_PER_COMPONENT_CSV ? '-g' : ''
 
                                 sh """
@@ -281,7 +269,6 @@ pipeline {
                                         -i mysql-server-repo \
                                         -o csv_output \
                                         ${componentCsvFlag} \
-                                        ${aiFlags} \
                                         ${bugMapJob ? '--cve-json cpu-bug-cve.json' : ''} \
                                         --limit ${rowLimit} \
                                         ${oldTag} ${newTag}
@@ -373,7 +360,7 @@ CSV Reports: ${artifactUrl}"""
                         text = 'No new tags.'
                     } else {
                         def csvs = sh(
-                            script: "find csv_output -maxdepth 1 -type f \\( -name '*_no_ai.csv' -o -name '*_ai_*.csv' \\) -printf '%f\\n' | sort | paste -sd, -",
+                            script: "find csv_output -maxdepth 1 -type f -name '*_no_ai.csv' -printf '%f\\n' | sort | paste -sd, -",
                             returnStdout: true
                         ).trim()
                         text = csvs ? "CSV written: ${csvs}" : "New tags: ${count}. No CSV."
