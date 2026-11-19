@@ -59,6 +59,11 @@ pipeline {
             defaultValue: 'check-oracle-cpu',
             description: 'Jenkins job that archives cpu-bug-cve.json. Blank skips the CVE column.'
         )
+        string(
+            name: 'LIMIT',
+            defaultValue: '0',
+            description: 'Pass --limit to check_mysql_repo.py. 0 writes the full tag range. A positive number stops after that many rows.'
+        )
     }
     triggers {
         // Hourly every month from 2nd week to 4th week (days 8-28)
@@ -198,6 +203,16 @@ pipeline {
                         bugMapJob = 'check-oracle-cpu'
                     }
                     bugMapJob = bugMapJob.trim()
+                    // null means this build started before LIMIT existed.
+                    def rowLimit = params.LIMIT
+                    if (rowLimit == null || !rowLimit.trim()) {
+                        rowLimit = '0'
+                    } else {
+                        rowLimit = rowLimit.trim()
+                    }
+                    if (!(rowLimit ==~ /[0-9]+/)) {
+                        error("LIMIT must be a non-negative integer, got: ${rowLimit}")
+                    }
                     if (bugMapJob) {
                         sh 'rm -f cpu-bug-cve.json'
                         copyArtifacts(
@@ -268,6 +283,7 @@ pipeline {
                                         ${componentCsvFlag} \
                                         ${aiFlags} \
                                         ${bugMapJob ? '--cve-json cpu-bug-cve.json' : ''} \
+                                        --limit ${rowLimit} \
                                         ${oldTag} ${newTag}
 
                                     # Validate CSV output
