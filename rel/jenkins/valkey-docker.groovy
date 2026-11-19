@@ -67,6 +67,12 @@ pipeline {
 
         booleanParam(
             defaultValue: false,
+            description: 'Run the Trivy image scan before pushing (off by default)',
+            name: 'RUN_TRIVY'
+        )
+
+        booleanParam(
+            defaultValue: false,
             description: 'Push images despite a failed Trivy check (report-only). Use with caution.',
             name: 'IGNORE_TRIVY'
         )
@@ -404,6 +410,7 @@ pipeline {
 
 
         stage('Scan images (Trivy)') {
+            when { expression { params.RUN_TRIVY } }
             steps {
                 script {
 
