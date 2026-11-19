@@ -968,7 +968,12 @@ void runTest(Map testConfig) {
                 echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
             }
             try {
-                testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+                if (testConfig.sharedClusterKubeconfig) {
+                    // Other tests run on this cluster: delete only this test's namespaces.
+                    testVariables.libraries.tools.kubectlDeleteTestNamespaces(testConfig.sharedClusterKubeconfig, testName)
+                } else {
+                    testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+                }
             } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
                 throw exc
             } catch (cleanupErr) {
@@ -1070,6 +1075,7 @@ void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubecon
                     clusterSuffix: clusterSuffix,
                     testVariables: testVariables,
                     retries: testVariables.retries ?: 1,
+                    sharedClusterKubeconfig: clusterKubeconfig,
                     slotExports: """
                         export KUBECONFIG='${slotDir}/kubeconfig'
                         export HELM_CONFIG_HOME='${slotDir}/helm'
@@ -1081,7 +1087,7 @@ void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubecon
 
                 // Free the CPU and memory of a finished test before the slot starts the next one.
                 try {
-                    testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+                    testVariables.libraries.tools.kubectlDeleteTestNamespaces(clusterKubeconfig, testName)
                 } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
                     throw exc
                 } catch (cleanupErr) {

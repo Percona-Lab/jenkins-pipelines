@@ -452,6 +452,42 @@ void kubectlCleanupFailedNamespaces(Map testVariables, String testName, String c
     }
 }
 
+// Deletes the namespaces a finished test left behind when it ran with SKIP_DELETE=1, next to other
+// tests on the same cluster. Only <test>-<hex id> namespaces match, so a test whose name starts with
+// this one keeps its namespaces. Only the operator's own resources get their finalizers removed:
+// they are what keeps a namespace Terminating, and listing every resource type takes minutes.
+void kubectlDeleteTestNamespaces(String kubeconfig, String testName) {
+    withEnv([
+        "TEST_NAME=${testName}",
+        "KUBECONFIG=${kubeconfig}"
+    ]) {
+        sh '''
+            set +e
+
+            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                echo "Skipping namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
+                exit 0
+            fi
+
+            resources=$(kubectl api-resources --api-group=psmdb.percona.com --namespaced -o name --request-timeout=10s | paste -sd, -)
+
+            kubectl get namespaces --request-timeout=10s --no-headers -o custom-columns=NAME:.metadata.name \
+                | grep -E "^${TEST_NAME}-[0-9a-f]+(-.*)?\\$" \
+                | while read -r namespace; do
+                    echo "Deleting namespace: $namespace"
+                    if [ -n "$resources" ]; then
+                        kubectl get "$resources" -n "$namespace" -o name --request-timeout=10s 2>/dev/null \
+                            | while read -r object; do
+                                kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s
+                            done
+                    fi
+                    kubectl delete namespace "$namespace" --wait=false --request-timeout=10s
+                done
+            exit 0
+        '''
+    }
+}
+
 void stashClonedGitFiles() {
     stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
 }
