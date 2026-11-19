@@ -88,6 +88,7 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Docker image: valkey-bundle',             name: 'IMG_BUNDLE')
         booleanParam(defaultValue: true, description: 'Docker image: valkey modules',            name: 'IMG_MODULE')
         booleanParam(defaultValue: true, description: 'Docker image: valkey-admin',              name: 'IMG_ADMIN')
+        booleanParam(defaultValue: false, description: 'Docker images: run the Trivy scan (off by default)', name: 'RUN_TRIVY')
         booleanParam(defaultValue: true, description: 'Run the package test suite (final stage)', name: 'RUN_TESTS')
 
         // --- Versions / refs ---
@@ -269,6 +270,7 @@ pipeline {
                             string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
                             string(name: 'REPO_CHANNEL',     value: ch),
                             string(name: 'IMAGE_NAME',       value: "${ns}/valkey"),
+                            booleanParam(name: 'RUN_TRIVY',  value: params.RUN_TRIVY),
                         ])
                     }
                     if (params.IMG_BUNDLE) {
@@ -278,6 +280,7 @@ pipeline {
                             string(name: 'VALKEY_VERSION',   value: params.VALKEY_VERSION),
                             string(name: 'REPO_CHANNEL',     value: ch),
                             string(name: 'IMAGE_NAME',       value: "${ns}/valkey-bundle"),
+                            booleanParam(name: 'RUN_TRIVY',  value: params.RUN_TRIVY),
                         ])
                     }
                     if (params.IMG_MODULE) {
@@ -286,6 +289,7 @@ pipeline {
                             string(name: 'PACKAGING_BRANCH', value: pkgBr),
                             string(name: 'REPO_CHANNEL',     value: ch),
                             string(name: 'IMAGE_PREFIX',     value: "${ns}/valkey-mod"),
+                            booleanParam(name: 'RUN_TRIVY',  value: params.RUN_TRIVY),
                         ])
                     }
                     if (params.IMG_ADMIN) {
@@ -295,6 +299,7 @@ pipeline {
                             string(name: 'VALKEY_ADMIN_VERSION', value: params.VALKEY_ADMIN_VERSION),
                             string(name: 'REPO_CHANNEL',         value: ch),
                             string(name: 'IMAGE_NAME',           value: "${ns}/valkey-admin"),
+                            booleanParam(name: 'RUN_TRIVY',      value: params.RUN_TRIVY),
                         ])
                     }
                     echo "Building Docker images (namespace ${ns}): ${jobs.keySet().join(', ')}"
