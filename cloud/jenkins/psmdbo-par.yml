@@ -1,9 +1,9 @@
 - job:
-    name: pilot-psmdbo-gke-parallel
+    name: psmdbo-par
     project-type: pipeline
     description: |
         CLOUD-1004 pilot: several PSMDB e2e tests at the same time on each GKE cluster.
-        Temporary job, delete after the pilot. Do not edit this job through the web!
+        Temporary job, delete after the pilot. Short name: GKE cluster names must be under 40 characters. Do not edit this job through the web!
     concurrent: false
     properties:
     - build-discarder:
