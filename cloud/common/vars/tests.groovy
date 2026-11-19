@@ -1541,14 +1541,18 @@ void shutdownLeftoverClusters(Map testVariables) {
 }
 
 // Publishes one Allure report from the per-test results that runTest stashes when
-// testVariables.allure is set. The report stays with the build in Jenkins. A publishing
-// problem does not fail the build.
+// testVariables.allure is set. The per-test folders are merged into one before
+// publishing: the plugin copies the previous build's history into every results
+// path, so several paths would repeat each history entry in the trend. The report
+// stays with the build in Jenkins. A publishing problem does not fail the build.
 void publishAllureReport(Map testVariables) {
     if (!testVariables?.allure || !testVariables.tests) {
         return
     }
 
-    def paths = []
+    def merged = 'source/e2e-tests/allure-results-merged'
+    sh "rm -rf ${merged} && mkdir -p ${merged}"
+    def found = false
     for (int i = 0; i < testVariables.tests.size(); i++) {
         def testName = testVariables.tests[i].name
         if (testVariables.tests[i].result == 'skipped') {
@@ -1561,16 +1565,18 @@ void publishAllureReport(Map testVariables) {
         }
         def dir = "source/e2e-tests/allure-results/${testName}"
         if (sh(returnStatus: true, script: "ls ${dir}/*-result.json >/dev/null 2>&1") == 0) {
-            paths << [path: dir]
+            // Result files have unique names; environment.properties is the same per run.
+            sh "cp -R ${dir}/. ${merged}/"
+            found = true
         }
     }
 
-    if (!paths) {
+    if (!found) {
         echo 'No Allure results to publish'
         return
     }
     try {
-        allure includeProperties: false, results: paths
+        allure includeProperties: false, results: [[path: merged]]
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
         throw exc
     } catch (Throwable exc) {
