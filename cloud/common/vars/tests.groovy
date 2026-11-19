@@ -267,6 +267,7 @@ void validateTestVariables(Map testVariables) {
     }
 
     def knownKeys = [
+        'allure',
         'cert_manager_version',
         'cluster_suffix_prefix',
         'cluster_wide',
@@ -925,6 +926,8 @@ void runTest(Map testConfig) {
             try {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
+                // One Allure results folder per test: slots on a cluster share one checkout.
+                def allureExports = testVariables.allure ? "export ALLURE_RESULTS_DIR=e2e-tests/allure-results/${testName}" : ''
 
                 timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
                     exitCode = sh(
@@ -932,6 +935,7 @@ void runTest(Map testConfig) {
                             cd source
                             ${exports}
                             ${testConfig.slotExports ?: ''}
+                            ${allureExports}
                             ${testVariables.pre_test_sh ?: ''}
                             ${command}
                         """,
@@ -1011,6 +1015,9 @@ void runTest(Map testConfig) {
             echo "Warning: failed to push log for ${testName}: ${logErr}"
         }
         stash name: "report-${testName}", includes: "source/e2e-tests/reports/${testName}.*", allowEmpty: true
+        if (testVariables.allure) {
+            stash name: "allure-${testName}", includes: "source/e2e-tests/allure-results/${testName}/**", allowEmpty: true
+        }
         echo "The ${testName} test was finished!"
     }
 }
@@ -1524,6 +1531,45 @@ void shutdownLeftoverClusters(Map testVariables) {
         } catch (err) {
             echo "Cleanup failed for ${clusterSuffix}: ${err}"
         }
+    }
+}
+
+// Publishes one Allure report from the per-test results that runTest stashes when
+// testVariables.allure is set. The report stays with the build in Jenkins. A publishing
+// problem does not fail the build.
+void publishAllureReport(Map testVariables) {
+    if (!testVariables?.allure || !testVariables.tests) {
+        return
+    }
+
+    def paths = []
+    for (int i = 0; i < testVariables.tests.size(); i++) {
+        def testName = testVariables.tests[i].name
+        if (testVariables.tests[i].result == 'skipped') {
+            continue
+        }
+        try {
+            unstash "allure-${testName}"
+        } catch (ignored) {
+            continue
+        }
+        def dir = "source/e2e-tests/allure-results/${testName}"
+        if (sh(returnStatus: true, script: "ls ${dir}/*-result.json >/dev/null 2>&1") == 0) {
+            paths << [path: dir]
+        }
+    }
+
+    if (!paths) {
+        echo 'No Allure results to publish'
+        return
+    }
+    try {
+        allure includeProperties: false, results: paths
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (Throwable exc) {
+        // Throwable: a missing plugin raises NoSuchMethodError, which is not an Exception.
+        echo "Warning: failed to publish the Allure report: ${exc}"
     }
 }
 
