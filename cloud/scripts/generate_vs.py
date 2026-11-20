@@ -122,7 +122,7 @@ def normalize_entry_field_order(entry: Dict) -> Dict:
 
 
 def is_pmm(key: str) -> bool:
-    return "PMM_CLIENT" in key or key == "IMAGE_PMM3_CLIENT"
+    return "PMM_CLIENT" in key
 
 
 def categorize_by_rules(
@@ -344,7 +344,7 @@ def categorize_images(images: Dict[str, str], max_workers: int = 10) -> Dict:
 
 PXC_VERSION_LIMITS = {
     "pxc": {"8.4": 5, "8.0": 5, "5.7": 5},
-    "pmm": {"2": 1, "3": 1},
+    "pmm": 1,
     "proxysql": 1,
     "haproxy": 1,
     "backup": {"8.4": 1, "8.0": 1, "2.4": 1},
