@@ -13,7 +13,7 @@ def getLibraries() {
 }
 
 String jenkinsAgentLabel() {
-    return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+    return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
 }
 
 pipeline {
@@ -100,7 +100,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'docker-32gb', 'docker-x64'),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR     : IMAGE_OPERATOR,
                             IMAGE_MYSQL        : IMAGE_MYSQL,
@@ -129,8 +129,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'ps'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }

@@ -26,9 +26,9 @@ pipeline {
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
         choice(name: 'PILLAR_VERSION', choices: ['none', '97', '84', '80'], description: 'Set to 97/84/80 for a release run. Release runs force PLATFORM_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
-        choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VERSION=latest. Release runs override this to stable.')
-        string(name: 'PLATFORM_VERSION', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
-        choice(name: 'PLATFORM_ARCH', choices: ['amd64'], description: 'Platform architecture used to select the machine type.')
+        choice(name: 'PLATFORM_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VER=latest. Release runs override this to stable.')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from PLATFORM_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
+        choice(name: 'ARCH', choices: ['amd64'], description: 'Platform architecture used to select the machine type.')
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version. In release runs, latest or empty is replaced with RANCHER from source/e2e-tests/release_versions.')
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
@@ -97,8 +97,8 @@ pipeline {
                         operator              : 'ps',
                         platform              : 'rancher',
                         platform_channel      : PLATFORM_CHANNEL,
-                        platform_version      : PLATFORM_VERSION,
-                        platform_arch         : PLATFORM_ARCH,
+                        platform_version      : PLATFORM_VER,
+                        platform_arch         : ARCH,
                         rancher_version       : RANCHER_VERSION,
                         worker_count          : 4,
                         zone                  : RANCHER_ZONE,
@@ -114,7 +114,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params, 'min-al2023-x64'),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR     : IMAGE_OPERATOR,
                             IMAGE_MYSQL        : IMAGE_MYSQL,
@@ -145,8 +145,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'ps'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }

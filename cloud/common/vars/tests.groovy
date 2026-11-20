@@ -210,6 +210,7 @@ void validateTestVariables(Map testVariables) {
         'git_branch',
         'cluster_wide',
         'pillar_version',
+        'test_executor_type',
         'images'
     ]
     def missingKeys = requiredKeys.findAll { key ->
@@ -241,7 +242,7 @@ void validateTestVariables(Map testVariables) {
     if (testVariables.debug_tests && !(testVariables.debug_tests in ['YES', 'NO'])) {
         error("debug_tests must be YES or NO, got: ${testVariables.debug_tests}")
     }
-    if (testVariables.test_executor_type && !(testVariables.test_executor_type in ['kuttl', 'make'])) {
+    if (!(testVariables.test_executor_type in ['kuttl', 'make', 'script'])) {
         error("Unsupported test_executor_type: ${testVariables.test_executor_type}")
     }
 
@@ -277,6 +278,7 @@ void validateTestVariables(Map testVariables) {
         'default_operator_image',
         'extra_envs',
         'git_branch',
+        'hugepages',
         'images',
         'jenkins_agent_label',
         'job_name',
@@ -489,8 +491,8 @@ void initTestRun(Map testVariables, Map config) {
         echo 'All tests will be re-run, ignoring previous execution results!'
         purgePreviousRunArtifacts(testVariables)
     }
-    // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
-    // never part of the operator Docker build context.
+// Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
+// never part of the operator Docker build context.
 }
 
 // Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
@@ -726,53 +728,6 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     return exports.join('\n')
 }
 
-Map buildPsmdbTestVariables(Map config) {
-    return [
-        cluster_name           : config.cluster_name,
-        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
-        kubeconfig             : config.kubeconfig,
-        skip_kubeconfig        : config.skip_kubeconfig ?: false,
-        debug_tests            : config.debug_tests,
-        cluster_wide           : config.cluster_wide,
-        operator               : 'psmdb',
-        default_operator_image : config.default_operator_image,
-        test_executor_type     : 'make',
-        images                 : config.images,
-        extra_envs             : config.extra_envs ?: [:]
-    ]
-}
-
-Map buildPxcTestVariables(Map config) {
-    return [
-        cluster_name           : config.cluster_name,
-        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
-        kubeconfig             : config.kubeconfig,
-        skip_kubeconfig        : config.skip_kubeconfig ?: false,
-        debug_tests            : config.debug_tests,
-        cluster_wide           : config.cluster_wide,
-        operator               : 'pxc',
-        default_operator_image : config.default_operator_image,
-        images                 : config.images,
-        extra_envs             : config.extra_envs ?: [:]
-    ]
-}
-
-Map buildPsTestVariables(Map config) {
-    return [
-        cluster_name           : config.cluster_name,
-        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
-        kubeconfig             : config.kubeconfig,
-        skip_kubeconfig        : config.skip_kubeconfig ?: false,
-        debug_tests            : config.debug_tests ?: 'NO',
-        cluster_wide           : config.cluster_wide,
-        operator               : 'ps',
-        default_operator_image : config.default_operator_image,
-        test_executor_type     : 'kuttl',
-        images                 : config.images,
-        extra_envs             : config.extra_envs ?: [:]
-    ]
-}
-
 String defineTestCommand(Map testVariables, String testName) {
     switch (testVariables.test_executor_type) {
         case 'kuttl':
@@ -790,12 +745,15 @@ String defineTestCommand(Map testVariables, String testName) {
                 make e2e-test TEST=${testName} 2>&1 | tee e2e-tests/logs/${testName}.log
             """
 
-        default:
+        case 'script':
             return """
                 mkdir -p e2e-tests/{logs,reports}
                 set -o pipefail
                 e2e-tests/${testName}/run 2>&1 | tee e2e-tests/logs/${testName}.log
             """
+
+        default:
+            error("Unsupported test_executor_type: ${testVariables.test_executor_type}")
     }
 }
 
@@ -1024,6 +982,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         machineType     : testVariables.machine_type,
         region          : testVariables.region ?: '',
         zone            : testVariables.zone ?: '',
+        hugepages       : testVariables.hugepages ?: false,
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
         platformArch    : testVariables.platform_arch ?: ''
     ]

@@ -99,7 +99,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_MONGOD      : IMAGE_MONGOD,
@@ -124,8 +124,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'psmdb'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }
@@ -142,8 +141,7 @@ pipeline {
                     env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
                     libraries.tools.dockerBuildAndPush(
                         operatorImage: operatorImage,
-                        branch       : GIT_BRANCH,
-                        platform     : 'linux/amd64,linux/arm64'
+                        branch       : GIT_BRANCH
                     )
                 }
             }

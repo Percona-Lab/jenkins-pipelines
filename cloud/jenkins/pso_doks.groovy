@@ -101,7 +101,7 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : libraries.tools.jenkinsAgentLabel(params),
+                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR     : IMAGE_OPERATOR,
                             IMAGE_MYSQL        : IMAGE_MYSQL,
@@ -130,8 +130,7 @@ pipeline {
                     libraries.tests.initTestRun(testVariables, [
                         testList          : TEST_LIST,
                         testSuite         : TEST_SUITE,
-                        ignorePreviousRun : IGNORE_PREVIOUS_RUN,
-                        operator          : 'ps'
+                        ignorePreviousRun : IGNORE_PREVIOUS_RUN
                     ])
                 }
             }
