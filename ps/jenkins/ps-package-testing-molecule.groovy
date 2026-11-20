@@ -554,8 +554,15 @@ pipeline {
                                         moleculeParallelTestALL(allOS, ps26PackageTesting(), "molecule/ps/")
                                     }
                                     else if (product_to_test == "ps_84") {
+                                        def ps84OS = ps84PackageTesting()
+                                        // ps_80 -> ps_84 major upgrade needs PS 8.0 packages, so only run on OS supported by PS 8.0
+                                        // (skips debian-13, rhel-10, ubuntu-resolute, amazon-linux-2023 and their ARM variants)
+                                        if (action_to_test == "major_upgrade" || action_to_test == "major_upgrade_to") {
+                                            def ps80OS = ps80PackageTesting()
+                                            ps84OS = ps84OS.findAll { ps80OS.contains(it) }
+                                        }
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                                            moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                            moleculeParallelTestALL(allOS, ps84OS, "molecule/ps/")
                                         }
                                     }
                                     else if (product_to_test == "ps_97") {
