@@ -53,6 +53,58 @@ def waitForPublished(Map packages) {
     error("Packages were not published to ${index} within ${waitMinutes} minutes")
 }
 
+// fetchIndex — the body of a repo index URL, or '' when the repo has no such
+// index yet (HTTP 404: a new repo or channel). Any other failure stops the run,
+// so a network problem can't make the pre-flight check pass by accident.
+def fetchIndex(String url) {
+    String out = sh(returnStdout: true, script: """
+        code=\$(curl -sS --max-time 60 -o index.tmp -w '%{http_code}' '${url}') || code=000
+        case "\$code" in
+            200) cat index.tmp ;;
+            404) ;;
+            *)   echo "HTTP \$code for ${url}" >&2; rm -f index.tmp; exit 1 ;;
+        esac
+        rm -f index.tmp
+    """)
+    return out
+}
+
+// checkNotPublished — fail the run before anything is built when one of the
+// requested <version>-<release> builds is already in the repo. Publishing the
+// same version-release twice gives a file whose checksum no longer matches the
+// metadata clients already cached, so dnf/apt refuse it ("checksum doesn't
+// match", "Server reports Content-Length ..."). Every rebuild needs a new
+// release number. Checks the target channel and main (where testing is
+// promoted to), in the apt noble index and the EL9 x86_64 yum directory.
+// packages: [debName: [rpm: rpmName, ver: "<version>-<release>"]]
+def checkNotPublished(Map packages) {
+    List channels = params.CHANNEL == 'main' ? ['main'] : [params.CHANNEL, 'main']
+    List clashes = []
+    for (String ch : channels) {
+        String base = "https://repo.percona.com/${params.VALKEY_REPO}"
+        String apt = fetchIndex("${base}/apt/dists/noble/${ch}/binary-amd64/Packages")
+        String yum = fetchIndex("${base}/yum/${ch}/9/RPMS/x86_64/")
+        for (def entry : packages.entrySet()) {
+            String deb = "/${entry.key}_${entry.value.ver}.noble_"
+            String rpm = "${entry.value.rpm}-${entry.value.ver}.el9.x86_64.rpm"
+            if (apt.contains(deb) || yum.contains(rpm)) {
+                clashes << "${entry.key} ${entry.value.ver} (${ch})"
+            }
+        }
+    }
+    if (clashes) {
+        String msg = "Already published in ${params.VALKEY_REPO}: ${clashes.join(', ')}. " +
+                     "Raise the release number for each of them, or set ALLOW_REPUBLISH to override."
+        if (params.ALLOW_REPUBLISH) {
+            unstable(msg)
+        } else {
+            error(msg)
+        }
+    } else {
+        echo "Pre-flight OK: none of ${packages.keySet().join(', ')} is published yet at the requested version-release"
+    }
+}
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
@@ -116,6 +168,7 @@ pipeline {
         string(defaultValue: '1.3.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
         string(defaultValue: '1',     description: 'valkey-admin release number',  name: 'ADMIN_RELEASE')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
+        booleanParam(defaultValue: false, description: 'Skip the pre-flight stop when a requested version-release is already published (mark UNSTABLE instead). Republishing breaks clients with cached metadata.', name: 'ALLOW_REPUBLISH')
     }
     options {
         disableConcurrentBuilds()
@@ -123,6 +176,25 @@ pipeline {
         timestamps()
     }
     stages {
+        // Stop before building anything if a requested version-release is already
+        // in the repo: every rebuild needs a new release number.
+        stage('Pre-flight: release numbers') {
+            when { expression { params.PKG_SERVER || params.PKG_JSON || params.PKG_BLOOM || params.PKG_SEARCH || params.PKG_LDAP || params.PKG_AUDIT || params.PKG_BUNDLE || params.PKG_ADMIN } }
+            steps {
+                script {
+                    Map pkgs = [:]
+                    if (params.PKG_SERVER) { pkgs['percona-valkey-server']       = [rpm: 'percona-valkey',              ver: "${params.VALKEY_VERSION}-${params.SERVER_RELEASE}"] }
+                    if (params.PKG_JSON)   { pkgs['percona-valkey-json']         = [rpm: 'percona-valkey-json',         ver: "${params.VALKEY_JSON_VERSION}-${params.JSON_RELEASE}"] }
+                    if (params.PKG_BLOOM)  { pkgs['percona-valkey-bloom']        = [rpm: 'percona-valkey-bloom',        ver: "${params.VALKEY_BLOOM_VERSION}-${params.BLOOM_RELEASE}"] }
+                    if (params.PKG_SEARCH) { pkgs['percona-valkey-search']       = [rpm: 'percona-valkey-search',       ver: "${params.VALKEY_SEARCH_VERSION}-${params.SEARCH_RELEASE}"] }
+                    if (params.PKG_LDAP)   { pkgs['percona-valkey-ldap']         = [rpm: 'percona-valkey-ldap',         ver: "${params.VALKEY_LDAP_VERSION}-${params.LDAP_RELEASE}"] }
+                    if (params.PKG_AUDIT)  { pkgs['percona-valkey-audit']        = [rpm: 'percona-valkey-audit',        ver: "${params.VALKEY_AUDIT_VERSION}-${params.AUDIT_RELEASE}"] }
+                    if (params.PKG_BUNDLE) { pkgs['percona-valkey-bundle']       = [rpm: 'percona-valkey-bundle',       ver: "${params.VALKEY_BUNDLE_VERSION}-${params.BUNDLE_RELEASE}"] }
+                    if (params.PKG_ADMIN)  { pkgs['percona-valkey-admin-server'] = [rpm: 'percona-valkey-admin-server', ver: "${params.VALKEY_ADMIN_VERSION}-${params.ADMIN_RELEASE}"] }
+                    checkNotPublished(pkgs)
+                }
+            }
+        }
         // Packages are built in dependency order. Modules install percona-valkey-dev
         // from the public repo, and percona-valkey-bundle depends on server + json +
         // bloom + search + ldap, so each step waits until the previous one is served
