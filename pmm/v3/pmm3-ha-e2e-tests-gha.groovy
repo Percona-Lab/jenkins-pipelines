@@ -88,11 +88,11 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'PMM-HA-GA',
+            defaultValue: 'main',
             description: 'HA setup branch of percona-helm-charts repo',
             name: 'HELM_CHART_BRANCH')
         choice(

@@ -229,6 +229,9 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
         scenario_to_test = "${params.scenario_to_test}"
         REPO_TYPE = "${params.REPO_TYPE}"
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
+        // tasks/test_prep.yml downloads package-testing on the test nodes from github.com/<TESTING_GIT_ACCOUNT>/package-testing,
+        // so take the account from git_repo (e.g. https://github.com/<account>/package-testing.git)
+        TESTING_GIT_ACCOUNT = "${params.git_repo.tokenize('/')[-2]}"
     }
     options {
         withCredentials(moleculepxbJenkinsCreds())
@@ -287,6 +290,15 @@ def moleculeParallelTestPXBALL(allOS, operatingSystems, moleculeDir) {
                                         osList = pxb80PackageTesting()
                                     } else if (product_to_test == "pxb_84") {
                                         osList = pxb84PackageTesting()
+                                        // pxb_80 -> pxb_84 major upgrade installs PS/PXB 8.0 first, so only run on OS supported by PXB 8.0
+                                        // (skips debian-13, rhel-10, ubuntu-resolute and their ARM variants)
+                                        if (scenario_to_test == "major_upgrade") {
+                                            if (server_to_test != "ps-84") {
+                                                error("pxb_84 major_upgrade is only supported with server_to_test=ps-84")
+                                            }
+                                            def pxb80OS = pxb80PackageTesting()
+                                            osList = osList.findAll { pxb80OS.contains(it) }
+                                        }
                                     } else if (product_to_test == "pxb_97") {
                                         osList = pxb97PackageTesting()
                                     } else if (product_to_test == "pxb_innovation") {

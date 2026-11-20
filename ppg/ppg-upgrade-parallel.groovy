@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(scenario, fromVersion, toVersion) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
@@ -11,6 +15,16 @@ def sendSlackNotification(scenario, fromVersion, toVersion) {
         buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
         slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
     }
+}
+
+// FROM_VERSION actually used: the parameter, or the scenario's default.
+def fromVersion = ''
+
+// 'pg-18-minor-upgrade' -> ['pg-18', 'minor']; null for other scenarios.
+@NonCPS
+def upgradeScenarioParts(String scenario) {
+    def m = (scenario =~ /^(.+)-(minor|major)-upgrade$/)
+    return m.matches() ? [m.group(1), m.group(2)] : null
 }
 
 pipeline {
@@ -39,7 +53,7 @@ pipeline {
         booleanParam(
             name: 'USE_OBS_REPO',
             defaultValue: false,
-            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. OBS only ever carries the latest minor of each major, so the FROM version always installs from repo.percona.com regardless of this setting.'
+            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. A minor upgrade always installs the FROM version from repo.percona.com (OBS only carries the latest minor of each major); a major upgrade installs it from OBS too, see FROM_OBS_PROJECT.'
         )
         string(
             defaultValue: '',
@@ -51,14 +65,19 @@ pipeline {
             description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
             name: 'OBS_PROJECT'
         )
+        string(
+            defaultValue: '',
+            description: 'Major upgrades with USE_OBS_REPO only: full OBS project to install the FROM version from, e.g. isv:percona:ppg:staging:17. Leave empty for OBS_PROJECT with the major replaced by the previous one (...:staging:18 -&gt; ...:staging:17).',
+            name: 'FROM_OBS_PROJECT'
+        )
         text(
             defaultValue: '',
             description: 'Expected versions of the packages for the version upgraded to, one package=version per line keyed by OBS package name (e.g. percona-pgbackrest=2.59.2). Filled automatically by OBS QA (percona-obs qa); overrides ppg-testing versions/*.py for this run. Leave empty to use the tables.',
             name: 'EXPECTED_VERSIONS'
         )
         string(
-            defaultValue: 'ppg-18.3',
-            description: 'From this version PPG will be updated',
+            defaultValue: '',
+            description: 'From this version PPG will be updated. Empty: the scenario\'s default_from_version in ppg-testing ppg/versions.yml (the latest released version to upgrade from).',
             name: 'FROM_VERSION'
         )
         string(
@@ -110,13 +129,67 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ppg/${SCENARIO}"
+                    // A scenario can be retired in ppg/versions.yml with skip_reason (e.g.
+                    // a major upgrade from an end-of-life major): skip it, starting no machines.
+                    def skipParts = upgradeScenarioParts(env.SCENARIO)
+                    if (skipParts != null) {
+                        def skipReason = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${skipParts[0]}']['${skipParts[1]}-upgrade'].get('skip_reason') or '')" """).trim()
+                        if (skipReason) {
+                            env.SKIP_REASON = skipReason
+                            currentBuild.description = "Skipped: ${skipReason}"
+                            echo "Skipping ${env.SCENARIO}: ${skipReason}"
+                        }
+                    }
+                    fromVersion = (params.FROM_VERSION ?: '').trim()
+                    if (!fromVersion) {
+                        def parts = upgradeScenarioParts(env.SCENARIO)
+                        if (parts == null) {
+                            error("FROM_VERSION is empty and ${env.SCENARIO} is not a minor/major upgrade scenario")
+                        }
+                        fromVersion = sh(returnStdout: true, script: """python3 -c "import yaml; print(yaml.safe_load(open('ppg/versions.yml'))['instances']['${parts[0]}']['${parts[1]}-upgrade']['default_from_version'])" """).trim()
+                        echo "FROM_VERSION is empty: using ${fromVersion}, the default for ${env.SCENARIO} in ppg/versions.yml"
+                    }
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${fromVersion}-to-${env.VERSION}"
+                    // Carried to the Test stage through env: a parameter of the same name
+                    // (FROM_VERSION) cannot be overridden, a variable of its own can.
+                    env.RESOLVED_FROM_VERSION = fromVersion
+                    // A minor upgrade starts from a released minor of the same major.
+                    // Before a major's first release (e.g. PG 19 until 19.0 is out)
+                    // there is none: skip, starting no machines; it runs by itself once
+                    // the release exists. Only a 404 skips (other errors run and fail
+                    // visibly), and only for minor upgrades: a major upgrade starts from
+                    // an older, released major, so a missing repository is a real error.
+                    def kind = upgradeScenarioParts(env.SCENARIO)
+                    if (!env.SKIP_REASON && kind != null && kind[1] == 'minor') {
+                        // psp repositories are per major (psp-16), ppg per minor (ppg-18.6)
+                        def repoName = fromVersion.startsWith('psp-') ? fromVersion.tokenize('.')[0] : fromVersion
+                        def code = sh(returnStdout: true, script: "curl -s -o /dev/null -w '%{http_code}' --max-time 30 https://repo.percona.com/${repoName}/ || true").trim()
+                        if (code == '404') {
+                            env.SKIP_REASON = "${fromVersion} is not released on repo.percona.com yet, so there is no released minor to upgrade from"
+                            currentBuild.description = "Skipped: ${env.SKIP_REASON}"
+                            echo "Skipping ${env.SCENARIO}: ${env.SKIP_REASON}"
+                        }
+                    }
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    if (env.SKIP_REASON) {
+                        echo "Not running ${env.SCENARIO}: ${env.SKIP_REASON}"
+                        return
+                    }
+                    // Build parameters win over env.X assignments, so pass the resolved
+                    // FROM_VERSION to Molecule (tasks, verifier tests) explicitly.
+                    def resolvedFrom = (env.RESOLVED_FROM_VERSION ?: '').trim()
+                    if (!resolvedFrom) {
+                        error("FROM_VERSION is empty and was not resolved in the Prepare stage")
+                    }
+                    echo "Running the upgrade tests with FROM_VERSION=${resolvedFrom}"
+                    withEnv(["FROM_VERSION=${resolvedFrom}"]) {
+                        moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    }
                 }
             }
         }
@@ -124,8 +197,10 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.SCENARIO, env.FROM_VERSION, env.VERSION)
+                if (!env.SKIP_REASON) {
+                    moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                }
+                sendSlackNotification(env.SCENARIO, env.RESOLVED_FROM_VERSION ?: env.FROM_VERSION, env.VERSION)
             }
         }
     }

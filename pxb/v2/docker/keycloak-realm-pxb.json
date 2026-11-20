@@ -1,0 +1,41 @@
+{
+  "realm": "pxb",
+  "enabled": true,
+  "accessTokenLifespan": 3600,
+  "clients": [
+    {
+      "clientId": "pxb-xtrabackup",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "aud-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "pxb-xtrabackup",
+            "id.token.claim": "true",
+            "access.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "xtrabackup-oidc",
+      "enabled": true,
+      "email": "xtrabackup-oidc@example.com",
+      "emailVerified": true,
+      "firstName": "XtraBackup",
+      "lastName": "Test",
+      "credentials": [
+        { "type": "password", "value": "pxb-test", "temporary": false }
+      ]
+    }
+  ]
+}

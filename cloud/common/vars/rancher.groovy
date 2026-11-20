@@ -2,24 +2,24 @@ String cluster(Map clusterCfg) {
     def clusterName = clusterCfg.clusterName
     def clusterSuffix = clusterCfg.clusterSuffix
     if (!clusterName || !clusterSuffix) {
-        error("Set correct cluster name and suffix")
+        error('Set correct cluster name and suffix')
     }
 
     return "${clusterName}-${clusterSuffix}"
 }
 
-void createCluster(Map clusterCfg) {
+void createCluster(Map clusterCfg, Map libraries) {
     def prefix = cluster(clusterCfg)
     def envVars = [
         "PREFIX=${prefix}",
         "ZONE=${clusterCfg.zone ?: 'us-central1-a'}",
-        "WORKER_COUNT=${clusterCfg.workerCountMin ?: '4'}",
-        "MACHINE_TYPE=e2-standard-4",
-        "BOOT_DISK_SIZE=100GB",
-        "IMAGE_FAMILY=rocky-linux-9-optimized-gcp",
-        "IMAGE_PROJECT=rocky-linux-cloud",
-        "SOURCE_RANGES=0.0.0.0/0",
-        "OWNER=jenkins",
+        "WORKER_COUNT=${clusterCfg.workerCount}",
+        "MACHINE_TYPE=${clusterCfg.machineType}",
+        'BOOT_DISK_SIZE=100GB',
+        "IMAGE_FAMILY=${clusterCfg.platformArch == 'arm64' ? 'rocky-linux-9-optimized-gcp-arm64' : 'rocky-linux-9-optimized-gcp'}",
+        'IMAGE_PROJECT=rocky-linux-cloud',
+        'SOURCE_RANGES=0.0.0.0/0',
+        'OWNER=jenkins',
         "PRODUCT=${clusterCfg.product}",
         "DELETE_AFTER_HOURS=${clusterCfg.deleteAfterHours ?: '6'}",
         "RANCHER_VERSION=${clusterCfg.rancherVersion ?: 'latest'}",
@@ -29,33 +29,38 @@ void createCluster(Map clusterCfg) {
         "KUBECONFIG=${clusterCfg.kubeconfig}"
     ]
 
-    // Default timeout for cluster creation is 60 minutes
-    timeout(time: 60, unit: 'MINUTES') {
-        withEnv(envVars) {
-            sh '''
-                set -euo pipefail
-
-                for attempt in {1..3}; do
-                    echo "Creating Rancher (attempt ${attempt}/3)..."
-
-                    if python3 cloud/scripts/create_rancher.py "$PREFIX" --save-kubeconfig true; then
-                        break
-                    fi
-
-                    if [ "$attempt" -eq 3 ]; then
-                        echo "Failed to create Rancher after 3 attempts"
-                        exit 1
-                    fi
-
-                    echo "Retrying in 10 seconds..."
-                    sleep 10
-                done
-            '''
+    withEnv(envVars) {
+        timeout(time: 60, unit: 'MINUTES') {
+            libraries.helpers.retryCommand(
+                command: '''
+                    set -euo pipefail
+                    python3 cloud/scripts/create_rancher.py "$PREFIX" --save-kubeconfig true
+                ''',
+                afterCommand: '''
+                    # Wait for API server to be fully ready
+                    for i in $(seq 1 60); do
+                        if kubectl cluster-info >/dev/null 2>&1 && kubectl get nodes >/dev/null 2>&1; then
+                            echo "Cluster API server is ready"
+                            break
+                        fi
+                        echo "Waiting for cluster API server... ($i/60)"
+                        sleep 10
+                    done
+                    
+                    kubectl get nodes
+                ''',
+                cleanupFunction: {
+                    shutdownCluster(clusterCfg, libraries)
+                },
+                maxRetries: 3,
+                delaySeconds: 5
+            )
         }
     }
 }
 
-void shutdownCluster(Map clusterCfg) {
+// libraries is unused here; optional so older callers with a single argument keep working.
+void shutdownCluster(Map clusterCfg, Map libraries = [:]) {
     withEnv([
         "PREFIX=${cluster(clusterCfg)}",
         "ZONE=${clusterCfg.zone ?: clusterCfg.region ?: 'us-central1-a'}",
@@ -69,9 +74,7 @@ void shutdownCluster(Map clusterCfg) {
     }
 }
 
-String getLatestPlatformVersion(Map platformCfg) {
-    def channel = platformCfg.platform_channel
-
+String getLatestPlatformVersion(String location, String channel, Map libraries) {
     return sh(
         script: """
             curl -fsSL https://update.rke2.io/v1-release/channels \
@@ -81,8 +84,8 @@ String getLatestPlatformVersion(Map platformCfg) {
     ).trim()
 }
 
-String getPlatformVersion(String prefixVersion) {
-    def parts = prefixVersion.tokenize('.')
+String getPlatformVersion(String version, Map libraries) {
+    def parts = version.tokenize('.')
     def channel = "v${parts[0]}.${parts[1]}"
 
     return sh(
@@ -101,11 +104,11 @@ String getPlatformVersion(String prefixVersion) {
 String getMachineType(String arch) {
     switch (arch) {
         case 'amd64':
-            return 'e2-standard-4'
+            return 'n1-standard-4'
         case 'arm64':
             return 't2a-standard-4'
         default:
-            error("Unsupported architecture: ${arch}")
+            error("Architecture ${arch} is not supported for Rancher")
     }
 }
 

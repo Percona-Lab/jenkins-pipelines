@@ -4,20 +4,25 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def defaultComponentRepo = [
+    credcheck         : 'https://github.com/HexaCluster/credcheck.git',
+    patroni           : 'https://github.com/zalando/patroni.git',
     pg_audit          : 'https://github.com/pgaudit/pgaudit.git',
     pg_repack         : 'https://github.com/reorg/pg_repack.git',
-    patroni           : 'https://github.com/zalando/patroni.git',
-    pgbackrest        : 'https://github.com/pgbackrest/pgbackrest.git',
-    pgpool            : 'https://github.com/pgpool/pgpool2.git',
-    postgis           : 'https://github.com/postgis/postgis.git',
     pgaudit13_set_user: 'https://github.com/pgaudit/set_user.git',
+    pgbackrest        : 'https://github.com/pgbackrest/pgbackrest.git',
     pgbadger          : 'https://github.com/darold/pgbadger.git',
     pgbouncer         : 'https://github.com/pgbouncer/pgbouncer.git',
+    pgpool            : 'https://github.com/pgpool/pgpool2.git',
     pgvector          : 'https://github.com/pgvector/pgvector.git',
+    postgis           : 'https://github.com/postgis/postgis.git',
     wal2json          : 'https://github.com/eulerto/wal2json.git',
 ]
 
 def sendSlackNotification(componentName, ppgVersion, componentVersion) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
@@ -81,16 +86,17 @@ pipeline {
             name: 'PRODUCT',
             description: 'Component to test: runs the &lt;PRODUCT&gt;/setup scenario and picks the default COMPONENT_REPO.',
             choices: [
+                'credcheck',
+                'patroni',
                 'pg_audit',
                 'pg_repack',
-                'patroni',
-                'pgbackrest',
-                'pgpool',
-                'postgis',
                 'pgaudit13_set_user',
+                'pgbackrest',
                 'pgbadger',
                 'pgbouncer',
+                'pgpool',
                 'pgvector',
+                'postgis',
                 'wal2json'
             ]
         )
@@ -140,6 +146,11 @@ pipeline {
                 script {
                     installMoleculePython39()
                     sh "python3 tools/render.py --group ${PRODUCT}/setup"
+                    // The parallel stages are named after the Molecule scenarios (amd, arm);
+                    // show which OS each runs on (set per component in <PRODUCT>/setup/scenario.yml).
+                    def platforms = sh(returnStdout: true, script: """python3 -c "import yaml; s = yaml.safe_load(open('${PRODUCT}/setup/scenario.yml'))['scenarios']; print(', '.join(k + ': ' + v['os'] for k, v in s.items()))" """).trim()
+                    currentBuild.description = "Platforms: ${platforms}"
+                    echo "Platforms: ${platforms}"
                 }
             }
         }

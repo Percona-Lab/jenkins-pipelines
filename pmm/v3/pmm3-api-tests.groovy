@@ -71,6 +71,7 @@ pipeline {
                 sh '''
                     docker run -d \
                     -e PMM_DEBUG=1 \
+                    -e PMM_DEV_TELEMETRY_DISABLE_SEND=1 \
                     -p 443:8443 \
                     -v ${PWD}/managed/testdata/checks:/srv/checks \
                     ${DOCKER_VERSION}

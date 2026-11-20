@@ -117,8 +117,8 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'PMM-HA-GA',
-            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. PMM-HA-GA or a branch based on it.'
+            defaultValue: 'main',
+            description: 'Branch of percona-helm-charts repo. Must use the PMM_HA_VM_* secret keys, i.e. main or a branch based on it.'
         )
         choice(
             name: 'RESOURCE_PROFILE',
@@ -525,6 +525,7 @@ EOF
                             ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}} \
                             ${PMM_CLIENT_REPO:+--set pmmClient.image.repository=${PMM_CLIENT_REPO}} \
                             ${PMM_CLIENT_TAG:+--set pmmClient.image.tag=${PMM_CLIENT_TAG}} \
+                            --set-string pmmEnv.PMM_DEV_TELEMETRY_DISABLE_SEND=1 \
                             ${PMM_ENV_ARGS} \
                             ${HELM_VALUES:+--set ${HELM_VALUES}}
 
@@ -563,6 +564,18 @@ EOF
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=600s
+
+                        # The PG operator restarts the pg-db pods to add the pmm-client sidecar once pmm-token-init writes the
+                        # PMM token; tests started during that restart hit PMM-15716, so wait until every pod has the sidecar.
+                        kubectl wait --for=condition=complete job -l app.kubernetes.io/instance=pmm-ha,app.kubernetes.io/component=pmm-token-init -n pmm --timeout=600s
+                        PG_PODS='postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres'
+                        for i in $(seq 90); do
+                          pods=$(kubectl get pods -n pmm -l "$PG_PODS" -o jsonpath='{range .items[*]}{.spec.containers[*].name};{end}')
+                          [ -n "$pods" ] && [ "$(echo "$pods" | grep -o ';' | wc -l)" -eq "$(echo "$pods" | grep -o 'pmm-client' | wc -l)" ] && break
+                          [ "$i" -lt 90 ] || { echo "pg-db pods did not get the pmm-client sidecar within 15m"; kubectl get pods -n pmm -l "$PG_PODS"; exit 1; }
+                          sleep 10
+                        done
+                        kubectl wait --for=condition=ready pod -l "$PG_PODS" -n pmm --timeout=600s
                         kubectl get pods -n pmm
                     '''
                 }

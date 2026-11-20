@@ -64,7 +64,7 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
