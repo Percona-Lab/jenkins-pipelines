@@ -84,7 +84,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 3, unit: 'HOURS')
+        timeout(time: 15, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
     }
