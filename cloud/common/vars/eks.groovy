@@ -39,9 +39,9 @@ void createCluster(Map clusterCfg, Map libraries) {
                         /<pre-bootstrap-commands>/ {
                             if (hugepages == "true") {
                                 print "  preBootstrapCommands:"
-                                print "    - \"echo vm.nr_hugepages=1024 >> /etc/sysctl.conf\""
-                                print "    - \"echo vm.hugetlb_shm_group=26 >> /etc/sysctl.conf\""
-                                print "    - \"sysctl -p\""
+                                print "    - echo vm.nr_hugepages=1024 >> /etc/sysctl.conf"
+                                print "    - echo vm.hugetlb_shm_group=26 >> /etc/sysctl.conf"
+                                print "    - sysctl -p"
                             }
                             next
                         }

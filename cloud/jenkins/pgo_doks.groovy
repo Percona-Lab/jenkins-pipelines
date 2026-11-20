@@ -18,7 +18,11 @@ String jenkinsAgentLabel() {
 
 // PG_VER is derived from IMAGE_POSTGRESQL by the tests library; these entries are exported after it.
 Map pgExtraEnvs() {
-    def envs = [SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS]
+    def envs = [
+        SKIP_TEST_WARNINGS  : SKIP_TEST_WARNINGS,
+        K8S_UPGRADE_PLATFORM: 'doks',
+        K8S_UPGRADE_REGION  : DO_REGION
+    ]
 
     if (PILLAR_VERSION.endsWith('-community')) {
         if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {

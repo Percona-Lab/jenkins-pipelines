@@ -56,11 +56,18 @@ void createCluster(Map clusterCfg, Map libraries) {
             "GKE_REGION=${clusterCfg.zone}",
             "KUBECONFIG=${clusterCfg.kubeconfig}",
             "PLATFORM_VER=${clusterCfg.platformVersion}",
-            "MACHINE_TYPE=${clusterCfg.machineType}"
+            "MACHINE_TYPE=${clusterCfg.machineType}",
+            "HUGEPAGES=${clusterCfg.hugepages ?: false}"
         ]) {
             timeout(time: 30, unit: 'MINUTES') {
                 libraries.helpers.retryCommand(
                     command: '''
+                        SYSTEM_CONFIG_FLAG=''
+                        if [ "$HUGEPAGES" = "true" ]; then
+                            printf 'linuxConfig:\\n  hugepageConfig:\\n    hugepage_size2m: 1024\\n' > "$WORKSPACE/hugepages-config-$CLUSTER_SUFFIX.yaml"
+                            SYSTEM_CONFIG_FLAG="--system-config-from-file=$WORKSPACE/hugepages-config-$CLUSTER_SUFFIX.yaml"
+                        fi
+
                         gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \\
                             --project "$GCP_PROJECT" \\
                             --release-channel $GKE_RELEASE_CHANNEL \\
@@ -79,6 +86,7 @@ void createCluster(Map clusterCfg, Map libraries) {
                             --logging=NONE \\
                             --no-enable-managed-prometheus \\
                             --workload-pool=cloud-dev-112233.svc.id.goog \\
+                            $SYSTEM_CONFIG_FLAG \\
                             --quiet
                     ''',
                     afterCommand: '''
