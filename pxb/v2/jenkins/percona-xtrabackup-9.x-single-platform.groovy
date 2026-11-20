@@ -39,6 +39,10 @@ pipeline {
             defaultValue: '',
             description: 'Pass an URL for downloading bootstrap.sh, If empty will use from repository you specified',
             name: 'BOOTSTRAP_URL')
+        string(
+            defaultValue: '',
+            description: 'URL of a Percona Server tarball with one top directory, for example the binary.tar.gz of a percona-server pipeline-parallel-mtr build. The xtradb target uses it in place of the bootstrap.sh download, the innodb target keeps bootstrap.sh. DOCKER_OS must match the OS of that build',
+            name: 'SERVER_TARBALL_URL')
         choice(
             choices: 'RelWithDebInfo\nDebug',
             description: 'Type of build to produce',
