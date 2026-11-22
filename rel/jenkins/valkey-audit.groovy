@@ -85,20 +85,17 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
     }
     stages {
         stage('Pre-flight: release number') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 valkeyCheckNotPublished(repo: params.VALKEY_AUDIT_REPO, channel: params.COMPONENT, deb: 'percona-valkey-audit', rpm: 'percona-valkey-audit',
                                         version: "${params.VALKEY_AUDIT_VERSION}-${params.VALKEY_AUDIT_RELEASE}", allowRepublish: params.ALLOW_REPUBLISH)
             }
         }
         stage('Create valkey-audit source tarball') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
@@ -124,7 +121,6 @@ pipeline {
             }
         }
         stage('Build valkey-audit generic source packages') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Build valkey-audit generic source rpm') {
                     agent {
@@ -154,7 +150,6 @@ pipeline {
             }  //parallel
         } // stage
         stage('Build valkey-audit RPMs/DEBs') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
@@ -394,14 +389,12 @@ pipeline {
         }
 
         stage('Sign packages') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 // sync packages
                 sync2ProdAutoBuild(params.CLOUD, VALKEY_AUDIT_REPO, COMPONENT, true)
