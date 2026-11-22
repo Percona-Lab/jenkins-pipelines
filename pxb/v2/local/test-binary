@@ -130,6 +130,7 @@ elif [[ -n ${SERVER_TARBALL_URL} && ${XTRABACKUP_TARGET} == xtradb* ]]; then
       "${SERVER_TARBALL_URL}"
     rm -rf server
     mkdir server
+    # The tarball holds one top directory. --strip-components=1 drops it, so the files land in server/.
     tar xfz server-tarball/${XTRABACKUP_TARGET}/server.tar.gz -C server --strip-components=1
     rm -f server-tarball/${XTRABACKUP_TARGET}/server.tar.gz
 else

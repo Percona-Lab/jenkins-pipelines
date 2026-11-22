@@ -41,13 +41,14 @@ function select_server_tarball_url() {
     return 1
   fi
 }
-select_server_tarball_url
 
 function check_pxb_network() {
   if [[ $(docker network list | grep pxb_network) != *pxb_network* ]]; then
     docker network create pxb_network
   fi
 }
+
+select_server_tarball_url
 
 # Only Percona Server ships the auth_openid_connect server plugin, so the
 # OIDC tests skip on every other target and need no Keycloak there.
