@@ -23,8 +23,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             # Dependency installation reaches distro mirrors and repo.percona.com;
             # retry it, and stop here if it still fails instead of failing later.
             install_deps() { bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --search_deps; }
-            install_deps || { echo 'Dependency installation failed, retry 1/2 in 60s'; sleep 60; install_deps; } || \\
-                { echo 'Dependency installation failed, retry 2/2 in 120s'; sleep 120; install_deps; } || \\
+            # Drop cached package-manager metadata before a retry: a repo republished
+            # meanwhile leaves the cached checksums stale and every retry fails the same way.
+            clean_pkg_cache() { command -v dnf >/dev/null && dnf clean all; command -v yum >/dev/null && yum clean all; command -v apt-get >/dev/null && apt-get clean; true; }
+            install_deps || { echo 'Dependency installation failed, retry 1/2 in 60s'; clean_pkg_cache; sleep 60; install_deps; } || \\
+                { echo 'Dependency installation failed, retry 2/2 in 120s'; clean_pkg_cache; sleep 120; install_deps; } || \\
                 { echo 'ERROR: dependency installation failed after 3 attempts'; exit 1; }
             bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --search_repo=${GIT_REPO} --search_branch=${GIT_BRANCH} --search_version=${VALKEY_SEARCH_VERSION} --release=${VALKEY_SEARCH_RELEASE} ${STAGE_PARAM}"
     """
@@ -402,7 +405,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                valkeyPublish(params.CLOUD, VALKEY_SEARCH_REPO, COMPONENT)
+                valkeyPublish(params.CLOUD, VALKEY_SEARCH_REPO, COMPONENT, params.ALLOW_REPUBLISH ? true : false)
             }
         }
     }
