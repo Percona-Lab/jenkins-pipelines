@@ -40,6 +40,7 @@ pipeline {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
     }
     parameters {
+        booleanParam(defaultValue: false, description: 'Build and publish even if this version-release is already in the repo (marks the build UNSTABLE). Republishing breaks clients with cached metadata.', name: 'ALLOW_REPUBLISH')
         choice(
              choices: [ 'Hetzner','AWS' ],
              description: 'Cloud infra for build',
@@ -89,6 +90,12 @@ pipeline {
         timestamps ()
     }
     stages {
+        stage('Pre-flight: release number') {
+            steps {
+                valkeyCheckNotPublished(repo: params.VALKEY_AUDIT_REPO, channel: params.COMPONENT, deb: 'percona-valkey-audit', rpm: 'percona-valkey-audit',
+                                        version: "${params.VALKEY_AUDIT_VERSION}-${params.VALKEY_AUDIT_RELEASE}", allowRepublish: params.ALLOW_REPUBLISH)
+            }
+        }
         stage('Create valkey-audit source tarball') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'

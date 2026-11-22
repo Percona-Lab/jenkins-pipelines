@@ -40,6 +40,7 @@ pipeline {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
     }
     parameters {
+        booleanParam(defaultValue: false, description: 'Build and publish even if this version-release is already in the repo (marks the build UNSTABLE). Republishing breaks clients with cached metadata.', name: 'ALLOW_REPUBLISH')
         choice(
              choices: [ 'Hetzner','AWS' ],
              description: 'Cloud infra for build',
@@ -85,6 +86,12 @@ pipeline {
         timestamps ()
     }
     stages {
+        stage('Pre-flight: release number') {
+            steps {
+                valkeyCheckNotPublished(repo: params.VALKEY_BLOOM_REPO, channel: params.COMPONENT, deb: 'percona-valkey-bloom', rpm: 'percona-valkey-bloom',
+                                        version: "${params.VALKEY_BLOOM_VERSION}-${params.VALKEY_BLOOM_RELEASE}", allowRepublish: params.ALLOW_REPUBLISH)
+            }
+        }
         stage('Create valkey-bloom source tarball') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
