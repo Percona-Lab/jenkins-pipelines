@@ -2,7 +2,14 @@
 // to the same REPO_NAME wait on a flock held by the remote shell for the whole
 // reprepro/createrepo + rsync sequence. The kernel drops the lock when that
 // shell and its children exit, so a crashed or aborted job never leaves it stale.
-def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION, Boolean LOCK_REPO = false) {
+//
+// NO_OVERWRITE=true refuses, under that lock and before anything is copied, to
+// replace a package file the repo already has with different content (same
+// name-version-release, different build). Clients holding the old metadata
+// would fail with "checksum doesn't match". Re-pushing byte-identical files
+// (a retry of the same build) is allowed. It exits 3 so callers can tell it
+// apart from a transient failure.
+def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION, Boolean LOCK_REPO = false, Boolean NO_OVERWRITE = false) {
     def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
     def lockWaitSeconds = 5400
     def lockFile = '/srv/repo-copy/.publish-locks/' + REPO_NAME.replaceAll('/', '_') + '.lock'
@@ -15,6 +22,21 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION, Boolean LOCK_R
                             exit 1
                         fi
                         echo "Publish lock acquired for ''' + REPO_NAME + '''"
+'''
+    def noOverwrite = !NO_OVERWRITE ? '' : '''
+                            conflicts=0
+                            for pkg in $(find redhat ../source/redhat debian -name "*.rpm" -o -name "*.deb" 2>/dev/null); do
+                                for existing in $(find /srv/repo-copy/''' + REPO_NAME + '''/yum /srv/repo-copy/''' + REPO_NAME + '''/apt/pool -name "$(basename $pkg)" 2>/dev/null); do
+                                    if ! cmp -s "$pkg" "$existing"; then
+                                        echo "ERROR: $existing is already published with different content"
+                                        conflicts=1
+                                    fi
+                                done
+                            done
+                            if [ $conflicts -ne 0 ]; then
+                                echo "ERROR: refusing to republish to ''' + REPO_NAME + '''. Raise the release number."
+                                exit 3
+                            fi
 '''
     node(nodeLabel) {
         unstash 'uploadPath'
@@ -32,6 +54,7 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION, Boolean LOCK_R
                         set -o xtrace
 ${repoLock}
                         pushd ${path_to_build}/binary
+${noOverwrite}
                             if [ "x${REPO_NAME}" == "xpsmdb-50" -o "x${REPO_NAME}" == "xpsmdb-60" ]; then
                                 createrepo_opts=" --no-database "
                             fi
