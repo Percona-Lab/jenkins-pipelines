@@ -20,26 +20,44 @@ def trigger(String jobName, List jobParams) {
     }
 }
 
-// waitForPublished — poll the public apt index until every package in
-// [name: "<version>-<release>"] is listed, so the next stage
-// builds against packages repo.percona.com actually serves. Checks one dist
-// (noble, amd64): sync2ProdAutoBuild rsyncs yum and every apt dist before the
-// job finishes, so one index showing up means the whole publish is live.
+// waitForPublished — poll the public repo until every package in
+// [name: "<version>-<release>"] is listed both in the apt noble amd64 index and
+// in the EL9 x86_64 yum metadata (primary.xml), so the next stage builds against
+// packages repo.percona.com actually serves. The yum check matters: the RPM files
+// land before createrepo rewrites the metadata, and the apt index can be live
+// minutes earlier. sync2ProdAutoBuild runs createrepo over the EL versions in
+// `ls` order (10, 2023, 8, 9) and the arches as aarch64 then x86_64, so EL9
+// x86_64 is the last directory it updates.
 def waitForPublished(Map packages) {
     String dist = 'noble'
     int waitMinutes = 30
     String index = "https://repo.percona.com/${params.VALKEY_REPO}/apt/dists/${dist}/${params.CHANNEL}/binary-amd64/Packages"
+    String yumRepo = "https://repo.percona.com/${params.VALKEY_REPO}/yum/${params.CHANNEL}/9/RPMS/x86_64"
     List expected = []
+    List expectedRpm = []
     for (def entry : packages.entrySet()) {
         expected << "/${entry.key}_${entry.value}.${dist}_"
+        // The server's main RPM is percona-valkey; its deb is percona-valkey-server.
+        String rpmName = entry.key == 'percona-valkey-server' ? 'percona-valkey' : entry.key
+        expectedRpm << "\"${rpmName}-${entry.value}.el9.x86_64.rpm\""
     }
-    echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} in ${index}"
+    echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} in ${index} and ${yumRepo}"
     int attempts = waitMinutes * 2
     for (int i = 1; i <= attempts; i++) {
         String listed = sh(returnStdout: true, script: "curl -fsS --max-time 60 '${index}' | grep '^Filename:' || true")
+        String rpms = sh(returnStdout: true, script: """
+            set +x
+            primary=\$(curl -fsS --max-time 60 '${yumRepo}/repodata/repomd.xml' | grep -oE 'repodata/[^"]*primary[.]xml[.]gz' | head -1)
+            [ -n "\$primary" ] && curl -fsS --max-time 60 "${yumRepo}/\$primary" | gzip -dc | grep -oE 'location href="[^"]+"' || true
+        """)
         List missing = []
         for (String file : expected) {
             if (!listed.contains(file)) {
+                missing << file
+            }
+        }
+        for (String file : expectedRpm) {
+            if (!rpms.contains(file)) {
                 missing << file
             }
         }
@@ -204,6 +222,7 @@ pipeline {
             steps {
                 script {
                     trigger('hetzner-valkey-RELEASE', [
+                        booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                         string(name: 'CLOUD',            value: params.CLOUD),
                         string(name: 'GIT_BRANCH',       value: params.GIT_BRANCH),
                         string(name: 'PACKAGING_BRANCH', value: params.PACKAGING_BRANCH),
@@ -229,6 +248,7 @@ pipeline {
                     Map published = [:]
                     if (params.PKG_JSON) {
                         jobs['json'] = trigger('hetzner-valkey-json-RELEASE', [
+                            booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                             string(name: 'CLOUD',               value: cloud),
                             string(name: 'PACKAGING_BRANCH',    value: pkgBr),
                             string(name: 'VALKEY_JSON_VERSION', value: params.VALKEY_JSON_VERSION),
@@ -241,6 +261,7 @@ pipeline {
                     }
                     if (params.PKG_BLOOM) {
                         jobs['bloom'] = trigger('hetzner-valkey-bloom-RELEASE', [
+                            booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                             string(name: 'CLOUD',                value: cloud),
                             string(name: 'PACKAGING_BRANCH',     value: pkgBr),
                             string(name: 'VALKEY_BLOOM_VERSION', value: params.VALKEY_BLOOM_VERSION),
@@ -252,6 +273,7 @@ pipeline {
                     }
                     if (params.PKG_SEARCH) {
                         jobs['search'] = trigger('hetzner-valkey-search-RELEASE', [
+                            booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                             string(name: 'CLOUD',                 value: cloud),
                             string(name: 'PACKAGING_BRANCH',      value: pkgBr),
                             string(name: 'VALKEY_SEARCH_VERSION', value: params.VALKEY_SEARCH_VERSION),
@@ -263,6 +285,7 @@ pipeline {
                     }
                     if (params.PKG_LDAP) {
                         jobs['ldap'] = trigger('hetzner-valkey-ldap-RELEASE', [
+                            booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                             string(name: 'CLOUD',               value: cloud),
                             string(name: 'VALKEY_LDAP_VERSION', value: params.VALKEY_LDAP_VERSION),
                             string(name: 'VALKEY_LDAP_RELEASE', value: params.LDAP_RELEASE),
@@ -273,6 +296,7 @@ pipeline {
                     }
                     if (params.PKG_AUDIT) {
                         jobs['audit'] = trigger('hetzner-valkey-audit-RELEASE', [
+                            booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                             string(name: 'CLOUD',                value: cloud),
                             // Pass the source explicitly: a job left with older defaults
                             // (or a rebuild) would otherwise build a different repo. The
@@ -290,6 +314,7 @@ pipeline {
                     }
                     if (params.PKG_ADMIN) {
                         jobs['admin'] = trigger('hetzner-valkey-admin-RELEASE', [
+                            booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                             string(name: 'CLOUD',                value: cloud),
                             string(name: 'PACKAGING_BRANCH',     value: pkgBr),
                             // Upstream valkey-admin tags carry a leading "v", so the ref is
@@ -315,6 +340,7 @@ pipeline {
             steps {
                 script {
                     trigger('hetzner-valkey-bundle-RELEASE', [
+                        booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                         string(name: 'CLOUD',                 value: params.CLOUD),
                         string(name: 'PACKAGING_BRANCH',      value: params.PACKAGING_BRANCH),
                         string(name: 'VALKEY_BUNDLE_VERSION', value: params.VALKEY_BUNDLE_VERSION),
