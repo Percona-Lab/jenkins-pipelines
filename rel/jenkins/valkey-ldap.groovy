@@ -385,7 +385,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, VALKEY_LDAP_REPO, COMPONENT, true)
+                valkeyPublish(params.CLOUD, VALKEY_LDAP_REPO, COMPONENT)
             }
         }
     }
