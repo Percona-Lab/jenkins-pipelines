@@ -91,7 +91,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 45, unit: 'MINUTES')
         buildDiscarder(
             logRotator(
                 numToKeepStr: '10',
@@ -300,10 +299,10 @@ pipeline {
 
 
         stage('Build local test images') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
 
                 stage('Build RPM amd64') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     when {
                         expression {
                             return params.BUILD_RPM
@@ -331,6 +330,7 @@ pipeline {
 
 
                 stage('Build Hardened amd64') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     when {
                         expression {
                             return params.BUILD_HARDENED
@@ -494,10 +494,10 @@ pipeline {
 
 
         stage('Build and push multiarch images') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
 
                 stage('Push RPM multiarch') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     when {
                         expression {
                             return params.BUILD_RPM
@@ -532,6 +532,7 @@ pipeline {
 
 
                 stage('Push Hardened multiarch') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     when {
                         expression {
                             return params.BUILD_HARDENED

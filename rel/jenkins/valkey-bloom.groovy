@@ -81,7 +81,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
     }
@@ -120,9 +119,9 @@ pipeline {
             }
         }
         stage('Build valkey-bloom generic source packages') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Build valkey-bloom generic source rpm') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -136,6 +135,7 @@ pipeline {
                     }
                 }
                 stage('Build valkey-bloom generic source deb') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -150,9 +150,9 @@ pipeline {
             }  //parallel
         } // stage
         stage('Build valkey-bloom RPMs/DEBs') {
-            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Oracle Linux 8') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -166,6 +166,7 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 8 ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -179,6 +180,7 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 9') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -192,6 +194,7 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -205,6 +208,7 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -218,6 +222,7 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -231,6 +236,7 @@ pipeline {
                     }
                 }
                 stage('Amazon Linux 2023') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -244,6 +250,7 @@ pipeline {
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -257,6 +264,7 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -270,6 +278,7 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -283,6 +292,7 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -296,6 +306,7 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -309,6 +320,7 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute(26.04)') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -322,6 +334,7 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -335,6 +348,7 @@ pipeline {
                     }
                 }
                 stage('Debian Bookworm(12)') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -348,6 +362,7 @@ pipeline {
                     }
                 }
                 stage('Debian Bookworm(12) ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -361,6 +376,7 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13)') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
@@ -374,6 +390,7 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
+                    options { timeout(time: 15, unit: 'MINUTES') }  // per platform branch
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
