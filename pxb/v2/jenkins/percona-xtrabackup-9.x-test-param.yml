@@ -59,6 +59,10 @@
         name: WITH_KEYCLOAK_TESTS
         default: true
         description: "Run OIDC tests against a Keycloak container (xtradb targets only)"
+    - bool:
+        name: WITH_AARCH64
+        default: false
+        description: "Add the aarch64 cells to the matrix. Off by default"
     - choice:
         name: CLOUD
         choices:
@@ -96,10 +100,11 @@
         - innodb9x
         - xtradb9x
     execution-strategy:
-      # Match compile selection and keep both database targets.
+      # The x86_64 amazonlinux:2023 cell always runs. The aarch64 one runs only when WITH_AARCH64 is ticked.
       combination-filter: >-
         (ARCH == "x86_64" && DOCKER_OS != "amazonlinux:2023") ||
-        (ARCH in ["x86_64", "aarch64"] && DOCKER_OS == "amazonlinux:2023" && CMAKE_BUILD_TYPE == "RelWithDebInfo")
+        (DOCKER_OS == "amazonlinux:2023" && CMAKE_BUILD_TYPE == "RelWithDebInfo" &&
+        (ARCH == "x86_64" || WITH_AARCH64 == "true"))
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-9.x-test-pipeline

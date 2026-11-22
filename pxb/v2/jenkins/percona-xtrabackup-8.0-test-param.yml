@@ -51,6 +51,10 @@
         name: WITH_KMIP_TESTS
         default: true
         description: "Run kmip tests"
+    - bool:
+        name: WITH_AARCH64
+        default: false
+        description: "Add the aarch64 cells to the matrix. Off by default"
     - choice:
         name: CLOUD
         choices:
@@ -89,10 +93,10 @@
         - innodb80
         - xtradb80
     execution-strategy:
-      # Match compile selection and keep both database targets.
+      # The aarch64 cell runs only when WITH_AARCH64 is ticked.
       combination-filter: >-
         ARCH == "x86_64" ||
-        (ARCH == "aarch64" && DOCKER_OS == "oraclelinux:9" && CMAKE_BUILD_TYPE == "RelWithDebInfo")
+        (WITH_AARCH64 == "true" && ARCH == "aarch64" && DOCKER_OS == "oraclelinux:9" && CMAKE_BUILD_TYPE == "RelWithDebInfo")
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.0-test-pipeline

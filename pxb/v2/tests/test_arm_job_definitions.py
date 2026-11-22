@@ -58,6 +58,20 @@ class ArmJobDefinitions(unittest.TestCase):
             if path:
                 self.assertTrue((ROOT / path).is_file(), path)
 
+    def test_aarch64_cells_are_off_by_default(self):
+        sources = [JOBS / f"percona-xtrabackup-{family}{suffix}.yml"
+                   for family in ("8.0", "8.1", "9.x")
+                   for suffix in ("", "-compile-param", "-test-param")]
+        for source in sources:
+            with self.subTest(source=source.name):
+                job, = render(source)
+                switch = [p for p in job.iter("hudson.model.BooleanParameterDefinition")
+                          if p.findtext("name") == "WITH_AARCH64"]
+                self.assertEqual(len(switch), 1, "WITH_AARCH64 must be declared once")
+                self.assertEqual(switch[0].findtext("defaultValue"), "false")
+                if source.name.endswith("-param.yml"):
+                    self.assertIn('WITH_AARCH64 == "true"', job.findtext("combinationFilter"))
+
     def test_generated_pipeline_jobs_have_arch_before_first_run(self):
         sources = sorted(JOBS.glob("*-pipeline.yml"))
         sources += [JOBS / "percona-xtrabackup-9.x-single-platform.yml",

@@ -29,10 +29,11 @@ Set<String> rowKeys(List<Map> rows) {
     rows.collect { row -> row.sort().collect { key, value -> "${key}=${value}" }.join(',') }.toSet()
 }
 
-Set<String> selected(List<Map> rows, String expression) {
+// Jenkins binds build parameters as strings, so a boolean arrives as "true" or "false".
+Set<String> selected(List<Map> rows, String expression, String withAarch64 = 'false') {
     def script = new GroovyShell().parse(expression ?: 'true')
     rowKeys(rows.findAll { row ->
-        script.binding = new Binding(row)
+        script.binding = new Binding(row + [WITH_AARCH64: withAarch64])
         def result = script.run()
         assert result instanceof Boolean: "Filter did not return a boolean: ${expression}"
         result
@@ -51,16 +52,30 @@ try {
 
     List<String> failures = []
     List<Map> results = []
+    def assertSwitch = { String name ->
+        def job = new XmlParser(false, false).parse(new File(rendered, "${name}/config.xml"))
+        def switches = job.'**'.findAll {
+            it.name() == 'hudson.model.BooleanParameterDefinition' && it.'name'.text() == 'WITH_AARCH64'
+        }
+        assert switches.size() == 1: "${name} must declare one WITH_AARCH64 boolean"
+        assert switches[0].defaultValue.text() == 'false': "${name}: WITH_AARCH64 must default to false"
+    }
+    legacyPlatforms.keySet().each { family -> assertSwitch("percona-xtrabackup-${family}-multijob") }
     legacyPlatforms.each { family, platforms ->
         List<Map> compileRows = combinations([
             DOCKER_OS: platforms, ARCH: ['x86_64'], CMAKE_BUILD_TYPE: ['RelWithDebInfo', 'Debug'],
         ])
-        compileRows += additions[family].collect { os, arch ->
+        List<Map> addedRows = additions[family].collect { os, arch ->
             [DOCKER_OS: os, ARCH: arch, CMAKE_BUILD_TYPE: 'RelWithDebInfo']
         }
+        Map<String, List<Map>> rowsBySwitch = [
+            'false': compileRows + addedRows.findAll { it.ARCH == 'x86_64' },
+            'true' : compileRows + addedRows,
+        ]
         def targets = family == '9.x' ? ['innodb9x', 'xtradb9x'] : ['innodb80', 'xtradb80']
         ['compile', 'test'].each { stage ->
             String name = "percona-xtrabackup-${family}-${stage}-param"
+            assertSwitch(name)
             def job = new XmlParser(false, false).parse(new File(rendered, "${name}/config.xml"))
             Map axes = job.axes[0].children().collectEntries { axis ->
                 [(axis.'name'.text()): axis.values.string.collect { it.text() }]
@@ -73,21 +88,25 @@ try {
             assert axes.DOCKER_OS.toSet() == (platforms + (family == '9.x' ? ['amazonlinux:2023'] : [])).toSet()
             if (stage == 'test') assert axes.XTRABACKUP_TARGET == targets
 
-            List<Map> expectedRows = stage == 'compile' ? compileRows : compileRows.collectMany { row ->
-                targets.collect { target -> row + [XTRABACKUP_TARGET: target] }
-            }
-            Set<String> expected = rowKeys(expectedRows)
             List<Map> candidates = combinations(axes)
             String expression = job.combinationFilter.text()
-            Set<String> actual = selected(candidates, expression)
-            results.add([job: name, candidates: candidates.size(), selected: actual.size(), expected: expected.size()])
-            if (actual != expected) {
-                failures.add("${name}: missing=${expected - actual}, extra=${actual - expected}")
+            rowsBySwitch.each { withAarch64, switchRows ->
+                List<Map> expectedRows = stage == 'compile' ? switchRows : switchRows.collectMany { row ->
+                    targets.collect { target -> row + [XTRABACKUP_TARGET: target] }
+                }
+                Set<String> expected = rowKeys(expectedRows)
+                Set<String> actual = selected(candidates, expression, withAarch64)
+                results.add([job: name, WITH_AARCH64: withAarch64, candidates: candidates.size(),
+                             selected: actual.size(), expected: expected.size(),
+                             aarch64: actual.count { it.contains('ARCH=aarch64') }])
+                if (actual != expected) {
+                    failures.add("${name} WITH_AARCH64=${withAarch64}: missing=${expected - actual}, extra=${actual - expected}")
+                }
+                // These common regressions must not satisfy the exact-set contract.
+                assert selected(candidates, 'true', withAarch64) != expected
+                assert selected(candidates, "(${expression ?: 'true'}) || ARCH == 'aarch64'", withAarch64) != expected
+                assert selected(candidates, "(${expression ?: 'true'}) && CMAKE_BUILD_TYPE == 'RelWithDebInfo'", withAarch64) != expected
             }
-            // These common regressions must not satisfy the exact-set contract.
-            assert selected(candidates, 'true') != expected
-            assert selected(candidates, "(${expression ?: 'true'}) || ARCH == 'aarch64'") != expected
-            assert selected(candidates, "(${expression ?: 'true'}) && CMAKE_BUILD_TYPE == 'RelWithDebInfo'") != expected
         }
     }
     println JsonOutput.prettyPrint(JsonOutput.toJson([status: failures ? 'FAIL' : 'PASS', jobs: results]))
