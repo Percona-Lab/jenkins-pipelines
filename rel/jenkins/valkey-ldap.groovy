@@ -73,18 +73,20 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 15, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps ()
     }
     stages {
         stage('Pre-flight: release number') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 valkeyCheckNotPublished(repo: params.VALKEY_LDAP_REPO, channel: params.COMPONENT, deb: 'percona-valkey-ldap', rpm: 'percona-valkey-ldap',
                                         version: "${params.VALKEY_LDAP_VERSION}-${params.VALKEY_LDAP_RELEASE}", allowRepublish: params.ALLOW_REPUBLISH)
             }
         }
         stage('Create valkey-ldap source tarball') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
@@ -110,6 +112,7 @@ pipeline {
             }
         }
         stage('Build valkey-ldap generic source packages') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Build valkey-ldap generic source rpm') {
                     agent {
@@ -139,6 +142,7 @@ pipeline {
             }  //parallel
         } // stage
         stage('Build valkey-ldap RPMs/DEBs') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
@@ -378,12 +382,14 @@ pipeline {
         }
 
         stage('Sign packages') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 // sync packages
                 sync2ProdAutoBuild(params.CLOUD, VALKEY_LDAP_REPO, COMPONENT, true)

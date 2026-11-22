@@ -75,12 +75,13 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 15, unit: 'MINUTES')
+        timeout(time: 45, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps()
     }
     stages {
         stage('Checkout and prepare') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting module image build (${MODULES}) - [${BUILD_URL}]")
                 cleanUpWS()
@@ -92,6 +93,7 @@ pipeline {
             }
         }
         stage('Setup multiarch') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 sh '''
                     sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common || true
@@ -119,6 +121,7 @@ pipeline {
             }
         }
         stage('Build and test (amd64)') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 script {
                     if (params.RUN_TESTS) {
@@ -158,6 +161,7 @@ pipeline {
             }
         }
         stage('Run trivy analyzer') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             when { expression { params.RUN_TRIVY } }
             steps {
                 script {
@@ -183,6 +187,7 @@ pipeline {
             }
         }
         stage('Push and create manifests') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'hub.docker.com',

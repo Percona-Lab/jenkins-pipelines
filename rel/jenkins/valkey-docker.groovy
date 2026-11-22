@@ -91,7 +91,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 15, unit: 'MINUTES')
+        timeout(time: 45, unit: 'MINUTES')
         buildDiscarder(
             logRotator(
                 numToKeepStr: '10',
@@ -104,6 +104,7 @@ pipeline {
     stages {
 
         stage('Checkout and prepare') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 slackNotify(
                     "#releases-ci",
@@ -130,6 +131,7 @@ pipeline {
 
 
         stage('Setup multiarch') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 sh '''
                     set -eux
@@ -212,6 +214,7 @@ pipeline {
 
 
         stage('Validate multiarch') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 sh '''
                     set -eux
@@ -297,6 +300,7 @@ pipeline {
 
 
         stage('Build local test images') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
 
                 stage('Build RPM amd64') {
@@ -373,6 +377,7 @@ pipeline {
 
 
         stage('Test images') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 script {
 
@@ -411,6 +416,7 @@ pipeline {
 
 
         stage('Scan images (Trivy)') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             when { expression { params.RUN_TRIVY } }
             steps {
                 script {
@@ -459,6 +465,7 @@ pipeline {
 
 
         stage('Login to registries') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 withCredentials([
                     usernamePassword(
@@ -487,6 +494,7 @@ pipeline {
 
 
         stage('Build and push multiarch images') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
 
                 stage('Push RPM multiarch') {
@@ -559,6 +567,7 @@ pipeline {
 
 
         stage('Verify published manifests') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 script {
 

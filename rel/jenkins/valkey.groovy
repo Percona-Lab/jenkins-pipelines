@@ -86,6 +86,7 @@ pipeline {
     }
     stages {
         stage('Pre-flight: release number') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 valkeyCheckNotPublished(repo: params.VALKEY_REPO, channel: params.COMPONENT, deb: 'percona-valkey-server', rpm: 'percona-valkey',
                                         version: "${params.VALKEY_VERSION}-${params.VALKEY_RELEASE}", allowRepublish: params.ALLOW_REPUBLISH)
@@ -117,6 +118,7 @@ pipeline {
             }
         }
         stage('Build valkey generic source packages') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Build valkey generic source rpm') {
                     agent {
@@ -146,6 +148,7 @@ pipeline {
             }  //parallel
         } // stage
         stage('Build valkey RPMs/DEBs') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
@@ -385,12 +388,14 @@ pipeline {
         }
 
         stage('Sign packages') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
+            options { timeout(time: 15, unit: 'MINUTES') }  // per stage: an overrun fails the stage, later stages are skipped
             steps {
                 // sync packages
                 sync2ProdAutoBuild(params.CLOUD, VALKEY_REPO, COMPONENT, true)
