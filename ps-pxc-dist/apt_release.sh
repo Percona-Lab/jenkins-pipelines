@@ -49,6 +49,9 @@ for REPOPATH in $REPOPATH_TMP; do
         if [[ "${PUSHFOCAL}" != "YES" ]]; then
             CODENAMES=$(echo "${CODENAMES}" | grep -v focal)
         fi
+        if [[ "${PUSHBULLSEYE}" != "YES" ]]; then
+            CODENAMES=$(echo "${CODENAMES}" | grep -v bullseye)
+        fi
         if [[ "${PUSHRESOLUTE}" != "YES" ]]; then
             CODENAMES=$(echo "${CODENAMES}" | grep -v resolute)
         fi
