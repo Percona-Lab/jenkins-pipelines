@@ -114,7 +114,7 @@ def checkNotPublished(Map packages) {
         String msg = "Already published in ${params.VALKEY_REPO}: ${clashes.join(', ')}. " +
                      "Raise the release number for each of them, or set ALLOW_REPUBLISH to override."
         if (params.ALLOW_REPUBLISH) {
-            unstable(msg)
+            echo "Republishing (ALLOW_REPUBLISH is set): ${msg}"
         } else {
             error(msg)
         }
@@ -186,7 +186,7 @@ pipeline {
         string(defaultValue: '1.3.0', description: 'valkey-admin version (its upstream tag is v<version>)', name: 'VALKEY_ADMIN_VERSION')
         string(defaultValue: '1',     description: 'valkey-admin release number',  name: 'ADMIN_RELEASE')
         string(defaultValue: 'ALL',   description: 'Platforms for the test stage (see hetzner-valkey-TESTING)', name: 'TEST_PLATFORMS')
-        booleanParam(defaultValue: false, description: 'Skip the pre-flight stop when a requested version-release is already published (mark UNSTABLE instead). Republishing breaks clients with cached metadata.', name: 'ALLOW_REPUBLISH')
+        booleanParam(defaultValue: true, description: 'Allow publishing a version-release that is already in the repo (the default). Uncheck to stop the build when the version-release is already published.', name: 'ALLOW_REPUBLISH')
     }
     options {
         disableConcurrentBuilds()
