@@ -9,7 +9,7 @@ def operatingsystems() {
     if (params.EOL == 'yes') {
         return ['oracle-8', 'oracle-9', 'ubuntu-jammy', 'ubuntu-noble', 'debian-12']
     }
-    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023' , 'debian-12', 'debian-13']
+    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'ubuntu-resolute', 'al-2023' , 'debian-12', 'debian-13', 'oracle-9-arm', 'ubuntu-jammy-arm']
 }
 
 
