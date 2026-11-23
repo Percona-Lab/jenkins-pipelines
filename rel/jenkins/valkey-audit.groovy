@@ -131,7 +131,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_audit_src_rpm")
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -144,7 +144,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_audit_src_deb")
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -160,7 +160,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -173,7 +173,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -186,7 +186,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -199,7 +199,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -212,7 +212,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:10", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -225,7 +225,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:10", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -238,7 +238,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -251,7 +251,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "--build_audit_rpm")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -264,7 +264,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -277,7 +277,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -290,7 +290,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -303,7 +303,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -316,7 +316,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:resolute-20260627", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -329,7 +329,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:resolute-20260627", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -342,7 +342,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -355,7 +355,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -368,7 +368,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -381,7 +381,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_audit_deb")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
