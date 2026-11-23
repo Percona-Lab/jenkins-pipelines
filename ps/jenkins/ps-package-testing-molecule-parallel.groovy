@@ -74,6 +74,24 @@ properties([
             ],
             description: 'Install MySQL Shell',
             name: 'install_mysql_shell'
+        ),
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell own version, e.g. 8.4.10. Empty uses the default from VERSIONS in package-testing.',
+            name: 'pshell_version',
+            trim: true
+        ),
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell package build, e.g. 8.4.10-1-3. Empty uses the default from VERSIONS in package-testing.',
+            name: 'pshell_pkg_version',
+            trim: true
+        ),
+        string(
+            defaultValue: '',
+            description: 'PS version percona-mysql-shell is built for (the "for MySQL" part of mysqlsh --version), e.g. 8.4.13-13. Empty means the PS version under test.',
+            name: 'pshell_built_for',
+            trim: true
         )
     ])
 ])
@@ -88,6 +106,9 @@ properties([
         install_repo = "${params.install_repo}"
         check_warnings = "${params.check_warnings}"
         install_mysql_shell = "${params.install_mysql_shell}"
+        pshell_version = "${params.pshell_version ?: ''}"
+        pshell_pkg_version = "${params.pshell_pkg_version ?: ''}"
+        pshell_built_for = "${params.pshell_built_for ?: ''}"
         EOL = "${params.EOL}"
     }
     options {
@@ -181,6 +202,9 @@ void runpsptjob(String action_to_test) {
             string(name: "install_repo", value: params.install_repo),
             string(name: "check_warnings", value: check_warnings),
             string(name: "install_mysql_shell", value: params.install_mysql_shell),
+            string(name: "pshell_version", value: params.pshell_version ?: ''),
+            string(name: "pshell_pkg_version", value: params.pshell_pkg_version ?: ''),
+            string(name: "pshell_built_for", value: params.pshell_built_for ?: ''),
             string(name: "product_to_test", value: params.product_to_test),
             string(name: "git_repo", value: params.git_repo),
             string(name: "git_branch", value: params.git_branch),
