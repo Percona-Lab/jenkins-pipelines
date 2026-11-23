@@ -3,6 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 import groovy.json.JsonBuilder
 
 properties([
@@ -244,7 +249,7 @@ timestamps {
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
     def latestDevVersion
-    def helmChartBranch = params.HELM_CHART_BRANCH ?: 'auto'
+    def helmChartBranch
 
     stage('Plan') {
         // The one shell in this job, and the only executor it ever takes.
@@ -261,35 +266,7 @@ timestamps {
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
                 ).trim()
-                if (helmChartBranch == 'auto') {
-                    withEnv(["RELEASE_BRANCH=pmm-${isRc ? version : latestDevVersion}"]) {
-                        helmChartBranch = sh(returnStdout: true, script: '''
-                            set -eu
-                            repo=https://github.com/percona/percona-helm-charts.git
-                            refs=$(git ls-remote --heads "$repo" 'refs/heads/pmm-*')
-                            branches=$(printf '%s\\n' "$refs" | sed -n 's#^.*refs/heads/\\(pmm-[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\\)$#\\1#p')
-                            for b in $branches; do
-                                if [ "$b" = "$RELEASE_BRANCH" ]; then
-                                    echo "$b"
-                                    exit 0
-                                fi
-                            done
-                            # v3/VERSION moves on at the RC cut, but a release branch merges into
-                            # main only with its release: until then the dev build still needs it.
-                            older=$(printf '%s\\n' $branches "$RELEASE_BRANCH" | sort -V | awk -v t="$RELEASE_BRANCH" '$0 == t { exit } { print }' | sort -rV)
-                            if [ -n "$older" ]; then
-                                git clone -q --bare --filter=tree:0 "$repo" charts.git
-                                for b in $older; do
-                                    if ! git -C charts.git merge-base --is-ancestor "$b" main; then
-                                        echo "$b"
-                                        exit 0
-                                    fi
-                                done
-                            fi
-                            echo main
-                        ''').trim()
-                    }
-                }
+                helmChartBranch = resolveHelmChartBranch(params.HELM_CHART_BRANCH, isRc ? version : latestDevVersion)
             } finally {
                 deleteDir()
             }
