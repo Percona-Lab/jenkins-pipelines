@@ -25,6 +25,11 @@ properties([
             name: 'PMM_QA_GIT_BRANCH',
             trim: true),
         string(
+            defaultValue: 'auto',
+            description: 'percona-helm-charts branch for the helm and HA lanes. auto: pmm-<version under test>, else the newest older pmm-X.Y.Z not yet merged into main, else main',
+            name: 'HELM_CHART_BRANCH',
+            trim: true),
+        string(
             defaultValue: 'latest',
             description: 'AMI under test, or latest for the one pmm3-ami built',
             name: 'AMI_ID',
@@ -193,7 +198,6 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
         CLIENT_VERSION    : params.CLIENT_VERSION,
         SERVER_ARCH       : 'amd64',
         ADMIN_PASSWORD    : 'PMM3testuser!',
-        HELM_CHART_BRANCH : 'main',
         OPENSHIFT_VERSION : 'latest',
         K8S_VERSION       : '1.34',
         PTS_CONFIDENCE    : '100',
@@ -240,6 +244,7 @@ timestamps {
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
     def latestDevVersion
+    def helmChartBranch = params.HELM_CHART_BRANCH ?: 'auto'
 
     stage('Plan') {
         // The one shell in this job, and the only executor it ever takes.
@@ -256,14 +261,44 @@ timestamps {
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
                 ).trim()
+                if (helmChartBranch == 'auto') {
+                    withEnv(["RELEASE_BRANCH=pmm-${isRc ? version : latestDevVersion}"]) {
+                        helmChartBranch = sh(returnStdout: true, script: '''
+                            set -eu
+                            repo=https://github.com/percona/percona-helm-charts.git
+                            refs=$(git ls-remote --heads "$repo" 'refs/heads/pmm-*')
+                            branches=$(printf '%s\\n' "$refs" | sed -n 's#^.*refs/heads/\\(pmm-[0-9][0-9]*\\.[0-9][0-9]*\\.[0-9][0-9]*\\)$#\\1#p')
+                            for b in $branches; do
+                                if [ "$b" = "$RELEASE_BRANCH" ]; then
+                                    echo "$b"
+                                    exit 0
+                                fi
+                            done
+                            # v3/VERSION moves on at the RC cut, but a release branch merges into
+                            # main only with its release: until then the dev build still needs it.
+                            older=$(printf '%s\\n' $branches "$RELEASE_BRANCH" | sort -V | awk -v t="$RELEASE_BRANCH" '$0 == t { exit } { print }' | sort -rV)
+                            if [ -n "$older" ]; then
+                                git clone -q --bare --filter=tree:0 "$repo" charts.git
+                                for b in $older; do
+                                    if ! git -C charts.git merge-base --is-ancestor "$b" main; then
+                                        echo "$b"
+                                        exit 0
+                                    fi
+                                done
+                            fi
+                            echo main
+                        ''').trim()
+                    }
+                }
             } finally {
                 deleteDir()
             }
         }
-        currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
+        currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION} charts=${helmChartBranch}"
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
+  helm charts     : ${helmChartBranch}
   AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
   dev version     : ${latestDevVersion}
@@ -277,8 +312,8 @@ timestamps {
     branches['nightly / docker'] = nightlyGha('nightly / docker', serverImage, amiId)
     branches['nightly / docker arm64'] = nightlyGha('nightly / docker arm64', serverImage, amiId, [SERVER_ARCH: 'arm64'])
     branches['nightly / ami'] = nightlyGha('nightly / ami', serverImage, amiId, [SERVER_TYPE: 'ami'])
-    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1'])
-    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1'])
+    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1', HELM_CHART_BRANCH: helmChartBranch])
+    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1', HELM_CHART_BRANCH: helmChartBranch])
 
     compatVersions.each { ver ->
         def name = "compat / client ${ver}"
@@ -324,7 +359,7 @@ timestamps {
 
     branches['openshift'] = suite('openshift', 'openshift-helm-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-        string(name: 'PMM_CHART_BRANCH',  value: 'latest'),
+        string(name: 'PMM_CHART_BRANCH',  value: helmChartBranch),
         string(name: 'IMAGE_REPO',        value: serverImage.split(':')[0]),
         string(name: 'IMAGE_TAG',         value: serverImage.split(':')[1]),
         string(name: 'OPENSHIFT_VERSION', value: 'latest'),
@@ -335,12 +370,14 @@ timestamps {
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: helmChartBranch),
     ])
 
     branches['ha backup-restore'] = suite('ha backup-restore', 'pmm3-ha-backup-restore-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: helmChartBranch),
     ])
 
     if (params.RUN_GH_NIGHTLY_SUITE) {
@@ -359,6 +396,7 @@ timestamps {
                                 pmm_client_tarball_ol8   : params.PMM_CLIENT_TARBALL_OL8,
                                 pmm_client_tarball_ol9   : params.PMM_CLIENT_TARBALL_OL9,
                                 pmm_qa_branch            : params.PMM_QA_GIT_BRANCH,
+                                pmm_chart_branch         : helmChartBranch,
                                 pxc_version              : '8.0',
                                 pxc_glibc                : '2.35',
                                 pdpgsql_version          : '17',
@@ -463,7 +501,7 @@ timestamps {
             }
         }
 
-        currentBuild.description = "${serverImage} / client ${params.CLIENT_VERSION}" +
+        currentBuild.description = "${serverImage} / client ${params.CLIENT_VERSION} / charts ${helmChartBranch}" +
             "  |  ${results.size() - totalBad - totalWarn} ok, ${totalBad} failed" +
             (totalWarn > 0 ? ", ${totalWarn} unstable" : '') +
             "  |  " + tally.join(' \u00b7 ')
