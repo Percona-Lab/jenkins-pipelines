@@ -21,17 +21,29 @@ def trigger(String jobName, List jobParams) {
 }
 
 // waitForPublished — poll the public repo until every package in
-// [name: "<version>-<release>"] is listed both in the apt noble amd64 index and
-// in the EL9 x86_64 yum metadata (primary.xml), so the next stage builds against
-// packages repo.percona.com actually serves. The yum check matters: the RPM files
-// land before createrepo rewrites the metadata, and the apt index can be live
-// minutes earlier. sync2ProdAutoBuild runs createrepo over the EL versions in
-// `ls` order (10, 2023, 8, 9) and the arches as aarch64 then x86_64, so EL9
-// x86_64 is the last directory it updates.
-def waitForPublished(Map packages) {
+// [name: "<version>-<release>"] is served from the build this run just made,
+// so the next stage builds against packages repo.percona.com actually serves.
+//
+// Listing the version-release is not enough: republishing the same
+// version-release is allowed, so it can be listed from an earlier build while
+// the new files are still being copied. A build that starts then reads the old
+// metadata, downloads the new file and dnf rejects it ("checksum doesn't
+// match"). So a package only counts when:
+//   - yum: its entry in the EL9 x86_64 primary.xml has an RPM build time no
+//     earlier than `since` (when the child job started). sync2ProdAutoBuild runs
+//     createrepo over the EL versions in `ls` order (10, 2023, 8, 9) and the
+//     arches as aarch64 then x86_64, so EL9 x86_64 is the last directory it
+//     updates.
+//   - apt: its file is in the noble amd64 Packages index, and the dist's
+//     Release file is dated no earlier than `since` (reprepro re-exported the
+//     index during this run).
+// `since` allows 120 s of clock skew between the controller and build agents.
+def waitForPublished(Map packages, long since) {
     String dist = 'noble'
     int waitMinutes = 30
-    String index = "https://repo.percona.com/${params.VALKEY_REPO}/apt/dists/${dist}/${params.CHANNEL}/binary-amd64/Packages"
+    long notBefore = since - 120
+    String aptDist = "https://repo.percona.com/${params.VALKEY_REPO}/apt/dists/${dist}"
+    String index = "${aptDist}/${params.CHANNEL}/binary-amd64/Packages"
     String yumRepo = "https://repo.percona.com/${params.VALKEY_REPO}/yum/${params.CHANNEL}/9/RPMS/x86_64"
     List expected = []
     List expectedRpm = []
@@ -39,26 +51,48 @@ def waitForPublished(Map packages) {
         expected << "/${entry.key}_${entry.value}.${dist}_"
         // The server's main RPM is percona-valkey; its deb is percona-valkey-server.
         String rpmName = entry.key == 'percona-valkey-server' ? 'percona-valkey' : entry.key
-        expectedRpm << "\"${rpmName}-${entry.value}.el9.x86_64.rpm\""
+        expectedRpm << "${rpmName}-${entry.value}.el9.x86_64.rpm"
     }
-    echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} in ${index} and ${yumRepo}"
+    echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} built after ${notBefore} (epoch) in ${index} and ${yumRepo}"
     int attempts = waitMinutes * 2
     for (int i = 1; i <= attempts; i++) {
         String listed = sh(returnStdout: true, script: "curl -fsS --max-time 60 '${index}' | grep '^Filename:' || true")
+        String releaseDate = sh(returnStdout: true, script: """
+            set +x
+            d=\$(curl -fsS --max-time 60 '${aptDist}/Release' | sed -n 's/^Date: //p' | head -1)
+            [ -n "\$d" ] && date -d "\$d" +%s || echo 0
+        """).trim()
+        // One "<build time> <file name>" line per package in primary.xml.
+        // createrepo writes <time file=".." build=".."/> before <location href="..">.
         String rpms = sh(returnStdout: true, script: """
             set +x
             primary=\$(curl -fsS --max-time 60 '${yumRepo}/repodata/repomd.xml' | grep -oE 'repodata/[^"]*primary[.]xml[.]gz' | head -1)
-            [ -n "\$primary" ] && curl -fsS --max-time 60 "${yumRepo}/\$primary" | gzip -dc | grep -oE 'location href="[^"]+"' || true
+            [ -n "\$primary" ] && curl -fsS --max-time 60 "${yumRepo}/\$primary" | gzip -dc | awk '
+                /<time / { if (match(\$0, /build="[0-9]+"/)) bt = substr(\$0, RSTART + 7, RLENGTH - 8) }
+                /<location href=/ { if (match(\$0, /href="[^"]+"/)) print bt, substr(\$0, RSTART + 6, RLENGTH - 7) }
+            ' || true
         """)
+        Map rpmBuilt = [:]
+        for (String line : rpms.readLines()) {
+            List parts = line.trim().tokenize(' ')
+            if (parts.size() == 2) {
+                rpmBuilt[parts[1]] = parts[0] as long
+            }
+        }
         List missing = []
         for (String file : expected) {
             if (!listed.contains(file)) {
                 missing << file
             }
         }
+        if (expected && (releaseDate as long) < notBefore) {
+            missing << "apt index not re-exported yet (Release date ${releaseDate})"
+        }
         for (String file : expectedRpm) {
-            if (!rpms.contains(file)) {
+            if (!rpmBuilt.containsKey(file)) {
                 missing << file
+            } else if (rpmBuilt[file] < notBefore) {
+                missing << "${file} (still the earlier build, built ${rpmBuilt[file]})"
             }
         }
         if (!missing) {
@@ -69,6 +103,12 @@ def waitForPublished(Map packages) {
         sleep(time: 30, unit: 'SECONDS')
     }
     error("Packages were not published to ${index} within ${waitMinutes} minutes")
+}
+
+// epochNow — the current time in seconds, taken on the agent as waitForPublished
+// compares it with times the repo reports.
+long epochNow() {
+    return sh(returnStdout: true, script: 'date +%s').trim() as long
 }
 
 // fetchIndex — the body of a repo index URL, or '' when the repo has no such
@@ -221,6 +261,7 @@ pipeline {
             when { expression { params.PKG_SERVER } }
             steps {
                 script {
+                    long since = epochNow()
                     trigger('hetzner-valkey-RELEASE', [
                         booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                         string(name: 'CLOUD',            value: params.CLOUD),
@@ -231,7 +272,7 @@ pipeline {
                         string(name: 'VALKEY_REPO',    value: params.VALKEY_REPO),
                         string(name: 'COMPONENT',      value: params.CHANNEL),
                     ]).call()
-                    waitForPublished(['percona-valkey-server': "${params.VALKEY_VERSION}-${params.SERVER_RELEASE}"])
+                    waitForPublished(['percona-valkey-server': "${params.VALKEY_VERSION}-${params.SERVER_RELEASE}"], since)
                 }
             }
         }
@@ -328,9 +369,10 @@ pipeline {
                         published['percona-valkey-admin-server'] = "${params.VALKEY_ADMIN_VERSION}-${params.ADMIN_RELEASE}"
                     }
                     echo "Building module packages: ${jobs.keySet().join(', ')}"
+                    long since = epochNow()
                     parallel(jobs)
                     if (published) {
-                        waitForPublished(published)
+                        waitForPublished(published, since)
                     }
                 }
             }
@@ -339,6 +381,7 @@ pipeline {
             when { expression { params.PKG_BUNDLE } }
             steps {
                 script {
+                    long since = epochNow()
                     trigger('hetzner-valkey-bundle-RELEASE', [
                         booleanParam(name: 'ALLOW_REPUBLISH', value: params.ALLOW_REPUBLISH ? true : false),
                         string(name: 'CLOUD',                 value: params.CLOUD),
@@ -348,7 +391,7 @@ pipeline {
                         string(name: 'VALKEY_BUNDLE_REPO',    value: params.VALKEY_REPO),
                         string(name: 'COMPONENT',             value: params.CHANNEL),
                     ]).call()
-                    waitForPublished(['percona-valkey-bundle': "${params.VALKEY_BUNDLE_VERSION}-${params.BUNDLE_RELEASE}"])
+                    waitForPublished(['percona-valkey-bundle': "${params.VALKEY_BUNDLE_VERSION}-${params.BUNDLE_RELEASE}"], since)
                 }
             }
         }
