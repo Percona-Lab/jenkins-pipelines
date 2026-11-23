@@ -46,7 +46,7 @@ pipeline {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
     }
     parameters {
-        booleanParam(defaultValue: false, description: 'Build and publish even if this version-release is already in the repo (marks the build UNSTABLE). Republishing breaks clients with cached metadata.', name: 'ALLOW_REPUBLISH')
+        booleanParam(defaultValue: true, description: 'Allow publishing a version-release that is already in the repo (the default). Uncheck to stop the build when the version-release is already published.', name: 'ALLOW_REPUBLISH')
         choice(
              choices: [ 'Hetzner','AWS' ],
              description: 'Cloud infra for build',

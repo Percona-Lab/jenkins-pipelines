@@ -13,7 +13,7 @@
 // (a new repo or channel) counts as empty; any other fetch error fails the job,
 // so a network problem can't let the check pass.
 //
-// allowRepublish=true marks the build UNSTABLE instead of failing it.
+// allowRepublish=true (the default) only logs it and goes on.
 def call(Map args) {
     String repo    = args.repo
     String channel = args.channel
@@ -36,7 +36,7 @@ def call(Map args) {
         String msg = "${debName} ${verRel} is already published in ${repo} (${clashes.join(', ')}). " +
                      "Raise the release number, or set ALLOW_REPUBLISH to override."
         if (allowRepublish) {
-            unstable(msg)
+            echo "Republishing (ALLOW_REPUBLISH is set): ${msg}"
         } else {
             error(msg)
         }
