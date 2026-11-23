@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 // PMM HA backup and restore tests.
 //
 // Creates a bare Kubernetes cluster, installs PMM HA on it with backups to an in-cluster
@@ -28,46 +33,6 @@ void provisionCluster() {
     env.CLUSTER_JOB_NAME = jobName
     env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
     env.CLUSTER_BUILD_NUMBER = clusterCreateJob.number.toString()
-}
-
-// As in pmm3-ha-rosa: a few minutes after a ROSA HCP cluster turns ready, its API hostname can
-// stop resolving ("dial tcp: lookup api...: no such host"), and the p3.openshiftapps.com SOA lets
-// resolvers cache that NXDOMAIN for 15 minutes. The install starts inside that window, so it
-// waits up to 20 minutes for the API to come back. kubectl, since this agent has no oc.
-def waitForClusterApi() {
-    sh '''
-        set +x
-        for i in $(seq 1 40); do
-            if OUT=$(kubectl get --raw /readyz --request-timeout=10s 2>&1); then
-                exit 0
-            fi
-            echo "Cluster API not reachable (${i}/40), retrying in 30s: $(echo "${OUT}" | tail -n 1)"
-            sleep 30
-        done
-        echo "ERROR: the cluster API is still not reachable after 20 minutes."
-        exit 1
-    '''
-}
-
-// Runs body again when it failed because the cluster API went away under it. A failure while
-// the API still answers is real and is rethrown at once. body must be safe to repeat.
-def withClusterApiRetry(Closure body) {
-    def attempts = 3
-    for (int i = 1; i <= attempts; i++) {
-        waitForClusterApi()
-        try {
-            body()
-            return
-        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
-            throw e
-        } catch (err) {
-            def apiUp = sh(returnStatus: true, script: 'kubectl get --raw /readyz --request-timeout=10s >/dev/null 2>&1') == 0
-            if (apiUp || i == attempts) {
-                throw err
-            }
-            echo "The cluster API went away during this stage, running it again (attempt ${i + 1}/${attempts})"
-        }
-    }
 }
 
 pipeline {
