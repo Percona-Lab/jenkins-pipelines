@@ -22,11 +22,6 @@ void dockerBuildAndPush(Map cfg) {
             cfg.sourceDir ?: 'source'
         )
 
-        dockerPushImage(
-            cfg.operatorImage,
-            cfg.branch
-        )
-
         sh 'docker logout docker.io'
     }
 }
@@ -73,17 +68,6 @@ void dockerCleanupVolumes() {
     sh '''
         sudo docker system prune --volumes -af
     '''
-}
-
-void dockerPushImage(String image, String tag) {
-    echo "=========================[ Pushing ${image}:${tag} Docker image ]========================="
-    sh """
-        sg docker -c '
-            echo "\$PASS" | docker login -u "\$USER" --password-stdin
-            docker push ${image}:${tag}
-            docker logout
-        '
-    """
 }
 
 void dockerTagImage(String sourceImage, String targetImage) {
