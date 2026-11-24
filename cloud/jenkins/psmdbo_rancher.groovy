@@ -101,6 +101,7 @@ pipeline {
                         job_name              : JOB_NAME,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'make',
+                        allure                : true,
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
                         clusters              : clusters,
                         numClusters           : numClusters,
