@@ -51,7 +51,9 @@ def waitForPublished(Map packages, long since) {
         expected << "/${entry.key}_${entry.value}.${dist}_"
         // The server's main RPM is percona-valkey; its deb is percona-valkey-server.
         String rpmName = entry.key == 'percona-valkey-server' ? 'percona-valkey' : entry.key
-        expectedRpm << "${rpmName}-${entry.value}.el9.x86_64.rpm"
+        // toString(): a GString never equals a String map key (different
+        // hashCode), so rpmBuilt.containsKey() below would always miss it.
+        expectedRpm << "${rpmName}-${entry.value}.el9.x86_64.rpm".toString()
     }
     echo "Waiting up to ${waitMinutes} min for ${packages.keySet().join(', ')} built after ${notBefore} (epoch) in ${index} and ${yumRepo}"
     int attempts = waitMinutes * 2
@@ -76,7 +78,7 @@ def waitForPublished(Map packages, long since) {
         for (String line : rpms.readLines()) {
             List parts = line.trim().tokenize(' ')
             if (parts.size() == 2) {
-                rpmBuilt[parts[1]] = parts[0] as long
+                rpmBuilt[parts[1].toString()] = parts[0] as long
             }
         }
         List missing = []
