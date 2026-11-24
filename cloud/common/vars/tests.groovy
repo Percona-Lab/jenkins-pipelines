@@ -269,6 +269,7 @@ void validateTestVariables(Map testVariables) {
     def knownKeys = [
         'allure',
         'cert_manager_version',
+        'cluster_load',
         'cluster_suffix_prefix',
         'cluster_wide',
         'clusters',
@@ -486,6 +487,10 @@ void initTestRun(Map testVariables, Map config) {
         imageMongod   : testVariables.images?.IMAGE_MONGOD
     ])
 
+    if (testsPerCluster(testVariables) > 1) {
+        loadTestPlacement(testVariables.tests)
+    }
+
     if (config.ignorePreviousRun == 'NO') {
         updateListWithLastExecutionStatus(testVariables)
     } else {
@@ -494,6 +499,51 @@ void initTestRun(Map testVariables, Map config) {
     }
     // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
     // never part of the operator Docker build context.
+}
+
+// Reads ownCluster and locks from the operator's tests.yaml (select_tests.py placement) and puts
+// ownCluster tests first, then tests with locks, so they spread over the clusters early. An
+// operator branch without the command gives no placement, and every test may share a cluster.
+void loadTestPlacement(List tests) {
+    def output = sh(
+        script: '''
+            export PATH="$HOME/.local/bin:$PATH"
+            cd source
+            uv run e2e-tests/select_tests.py placement 2>/dev/null | tail -n 1 || :
+        ''',
+        returnStdout: true
+    ).trim()
+    if (!output.startsWith('{')) {
+        echo 'WARNING: select_tests.py placement is not available on this operator branch; every test may share a cluster'
+        return
+    }
+
+    def placement = readJSON(text: output)
+    def own = []
+    def locked = []
+    def free = []
+    for (test in tests) {
+        def entry = placement[test.name]
+        test.ownCluster = entry ? (entry.ownCluster == true) : false
+        test.locks = entry ? entry.locks.collect { it.toString() } : []
+        if (test.ownCluster) {
+            own << test
+        } else if (test.locks) {
+            locked << test
+        } else {
+            free << test
+        }
+    }
+    tests.clear()
+    tests.addAll(own + locked + free)
+
+    echo "Placement: ${own.size()} tests run alone on a cluster, ${locked.size()} hold locks, ${free.size()} share freely"
+    if (own) {
+        echo "Own cluster: ${own.collect { it.name }.join(', ')}"
+    }
+    for (test in locked) {
+        echo "Locks ${test.locks.join(', ')}: ${test.name}"
+    }
 }
 
 // Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
@@ -861,6 +911,63 @@ Integer claimNextSkippedTest(List tests, String clusterSuffix) {
     }
 }
 
+// For slots: returns the next test a slot on clusterSuffix may start, -1 when tests are
+// left but none may start on this cluster yet, or null when no test is left.
+// - An ownCluster test starts only on a cluster with nothing running, and nothing else starts
+//   next to it. Pending ownCluster tests come first in the queue, so a busy cluster waits for
+//   them instead of starting other tests, and they are not starved.
+// - A test with locks does not start while a test with one of those locks runs on the cluster.
+@com.cloudbees.groovy.cps.NonCPS
+Integer claimNextTestForSlot(List tests, String clusterSuffix) {
+    synchronized (tests) {
+        def running = []
+        def held = []
+        def pending = false
+        for (test in tests) {
+            if (test.result == 'skipped') {
+                pending = true
+            } else if (test.running && test.cluster == clusterSuffix) {
+                running << test
+                held.addAll(test.locks ?: [])
+            }
+        }
+        if (!pending) {
+            return null
+        }
+        for (test in running) {
+            if (test.ownCluster) {
+                return -1
+            }
+        }
+
+        for (int i = 0; i < tests.size(); i++) {
+            def test = tests[i]
+            if (test.result != 'skipped') {
+                continue
+            }
+            if (test.ownCluster) {
+                if (!running.isEmpty()) {
+                    return -1
+                }
+            } else if ((test.locks ?: []).any { held.contains(it) }) {
+                continue
+            }
+            test.result = 'failure'
+            test.cluster = clusterSuffix
+            test.running = true
+            return i
+        }
+        return -1
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void markTestFinished(List tests, Integer testId) {
+    synchronized (tests) {
+        tests[testId].running = false
+    }
+}
+
 @com.cloudbees.groovy.cps.NonCPS
 Integer countSkippedTests(List tests) {
     synchronized (tests) {
@@ -1032,11 +1139,66 @@ Integer testsPerCluster(Map testVariables) {
     return value < 1 ? 1 : value
 }
 
+// Cluster load sampling settings from testVariables.cluster_load, or [:] when it is off:
+// [enabled: true, interval_seconds: 30, cpu_percent: 90, memory_percent: 70,
+//  alert_after_seconds: 120, slack_channel: '#channel']
+Map clusterLoadSettings(Map testVariables) {
+    def cfg = testVariables.cluster_load
+    if (!cfg?.enabled) {
+        return [:]
+    }
+    return [
+        interval     : (cfg.interval_seconds ?: 30) as Integer,
+        cpu          : (cfg.cpu_percent ?: 90) as Integer,
+        memory       : (cfg.memory_percent ?: 70) as Integer,
+        alertAfter   : (cfg.alert_after_seconds ?: 120) as Integer,
+        slackChannel : cfg.slack_channel ?: ''
+    ]
+}
+
+Long epochSeconds() {
+    return (System.currentTimeMillis() / 1000) as Long
+}
+
+String formatDuration(def seconds) {
+    def total = (seconds ?: 0) as Integer
+    def minutes = total.intdiv(60)
+    def rest = total % 60
+    return minutes > 0 ? (rest > 0 ? "${minutes}m${rest}s" : "${minutes}m") : "${rest}s"
+}
+
+// Prints the load while one test ran, so a slow or failed test can be read against it.
+void reportTestLoad(Map load, String testName, Long startedAt, Long finishedAt) {
+    if (!load) {
+        return
+    }
+    try {
+        def s = load.tools.clusterLoadSummary(load.samples, load.limits, startedAt, finishedAt)
+        if (s.samples == '0') {
+            echo "Cluster load during ${testName}: no samples"
+            return
+        }
+        echo "Cluster load during ${testName}: busiest node CPU ${s.cpu_peak}%, memory ${s.mem_peak}%; " +
+            "CPU ${load.limits.cpu}% or more for ${formatDuration(s.cpu_over)}"
+        appendClusterEvent(load, "${finishedAt} LOAD ${testName} cpu_peak=${s.cpu_peak} mem_peak=${s.mem_peak} cpu_over=${s.cpu_over}")
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: no cluster load for ${testName}: ${loadErr}"
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void appendClusterEvent(Map load, String line) {
+    synchronized (load.eventLines) {
+        load.eventLines << line
+    }
+}
+
 // Runs up to tests_per_cluster tests at the same time on one cluster. Each slot takes the next test
-// from the shared queue, so a slot that finishes a short test starts the next one at once.
-// Only tests that can share a cluster belong in such a run: tests that install cert-manager or
-// chaos-mesh, change the CRD or run the operator cluster-wide must run with tests_per_cluster = 1.
-void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubeconfig) {
+// from the shared queue, so a slot that finishes a short test starts the next one at once. Tests
+// tagged ownCluster or with locks in tests.yaml are kept apart, see claimNextTestForSlot.
+void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubeconfig, Map load = [:]) {
     def slots = testsPerCluster(testVariables)
     def startDelay = (testVariables.slot_start_delay_seconds ?: 0) as Integer
     def branches = [:]
@@ -1053,51 +1215,177 @@ void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubecon
             }
 
             while (true) {
-                def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
+                def testId = claimNextTestForSlot(testVariables.tests, clusterSuffix)
                 if (testId == null) {
                     break
                 }
+                if (testId < 0) {
+                    // Tests are left, but an ownCluster test or a lock keeps this slot waiting.
+                    sleep(time: 30, unit: 'SECONDS')
+                    continue
+                }
                 def testName = testVariables.tests[testId].name
-
-                // A fresh kubeconfig per test: the harness writes the test namespace into its context.
-                // A helm home per slot: deploy_s3_storage runs `helm repo remove/add`, which races in a shared one.
-                sh """
-                    rm -rf '${slotDir}'
-                    mkdir -p '${slotDir}'
-                    cp '${clusterKubeconfig}' '${slotDir}/kubeconfig'
-                """
-
-                // DELETE_CRD_ON_START=0: a test must not delete the CRD under the tests that run next to it.
-                // SKIP_DELETE=1: the teardown after a test also removes cert-manager and RBAC, so the
-                // runner deletes only the test's own namespaces below instead.
-                runTest(
-                    testId: testId,
-                    clusterSuffix: clusterSuffix,
-                    testVariables: testVariables,
-                    retries: testVariables.retries ?: 1,
-                    sharedClusterKubeconfig: clusterKubeconfig,
-                    slotExports: """
-                        export KUBECONFIG='${slotDir}/kubeconfig'
-                        export HELM_CONFIG_HOME='${slotDir}/helm'
-                        export HELM_CACHE_HOME='${slotDir}/helm-cache'
-                        export DELETE_CRD_ON_START=0
-                        export SKIP_DELETE=1
-                    """.stripIndent().trim()
-                )
-
-                // Free the CPU and memory of a finished test before the slot starts the next one.
+                def startedAt = epochSeconds()
+                if (load) {
+                    appendClusterEvent(load, "${startedAt} START ${testName}")
+                }
                 try {
-                    testVariables.libraries.tools.kubectlDeleteTestNamespaces(clusterKubeconfig, testName)
-                } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
-                    throw exc
-                } catch (cleanupErr) {
-                    echo "Warning: failed to delete namespaces of ${testName}: ${cleanupErr}"
+                    runSlotTest(testVariables, testId, clusterSuffix, clusterKubeconfig, slotDir)
+                } finally {
+                    markTestFinished(testVariables.tests, testId)
+                    def finishedAt = epochSeconds()
+                    if (load) {
+                        appendClusterEvent(load, "${finishedAt} END ${testName}")
+                        reportTestLoad(load, testName, startedAt, finishedAt)
+                    }
                 }
             }
         }
     }
 
     parallel branches
+}
+
+// One test in a slot: its own kubeconfig and helm home, then only its own namespaces are deleted.
+void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String clusterKubeconfig, String slotDir) {
+    def testName = testVariables.tests[testId].name
+
+    // A fresh kubeconfig per test: the harness writes the test namespace into its context.
+    // A helm home per slot: deploy_s3_storage runs `helm repo remove/add`, which races in a shared one.
+    sh """
+        rm -rf '${slotDir}'
+        mkdir -p '${slotDir}'
+        cp '${clusterKubeconfig}' '${slotDir}/kubeconfig'
+    """
+
+    // DELETE_CRD_ON_START=0: a test must not delete the CRD under the tests that run next to it.
+    // SKIP_DELETE=1: the teardown after a test also removes cert-manager and RBAC, so the
+    // runner deletes only the test's own namespaces below instead.
+    runTest(
+        testId: testId,
+        clusterSuffix: clusterSuffix,
+        testVariables: testVariables,
+        retries: testVariables.retries ?: 1,
+        sharedClusterKubeconfig: clusterKubeconfig,
+        slotExports: """
+            export KUBECONFIG='${slotDir}/kubeconfig'
+            export HELM_CONFIG_HOME='${slotDir}/helm'
+            export HELM_CACHE_HOME='${slotDir}/helm-cache'
+            export DELETE_CRD_ON_START=0
+            export SKIP_DELETE=1
+        """.stripIndent().trim()
+    )
+
+    // Free the CPU and memory of a finished test before the slot starts the next one.
+    try {
+        testVariables.libraries.tools.kubectlDeleteTestNamespaces(clusterKubeconfig, testName)
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (cleanupErr) {
+        echo "Warning: failed to delete namespaces of ${testName}: ${cleanupErr}"
+    }
+}
+
+// Starts load sampling on a new cluster. Returns the state that finishClusterLoad needs, or [:].
+Map startClusterLoad(Map testVariables, String clusterSuffix, String kubeconfig) {
+    def settings = clusterLoadSettings(testVariables)
+    if (!settings) {
+        return [:]
+    }
+    def load = [
+        tools     : testVariables.libraries.tools,
+        limits    : [cpu: settings.cpu, memory: settings.memory, interval: settings.interval],
+        settings  : settings,
+        samples   : "${env.WORKSPACE}/cluster-load-${clusterSuffix}.txt",
+        events    : "${env.WORKSPACE}/cluster-load-${clusterSuffix}-tests.txt",
+        eventLines: []
+    ]
+    try {
+        load.tools.startClusterLoadSampler(kubeconfig, load.samples, settings.interval)
+        echo "Sampling cluster load every ${settings.interval}s; alert when a node stays at CPU ${settings.cpu}% " +
+            "or memory ${settings.memory}% for ${formatDuration(settings.alertAfter)}"
+        return load
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: cluster load sampling did not start: ${loadErr}"
+    }
+    return [:]
+}
+
+// Stops sampling, prints and archives the cluster load, and sends a Slack alert when a node stayed
+// above a limit for at least alert_after_seconds. Never fails the build.
+void finishClusterLoad(Map testVariables, String clusterSuffix, Map load) {
+    if (!load) {
+        return
+    }
+    def clusterName = getClusterFullName(testVariables.cluster_name, clusterSuffix)
+    try {
+        load.tools.stopClusterLoadSampler(load.samples)
+        writeFile file: load.events, text: load.eventLines.join('\n') + '\n'
+
+        def s = load.tools.clusterLoadSummary(load.samples, load.limits)
+        if (s.samples == '0') {
+            echo "Cluster load on ${clusterName}: no samples (is metrics-server running?)"
+            return
+        }
+
+        def settings = load.settings
+        def cpuAlert = (s.cpu_longest as Integer) >= settings.alertAfter
+        def memAlert = (s.mem_longest as Integer) >= settings.alertAfter
+        def summary = "Cluster load on ${clusterName}: busiest node CPU peak ${s.cpu_peak}%, memory peak ${s.mem_peak}%; " +
+            "CPU ${settings.cpu}% or more for ${formatDuration(s.cpu_over)} (longest ${formatDuration(s.cpu_longest)}), " +
+            "memory ${settings.memory}% or more for ${formatDuration(s.mem_over)}; " +
+            "cluster average CPU peak ${s.cluster_cpu_peak}%, mean ${s.cluster_cpu_mean}%"
+        echo summary
+        writeFile file: "${env.WORKSPACE}/cluster-load-${clusterSuffix}-summary.txt",
+            text: summary + '\n' + s.collect { k, v -> "${k}=${v}" }.join('\n') + '\n'
+        currentBuild.description = (currentBuild.description ?: '') +
+            "<br>${clusterSuffix} load: CPU ${s.cpu_peak}%, memory ${s.mem_peak}%${cpuAlert || memAlert ? ' (alert)' : ''}"
+        archiveArtifacts artifacts: "cluster-load-${clusterSuffix}*.txt", allowEmptyArchive: true
+
+        if (cpuAlert || memAlert) {
+            sendClusterLoadAlert(testVariables, load, [suffix: clusterSuffix, name: clusterName], s, cpuAlert)
+        }
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: cluster load report failed: ${loadErr}"
+    }
+}
+
+void sendClusterLoadAlert(Map testVariables, Map load, Map cluster, Map s, Boolean cpuAlert) {
+    def settings = load.settings
+    def clusterSuffix = cluster.suffix
+    def clusterName = cluster.name
+    def peakAt = cpuAlert ? s.cpu_at : s.mem_at
+    def peakTime = sh(script: "date -u -d @${peakAt} +%H:%M", returnStdout: true).trim()
+    def running = load.tools.testsRunningAt(load.events, peakAt) ?: 'none recorded'
+    def artifacts = "${env.BUILD_URL}artifact/cluster-load-${clusterSuffix}"
+    def lines = [
+        ":warning: High load on ${clusterName} in <${env.BUILD_URL}|${env.JOB_NAME} #${env.BUILD_NUMBER}> " +
+            "(${testsPerCluster(testVariables)} tests per cluster)",
+        "• CPU: busiest node peak ${s.cpu_peak}% (${s.cpu_node}); ${settings.cpu}% or more for " +
+            "${formatDuration(s.cpu_over)}, longest ${formatDuration(s.cpu_longest)}",
+        "• Memory: busiest node peak ${s.mem_peak}% (${s.mem_node}); ${settings.memory}% or more for " +
+            "${formatDuration(s.mem_over)}, longest ${formatDuration(s.mem_longest)}",
+        "• Cluster average CPU: peak ${s.cluster_cpu_peak}%, mean ${s.cluster_cpu_mean}%",
+        "• Tests running at the ${cpuAlert ? 'CPU' : 'memory'} peak (${peakTime} UTC): ${running.split(' ').join(', ')}",
+        "• Samples: <${artifacts}.txt|per node>, <${artifacts}-tests.txt|per test>"
+    ]
+    def message = lines.join('\n')
+    echo message
+    if (!settings.slackChannel) {
+        echo 'No Slack channel set for cluster load alerts (cluster_load.slack_channel)'
+        return
+    }
+    try {
+        slackSend channel: settings.slackChannel, color: '#F6F930', message: message
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (slackErr) {
+        echo "Warning: Slack alert not sent: ${slackErr}"
+    }
 }
 
 void clusterRunner(String clusterSuffix, Map testVariables) {
@@ -1134,6 +1422,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         testVariables.libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
     }
     def shutdownCluster = { testVariables.libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries) }
+    def load = [:]
 
     try {
         // The cluster is created before a test is claimed, so a failed creation leaves every test in
@@ -1155,10 +1444,11 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
+                load = startClusterLoad(testVariables, clusterSuffix, clusterCfg.kubeconfig)
             }
 
             if (testsPerCluster(testVariables) > 1) {
-                runTestSlots(clusterSuffix, testVariables, clusterCfg.kubeconfig)
+                runTestSlots(clusterSuffix, testVariables, clusterCfg.kubeconfig, load)
                 break
             }
 
@@ -1167,14 +1457,28 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 break
             }
 
-            runTest(
-                testId: testId,
-                clusterSuffix: clusterSuffix,
-                testVariables: testVariables,
-                retries: testVariables.retries ?: 1
-            )
+            def testName = testVariables.tests[testId].name
+            def startedAt = epochSeconds()
+            if (load) {
+                appendClusterEvent(load, "${startedAt} START ${testName}")
+            }
+            try {
+                runTest(
+                    testId: testId,
+                    clusterSuffix: clusterSuffix,
+                    testVariables: testVariables,
+                    retries: testVariables.retries ?: 1
+                )
+            } finally {
+                if (load) {
+                    def finishedAt = epochSeconds()
+                    appendClusterEvent(load, "${finishedAt} END ${testName}")
+                    reportTestLoad(load, testName, startedAt, finishedAt)
+                }
+            }
         }
     } finally {
+        finishClusterLoad(testVariables, clusterSuffix, load)
         // Each cluster contains only suffix
         createdClusters.each { cluster ->
             try {
