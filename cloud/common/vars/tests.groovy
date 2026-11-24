@@ -1276,9 +1276,13 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
         """.stripIndent().trim()
     )
 
-    // Free the CPU and memory of a finished test before the slot starts the next one.
+    // Free the CPU and memory of a finished test before the slot starts the next one. A test that
+    // ran alone may leave cluster-wide state the next tests must not see, such as cert-manager.
     try {
         testVariables.libraries.tools.kubectlDeleteTestNamespaces(clusterKubeconfig, testName)
+        if (testVariables.tests[testId].ownCluster) {
+            testVariables.libraries.tools.kubectlDeleteCertManager(clusterKubeconfig)
+        }
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
         throw exc
     } catch (cleanupErr) {

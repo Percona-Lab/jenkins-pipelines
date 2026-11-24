@@ -488,6 +488,31 @@ void kubectlDeleteTestNamespaces(String kubeconfig, String testName) {
     }
 }
 
+// Removes cert-manager after a test that ran alone on a shared cluster. Other tests expect the
+// operator to issue its own certificates, which it does only without cert-manager. Bash tests leave
+// cert-manager behind with SKIP_DELETE=1. Selects by the label of the upstream manifests, so it
+// needs no version.
+void kubectlDeleteCertManager(String kubeconfig) {
+    withEnv(["KUBECONFIG=${kubeconfig}"]) {
+        sh '''
+            set +e
+            if ! kubectl get namespace cert-manager --request-timeout=10s >/dev/null 2>&1 \
+                && [ -z "$(kubectl get crd -l app.kubernetes.io/instance=cert-manager -o name --request-timeout=10s 2>/dev/null)" ]; then
+                exit 0
+            fi
+            echo "Removing cert-manager left by the previous test"
+            selector=app.kubernetes.io/instance=cert-manager
+            kubectl delete mutatingwebhookconfiguration,validatingwebhookconfiguration -l "$selector" --ignore-not-found --request-timeout=30s
+            kubectl delete clusterrole,clusterrolebinding -l "$selector" --ignore-not-found --request-timeout=30s
+            kubectl delete role,rolebinding -n kube-system -l "$selector" --ignore-not-found --request-timeout=30s
+            # Wait: the operator decides how to issue certificates by whether these CRDs exist.
+            kubectl delete crd -l "$selector" --ignore-not-found --timeout=180s
+            kubectl delete namespace cert-manager --ignore-not-found --timeout=180s
+            exit 0
+        '''
+    }
+}
+
 // Cluster load sampling. A background loop on the agent appends `kubectl top nodes` to a samples
 // file every intervalSeconds: <epoch> <node> <cpu cores> <cpu%> <memory> <memory%>.
 // GKE has metrics-server by default; on a cluster without it the file stays empty.
