@@ -241,7 +241,7 @@ pipeline {
                     ./cloud/local/checkout
                 """
                 stash includes: "cloud/**" , name: "checkout"
-                stash includes: "source/**", name: "sourceFILES"
+                stash includes: "source/**", excludes: "source/.claude/**", name: "sourceFILES"
 
                 sh '''
                     rm -rf cloud
