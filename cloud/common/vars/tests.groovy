@@ -1288,6 +1288,8 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
     """
 
     // DELETE_CRD_ON_START=0: a test must not delete the CRD under the tests that run next to it.
+    // CLEAN_NAMESPACE=0: with 1, create_infra deletes every namespace (and chaos-mesh) when a test
+    // starts, so a test starting later wipes out the tests already running.
     // SKIP_DELETE=1: the teardown after a test also removes cert-manager and RBAC, so the
     // runner deletes only the test's own namespaces below instead.
     runTest(
@@ -1301,6 +1303,7 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
             export HELM_CONFIG_HOME='${slotDir}/helm'
             export HELM_CACHE_HOME='${slotDir}/helm-cache'
             export DELETE_CRD_ON_START=0
+            export CLEAN_NAMESPACE=0
             export SKIP_DELETE=1
         """.stripIndent().trim()
     )
