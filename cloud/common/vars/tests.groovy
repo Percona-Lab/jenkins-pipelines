@@ -1169,24 +1169,20 @@ Integer testsPerCluster(Map testVariables) {
 }
 
 // Cluster load sampling settings from testVariables.cluster_load, or [:] when it is off:
-// [enabled: true, interval_seconds: 30, cpu_percent: 90, memory_percent: 70,
-//  alert_after_seconds: 120, slack_channel: '#channel']
+// [enabled: true, interval_seconds: 30, cpu_percent: 90, memory_percent: 70, high_after_seconds: 120]
+// A cluster counts as highly loaded when its busiest node stays at the CPU or memory percent for
+// high_after_seconds without a break. The load goes into the Allure report and one log line.
 Map clusterLoadSettings(Map testVariables) {
     def cfg = testVariables.cluster_load
     if (!cfg?.enabled) {
         return [:]
     }
     return [
-        interval     : (cfg.interval_seconds ?: 30) as Integer,
-        cpu          : (cfg.cpu_percent ?: 90) as Integer,
-        memory       : (cfg.memory_percent ?: 70) as Integer,
-        alertAfter   : (cfg.alert_after_seconds ?: 120) as Integer,
-        slackChannel : cfg.slack_channel ?: ''
+        interval : (cfg.interval_seconds ?: 30) as Integer,
+        cpu      : (cfg.cpu_percent ?: 90) as Integer,
+        memory   : (cfg.memory_percent ?: 70) as Integer,
+        highAfter: (cfg.high_after_seconds ?: 120) as Integer
     ]
-}
-
-Long epochSeconds() {
-    return (System.currentTimeMillis() / 1000) as Long
 }
 
 String formatDuration(def seconds) {
@@ -1196,38 +1192,20 @@ String formatDuration(def seconds) {
     return minutes > 0 ? (rest > 0 ? "${minutes}m${rest}s" : "${minutes}m") : "${rest}s"
 }
 
-// Prints the load while one test ran, so a slow or failed test can be read against it.
-void reportTestLoad(Map load, String testName, Long startedAt, Long finishedAt) {
-    if (!load) {
-        return
-    }
-    try {
-        def s = load.tools.clusterLoadSummary(load.samples, load.limits, startedAt, finishedAt)
-        if (s.samples == '0') {
-            echo "Cluster load during ${testName}: no samples"
-            return
-        }
-        echo "Cluster load during ${testName}: busiest node CPU ${s.cpu_peak}%, memory ${s.mem_peak}%; " +
-            "CPU ${load.limits.cpu}% or more for ${formatDuration(s.cpu_over)}"
-        appendClusterEvent(load, "${finishedAt} LOAD ${testName} cpu_peak=${s.cpu_peak} mem_peak=${s.mem_peak} cpu_over=${s.cpu_over}")
-    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
-        throw exc
-    } catch (loadErr) {
-        echo "Warning: no cluster load for ${testName}: ${loadErr}"
-    }
-}
-
 @com.cloudbees.groovy.cps.NonCPS
-void appendClusterEvent(Map load, String line) {
-    synchronized (load.eventLines) {
-        load.eventLines << line
+void recordClusterLoad(Map testVariables, String clusterSuffix, String line) {
+    synchronized (testVariables) {
+        if (testVariables.cluster_load_summary == null) {
+            testVariables.cluster_load_summary = [:]
+        }
+        testVariables.cluster_load_summary[clusterSuffix] = line
     }
 }
 
 // Runs up to tests_per_cluster tests at the same time on one cluster. Each slot takes the next test
 // from the shared queue, so a slot that finishes a short test starts the next one at once. Tests
 // tagged ownCluster or with locks in tests.yaml are kept apart, see claimNextTestForSlot.
-void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubeconfig, Map load = [:]) {
+void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubeconfig) {
     def slots = testsPerCluster(testVariables)
     def startDelay = (testVariables.slot_start_delay_seconds ?: 0) as Integer
     def branches = [:]
@@ -1253,20 +1231,10 @@ void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubecon
                     sleep(time: 30, unit: 'SECONDS')
                     continue
                 }
-                def testName = testVariables.tests[testId].name
-                def startedAt = epochSeconds()
-                if (load) {
-                    appendClusterEvent(load, "${startedAt} START ${testName}")
-                }
                 try {
                     runSlotTest(testVariables, testId, clusterSuffix, clusterKubeconfig, slotDir)
                 } finally {
                     markTestFinished(testVariables.tests, testId)
-                    def finishedAt = epochSeconds()
-                    if (load) {
-                        appendClusterEvent(load, "${finishedAt} END ${testName}")
-                        reportTestLoad(load, testName, startedAt, finishedAt)
-                    }
                 }
             }
         }
@@ -1324,18 +1292,15 @@ Map startClusterLoad(Map testVariables, String clusterSuffix, String kubeconfig)
     if (!settings) {
         return [:]
     }
+    // Not *.txt: the pilot archives *.txt, and the samples belong in the Allure report only.
     def load = [
-        tools     : testVariables.libraries.tools,
-        limits    : [cpu: settings.cpu, memory: settings.memory, interval: settings.interval],
-        settings  : settings,
-        samples   : "${env.WORKSPACE}/cluster-load-${clusterSuffix}.txt",
-        events    : "${env.WORKSPACE}/cluster-load-${clusterSuffix}-tests.txt",
-        eventLines: []
+        tools   : testVariables.libraries.tools,
+        limits  : [cpu: settings.cpu, memory: settings.memory, interval: settings.interval],
+        settings: settings,
+        samples : "cluster-load-${clusterSuffix}.samples"
     ]
     try {
-        load.tools.startClusterLoadSampler(kubeconfig, load.samples, settings.interval)
-        echo "Sampling cluster load every ${settings.interval}s; alert when a node stays at CPU ${settings.cpu}% " +
-            "or memory ${settings.memory}% for ${formatDuration(settings.alertAfter)}"
+        load.tools.startClusterLoadSampler(kubeconfig, "${env.WORKSPACE}/${load.samples}", settings.interval)
         return load
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
         throw exc
@@ -1345,78 +1310,33 @@ Map startClusterLoad(Map testVariables, String clusterSuffix, String kubeconfig)
     return [:]
 }
 
-// Stops sampling, prints and archives the cluster load, and sends a Slack alert when a node stayed
-// above a limit for at least alert_after_seconds. Never fails the build.
+// Stops sampling, prints one line with the cluster's load and stashes the samples, which
+// publishAllureReport adds to each test case. Never fails the build.
 void finishClusterLoad(Map testVariables, String clusterSuffix, Map load) {
     if (!load) {
         return
     }
     def clusterName = getClusterFullName(testVariables.cluster_name, clusterSuffix)
     try {
-        load.tools.stopClusterLoadSampler(load.samples)
-        writeFile file: load.events, text: load.eventLines.join('\n') + '\n'
-
-        def s = load.tools.clusterLoadSummary(load.samples, load.limits)
+        load.tools.stopClusterLoadSampler("${env.WORKSPACE}/${load.samples}")
+        def s = load.tools.clusterLoadSummary("${env.WORKSPACE}/${load.samples}", load.limits)
         if (s.samples == '0') {
             echo "Cluster load on ${clusterName}: no samples (is metrics-server running?)"
             return
         }
 
         def settings = load.settings
-        def cpuAlert = (s.cpu_longest as Integer) >= settings.alertAfter
-        def memAlert = (s.mem_longest as Integer) >= settings.alertAfter
-        def summary = "Cluster load on ${clusterName}: busiest node CPU peak ${s.cpu_peak}%, memory peak ${s.mem_peak}%; " +
-            "CPU ${settings.cpu}% or more for ${formatDuration(s.cpu_over)} (longest ${formatDuration(s.cpu_longest)}), " +
-            "memory ${settings.memory}% or more for ${formatDuration(s.mem_over)}; " +
-            "cluster average CPU peak ${s.cluster_cpu_peak}%, mean ${s.cluster_cpu_mean}%"
-        echo summary
-        writeFile file: "${env.WORKSPACE}/cluster-load-${clusterSuffix}-summary.txt",
-            text: summary + '\n' + s.collect { k, v -> "${k}=${v}" }.join('\n') + '\n'
-        currentBuild.description = (currentBuild.description ?: '') +
-            "<br>${clusterSuffix} load: CPU ${s.cpu_peak}%, memory ${s.mem_peak}%${cpuAlert || memAlert ? ' (alert)' : ''}"
-        archiveArtifacts artifacts: "cluster-load-${clusterSuffix}*.txt", allowEmptyArchive: true
-
-        if (cpuAlert || memAlert) {
-            sendClusterLoadAlert(testVariables, load, [suffix: clusterSuffix, name: clusterName], s, cpuAlert)
-        }
+        def high = (s.cpu_longest as Integer) >= settings.highAfter || (s.mem_longest as Integer) >= settings.highAfter
+        def line = "${high ? 'HIGH ' : ''}busiest node CPU peak ${s.cpu_peak}% " +
+            "(${formatDuration(s.cpu_over)} at ${settings.cpu}%+), memory peak ${s.mem_peak}% " +
+            "(${formatDuration(s.mem_over)} at ${settings.memory}%+), cluster average CPU peak ${s.cluster_cpu_peak}%"
+        echo "Cluster load on ${clusterName}: ${line}"
+        recordClusterLoad(testVariables, clusterSuffix, line)
+        stash name: "cluster-load-${clusterSuffix}", includes: "${load.samples}*", allowEmpty: true
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
         throw exc
     } catch (loadErr) {
         echo "Warning: cluster load report failed: ${loadErr}"
-    }
-}
-
-void sendClusterLoadAlert(Map testVariables, Map load, Map cluster, Map s, Boolean cpuAlert) {
-    def settings = load.settings
-    def clusterSuffix = cluster.suffix
-    def clusterName = cluster.name
-    def peakAt = cpuAlert ? s.cpu_at : s.mem_at
-    def peakTime = sh(script: "date -u -d @${peakAt} +%H:%M", returnStdout: true).trim()
-    def running = load.tools.testsRunningAt(load.events, peakAt) ?: 'none recorded'
-    def artifacts = "${env.BUILD_URL}artifact/cluster-load-${clusterSuffix}"
-    def lines = [
-        ":warning: High load on ${clusterName} in <${env.BUILD_URL}|${env.JOB_NAME} #${env.BUILD_NUMBER}> " +
-            "(${testsPerCluster(testVariables)} tests per cluster)",
-        "• CPU: busiest node peak ${s.cpu_peak}% (${s.cpu_node}); ${settings.cpu}% or more for " +
-            "${formatDuration(s.cpu_over)}, longest ${formatDuration(s.cpu_longest)}",
-        "• Memory: busiest node peak ${s.mem_peak}% (${s.mem_node}); ${settings.memory}% or more for " +
-            "${formatDuration(s.mem_over)}, longest ${formatDuration(s.mem_longest)}",
-        "• Cluster average CPU: peak ${s.cluster_cpu_peak}%, mean ${s.cluster_cpu_mean}%",
-        "• Tests running at the ${cpuAlert ? 'CPU' : 'memory'} peak (${peakTime} UTC): ${running.split(' ').join(', ')}",
-        "• Samples: <${artifacts}.txt|per node>, <${artifacts}-tests.txt|per test>"
-    ]
-    def message = lines.join('\n')
-    echo message
-    if (!settings.slackChannel) {
-        echo 'No Slack channel set for cluster load alerts (cluster_load.slack_channel)'
-        return
-    }
-    try {
-        slackSend channel: settings.slackChannel, color: '#F6F930', message: message
-    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
-        throw exc
-    } catch (slackErr) {
-        echo "Warning: Slack alert not sent: ${slackErr}"
     }
 }
 
@@ -1480,7 +1400,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
             }
 
             if (testsPerCluster(testVariables) > 1) {
-                runTestSlots(clusterSuffix, testVariables, clusterCfg.kubeconfig, load)
+                runTestSlots(clusterSuffix, testVariables, clusterCfg.kubeconfig)
                 break
             }
 
@@ -1489,25 +1409,12 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
                 break
             }
 
-            def testName = testVariables.tests[testId].name
-            def startedAt = epochSeconds()
-            if (load) {
-                appendClusterEvent(load, "${startedAt} START ${testName}")
-            }
-            try {
-                runTest(
-                    testId: testId,
-                    clusterSuffix: clusterSuffix,
-                    testVariables: testVariables,
-                    retries: testVariables.retries ?: 1
-                )
-            } finally {
-                if (load) {
-                    def finishedAt = epochSeconds()
-                    appendClusterEvent(load, "${finishedAt} END ${testName}")
-                    reportTestLoad(load, testName, startedAt, finishedAt)
-                }
-            }
+            runTest(
+                testId: testId,
+                clusterSuffix: clusterSuffix,
+                testVariables: testVariables,
+                retries: testVariables.retries ?: 1
+            )
         }
     } finally {
         finishClusterLoad(testVariables, clusterSuffix, load)
@@ -1881,6 +1788,47 @@ void shutdownLeftoverClusters(Map testVariables) {
 // publishing: the plugin copies the previous build's history into every results
 // path, so several paths would repeat each history entry in the trend. The report
 // stays with the build in Jenkins. A publishing problem does not fail the build.
+// Adds the load of the cluster a test ran on to each of its Allure test cases. The samples of a
+// cluster are unstashed once; loadSamples remembers which clusters have them.
+void addTestClusterLoad(Map testVariables, String clusterSuffix, String resultsDir, Map settings, Map loadSamples) {
+    if (!clusterSuffix || clusterSuffix == 'NA') {
+        return
+    }
+    try {
+        if (!loadSamples.containsKey(clusterSuffix)) {
+            loadSamples[clusterSuffix] = false
+            unstash "cluster-load-${clusterSuffix}"
+            loadSamples[clusterSuffix] = true
+        }
+        if (loadSamples[clusterSuffix]) {
+            testVariables.libraries.tools.addClusterLoadToAllure(
+                resultsDir,
+                "cluster-load-${clusterSuffix}.samples",
+                [cpu: settings.cpu, memory: settings.memory, interval: settings.interval]
+            )
+        }
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: no cluster load in the Allure report for ${resultsDir}: ${loadErr}"
+    }
+}
+
+// One Environment entry per cluster on the Allure overview, with the line finishClusterLoad printed.
+void writeClusterLoadEnvironment(Map testVariables, String resultsDir) {
+    def summary = testVariables.cluster_load_summary ?: [:]
+    if (!summary) {
+        return
+    }
+    def lines = ["Tests.per.cluster=${testsPerCluster(testVariables)}"]
+    for (clusterSuffix in summary.keySet().sort()) {
+        lines << "Cluster.load.${clusterSuffix}=${summary[clusterSuffix]}"
+    }
+    def file = "${resultsDir}/environment.properties"
+    def existing = fileExists(file) ? readFile(file).trim() : ''
+    writeFile file: file, text: (existing ? existing + '\n' : '') + lines.join('\n') + '\n'
+}
+
 void publishAllureReport(Map testVariables) {
     if (!testVariables?.allure || !testVariables.tests) {
         return
@@ -1889,6 +1837,8 @@ void publishAllureReport(Map testVariables) {
     def merged = 'source/e2e-tests/allure-results-merged'
     sh "rm -rf ${merged} && mkdir -p ${merged}"
     def found = false
+    def loadSettings = clusterLoadSettings(testVariables)
+    def loadSamples = [:]
     for (int i = 0; i < testVariables.tests.size(); i++) {
         def testName = testVariables.tests[i].name
         if (testVariables.tests[i].result == 'skipped') {
@@ -1901,6 +1851,9 @@ void publishAllureReport(Map testVariables) {
         }
         def dir = "source/e2e-tests/allure-results/${testName}"
         if (sh(returnStatus: true, script: "ls ${dir}/*-result.json >/dev/null 2>&1") == 0) {
+            if (loadSettings) {
+                addTestClusterLoad(testVariables, testVariables.tests[i].cluster, dir, loadSettings, loadSamples)
+            }
             // Result files have unique names; environment.properties is the same per run.
             sh "cp -R ${dir}/. ${merged}/"
             found = true
@@ -1911,6 +1864,7 @@ void publishAllureReport(Map testVariables) {
         echo 'No Allure results to publish'
         return
     }
+    writeClusterLoadEnvironment(testVariables, merged)
     try {
         allure includeProperties: false, results: [[path: merged]]
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {

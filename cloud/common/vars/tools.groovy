@@ -590,19 +590,51 @@ Map clusterLoadSummary(String samplesFile, Map limits, def from = 0, def to = 0)
     return summary
 }
 
-// Tests that were running at an epoch, from the START/END lines runTestSlots writes.
-String testsRunningAt(String eventsFile, def epoch) {
-    return sh(
-        script: """
-            [ -s '${eventsFile}' ] || exit 0
-            awk -v at=${epoch} '
-                \$2 == "START" && \$1 <= at { running[\$3] = 1 }
-                \$2 == "END" && \$1 < at { delete running[\$3] }
-                END { for (t in running) printf "%s ", t }
-            ' '${eventsFile}'
-        """,
-        returnStdout: true
-    ).trim()
+// Adds the cluster load while each test case ran to its Allure result: a "Cluster load"
+// parameter with the busiest node's peaks, and an attachment with the per-node samples.
+// The window starts one interval before the test case, so a short case still gets a sample.
+void addClusterLoadToAllure(String resultsDir, String samplesFile, Map limits) {
+    withEnv([
+        "RESULTS=${resultsDir}",
+        "LOAD_SAMPLES=${samplesFile}",
+        "LOAD_AWK=${samplesFile}.awk",
+        "CPU_LIMIT=${limits.cpu}",
+        "MEM_LIMIT=${limits.memory}",
+        "INTERVAL=${limits.interval}"
+    ]) {
+        sh '''
+            [ -s "$LOAD_SAMPLES" ] || exit 0
+            for result in "$RESULTS"/*-result.json; do
+                [ -f "$result" ] || continue
+                start=$(jq -r '((.start // 0) / 1000 | floor)' "$result")
+                stop=$(jq -r '((.stop // 0) / 1000 | ceil)' "$result")
+                from=$((start - INTERVAL))
+                summary=$(awk -v cpu_limit="$CPU_LIMIT" -v mem_limit="$MEM_LIMIT" -v interval="$INTERVAL" \
+                    -v from="$from" -v to="$stop" -f "$LOAD_AWK" "$LOAD_SAMPLES")
+                get() { printf '%s\\n' "$summary" | sed -n "s/^$1=//p"; }
+                [ "$(get samples)" != 0 ] || continue
+
+                value="busiest node CPU $(get cpu_peak)%, memory $(get mem_peak)%"
+                [ "$(get cpu_over)" = 0 ] || value="$value; CPU ${CPU_LIMIT}%+ for $(get cpu_over)s"
+                [ "$(get mem_over)" = 0 ] || value="$value; memory ${MEM_LIMIT}%+ for $(get mem_over)s"
+
+                attachment="$(basename "$result" -result.json)-cluster-load-attachment.txt"
+                {
+                    echo "Cluster load while the test case ran ($value)."
+                    echo "Samples every ${INTERVAL}s from kubectl top nodes, seconds from the test case start."
+                    echo
+                    echo "second node cpu cpu% memory memory%"
+                    awk -v from="$from" -v to="$stop" -v start="$start" \
+                        '$1 >= from && $1 <= to { $1 = $1 - start; print }' "$LOAD_SAMPLES"
+                } > "$RESULTS/$attachment"
+
+                jq --arg value "$value" --arg source "$attachment" '
+                    .parameters = ((.parameters // []) + [{"name": "Cluster load", "value": $value}])
+                    | .attachments = ((.attachments // []) + [{"name": "Cluster load", "source": $source, "type": "text/plain"}])
+                ' "$result" > "$result.tmp" && mv "$result.tmp" "$result"
+            done
+        '''
+    }
 }
 
 void stashClonedGitFiles() {

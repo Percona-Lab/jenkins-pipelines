@@ -29,11 +29,10 @@ pipeline {
         string(name: 'NUM_CLUSTERS', defaultValue: '1', description: 'Number of GKE clusters')
         string(name: 'TESTS_PER_CLUSTER', defaultValue: '4', description: 'Tests running at the same time on each cluster. 1 gives the serial baseline.')
         string(name: 'SLOT_START_DELAY', defaultValue: '0', description: 'Seconds between the first test of each slot, so the startup load does not line up')
-        choice(name: 'CLUSTER_LOAD', choices: ['YES', 'NO'], description: 'Sample kubectl top nodes during the run, print the load per test and per cluster, and archive the samples')
-        string(name: 'LOAD_ALERT_CPU', defaultValue: '90', description: 'Alert when the busiest node stays at this CPU % or more...')
-        string(name: 'LOAD_ALERT_MEMORY', defaultValue: '70', description: '...or at this memory % or more...')
-        string(name: 'LOAD_ALERT_AFTER', defaultValue: '120', description: '...for this many seconds without a break')
-        string(name: 'LOAD_ALERT_SLACK_CHANNEL', defaultValue: '#qa-operators', description: 'Slack channel for load alerts. Empty: the alert is only printed in the log.')
+        choice(name: 'CLUSTER_LOAD', choices: ['YES', 'NO'], description: 'Sample kubectl top nodes during the run: load per test case in the Allure report, one line per cluster in the log')
+        string(name: 'LOAD_HIGH_CPU', defaultValue: '90', description: 'Mark a cluster HIGH when its busiest node stays at this CPU % or more...')
+        string(name: 'LOAD_HIGH_MEMORY', defaultValue: '70', description: '...or at this memory % or more...')
+        string(name: 'LOAD_HIGH_AFTER', defaultValue: '120', description: '...for this many seconds without a break')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['YES', 'NO'], description: 'Ignore passed tests in previous run (run all)')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version')
@@ -119,10 +118,9 @@ pipeline {
                             cluster_load            : [
                                 enabled            : CLUSTER_LOAD == 'YES',
                                 interval_seconds   : 30,
-                                cpu_percent        : LOAD_ALERT_CPU as Integer,
-                                memory_percent     : LOAD_ALERT_MEMORY as Integer,
-                                alert_after_seconds: LOAD_ALERT_AFTER as Integer,
-                                slack_channel      : LOAD_ALERT_SLACK_CHANNEL?.trim()
+                                cpu_percent        : LOAD_HIGH_CPU as Integer,
+                                memory_percent     : LOAD_HIGH_MEMORY as Integer,
+                                high_after_seconds : LOAD_HIGH_AFTER as Integer
                             ],
                             kubeconfigPath          : '/tmp',
                             retries                 : 1,
