@@ -16,27 +16,6 @@ String jenkinsAgentLabel() {
     return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
 }
 
-// PG_VER is derived from IMAGE_POSTGRESQL by the tests library; these entries are exported after it.
-Map pgExtraEnvs() {
-    def envs = [
-        SKIP_TEST_WARNINGS  : SKIP_TEST_WARNINGS,
-        K8S_UPGRADE_PLATFORM: 'doks',
-        K8S_UPGRADE_REGION  : DO_REGION
-    ]
-
-    if (PILLAR_VERSION.endsWith('-community')) {
-        if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
-            error('PostgreSQL 19 community images support UBI9 only.')
-        }
-        envs.PG_VER = PILLAR_VERSION.replace('-community', '')
-        envs.PG_DISTRIBUTION = 'community'
-    } else if (PILLAR_VERSION == 'none' && !IMAGE_POSTGRESQL && PG_VER) {
-        envs.PG_VER = PG_VER
-    }
-
-    return envs
-}
-
 pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-pr.csv', 'run-minikube.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -91,7 +70,7 @@ pipeline {
                 script {
                     libraries.dependencies.prepareNode(
                         libraries,
-                        'kuttl',
+                        '',
                         'pg',
                         'doks'
                     )
@@ -107,7 +86,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pg',
                         platform              : 'doks',
-                        platform_provider     : 'doks',
                         platform_version      : PLATFORM_VER,
                         region                : DO_REGION,
                         cluster_wide          : CLUSTER_WIDE,
@@ -119,7 +97,17 @@ pipeline {
                         db_version            : PG_VER,
                         test_executor_type    : 'kuttl',
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
-                        extra_envs            : pgExtraEnvs(),
+                        extra_envs            : libraries.tests.buildPgExtraEnvs(
+                            pillarVersion   : PILLAR_VERSION,
+                            ubiVersion      : UBI_VERSION,
+                            imagePostgresql : IMAGE_POSTGRESQL,
+                            pgVer           : PG_VER,
+                            skipTestWarnings: SKIP_TEST_WARNINGS,
+                            extra           : [
+                                K8S_UPGRADE_PLATFORM: 'doks',
+                                K8S_UPGRADE_REGION  : DO_REGION
+                            ]
+                        ),
                         clusters              : clusters,
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',

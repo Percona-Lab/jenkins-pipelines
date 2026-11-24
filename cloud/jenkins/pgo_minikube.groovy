@@ -16,23 +16,6 @@ String jenkinsAgentLabel() {
     return params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
 }
 
-// PG_VER is derived from IMAGE_POSTGRESQL by the tests library; these entries are exported after it.
-Map pgExtraEnvs() {
-    def envs = [SKIP_TEST_WARNINGS: SKIP_TEST_WARNINGS]
-
-    if (PILLAR_VERSION.endsWith('-community')) {
-        if (PILLAR_VERSION == '19-community' && UBI_VERSION != 'UBI9') {
-            error('PostgreSQL 19 community images support UBI9 only.')
-        }
-        envs.PG_VER = PILLAR_VERSION.replace('-community', '')
-        envs.PG_DISTRIBUTION = 'community'
-    } else if (PILLAR_VERSION == 'none' && !IMAGE_POSTGRESQL && PG_VER) {
-        envs.PG_VER = PG_VER
-    }
-
-    return envs
-}
-
 pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-community.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -102,7 +85,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pg',
                         platform              : 'minikube',
-                        platform_provider     : 'minikube',
                         platform_version      : PLATFORM_VER,
                         cluster_wide          : CLUSTER_WIDE,
                         pillar_version        : PILLAR_VERSION,
@@ -114,12 +96,17 @@ pipeline {
                         test_executor_type    : 'kuttl',
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
                         skip_kubeconfig       : true,
-                        extra_envs            : pgExtraEnvs(),
+                        extra_envs            : libraries.tests.buildPgExtraEnvs(
+                            pillarVersion   : PILLAR_VERSION,
+                            ubiVersion      : UBI_VERSION,
+                            imagePostgresql : IMAGE_POSTGRESQL,
+                            pgVer           : PG_VER,
+                            skipTestWarnings: SKIP_TEST_WARNINGS
+                        ),
                         clusters              : clusters,
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR    : IMAGE_OPERATOR,
                             IMAGE_POSTGRESQL  : IMAGE_POSTGRESQL,

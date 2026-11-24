@@ -15,14 +15,16 @@ void dockerBuildAndPush(Map cfg) {
                 --password-stdin
         '''
 
-        dockerBuildOperatorImage(
-            cfg.operator,
-            cfg.operatorImage,
-            cfg.branch,
-            cfg.sourceDir ?: 'source'
-        )
-
-        sh 'docker logout docker.io'
+        try {
+            dockerBuildOperatorImage(
+                cfg.operator,
+                cfg.operatorImage,
+                cfg.branch,
+                cfg.sourceDir ?: 'source'
+            )
+        } finally {
+            sh 'docker logout docker.io || true'
+        }
     }
 }
 

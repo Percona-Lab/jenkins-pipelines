@@ -1,6 +1,6 @@
 import groovy.transform.Field
 
-@Field Integer numClusters = 2
+@Field Integer numClusters = 1
 @Field List clusters = []
 @Field Map libraries = [:]
 @Field Map testVariables = [:]
@@ -100,7 +100,6 @@ pipeline {
                         numClusters           : numClusters,
                         kubeconfigPath        : '/tmp',
                         retries               : 1,
-                        jenkins_agent_label   : jenkinsAgentLabel(),
                         images: [
                             IMAGE_OPERATOR     : IMAGE_OPERATOR,
                             IMAGE_MYSQL        : IMAGE_MYSQL,
