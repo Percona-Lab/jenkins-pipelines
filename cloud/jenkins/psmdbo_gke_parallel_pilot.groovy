@@ -33,7 +33,7 @@ pipeline {
         string(name: 'LOAD_ALERT_CPU', defaultValue: '90', description: 'Alert when the busiest node stays at this CPU % or more...')
         string(name: 'LOAD_ALERT_MEMORY', defaultValue: '70', description: '...or at this memory % or more...')
         string(name: 'LOAD_ALERT_AFTER', defaultValue: '120', description: '...for this many seconds without a break')
-        string(name: 'LOAD_ALERT_SLACK_CHANNEL', defaultValue: '', description: 'Slack channel for load alerts, for example #cloud-dev-ci. Empty: the alert is only printed in the log.')
+        string(name: 'LOAD_ALERT_SLACK_CHANNEL', defaultValue: '#qa-operators', description: 'Slack channel for load alerts. Empty: the alert is only printed in the log.')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['YES', 'NO'], description: 'Ignore passed tests in previous run (run all)')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version')
