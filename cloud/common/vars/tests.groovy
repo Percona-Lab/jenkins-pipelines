@@ -488,7 +488,7 @@ void initTestRun(Map testVariables, Map config) {
     ])
 
     if (testsPerCluster(testVariables) > 1) {
-        loadTestPlacement(testVariables.tests)
+        testVariables.tests = loadTestPlacement(testVariables.tests)
     }
 
     if (config.ignorePreviousRun == 'NO') {
@@ -501,31 +501,43 @@ void initTestRun(Map testVariables, Map config) {
     // never part of the operator Docker build context.
 }
 
-// Reads ownCluster and locks from the operator's tests.yaml (select_tests.py placement) and puts
-// ownCluster tests first, then tests with locks, so they spread over the clusters early. An
-// operator branch without the command gives no placement, and every test may share a cluster.
-void loadTestPlacement(List tests) {
+// Reads ownCluster and locks from the operator's tests.yaml (select_tests.py placement) and returns
+// the tests with ownCluster ones first, then tests with locks, so they spread over the clusters
+// early. An operator branch without the command gives no placement: every test may share.
+List loadTestPlacement(List tests) {
+    // One line per tagged test, "<name> <own|shared> <lock,lock|->", or NONE without the command.
     def output = sh(
         script: '''
             export PATH="$HOME/.local/bin:$PATH"
             cd source
-            uv run e2e-tests/select_tests.py placement 2>/dev/null | tail -n 1 || :
+            json=$(uv run e2e-tests/select_tests.py placement 2>/dev/null | tail -n 1) || json=''
+            case "$json" in
+                '{'*) echo "$json" | jq -r 'to_entries[] | [.key, (if .value.ownCluster then "own" else "shared" end), ((.value.locks // []) | if length == 0 then "-" else join(",") end)] | join(" ")' ;;
+                *) echo NONE ;;
+            esac
         ''',
         returnStdout: true
     ).trim()
-    if (!output.startsWith('{')) {
+    if (output == 'NONE') {
         echo 'WARNING: select_tests.py placement is not available on this operator branch; every test may share a cluster'
-        return
+        return tests
     }
 
-    def placement = readJSON(text: output)
+    def placement = [:]
+    for (line in output.split('\n')) {
+        def fields = line.trim().split(' ')
+        if (fields.size() == 3) {
+            placement[fields[0]] = [own: fields[1] == 'own', locks: fields[2] == '-' ? [] : fields[2].split(',').toList()]
+        }
+    }
+
     def own = []
     def locked = []
     def free = []
     for (test in tests) {
         def entry = placement[test.name]
-        test.ownCluster = entry ? (entry.ownCluster == true) : false
-        test.locks = entry ? entry.locks.collect { it.toString() } : []
+        test.ownCluster = entry ? entry.own : false
+        test.locks = entry ? entry.locks : []
         if (test.ownCluster) {
             own << test
         } else if (test.locks) {
@@ -534,8 +546,12 @@ void loadTestPlacement(List tests) {
             free << test
         }
     }
-    tests.clear()
-    tests.addAll(own + locked + free)
+    def ordered = []
+    for (group in [own, locked, free]) {
+        for (test in group) {
+            ordered << test
+        }
+    }
 
     echo "Placement: ${own.size()} tests run alone on a cluster, ${locked.size()} hold locks, ${free.size()} share freely"
     if (own) {
@@ -544,6 +560,7 @@ void loadTestPlacement(List tests) {
     for (test in locked) {
         echo "Locks ${test.locks.join(', ')}: ${test.name}"
     }
+    return ordered
 }
 
 // Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
@@ -928,7 +945,9 @@ Integer claimNextTestForSlot(List tests, String clusterSuffix) {
                 pending = true
             } else if (test.running && test.cluster == clusterSuffix) {
                 running << test
-                held.addAll(test.locks ?: [])
+                for (lock in (test.locks ?: [])) {
+                    held << lock
+                }
             }
         }
         if (!pending) {
@@ -946,10 +965,10 @@ Integer claimNextTestForSlot(List tests, String clusterSuffix) {
                 continue
             }
             if (test.ownCluster) {
-                if (!running.isEmpty()) {
+                if (running.size() > 0) {
                     return -1
                 }
-            } else if ((test.locks ?: []).any { held.contains(it) }) {
+            } else if (holdsAny(held, test.locks)) {
                 continue
             }
             test.result = 'failure'
@@ -959,6 +978,16 @@ Integer claimNextTestForSlot(List tests, String clusterSuffix) {
         }
         return -1
     }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+Boolean holdsAny(List held, List locks) {
+    for (lock in (locks ?: [])) {
+        if (held.contains(lock)) {
+            return true
+        }
+    }
+    return false
 }
 
 @com.cloudbees.groovy.cps.NonCPS
@@ -1162,8 +1191,8 @@ Long epochSeconds() {
 
 String formatDuration(def seconds) {
     def total = (seconds ?: 0) as Integer
-    def minutes = total.intdiv(60)
     def rest = total % 60
+    def minutes = ((total - rest) / 60) as Integer
     return minutes > 0 ? (rest > 0 ? "${minutes}m${rest}s" : "${minutes}m") : "${rest}s"
 }
 
