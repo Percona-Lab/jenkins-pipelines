@@ -462,8 +462,14 @@ properties([
         ),
         string(
             defaultValue: '',
-            description: 'Expected percona-mysql-shell package build, e.g. 8.4.10-1-3. Empty uses the default from VERSIONS in package-testing.',
+            description: 'Expected percona-mysql-shell DEB package build, e.g. 8.4.10-1-3. Empty uses the default from VERSIONS in package-testing.',
             name: 'pshell_pkg_version',
+            trim: true
+        ),
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell RPM package build, e.g. 8.4.10-3. Empty uses the default from VERSIONS in package-testing.',
+            name: 'pshell_rpm_pkg_version',
             trim: true
         ),
         string(
@@ -488,6 +494,7 @@ pipeline {
         install_mysql_shell = "${params.install_mysql_shell}"
         pshell_version = "${params.pshell_version ?: ''}"
         pshell_pkg_version = "${params.pshell_pkg_version ?: ''}"
+        pshell_rpm_pkg_version = "${params.pshell_rpm_pkg_version ?: ''}"
         pshell_built_for = "${params.pshell_built_for ?: ''}"
         EOL="yes"//PS 57 has default EOL to yes
         major_upgrade_from_product = "${params.major_upgrade_from_product}"

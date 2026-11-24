@@ -39,8 +39,13 @@ pipeline {
         )
         string(
             defaultValue: '',
-            description: 'Expected percona-mysql-shell package build, e.g. 8.4.10-1-3. Empty: not checked.',
+            description: 'Expected percona-mysql-shell DEB package build, e.g. 8.4.10-1-3. Empty: not checked.',
             name: 'PSHELL_PKG_VERSION'
+        )
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell RPM package build, e.g. 8.4.10-3. Empty: not checked.',
+            name: 'PSHELL_RPM_PKG_VERSION'
         )
         string(
             defaultValue: '',
