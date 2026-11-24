@@ -120,7 +120,7 @@ void removePbtContainer() {
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label 'docker-32gb-ondemand'
     }
 
     parameters {
