@@ -813,20 +813,23 @@ pipeline {
                     long since = epochNow()
                     Map packages = [:]
                     Map exact = [:]
-                    // One at a time, in dependency order: the bundle must not be
-                    // served before what it depends on.
+                    // One run of hetzner-valkey-RELEASE-from-repository for all of
+                    // them: it pushes the builds in this order (dependencies first,
+                    // the bundle last), then syncs the repo to production once.
+                    List paths = []
                     for (String k : keys) {
                         Map e = MANIFEST[k]
-                        trigger('hetzner-RELEASE-from-repository', [
-                            string(name: 'CLOUD',         value: params.CLOUD),
-                            string(name: 'PATH_TO_BUILD', value: releasePath(e.path)),
-                            string(name: 'REPOSITORY',    value: params.VALKEY_REPO.toUpperCase()),
-                            string(name: 'COMPONENT',     value: 'RELEASE'),
-                        ]).call()
-                        RELEASED << k
+                        paths << releasePath(e.path)
                         packages[e.deb] = e.version
                         exact[e.deb] = e.rpm_build_time
                     }
+                    trigger('hetzner-valkey-RELEASE-from-repository', [
+                        string(name: 'CLOUD',      value: params.CLOUD),
+                        text(name: 'PATHS',        value: paths.join('\n')),
+                        string(name: 'REPOSITORY', value: params.VALKEY_REPO.toUpperCase()),
+                        string(name: 'COMPONENT',  value: 'RELEASE'),
+                    ]).call()
+                    RELEASED.addAll(keys)
                     // Wait until the release channel serves exactly the builds in
                     // the manifest before building images from it.
                     waitForPublished(packages, since, 'release', exact)
