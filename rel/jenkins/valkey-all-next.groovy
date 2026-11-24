@@ -78,6 +78,14 @@ List RELEASED = []
 @groovy.transform.Field
 List RELEASE_IMAGES_PUSHED = []
 
+// Set by the approval stage: the release stages run only when it is 'Release'.
+@groovy.transform.Field
+String RELEASE_DECISION = ''
+
+boolean releaseApproved() {
+    return params.RELEASE && RELEASE_DECISION == 'Release'
+}
+
 String agentLabel() {
     return params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
 }
@@ -195,6 +203,9 @@ String renderManifestText() {
     if (RELEASED) {
         lines << ''
         lines << "Released to ${params.VALKEY_REPO}/release in this run: ${RELEASED.join(' ')}".toString()
+    } else if (params.RELEASE && RELEASE_DECISION && RELEASE_DECISION != 'Release') {
+        lines << ''
+        lines << "Release not approved in this run (${RELEASE_DECISION}): nothing was released.".toString()
     }
     if (RELEASE_IMAGES_PUSHED) {
         lines << "Release images built in this run: ${RELEASE_IMAGES_PUSHED.join(', ')}".toString()
@@ -783,7 +794,9 @@ pipeline {
             }
         }
         // No agent: the run can wait for approval as long as needed without
-        // holding an executor. Abort the run to release nothing.
+        // holding an executor. Only one run of this job is active at a time
+        // (disableConcurrentBuilds), so a run waiting here holds the job until
+        // you choose Release or Do not release.
         stage('Approve release') {
             agent none
             when { expression { params.RELEASE } }
@@ -797,7 +810,19 @@ pipeline {
                     }
                     String images = params.RELEASE_IMAGES ? "then build the release images in ${params.RELEASE_IMAGE_NAMESPACE}/ from the release channel" : 'no release images'
                     echo "Release to ${params.VALKEY_REPO}/release, in this order:\n${lines.join('\n')}\n${images}"
-                    input(message: "Release ${keys.join(', ')} to ${params.VALKEY_REPO}/release? The list is in the log above.", ok: 'Release')
+                    // "Do not release" ends the run normally: the release stages are
+                    // skipped and post archives the manifest. Abort does the same but
+                    // marks the run ABORTED.
+                    RELEASE_DECISION = input(
+                        message: "Release ${keys.join(', ')} to ${params.VALKEY_REPO}/release? The list is in the log above.",
+                        ok: 'Continue',
+                        parameters: [choice(name: 'DECISION', choices: ['Release', 'Do not release'],
+                                            description: 'Release: push the listed builds to the release channel. Do not release: finish the run and keep only the manifest.')])
+                    if (RELEASE_DECISION == 'Release') {
+                        echo 'Release approved'
+                    } else {
+                        echo 'Release not approved: the release stages are skipped, the manifest is archived with this run'
+                    }
                 }
             }
         }
@@ -805,7 +830,7 @@ pipeline {
             agent { label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon' }
             when {
                 beforeAgent true
-                expression { params.RELEASE }
+                expression { releaseApproved() }
             }
             steps {
                 script {
@@ -840,7 +865,7 @@ pipeline {
             agent { label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon' }
             when {
                 beforeAgent true
-                expression { params.RELEASE && params.RELEASE_IMAGES }
+                expression { releaseApproved() && params.RELEASE_IMAGES }
             }
             steps {
                 script {
