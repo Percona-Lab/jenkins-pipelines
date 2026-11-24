@@ -1516,7 +1516,13 @@ void finalizeJob(Map testVariables) {
         if (testVariables.test_executor_type == 'make') {
             makeReport(testVariables.tests, testVariables)
         }
-        publishAllureReport(testVariables)
+        try {
+            publishAllureReport(testVariables)
+        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+            throw exc
+        } catch (Throwable exc) {
+            echo "Warning: failed to collect or publish the Allure report: ${exc}"
+        }
     }
 
     try {
