@@ -190,7 +190,7 @@ String renderManifestText() {
             continue
         }
         String origin = e.from_build == "${env.BUILD_NUMBER}".toString() ? 'built in this run' : "carried over from #${e.from_build}"
-        lines << "${c.key}: ${e.deb} ${e.version}  PATH_TO_BUILD=${e.path}  (${e.job} #${e.build}, ${origin})".toString()
+        lines << "${c.key}: ${e.deb} ${e.version}  PATH_TO_BUILD=${releasePath(e.path)}  (${e.job} #${e.build}, ${origin})".toString()
     }
     if (RELEASED) {
         lines << ''
@@ -256,6 +256,13 @@ List releaseKeys() {
         error("Not in the manifest, so there is nothing to release for: ${missing.join(', ')}. Build them first, or leave them out of RELEASE_COMPONENTS.")
     }
     return keys
+}
+
+// releasePath — the PATH_TO_BUILD hetzner-RELEASE-from-repository takes: the
+// package job's path without its leading "experimental/".
+String releasePath(String path) {
+    String prefix = 'experimental/'
+    return path.startsWith(prefix) ? path.substring(prefix.length()) : path
 }
 
 // The version part of a manifest version-release ("9.2.0-3" -> "9.2.0").
@@ -786,7 +793,7 @@ pipeline {
                     List lines = []
                     for (String k : keys) {
                         Map e = MANIFEST[k]
-                        lines << "  ${k}: ${e.deb} ${e.version}  PATH_TO_BUILD=${e.path}".toString()
+                        lines << "  ${k}: ${e.deb} ${e.version}  PATH_TO_BUILD=${releasePath(e.path)}".toString()
                     }
                     String images = params.RELEASE_IMAGES ? "then build the release images in ${params.RELEASE_IMAGE_NAMESPACE}/ from the release channel" : 'no release images'
                     echo "Release to ${params.VALKEY_REPO}/release, in this order:\n${lines.join('\n')}\n${images}"
@@ -812,7 +819,7 @@ pipeline {
                         Map e = MANIFEST[k]
                         trigger('hetzner-RELEASE-from-repository', [
                             string(name: 'CLOUD',         value: params.CLOUD),
-                            string(name: 'PATH_TO_BUILD', value: e.path),
+                            string(name: 'PATH_TO_BUILD', value: releasePath(e.path)),
                             string(name: 'REPOSITORY',    value: params.VALKEY_REPO.toUpperCase()),
                             string(name: 'COMPONENT',     value: 'RELEASE'),
                         ]).call()
