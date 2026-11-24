@@ -34,7 +34,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD) {
+def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
     def clusterName = "nightly-test-${env.BUILD_NUMBER}"
     def pmmImageRepo = DOCKER_VERSION.split(":")[0]
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
@@ -49,6 +49,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
         string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+        string(name: 'PMM_HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
     ]
 
     def pmmAddress = clusterCreateJob.buildVariables.PMM_URL
@@ -148,7 +149,7 @@ pipeline {
             name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'main',
-            description: 'HA setup branch of percona-helm-charts repo',
+            description: 'percona-helm-charts branch for the helm and ha server types',
             name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
@@ -205,7 +206,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "helm" }
                     }
                     steps {
-                        runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
+                        runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('Setup HA PMM Server Instance') {
