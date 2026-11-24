@@ -1260,6 +1260,15 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
     // starts, so a test starting later wipes out the tests already running.
     // SKIP_DELETE=1: the teardown after a test also removes cert-manager and RBAC, so the
     // runner deletes only the test's own namespaces below instead.
+    // Cluster-wide: a test that shares the cluster gets its own operator namespace
+    // <test>-<hex>-op (new on each attempt), and SHARED_CLUSTER=1 makes that operator use its own
+    // ClusterRole and ClusterRoleBinding and watch only the test namespace.
+    def ownCluster = testVariables.tests[testId].ownCluster
+    def clusterWide = testVariables.cluster_wide == 'YES'
+    def operatorExports = (clusterWide && !ownCluster) ? """
+            export OPERATOR_NS="${testName}-\$(head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \\n')-op"
+            export SHARED_CLUSTER=1
+    """ : ''
     runTest(
         testId: testId,
         clusterSuffix: clusterSuffix,
@@ -1273,15 +1282,20 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
             export DELETE_CRD_ON_START=0
             export CLEAN_NAMESPACE=0
             export SKIP_DELETE=1
+            ${operatorExports}
         """.stripIndent().trim()
     )
 
     // Free the CPU and memory of a finished test before the slot starts the next one. A test that
-    // ran alone may leave cluster-wide state the next tests must not see, such as cert-manager.
+    // ran alone may leave cluster-wide state the next tests must not see, such as cert-manager, or
+    // in cluster-wide mode its operator, which watches every namespace.
     try {
         testVariables.libraries.tools.kubectlDeleteTestNamespaces(clusterKubeconfig, testName)
-        if (testVariables.tests[testId].ownCluster) {
+        if (ownCluster) {
             testVariables.libraries.tools.kubectlDeleteCertManager(clusterKubeconfig)
+            if (clusterWide) {
+                testVariables.libraries.tools.kubectlDeleteClusterWideOperator(clusterKubeconfig, "${testVariables.operator}-operator")
+            }
         }
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
         throw exc

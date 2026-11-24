@@ -2,7 +2,7 @@
 // with one test per cluster. Same flow as psmdbo_gke.groovy, with three differences:
 // - NUM_CLUSTERS, TESTS_PER_CLUSTER and SLOT_START_DELAY are parameters;
 // - IMAGE_OPERATOR is required and the job never builds or pushes an operator image;
-// - the operator runs namespaced (cluster-wide mode shares one operator between tests).
+// - CLUSTER_WIDE=YES gives each shared test its own cluster-wide operator (SHARED_CLUSTER=1).
 import groovy.transform.Field
 
 @Field List clusters = []
@@ -28,6 +28,7 @@ pipeline {
         text(name: 'TEST_LIST', defaultValue: '', description: 'Tests to run, one per line. Empty: the release suite. Tests tagged ownCluster or locks in tests.yaml are kept apart (operator branches with select_tests.py placement).')
         string(name: 'NUM_CLUSTERS', defaultValue: '1', description: 'Number of GKE clusters')
         string(name: 'TESTS_PER_CLUSTER', defaultValue: '4', description: 'Tests running at the same time on each cluster. 1 gives the serial baseline.')
+        choice(name: 'CLUSTER_WIDE', choices: ['NO', 'YES'], description: 'YES: each test that shares a cluster gets its own cluster-wide operator, which watches only its test namespace')
         string(name: 'SLOT_START_DELAY', defaultValue: '0', description: 'Seconds between the first test of each slot, so the startup load does not line up')
         choice(name: 'CLUSTER_LOAD', choices: ['YES', 'NO'], description: 'Sample kubectl top nodes during the run: load per test case in the Allure report, one line per cluster in the log')
         string(name: 'LOAD_HIGH_CPU', defaultValue: '90', description: 'Mark a cluster HIGH when its busiest node stays at this CPU % or more...')
@@ -102,7 +103,7 @@ pipeline {
                             platform_version        : PLATFORM_VER,
                             platform_arch           : 'amd64',
                             zone                    : GKE_REGION,
-                            cluster_wide            : 'NO',
+                            cluster_wide            : CLUSTER_WIDE,
                             pillar_version          : 'none',
                             git_branch              : GIT_BRANCH,
                             source_repo             : sourceRepo,

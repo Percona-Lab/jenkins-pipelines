@@ -483,6 +483,29 @@ void kubectlDeleteTestNamespaces(String kubeconfig, String testName) {
                     fi
                     kubectl delete namespace "$namespace" --wait=false --request-timeout=10s
                 done
+
+            # Cluster-wide operators of a shared cluster (SHARED_CLUSTER=1) are named after their
+            # <test>-<hex>-op namespace.
+            kubectl get clusterrole,clusterrolebinding --request-timeout=10s -o name \
+                | grep -E -- "-${TEST_NAME}-[0-9a-f]+-op\\$" \
+                | xargs -r kubectl delete --ignore-not-found --wait=false --request-timeout=10s
+            exit 0
+        '''
+    }
+}
+
+// Removes the cluster-wide operator of a test that ran alone: it watches every namespace, so it
+// would also reconcile the clusters of the tests that share the cluster next.
+void kubectlDeleteClusterWideOperator(String kubeconfig, String operatorNamespace) {
+    withEnv([
+        "KUBECONFIG=${kubeconfig}",
+        "OPERATOR_NS=${operatorNamespace}"
+    ]) {
+        sh '''
+            set +e
+            kubectl delete namespace "$OPERATOR_NS" --ignore-not-found --timeout=120s
+            kubectl delete clusterrolebinding service-account-percona-server-mongodb-operator --ignore-not-found --request-timeout=30s
+            kubectl delete clusterrole percona-server-mongodb-operator --ignore-not-found --request-timeout=30s
             exit 0
         '''
     }
