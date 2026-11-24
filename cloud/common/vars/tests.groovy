@@ -267,6 +267,7 @@ void validateTestVariables(Map testVariables) {
     }
 
     def knownKeys = [
+        'allure',
         'cert_manager_version',
         'cluster_suffix_prefix',
         'cluster_wide',
@@ -923,12 +924,15 @@ void runTest(Map testConfig) {
             try {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
+                // One Allure results folder per test: publishAllureReport collects them per test.
+                def allureExports = testVariables.allure ? "export ALLURE_RESULTS_DIR=e2e-tests/allure-results/${testName}" : ''
 
                 timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
                     exitCode = sh(
                         script: """
                             cd source
                             ${exports}
+                            ${allureExports}
                             ${testVariables.pre_test_sh ?: ''}
                             ${command}
                         """,
@@ -1008,6 +1012,9 @@ void runTest(Map testConfig) {
             echo "Warning: failed to push log for ${testName}: ${logErr}"
         }
         stash name: "report-${testName}", includes: "source/e2e-tests/reports/${testName}.*", allowEmpty: true
+        if (testVariables.allure) {
+            stash name: "allure-${testName}", includes: "source/e2e-tests/allure-results/${testName}/**", allowEmpty: true
+        }
         echo "The ${testName} test was finished!"
     }
 }
@@ -1447,6 +1454,51 @@ void shutdownLeftoverClusters(Map testVariables) {
     }
 }
 
+// Publishes one Allure report from the per-test results that runTest stashes when
+// testVariables.allure is set. The per-test folders are merged into one before publishing:
+// the plugin copies the previous build's history into every results path, so several paths
+// would repeat each history entry in the trend. Tests skipped because they passed in an earlier
+// build have no results here. A publishing problem does not fail the build.
+void publishAllureReport(Map testVariables) {
+    if (!testVariables?.allure || !testVariables.tests) {
+        return
+    }
+
+    def merged = 'source/e2e-tests/allure-results-merged'
+    sh "rm -rf ${merged} && mkdir -p ${merged}"
+    def found = false
+    for (int i = 0; i < testVariables.tests.size(); i++) {
+        def testName = testVariables.tests[i].name
+        if (testVariables.tests[i].result == 'skipped') {
+            continue
+        }
+        try {
+            unstash "allure-${testName}"
+        } catch (ignored) {
+            continue
+        }
+        def dir = "source/e2e-tests/allure-results/${testName}"
+        if (sh(returnStatus: true, script: "ls ${dir}/*-result.json >/dev/null 2>&1") == 0) {
+            // Result files have unique names; environment.properties is the same per run.
+            sh "cp -R ${dir}/. ${merged}/"
+            found = true
+        }
+    }
+
+    if (!found) {
+        echo 'No Allure results to publish (operator branches before PR #2726 write none)'
+        return
+    }
+    try {
+        allure includeProperties: false, results: [[path: merged]]
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (Throwable exc) {
+        // Throwable: a missing plugin raises NoSuchMethodError, which is not an Exception.
+        echo "Warning: failed to publish the Allure report: ${exc}"
+    }
+}
+
 void finalizeJob(Map testVariables) {
     if (!testVariables?.libraries) {
         echo 'Skipping finalize: libraries not loaded'
@@ -1464,6 +1516,7 @@ void finalizeJob(Map testVariables) {
         if (testVariables.test_executor_type == 'make') {
             makeReport(testVariables.tests, testVariables)
         }
+        publishAllureReport(testVariables)
     }
 
     try {
