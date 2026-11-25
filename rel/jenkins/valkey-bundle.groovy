@@ -113,7 +113,7 @@ pipeline {
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
+                valkeyUpload { uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source') }
             }
         }
         stage('Build valkey-bundle generic source packages') {
@@ -127,7 +127,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_bundle_src_rpm")
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Build valkey-bundle source deb') {
@@ -139,7 +139,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_bundle_src_deb")
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH) }
                     }
                 }
             }  //parallel
@@ -155,7 +155,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Oracle Linux 8 ARM') {
@@ -167,7 +167,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -179,7 +179,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
@@ -191,7 +191,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Oracle Linux 10') {
@@ -203,7 +203,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:10", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
@@ -215,7 +215,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:10", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Amazon Linux 2023') {
@@ -227,7 +227,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
@@ -239,7 +239,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "--build_bundle_rpm")
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        valkeyUpload { uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
@@ -251,7 +251,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
@@ -263,7 +263,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
@@ -275,7 +275,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
@@ -287,7 +287,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Ubuntu Resolute(26.04)') {
@@ -299,7 +299,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:resolute-20260627", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
@@ -311,7 +311,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:resolute-20260627", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Debian Bookworm(12)') {
@@ -323,7 +323,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Debian Bookworm(12) ARM') {
@@ -335,7 +335,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Debian Trixie(13)') {
@@ -347,7 +347,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
@@ -359,7 +359,7 @@ pipeline {
                         valkeyPopArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_bundle_deb")
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        valkeyUpload { uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH) }
                     }
                 }
             }  //parallel
