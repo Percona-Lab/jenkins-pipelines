@@ -2,7 +2,7 @@ import groovy.transform.Field
 import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field String gitNamespace = 'percona'
-@Field String slackChannel = '#cloud-dev-ci'
+@Field String slackChannel = '#cloud-security-builds'
 @Field String slackReviewers = '<!subteam^S0BMRS62UPK|@kubescrew-qa> <!subteam^S08R5PPDQ74|@kubescrew-dev>'
 @Field Map libraries = [:]
 
