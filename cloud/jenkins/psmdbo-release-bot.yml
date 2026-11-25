@@ -1,0 +1,18 @@
+- job:
+    name: psmdbo-release-bot
+    project-type: pipeline
+    description: |
+        PSMDB release bot: one pass every 3 minutes over the release tracking issue in
+        Percona-Lab/operator-release-bot (starts the psmdbo-* builds QA asks for, writes results back).
+        Do not edit this job through the web!
+    triggers:
+      - timed: "H/3 * * * *"
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/psmdbo_release_bot.groovy
