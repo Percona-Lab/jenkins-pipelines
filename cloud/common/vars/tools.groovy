@@ -676,8 +676,10 @@ void addClusterLoadToAllure(String resultsDir, String samplesFile, Map limits) {
                         '$1 >= from && $1 <= to { $1 = $1 - start; print }' "$LOAD_SAMPLES"
                 } > "$RESULTS/$attachment"
 
+                # excluded: the value differs between attempts, and Allure groups a retry with its
+                # earlier attempts only when their parameters match.
                 jq --arg value "$value" --arg source "$attachment" '
-                    .parameters = ((.parameters // []) + [{"name": "Cluster load", "value": $value}])
+                    .parameters = ((.parameters // []) + [{"name": "Cluster load", "value": $value, "excluded": true}])
                     | .attachments = ((.attachments // []) + [{"name": "Cluster load", "source": $source, "type": "text/plain"}])
                 ' "$result" > "$result.tmp" && mv "$result.tmp" "$result"
             done
