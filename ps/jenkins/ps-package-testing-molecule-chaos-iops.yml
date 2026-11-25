@@ -1,0 +1,20 @@
+- job:
+    name: ps-package-testing-molecule-chaos-iops
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Sequential QEMU install-testing on the "lenovo" node with the guest
+        disk IOPS swept across a range (default 100 -> 1000). One VM at a time.
+    properties:
+        - build-discarder:
+            num-to-keep: 100
+    concurrent: false
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'local-jenkins-chaos'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: ps/jenkins/ps-package-testing-molecule-chaos-iops.groovy
