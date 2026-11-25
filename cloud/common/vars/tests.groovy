@@ -990,10 +990,28 @@ Boolean holdsAny(List held, List locks) {
     return false
 }
 
+// A test that failed next to other tests (runTest with retryAlone) goes back to the queue as an
+// ownCluster test, so its retry runs alone. Done here, under the lock and after `running` is
+// cleared, so no slot can claim the retry while this slot still counts it as running.
 @com.cloudbees.groovy.cps.NonCPS
 void markTestFinished(List tests, Integer testId) {
     synchronized (tests) {
-        tests[testId].running = false
+        def test = tests[testId]
+        test.running = false
+        if (test.requeueAlone) {
+            test.requeueAlone = false
+            test.retriedAlone = true
+            test.ownCluster = true
+            test.result = 'skipped'
+        }
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void markTestForRetryAlone(List tests, Integer testId, Integer attemptsDone) {
+    synchronized (tests) {
+        tests[testId].requeueAlone = true
+        tests[testId].attemptsDone = attemptsDone
     }
 }
 
@@ -1049,11 +1067,16 @@ void runTest(Map testConfig) {
     def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 60) as Integer
     def timeStart = System.currentTimeMillis()
     def finalResult = 'failure'
+    // A retry that runs alone after a failure next to other tests continues the attempt count.
+    def firstAttempt = ((testVariables.tests[testId].attemptsDone ?: 0) as Integer) + 1
+    def timeBefore = (firstAttempt > 1) ? ((testVariables.tests[testId].time ?: 0) as Double) : 0
+    def retriedAlone = testVariables.tests[testId].retriedAlone
+    def requeued = false
 
     updateTestResult(testVariables.tests, testId, 'failure')
 
     try {
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        for (int attempt = firstAttempt; attempt <= maxAttempts; attempt++) {
             echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts}, timeout ${testTimeoutMinutes} min)!"
 
             def exitCode = 1
@@ -1097,6 +1120,9 @@ void runTest(Map testConfig) {
                     testVariables.git_short_commit
                 )
                 updateTestResult(testVariables.tests, testId, 'passed')
+                if (retriedAlone) {
+                    echo "The ${testName} test passed alone after failing next to other tests. If this repeats, tag it ownCluster in tests.yaml."
+                }
                 return
             }
 
@@ -1120,6 +1146,13 @@ void runTest(Map testConfig) {
                 // A hung test usually hangs again; retrying would hold the cluster for another full timeout.
                 finalResult = 'error'
                 break
+            }
+
+            if (attempt < maxAttempts && testConfig.retryAlone) {
+                echo "The ${testName} test failed next to other tests: its retry will run alone on a cluster"
+                markTestForRetryAlone(testVariables.tests, testId, attempt)
+                requeued = true
+                return
             }
 
             if (attempt < maxAttempts) {
@@ -1146,7 +1179,7 @@ void runTest(Map testConfig) {
             error(failureMessage)
         }
     } finally {
-        updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
+        updateTestTime(testVariables.tests, testId, timeBefore + elapsedSeconds(System.currentTimeMillis() - timeStart))
         try {
             pushLogFile(testName, [
                 sourceDir     : 'source',
@@ -1159,7 +1192,9 @@ void runTest(Map testConfig) {
         if (testVariables.allure) {
             stash name: "allure-${testName}", includes: "source/e2e-tests/allure-results/${testName}/**", allowEmpty: true
         }
-        echo "The ${testName} test was finished!"
+        if (!requeued) {
+            echo "The ${testName} test was finished!"
+        }
     }
 }
 
@@ -1269,11 +1304,14 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
             export OPERATOR_NS="${testName}-\$(head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \\n')-op"
             export SHARED_CLUSTER=1
     """ : ''
+    // retryAlone: a test that fails next to other tests is retried alone, so a failure caused by
+    // sharing the cluster does not repeat, and "passed alone" shows which tests need ownCluster.
     runTest(
         testId: testId,
         clusterSuffix: clusterSuffix,
         testVariables: testVariables,
         retries: testVariables.retries ?: 1,
+        retryAlone: !ownCluster && testsPerCluster(testVariables) > 1,
         sharedClusterKubeconfig: clusterKubeconfig,
         slotExports: """
             export KUBECONFIG='${slotDir}/kubeconfig'
