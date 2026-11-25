@@ -1,0 +1,25 @@
+- job:
+    name: hetzner-valkey-ALL-NEXT
+    project-type: pipeline
+    description: |
+        Valkey-ALL with a release manifest and an optional release stage (for review
+        before it replaces hetzner-valkey-ALL). In order:
+          1. builds the packages (server, modules + admin, bundle) and waits until
+             repo.percona.com serves each one,
+          2. builds the test Docker images and runs the package tests,
+          3. archives valkey-release.txt / valkey-release-manifest.tsv: for every
+             component the published version-release and its PATH_TO_BUILD
+             (components not built in this run are carried over from the previous run),
+          4. with RELEASE: waits for approval, releases every component with
+             hetzner-RELEASE-from-repository and builds the release Docker images.
+        Triggers the individual hetzner-valkey-* jobs; does no building itself.
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: rel/jenkins/valkey-all-next.groovy
