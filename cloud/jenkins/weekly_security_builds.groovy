@@ -3,6 +3,7 @@ import org.jenkinsci.plugins.pipeline.modeldefinition.Utils
 
 @Field String gitNamespace = 'percona'
 @Field String slackChannel = '#cloud-dev-ci'
+@Field String slackReviewers = '<!subteam^S0BMRS62UPK|@kubescrew-qa> <!subteam^S08R5PPDQ74|@kubescrew-dev>'
 @Field Map libraries = [:]
 
 @Field List securityBuildStages = [
@@ -611,6 +612,7 @@ String createPullRequest(Map context) {
 void waitForMerge(Map context, String vulnerabilitySummary, String prUrl) {
     def message = [
         ':warning: *Security build awaiting PR merge*',
+        "${slackReviewers} please review the security pull request",
         '',
         "*Repository*: `${context.REPO_PATH}`",
         "*Branch*: `${context.SECURITY_BRANCH}`",
