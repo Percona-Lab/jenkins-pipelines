@@ -13,8 +13,17 @@
         scm:
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                # Fetch ONLY this branch (the repo has hundreds) and keep the
+                # clone shallow + incremental so the agent is not swamped by a
+                # full recursive workspace wipe + full re-clone on every build,
+                # which was stalling the node past the remoting ping timeout.
+                refspec: '+refs/heads/local-jenkins-chaos:refs/remotes/origin/local-jenkins-chaos'
+                honor-refspec: true
                 branches:
                     - 'local-jenkins-chaos'
-                wipe-workspace: true
+                shallow-clone: true
+                depth: 1
+                wipe-workspace: false
+                timeout: 20
         lightweight-checkout: true
         script-path: ps/jenkins/ps-package-testing-molecule-chaos-iops.groovy

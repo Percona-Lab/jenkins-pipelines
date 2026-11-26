@@ -328,19 +328,35 @@ pipeline {
     post {
         always {
             script {
-                // Best-effort teardown of every scenario in case a converge
-                // failed before its destroy ran.
-                def osList = parseOsList(params.OPERATING_SYSTEMS)
-                sh """
-                    if [ -d "${VENV_DIR}" ] && [ -d "${chaosMoleculeDir()}" ]; then
-                        . ${VENV_DIR}/bin/activate
-                        cd ${chaosMoleculeDir()}
-                        for s in ${osList.join(' ')}; do
-                            molecule destroy -s \${s} || true
-                        done
-                    fi
-                """
-                cleanupStaleVMs()
+                // The post block also runs after an early failure (e.g. a failed
+                // SCM checkout) where the environment{} block never initialised
+                // VENV_DIR and no VM work ran. Read it via env (null-safe) and
+                // skip teardown when there is nothing to tear down, so the post
+                // block never masks the real failure with a secondary
+                // MissingPropertyException. Wrap in try/catch so a dead/busy
+                // node can't turn teardown into the headline error either.
+                def venvDir = env.VENV_DIR
+                if (venvDir?.trim()) {
+                    try {
+                        // Best-effort teardown of every scenario in case a
+                        // converge failed before its destroy ran.
+                        def osList = parseOsList(params.OPERATING_SYSTEMS)
+                        sh """
+                            if [ -d "${venvDir}" ] && [ -d "${chaosMoleculeDir()}" ]; then
+                                . ${venvDir}/bin/activate
+                                cd ${chaosMoleculeDir()}
+                                for s in ${osList.join(' ')}; do
+                                    molecule destroy -s \${s} || true
+                                done
+                            fi
+                        """
+                        cleanupStaleVMs()
+                    } catch (err) {
+                        echo "Post-build teardown skipped (node unavailable or no VMs): ${err}"
+                    }
+                } else {
+                    echo "Skipping teardown: build failed before the environment was set up (no VENV_DIR)."
+                }
             }
             echo "Pipeline completed."
         }
