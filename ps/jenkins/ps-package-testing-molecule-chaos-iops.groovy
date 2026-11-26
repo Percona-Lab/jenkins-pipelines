@@ -70,39 +70,119 @@ def parseOsList(String raw) {
 
 // Sequential IOPS sweep. For each OS (one VM at a time) and for each IOPS value
 // in the range, export QEMU_IOPS so create.yml throttles the guest disk, then
-// run the create/converge/destroy lifecycle. converge runs the install PS
-// playbook selected via PLAYBOOK_VAR. Nothing here runs in parallel -- the
-// lenovo node brings up a single VM at a time.
+// run the create/converge/destroy lifecycle and TIME each phase. converge runs
+// the install PS playbook selected via PLAYBOOK_VAR -- its duration is the
+// headline IOPS metric. Nothing here runs in parallel: the lenovo node brings
+// up a single VM at a time.
+//
+// Returns a list of per-run maps: [os, iops, status, createSec, convergeSec].
+// Timing is captured inside the shell (robust to a converge failure) into a
+// per-run file that is always read back, so a failed install still reports how
+// long it ran before failing.
 def moleculeIopsSweepChaos(operatingSystems, iopsValues, venvDir) {
+    def results = []
     operatingSystems.each { os ->
         iopsValues.each { iops ->
             stage("${os} @ ${iops} IOPS") {
-                sh """
-                    set -e
-                    . ${venvDir}/bin/activate
-                    cd ${chaosMoleculeDir()}
-                    export QEMU_IOPS=${iops}
-                    echo "===== ${os}: installing PS with guest disk throttled to ${iops} IOPS ====="
-                    # On a create failure the real qemu error is redirected to
-                    # /tmp/qemu-<os>-stderr.log by the create playbook and never
-                    # reaches the molecule output - dump it (plus the serial
-                    # console tail) so the cause is visible in Jenkins.
-                    if ! molecule create -s ${os}; then
-                        echo "===== qemu stderr (${os}) ====="
-                        cat /tmp/qemu-${os}-stderr.log 2>/dev/null || echo "(no stderr log)"
-                        echo "===== qemu serial log tail (${os}) ====="
-                        tail -n 80 /tmp/qemu-${os}-serial.log 2>/dev/null || echo "(no serial log)"
-                        echo "===== /dev/kvm status ====="
-                        ls -l /dev/kvm 2>&1 || echo "(no /dev/kvm - expected on macOS/hvf)"
-                        id
-                        exit 1
-                    fi
-                    molecule converge -s ${os}
-                    molecule destroy  -s ${os}
-                """
+                def timingFile = "/tmp/iops-timing-${os}-${iops}.txt"
+                def runFailed = false
+                try {
+                    // set +e so a create/converge failure never skips the
+                    // timing write; the explicit exit at the end re-propagates
+                    // failure to Jenkins so the stage still goes red.
+                    sh """
+                        set +e
+                        . ${venvDir}/bin/activate
+                        cd ${chaosMoleculeDir()}
+                        export QEMU_IOPS=${iops}
+                        echo "===== ${os}: installing PS with guest disk throttled to ${iops} IOPS ====="
+
+                        cstart=\$(date +%s)
+                        molecule create -s ${os}
+                        crc=\$?
+                        cend=\$(date +%s)
+                        if [ \$crc -ne 0 ]; then
+                            # On a create failure the real qemu error is redirected
+                            # to /tmp/qemu-<os>-stderr.log by the create playbook and
+                            # never reaches molecule output - dump it (plus the serial
+                            # console tail) so the cause is visible in Jenkins.
+                            echo "===== qemu stderr (${os}) ====="
+                            cat /tmp/qemu-${os}-stderr.log 2>/dev/null || echo "(no stderr log)"
+                            echo "===== qemu serial log tail (${os}) ====="
+                            tail -n 80 /tmp/qemu-${os}-serial.log 2>/dev/null || echo "(no serial log)"
+                            echo "===== /dev/kvm status ====="
+                            ls -l /dev/kvm 2>&1 || echo "(no /dev/kvm - expected on macOS/hvf)"
+                            id
+                        fi
+
+                        vstart=\$(date +%s)
+                        vrc=1
+                        if [ \$crc -eq 0 ]; then
+                            molecule converge -s ${os}
+                            vrc=\$?
+                        fi
+                        vend=\$(date +%s)
+
+                        # Always record the two durations (space separated) to a
+                        # machine-readable file before exiting, and print a rich
+                        # human line (with return codes) to the console.
+                        printf '%s %s\\n' \$((cend - cstart)) \$((vend - vstart)) > ${timingFile}
+                        echo "----- ${os} @ ${iops} IOPS timing: create=\$((cend - cstart))s converge=\$((vend - vstart))s create_rc=\$crc converge_rc=\$vrc -----"
+
+                        # Tear down regardless so the next VM starts clean.
+                        molecule destroy -s ${os} || true
+
+                        # Re-propagate the real outcome to Jenkins.
+                        [ \$crc -eq 0 ] && [ \$vrc -eq 0 ]
+                        exit \$?
+                    """
+                } catch (err) {
+                    runFailed = true
+                    echo "Run ${os} @ ${iops} IOPS failed: ${err}"
+                }
+
+                // Read back the timing the shell recorded (present even on
+                // failure). Fall back to zeros if the VM died before writing it.
+                def createSec = '0'
+                def convergeSec = '0'
+                if (fileExists(timingFile)) {
+                    def parts = readFile(timingFile).trim().split(/\s+/)
+                    if (parts.size() >= 2) {
+                        createSec = parts[0]
+                        convergeSec = parts[1]
+                    }
+                }
+                def status = runFailed ? 'FAIL' : 'PASS'
+                results << [os: os, iops: iops, status: status, createSec: createSec, convergeSec: convergeSec]
+                echo "RESULT ${os} @ ${iops} IOPS -> ${status} | create=${createSec}s converge(install)=${convergeSec}s"
             }
         }
     }
+    return results
+}
+
+// Render the sweep results as a human-readable table and a CSV, print the
+// table to the build log, write the CSV into the workspace and archive it so
+// the IOPS-vs-time data can be downloaded/graphed from the build page.
+def reportIopsResults(results) {
+    if (!results) {
+        echo "No IOPS runs were executed - nothing to report."
+        return
+    }
+    def table = new StringBuilder()
+    table << "\n===== IOPS SWEEP TIMING SUMMARY =====\n"
+    table << String.format("%-14s %-7s %-7s %-11s %-20s%n",
+        'OS', 'IOPS', 'STATUS', 'CREATE(s)', 'CONVERGE/install(s)')
+    def csv = new StringBuilder()
+    csv << "os,iops,status,create_sec,converge_install_sec\n"
+    results.each { r ->
+        table << String.format("%-14s %-7s %-7s %-11s %-20s%n",
+            r.os, "${r.iops}", r.status, "${r.createSec}", "${r.convergeSec}")
+        csv << "${r.os},${r.iops},${r.status},${r.createSec},${r.convergeSec}\n"
+    }
+    echo table.toString()
+    writeFile file: 'iops-timings.csv', text: csv.toString()
+    archiveArtifacts artifacts: 'iops-timings.csv', allowEmptyArchive: true, fingerprint: true
 }
 
 // Kill leftover VMs / disks from previous runs on the agent. Everything here is
@@ -312,14 +392,25 @@ pipeline {
                     }
                     echo "Sweeping IOPS ${iopsValues.join(', ')} over scenarios: ${osList.join(', ')} (one VM at a time)"
 
+                    def results = []
                     withEnv(envMap) {
                         if (product_to_test == "ps_57") {
                             withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                                moleculeIopsSweepChaos(osList, iopsValues, "${VENV_DIR}")
+                                results = moleculeIopsSweepChaos(osList, iopsValues, "${VENV_DIR}")
                             }
                         } else {
-                            moleculeIopsSweepChaos(osList, iopsValues, "${VENV_DIR}")
+                            results = moleculeIopsSweepChaos(osList, iopsValues, "${VENV_DIR}")
                         }
+                    }
+
+                    // Always print the IOPS-vs-time summary + archive the CSV,
+                    // then flag the build UNSTABLE if any run failed so the
+                    // whole sweep's timing data survives a single failed install
+                    // (e.g. an install that cannot keep up at a low IOPS cap).
+                    reportIopsResults(results)
+                    if (results.any { it.status == 'FAIL' }) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo "One or more IOPS runs failed - see the summary above."
                     }
                 }
             }
