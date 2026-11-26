@@ -16,10 +16,9 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //
 //   Release notes        waits up to 2 hours for the docs release notes and the GitHub release,
 //                        which the docs workflow publishes from the GA tag, then checks them
-//   Downloads and repos  waits up to 2 hours for the client tarballs and docker images on
-//                        percona.com/downloads and the pmm3-client packages, then checks them
-//   Published release    the private OL8/OL9 GSSAPI tarballs and a fresh install through
-//                        percona.com/get/pmm
+//   Published release    percona.com/downloads and the pmm3-client repos (polled every 10
+//                        minutes for up to 2 hours), the private OL8/OL9 GSSAPI tarballs, and a
+//                        fresh install through percona.com/get/pmm
 //   Docker upgrade       waits for the release in the PROD Version Service, checks it, then
 //                        previous -> latest upgrade with the @post-release specs run before it
 //   Helm                 waits for the pmm and pmm-ha charts that ship the release, then
@@ -86,50 +85,6 @@ boolean releaseNotesPublished(String version) {
     int end = page.indexOf('</title>')
     return start >= 0 && end > start && page.substring(start, end).contains("PMM ${version} ") &&
         fetch("https://api.github.com/repos/percona/pmm/releases/tags/v${version}")
-}
-
-boolean available(String url) {
-    try {
-        return httpRequest(url: url, httpMode: 'HEAD', validResponseCodes: '100:599', quiet: true, timeout: 60).status == 200
-    } catch (err) {
-        return false
-    }
-}
-
-@NonCPS
-boolean hasDeb(String pool, String version, String arch) {
-    String[] names = pool.split('pmm-client_' + version.replace('.', '\\.') + '-')
-    for (int i = 1; i < names.length; i++) {
-        if (names[i].split('["<]')[0].endsWith('_' + arch + '.deb')) {
-            return true
-        }
-    }
-    return false
-}
-
-// The same files as the 'Check downloads and repos' stage, which reports each one.
-boolean downloadsPublished(String v) {
-    String downloads = 'https://downloads.percona.com/downloads/pmm3/' + v
-    List<String> urls = []
-    for (String f : ["binary/tarball/pmm-client-${v}-x86_64.tar.gz", "binary/tarball/pmm-client-${v}-x86_64.tar.gz.sha256sum",
-                     "binary/tarball/pmm-client-${v}-aarch64.tar.gz", "binary/tarball/pmm-client-${v}-aarch64.tar.gz.sha256sum",
-                     "docker/pmm-server-${v}.docker", "docker/pmm-server-${v}.sha256sum",
-                     "docker/pmm-server-${v}-amd64.docker", "docker/pmm-server-${v}-arm64.docker",
-                     "docker/pmm-client-${v}-amd64.docker", "docker/pmm-client-${v}-arm64.docker"]) {
-        urls.add(downloads + '/' + f)
-    }
-    for (String el : ['8', '9', '10']) {
-        for (String arch : ['x86_64', 'aarch64']) {
-            urls.add("https://repo.percona.com/pmm3-client/yum/release/${el}/RPMS/${arch}/pmm-client-${v}-1.el${el}.${arch}.rpm".toString())
-        }
-    }
-    for (String url : urls) {
-        if (!available(url)) {
-            return false
-        }
-    }
-    String pool = fetch('https://repo.percona.com/pmm3-client/apt/pool/main/p/pmm-client/')
-    return hasDeb(pool, v, 'amd64') && hasDeb(pool, v, 'arm64')
 }
 
 void waitForCharts() {
@@ -275,30 +230,16 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                         }
                     }
                 }
-                stage('Downloads and repos') {
+                stage('Published release') {
+                    agent {
+                        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
+                    }
                     stages {
-                        stage('Wait for downloads and repos') {
-                            steps {
-                                // Downloads can lag the upload by over half an hour: 3.11.0's arm64
-                                // client image answered 404 for 38 minutes after pmm3-release copied it.
-                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                                    script {
-                                        waitFor("every ${env.PMM_SERVER_LATEST} file on percona.com/downloads and repo.percona.com", 2) {
-                                            downloadsPublished(env.PMM_SERVER_LATEST)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        stage('Check downloads and repos') {
-                            agent {
-                                label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
-                            }
+                        stage('Downloads and repos') {
                             steps {
                                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                                     sh '''
                                         V=${PMM_SERVER_LATEST}
-                                        failed=0
                                         check() {
                                             local code
                                             code=$(curl -s -o /dev/null -w "%{http_code}" -I "$1")
@@ -306,46 +247,49 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                                             [ "${code}" = "200" ] || failed=1
                                         }
 
-                                        downloads="https://downloads.percona.com/downloads/pmm3/${V}"
-                                        for f in \
-                                            binary/tarball/pmm-client-${V}-x86_64.tar.gz \
-                                            binary/tarball/pmm-client-${V}-x86_64.tar.gz.sha256sum \
-                                            binary/tarball/pmm-client-${V}-aarch64.tar.gz \
-                                            binary/tarball/pmm-client-${V}-aarch64.tar.gz.sha256sum \
-                                            docker/pmm-server-${V}.docker \
-                                            docker/pmm-server-${V}.sha256sum \
-                                            docker/pmm-server-${V}-amd64.docker \
-                                            docker/pmm-server-${V}-arm64.docker \
-                                            docker/pmm-client-${V}-amd64.docker \
-                                            docker/pmm-client-${V}-arm64.docker; do
-                                            check "${downloads}/${f}"
-                                        done
-
-                                        for el in 8 9 10; do
-                                            for arch in x86_64 aarch64; do
-                                                check "https://repo.percona.com/pmm3-client/yum/release/${el}/RPMS/${arch}/pmm-client-${V}-1.el${el}.${arch}.rpm"
+                                        check_all() {
+                                            failed=0
+                                            downloads="https://downloads.percona.com/downloads/pmm3/${V}"
+                                            for f in \
+                                                binary/tarball/pmm-client-${V}-x86_64.tar.gz \
+                                                binary/tarball/pmm-client-${V}-x86_64.tar.gz.sha256sum \
+                                                binary/tarball/pmm-client-${V}-aarch64.tar.gz \
+                                                binary/tarball/pmm-client-${V}-aarch64.tar.gz.sha256sum \
+                                                docker/pmm-server-${V}.docker \
+                                                docker/pmm-server-${V}.sha256sum \
+                                                docker/pmm-server-${V}-amd64.docker \
+                                                docker/pmm-server-${V}-arm64.docker \
+                                                docker/pmm-client-${V}-amd64.docker \
+                                                docker/pmm-client-${V}-arm64.docker; do
+                                                check "${downloads}/${f}"
                                             done
-                                        done
 
-                                        pool=$(curl -sfL https://repo.percona.com/pmm3-client/apt/pool/main/p/pmm-client/)
-                                        for arch in amd64 arm64; do
-                                            debs=$(echo "${pool}" | grep -oE "pmm-client_${V}-[^\\"<]*_${arch}\\.deb" | sort -u)
-                                            echo "apt ${arch}: $(echo ${debs})"
-                                            [ -n "${debs}" ] || { echo "No pmm-client ${V} ${arch} .deb in the apt pool" >&2; failed=1; }
-                                        done
+                                            for el in 8 9 10; do
+                                                for arch in x86_64 aarch64; do
+                                                    check "https://repo.percona.com/pmm3-client/yum/release/${el}/RPMS/${arch}/pmm-client-${V}-1.el${el}.${arch}.rpm"
+                                                done
+                                            done
 
-                                        exit ${failed}
+                                            pool=$(curl -sfL https://repo.percona.com/pmm3-client/apt/pool/main/p/pmm-client/)
+                                            for arch in amd64 arm64; do
+                                                debs=$(echo "${pool}" | grep -oE "pmm-client_${V}-[^\\"<]*_${arch}\\.deb" | sort -u)
+                                                echo "apt ${arch}: $(echo ${debs})"
+                                                [ -n "${debs}" ] || { echo "No pmm-client ${V} ${arch} .deb in the apt pool" >&2; failed=1; }
+                                            done
+                                        }
+
+                                        # Downloads can lag the upload: 3.11.0's arm64 client image was served 30 minutes late.
+                                        for attempt in $(seq 13); do
+                                            check_all
+                                            [ "${failed}" = 0 ] && exit 0
+                                            [ "${attempt}" = 13 ] && exit 1
+                                            echo "Not all files are published yet, checking again in 10 minutes"
+                                            sleep 600
+                                        done
                                     '''
                                 }
                             }
                         }
-                    }
-                }
-                stage('Published release') {
-                    agent {
-                        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
-                    }
-                    stages {
                         stage('GSSAPI tarballs') {
                             steps {
                                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
