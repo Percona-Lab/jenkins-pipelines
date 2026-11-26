@@ -89,6 +89,11 @@ pipeline {
     }
 
     options {
+        // Save pipeline state at the end of each stage, not after every step. With
+        // many parallel platform stages the per-step saves overload the controller
+        // ("cannot find current thread in CpsStepContext", ClosedByInterruptException
+        // in saveProgram). A build cut off by a controller restart is rerun instead.
+        durabilityHint('PERFORMANCE_OPTIMIZED')
         skipDefaultCheckout()
         disableConcurrentBuilds()
         buildDiscarder(
