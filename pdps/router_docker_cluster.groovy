@@ -49,6 +49,18 @@ pipeline {
       name: 'PS_VERSION'
     )
     string(
+      defaultValue: '',
+      description: 'Expected mysqlsh version in the PS image (the "Ver" part of mysqlsh --version), e.g. 8.4.10. Empty: the mysqlsh version test is skipped.',
+      name: 'PSHELL_VERSION',
+      trim: true
+    )
+    string(
+      defaultValue: '',
+      description: 'PS version mysqlsh is built for (the "for MySQL" part of mysqlsh --version), e.g. 8.4.13-13. Empty: not checked.',
+      name: 'PSHELL_BUILT_FOR',
+      trim: true
+    )
+    string(
       defaultValue: 'https://github.com/kaushikpuneet07/package-testing.git',
       description: 'Repo for package-testing repository',
       name: 'TESTING_REPO'
