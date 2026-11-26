@@ -26,7 +26,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //                        pmm3-ha-upgrade-tests builds on CLUSTER_TYPE: the released pmm-ha
 //                        chart installed, and the previous release's chart upgraded to it
 //
-// Ends with a one-line result in #pmm-internal.
+// Ends with a one-line result in #qa-automation.
 
 String fetch(String url) {
     try {
@@ -640,7 +640,7 @@ ENDSSH
         always {
             script {
                 def result = currentBuild.currentResult
-                slackSend botUser: true, channel: '#pmm-internal', color: result == 'SUCCESS' ? '#00FF00' : '#FF0000',
+                slackSend botUser: true, channel: '#qa-automation', color: result == 'SUCCESS' ? '#00FF00' : '#FF0000',
                           message: "PMM ${env.PMM_SERVER_LATEST ?: params.PMM_VERSION} post-release tests: ${result}. ${env.BUILD_URL}"
             }
         }
