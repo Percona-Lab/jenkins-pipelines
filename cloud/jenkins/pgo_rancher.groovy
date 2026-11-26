@@ -13,6 +13,59 @@ def getLibraries() {
     libraries = loader.loadLibraries()
 }
 
+String effectivePgMajor() {
+    def pillarVersion = "${testVariables?.pillar_version ?: PILLAR_VERSION}"
+    if (pillarVersion.endsWith('-community')) {
+        return pillarVersion.replace('-postgis', '').replace('-community', '')
+    }
+
+    def image = "${testVariables?.images?.IMAGE_POSTGRESQL ?: IMAGE_POSTGRESQL ?: ''}".trim()
+    if (image) {
+        def fromImage = sh(script: "echo \"${image}\" | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/'", returnStdout: true).trim()
+        if (fromImage ==~ /\d{1,2}/) {
+            return fromImage
+        }
+        echo "Could not parse PostgreSQL major version from IMAGE_POSTGRESQL=${image}"
+    }
+
+    if (pillarVersion && pillarVersion != 'none') {
+        return pillarVersion.replace('-postgis', '').replace('-community', '')
+    }
+
+    def fromParam = "${PG_VERSION ?: ''}".replaceAll(/^\D+/, '').replaceAll(/\D.*/, '')
+    return (fromParam ==~ /\d{1,2}/) ? fromParam : ''
+}
+
+Boolean pgSupportsTde() {
+    def major = effectivePgMajor()
+    if (!major) {
+        echo "PostgreSQL major version is unset. TDE tests will run."
+        return true
+    }
+    echo "PostgreSQL major version is $major"
+    return major.toInteger() >= 17
+}
+
+void skipUnsupportedTests() {
+    def skip = []
+    if (!pgSupportsTde()) {
+        echo "PostgreSQL versions below 17 do not support TDE. Those tests will be skipped."
+        skip += ["pg-tde", "pg-tde-wal-encrypt", "start-from-backup-tde"]
+    }
+    if ("${testVariables?.ubi_version ?: UBI_VERSION}" in ["UBI8", "UBI10"]) {
+        echo "Crunchy migration tests are skipped for ${testVariables?.ubi_version ?: UBI_VERSION}."
+        skip += ["migration-from-crunchy-backup-restore", "migration-from-crunchy-pv", "migration-from-crunchy-standby"]
+    }
+    def loadedTests = testVariables.tests ?: []
+    for (int i = 0; i < loadedTests.size(); i++) {
+        if (skip.contains("${loadedTests[i].name}".trim())) {
+            echo "Skipping ${loadedTests[i].name}"
+            loadedTests[i].result = "skipped"
+            loadedTests[i].run = "no"
+        }
+    }
+}
+
 pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-community.csv', 'run-distro.csv'], description: 'Choose test suite from file')
@@ -157,6 +210,8 @@ pipeline {
                     } else {
                         echo 'All tests will be re-run, ignoring previous execution results!'
                     }
+
+                    skipUnsupportedTests()
 
                     // Cloud secrets and the source stash are prepared in buildParallelClusterStages,
                     // after the operator image build, so the secrets never enter the Docker build context.

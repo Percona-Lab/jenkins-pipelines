@@ -170,6 +170,56 @@ void dockerBuildPush() {
     }
 }
 
+String effectivePgMajor() {
+    if ("$PILLAR_VERSION".endsWith("-community")) {
+        return getPillarVersionKey()
+    }
+
+    if ("$IMAGE_POSTGRESQL") {
+        def fromImage = sh(script: "echo \"\$IMAGE_POSTGRESQL\" | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/'", returnStdout: true).trim()
+        if (fromImage ==~ /\d{1,2}/) {
+            return fromImage
+        }
+        echo "Could not parse PostgreSQL major version from IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL"
+    }
+
+    if ("$PILLAR_VERSION" && "$PILLAR_VERSION" != "none") {
+        return getPillarVersionKey()
+    }
+
+    def fromParam = "$PG_VER".replaceAll(/^\D+/, "").replaceAll(/\D.*/, "")
+    return (fromParam ==~ /\d{1,2}/) ? fromParam : ""
+}
+
+Boolean pgSupportsTde() {
+    def major = effectivePgMajor()
+    if (!major) {
+        echo "PostgreSQL major version is unset. TDE tests will run."
+        return true
+    }
+    echo "PostgreSQL major version is $major"
+    return major.toInteger() >= 17
+}
+
+void skipUnsupportedTests() {
+    def skip = []
+    if (!pgSupportsTde()) {
+        echo "PostgreSQL versions below 17 do not support TDE. Those tests will be skipped."
+        skip += ["pg-tde", "pg-tde-wal-encrypt", "start-from-backup-tde"]
+    }
+    if ("$UBI_VERSION" in ["UBI8", "UBI10"]) {
+        echo "Crunchy migration tests are skipped for $UBI_VERSION."
+        skip += ["migration-from-crunchy-backup-restore", "migration-from-crunchy-pv", "migration-from-crunchy-standby"]
+    }
+    for (int i = 0; i < tests.size(); i++) {
+        if (skip.contains(tests[i]["name"].toString().trim())) {
+            echo "Skipping ${tests[i]["name"]}"
+            tests[i]["result"] = "skipped"
+            tests[i]["run"] = "no"
+        }
+    }
+}
+
 void initTests() {
     echo "=========================[ Initializing the tests ]========================="
 
@@ -215,6 +265,8 @@ void initTests() {
         }
     }
 
+    skipUnsupportedTests()
+
     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
@@ -230,7 +282,7 @@ void clusterRunner(String cluster) {
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
+        if (tests[i]["result"] == "skipped" && tests[i]["run"] != "no") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
             if (clusterCreated == 0) {

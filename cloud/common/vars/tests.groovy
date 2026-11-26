@@ -845,7 +845,7 @@ void cleanupFailedTestNamespaces(Map testVariables, String testName, String clus
 Integer claimNextSkippedTest(List tests, String clusterSuffix) {
     synchronized (tests) {
         def index = tests.findIndexOf { test ->
-            test.result == 'skipped'
+            test.result == 'skipped' && test['run'] != 'no'
         }
 
         if (index < 0) {
@@ -862,7 +862,7 @@ Integer claimNextSkippedTest(List tests, String clusterSuffix) {
 @com.cloudbees.groovy.cps.NonCPS
 Integer countSkippedTests(List tests) {
     synchronized (tests) {
-        return tests.count { test -> test.result == 'skipped' } as Integer
+        return tests.count { test -> test.result == 'skipped' && test['run'] != 'no' } as Integer
     }
 }
 
