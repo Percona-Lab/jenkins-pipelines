@@ -167,7 +167,7 @@ void skipUnsupportedTests() {
         echo "PostgreSQL versions below 17 do not support TDE. Those tests will be skipped."
         skip += ["pg-tde", "pg-tde-wal-encrypt", "start-from-backup-tde"]
     }
-    if ("$UBI_VERSION" in ["UBI8", "UBI10"]) {
+    if ("${UBI_VERSION}".toString() in ["UBI8", "UBI10"]) {
         echo "Crunchy migration tests are skipped for $UBI_VERSION."
         skip += ["migration-from-crunchy-backup-restore", "migration-from-crunchy-pv", "migration-from-crunchy-standby"]
     }
