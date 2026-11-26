@@ -169,19 +169,17 @@ def reportIopsResults(results) {
         echo "No IOPS runs were executed - nothing to report."
         return
     }
-    def table = new StringBuilder()
-    table << "\n===== IOPS SWEEP TIMING SUMMARY =====\n"
-    table << String.format("%-14s %-7s %-7s %-11s %-20s%n",
-        'OS', 'IOPS', 'STATUS', 'CREATE(s)', 'CONVERGE/install(s)')
-    def csv = new StringBuilder()
-    csv << "os,iops,status,create_sec,converge_install_sec\n"
+    // Use ONLY GString interpolation and String += : the Jenkins
+    // script-security sandbox rejects StringBuilder.leftShift (<<), and
+    // String.format / padRight may not be whitelisted either, so avoid them all.
+    def table = "\n===== IOPS SWEEP TIMING SUMMARY =====\n"
+    def csv = "os,iops,status,create_sec,converge_install_sec\n"
     results.each { r ->
-        table << String.format("%-14s %-7s %-7s %-11s %-20s%n",
-            r.os, "${r.iops}", r.status, "${r.createSec}", "${r.convergeSec}")
-        csv << "${r.os},${r.iops},${r.status},${r.createSec},${r.convergeSec}\n"
+        table += "${r.os} | ${r.iops} IOPS | ${r.status} | create ${r.createSec}s | converge(install) ${r.convergeSec}s\n"
+        csv += "${r.os},${r.iops},${r.status},${r.createSec},${r.convergeSec}\n"
     }
-    echo table.toString()
-    writeFile file: 'iops-timings.csv', text: csv.toString()
+    echo table
+    writeFile file: 'iops-timings.csv', text: csv
     archiveArtifacts artifacts: 'iops-timings.csv', allowEmptyArchive: true, fingerprint: true
 }
 
