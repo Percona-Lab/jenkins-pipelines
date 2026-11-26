@@ -488,7 +488,15 @@ void initTestRun(Map testVariables, Map config) {
     ])
 
     if (testsPerCluster(testVariables) > 1) {
-        testVariables.tests = loadTestPlacement(testVariables.tests)
+        def placed = loadTestPlacement(testVariables.tests)
+        if (placed == null) {
+            // Without the tags, tests that change the CRD, cert-manager or other cluster-wide
+            // resources would break the tests next to them: run one test at a time.
+            echo "WARNING: select_tests.py placement is not available on this operator branch; running 1 test per cluster instead of ${testsPerCluster(testVariables)}"
+            testVariables.tests_per_cluster = 1
+        } else {
+            testVariables.tests = placed
+        }
     }
 
     if (config.ignorePreviousRun == 'NO') {
@@ -503,7 +511,7 @@ void initTestRun(Map testVariables, Map config) {
 
 // Reads ownCluster and locks from the operator's tests.yaml (select_tests.py placement) and returns
 // the tests with ownCluster ones first, then tests with locks, so they spread over the clusters
-// early. An operator branch without the command gives no placement: every test may share.
+// early. Returns null on an operator branch without the command.
 List loadTestPlacement(List tests) {
     // One line per tagged test, "<name> <own|shared> <lock,lock|->", or NONE without the command.
     def output = sh(
@@ -519,8 +527,7 @@ List loadTestPlacement(List tests) {
         returnStdout: true
     ).trim()
     if (output == 'NONE') {
-        echo 'WARNING: select_tests.py placement is not available on this operator branch; every test may share a cluster'
-        return tests
+        return null
     }
 
     def placement = [:]

@@ -28,6 +28,7 @@ pipeline {
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Minikube kubernetes version. If set to rel, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
+        choice(name: 'TESTS_PER_CLUSTER', choices: ['1', '2', '3'], description: 'Tests that run at the same time on the cluster. minikube has one node, so the default is 1.')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.3')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
@@ -95,6 +96,7 @@ pipeline {
                         platform              : 'minikube',
                         platform_version      : platformVersion,
                         cluster_wide          : CLUSTER_WIDE,
+                        tests_per_cluster     : (params.TESTS_PER_CLUSTER ?: '1') as Integer,
                         pillar_version        : PILLAR_VERSION,
                         git_branch            : GIT_BRANCH,
                         source_repo           : sourceRepo,

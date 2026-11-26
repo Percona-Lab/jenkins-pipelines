@@ -32,6 +32,7 @@ pipeline {
         string(name: 'RANCHER_VERSION', defaultValue: 'latest', description: 'Rancher chart version. In release runs, latest or empty is replaced with RANCHER from source/e2e-tests/release_versions.')
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
+        choice(name: 'TESTS_PER_CLUSTER', choices: ['3', '2', '1'], description: 'Tests that run at the same time on each cluster. 1 runs one test at a time per cluster.')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.3')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
@@ -95,6 +96,7 @@ pipeline {
                         worker_count          : 4,
                         zone                  : RANCHER_ZONE,
                         cluster_wide          : CLUSTER_WIDE,
+                        tests_per_cluster     : (params.TESTS_PER_CLUSTER ?: '3') as Integer,
                         pillar_version        : PILLAR_VERSION,
                         git_branch            : GIT_BRANCH,
                         source_repo           : sourceRepo,
