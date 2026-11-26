@@ -9,23 +9,88 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 )
 
 // Checks what users get after a PMM 3 release: PMM_VERSION, or the newest percona/pmm-server
-// tag on Docker Hub. Run it once the release is published: docs, the Version Service production
-// entry and the bumped charts. A missing publication fails its branch; nothing here waits for,
-// opens or merges anything. Each branch of 'Post-release checks' reports on its own:
+// tag on Docker Hub. pmm3-release starts it when the release passes. The checks that need no
+// merge run at once; the ones that need the Version Service production PR or the Helm release PR
+// merged wait up to 24 hours for what that merge publishes, then fail with a message. Nothing
+// here opens or merges a PR.
 //
-//   Release notes        docs release notes and the percona/pmm GitHub release
-//   Downloads and repos  percona.com/downloads files and the pmm3-client yum/apt repos
-//   GSSAPI tarballs      the private OL8/OL9 dynamic client tarballs: checksums, then a
-//                        smoke run of their binaries on Oracle Linux 8 and 9
-//   Docker               fresh install through percona.com/get/pmm, the release in the PROD
-//                        Version Service, then previous -> latest upgrade with the
-//                        @post-release specs run before it
-//   Helm                 the bumped pmm and pmm-ha charts, then k8s/helm-post-release.bats from
-//                        pmm-qa on minikube: released chart install, previous -> latest upgrade
-//   HA                   two pmm3-ha-upgrade-tests builds on CLUSTER_TYPE: the released pmm-ha
-//                        chart installed, and the previous release's chart upgraded to it
+//   Release notes        waits up to 2 hours for the docs release notes and the GitHub release,
+//                        which the docs workflow publishes from the GA tag, then checks them
+//   Published release    percona.com/downloads and the pmm3-client repos, the private OL8/OL9
+//                        GSSAPI tarballs, and a fresh install through percona.com/get/pmm
+//   Docker upgrade       waits for the release in the PROD Version Service, checks it, then
+//                        previous -> latest upgrade with the @post-release specs run before it
+//   Helm                 waits for the pmm and pmm-ha charts that ship the release, then
+//                        k8s/helm-post-release.bats from pmm-qa on minikube
+//   HA                   waits for the same charts, then two pmm3-ha-upgrade-tests builds on
+//                        CLUSTER_TYPE: the released pmm-ha chart installed, and the previous
+//                        release's chart upgraded to it
 //
 // Ends with a one-line result in #pmm-internal.
+
+String fetch(String url) {
+    try {
+        def response = httpRequest(url: url, validResponseCodes: '100:599', quiet: true, timeout: 60)
+        return response.status == 200 ? response.content : ''
+    } catch (err) {
+        echo "${url}: ${err.message}"
+        return ''
+    }
+}
+
+// The newest chart version in a helm repo index that ships appVersion, or ''. The index lists
+// each chart's versions newest first, one '  - ' block each, with the chart's own keys at four
+// spaces of indent.
+@NonCPS
+String publishedChart(String index, String chart, String appVersion) {
+    for (String entry : index.split('\n  - ')) {
+        String e = entry + '\n'
+        if (e.contains('\n    name: ' + chart + '\n') &&
+            (e.contains('\n    appVersion: ' + appVersion + '\n') || e.contains('\n    appVersion: "' + appVersion + '"\n'))) {
+            int start = e.indexOf('\n    version: ')
+            if (start >= 0) {
+                start += '\n    version: '.length()
+                return e.substring(start, e.indexOf('\n', start)).trim()
+            }
+        }
+    }
+    return ''
+}
+
+boolean chartsPublished(String version) {
+    String index = fetch('https://percona.github.io/percona-helm-charts/index.yaml')
+    return publishedChart(index, 'pmm', version) && publishedChart(index, 'pmm-ha', version)
+}
+
+// Runs on the flyweight executor: httpRequest and sleep need no agent.
+void waitFor(String what, int hours, Closure published) {
+    for (int i = 0; i < hours * 6; i++) {
+        if (published()) {
+            echo "Published: ${what}"
+            return
+        }
+        if (i == 0) {
+            echo "Waiting up to ${hours} hours for ${what}"
+        }
+        sleep(time: 10, unit: 'MINUTES')
+    }
+    error("Not published after ${hours} hours: ${what}")
+}
+
+// The docs workflow publishes both from the GA tag, minutes after pmm3-release.
+boolean releaseNotesPublished(String version) {
+    String page = fetch("https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${version}.html")
+    int start = page.indexOf('<title>')
+    int end = page.indexOf('</title>')
+    return start >= 0 && end > start && page.substring(start, end).contains("PMM ${version} ") &&
+        fetch("https://api.github.com/repos/percona/pmm/releases/tags/v${version}")
+}
+
+void waitForCharts() {
+    waitFor("the pmm and pmm-ha charts with appVersion ${env.PMM_SERVER_LATEST} (is the Helm release PR merged into main?)", 24) {
+        chartsPublished(env.PMM_SERVER_LATEST)
+    }
+}
 
 void startPmmServer(String name, String image, String volume) {
     sh """
@@ -53,20 +118,6 @@ void waitForPmmReady(String name) {
     """
 }
 
-void checkReleasedCharts() {
-    sh '''
-        helm repo update percona > /dev/null
-        for chart in pmm pmm-ha; do
-            if ! helm search repo "percona/${chart}" --versions --output json \
-                | jq -e --arg name "percona/${chart}" --arg v "${PMM_SERVER_LATEST}" \
-                    'any(.[]; .name == $name and .app_version == $v)' > /dev/null; then
-                echo "No published percona/${chart} chart ships ${PMM_SERVER_LATEST}: is the Helm bump merged?" >&2
-                exit 1
-            fi
-        done
-    '''
-}
-
 void verifyPmmVersion(String expected, String password = '${ADMIN_PASSWORD}') {
     sh """
         VERSION=\$(curl -sk --user admin:${password} https://127.0.0.1/v1/server/version | jq -r '.version' | awk -F "-" '{print \$1}')
@@ -79,9 +130,9 @@ void verifyPmmVersion(String expected, String password = '${ADMIN_PASSWORD}') {
 }
 
 pipeline {
-    agent {
-        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
-    }
+    // 'agent none' here, not per stage: the waits then run on the flyweight executor and hold no
+    // agent. A pipeline-level agent stays allocated for the whole run (JENKINS-59663).
+    agent none
     parameters {
         booleanParam(
             defaultValue: true,
@@ -106,11 +157,14 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        // The two HA clusters.
-        timeout(time: 6, unit: 'HOURS')
+        // Up to 24 hours waiting for the merges, then the HA clusters.
+        timeout(time: 30, unit: 'HOURS')
     }
     stages {
-        stage('Prepare') {
+        stage('Versions') {
+            agent {
+                label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
+            }
             steps {
                 script {
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
@@ -133,169 +187,179 @@ echo "$json" | jq -r '.results[].name' | grep -E '^3\\.[0-9]+\\.[0-9]+$' | sort 
                     env.DOCKER_TAG_UPGRADE = "percona/pmm-server:${latestVersion}"
                     currentBuild.description = "Post-release tests: ${prevVersion} -> ${latestVersion}"
                 }
-                sh '''
-                    sudo rm -rf /srv/pmm-qa || :
-                    sudo mkdir -p /srv/pmm-qa
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo chown -R ec2-user:ec2-user .
-                    popd
-                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium || :
-
-                    bash /srv/pmm-qa/k8s/install_k8s_tools.sh --helm --sudo > /dev/null
-                    helm repo add percona https://percona.github.io/percona-helm-charts/ --force-update
-                '''
             }
         }
         stage('Post-release checks') {
             parallel {
                 stage('Release notes') {
-                    steps {
-                        sh '''
-                            notes="https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${PMM_SERVER_LATEST}.html"
-                            # No -L: a missing page redirects to a 404 page that answers 200.
-                            title=$(curl -sf "${notes}" | grep -oE "<title>[^<]*</title>" | head -1)
-                            echo "${notes}: ${title}"
-                            echo "${title}" | grep -qF "PMM ${PMM_SERVER_LATEST} " \
-                                || { echo "Release notes for ${PMM_SERVER_LATEST} are not published" >&2; exit 1; }
-
-                            release=$(curl -sf "https://api.github.com/repos/percona/pmm/releases/tags/v${PMM_SERVER_LATEST}") \
-                                || { echo "GitHub release v${PMM_SERVER_LATEST} is not published in percona/pmm" >&2; exit 1; }
-                            echo "${release}" | jq '{tag_name, name, draft, prerelease, published_at, html_url}'
-                            echo "${release}" | jq -e '.draft == false and .prerelease == false and (.body // "" | length) > 0' >/dev/null \
-                                || { echo "GitHub release v${PMM_SERVER_LATEST} is a draft, a prerelease or has no notes" >&2; exit 1; }
-                        '''
-                    }
-                }
-                stage('Downloads and repos') {
-                    steps {
-                        sh '''
-                            V=${PMM_SERVER_LATEST}
-                            failed=0
-                            check() {
-                                local code
-                                code=$(curl -s -o /dev/null -w "%{http_code}" -I "$1")
-                                echo "${code} $1"
-                                [ "${code}" = "200" ] || failed=1
+                    stages {
+                        stage('Wait for the release notes') {
+                            steps {
+                                script {
+                                    waitFor("the ${env.PMM_SERVER_LATEST} release notes in the docs and the GitHub release", 2) {
+                                        releaseNotesPublished(env.PMM_SERVER_LATEST)
+                                    }
+                                }
                             }
+                        }
+                        stage('Check the release notes') {
+                            agent {
+                                label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
+                            }
+                            steps {
+                                sh '''
+                                    notes="https://docs.percona.com/percona-monitoring-and-management/3/release-notes/${PMM_SERVER_LATEST}.html"
+                                    # No -L: a missing page redirects to a 404 page that answers 200.
+                                    title=$(curl -sf "${notes}" | grep -oE "<title>[^<]*</title>" | head -1)
+                                    echo "${notes}: ${title}"
+                                    echo "${title}" | grep -qF "PMM ${PMM_SERVER_LATEST} " \
+                                        || { echo "Release notes for ${PMM_SERVER_LATEST} are not published" >&2; exit 1; }
 
-                            downloads="https://downloads.percona.com/downloads/pmm3/${V}"
-                            for f in \
-                                binary/tarball/pmm-client-${V}-x86_64.tar.gz \
-                                binary/tarball/pmm-client-${V}-x86_64.tar.gz.sha256sum \
-                                binary/tarball/pmm-client-${V}-aarch64.tar.gz \
-                                binary/tarball/pmm-client-${V}-aarch64.tar.gz.sha256sum \
-                                docker/pmm-server-${V}.docker \
-                                docker/pmm-server-${V}.sha256sum \
-                                docker/pmm-server-${V}-amd64.docker \
-                                docker/pmm-server-${V}-arm64.docker \
-                                docker/pmm-client-${V}-amd64.docker \
-                                docker/pmm-client-${V}-arm64.docker; do
-                                check "${downloads}/${f}"
-                            done
-
-                            for el in 8 9 10; do
-                                for arch in x86_64 aarch64; do
-                                    check "https://repo.percona.com/pmm3-client/yum/release/${el}/RPMS/${arch}/pmm-client-${V}-1.el${el}.${arch}.rpm"
-                                done
-                            done
-
-                            pool=$(curl -sfL https://repo.percona.com/pmm3-client/apt/pool/main/p/pmm-client/)
-                            for arch in amd64 arm64; do
-                                debs=$(echo "${pool}" | grep -oE "pmm-client_${V}-[^\\"<]*_${arch}\\.deb" | sort -u)
-                                echo "apt ${arch}: $(echo ${debs})"
-                                [ -n "${debs}" ] || { echo "No pmm-client ${V} ${arch} .deb in the apt pool" >&2; failed=1; }
-                            done
-
-                            exit ${failed}
-                        '''
+                                    release=$(curl -sf "https://api.github.com/repos/percona/pmm/releases/tags/v${PMM_SERVER_LATEST}") \
+                                        || { echo "GitHub release v${PMM_SERVER_LATEST} is not published in percona/pmm" >&2; exit 1; }
+                                    echo "${release}" | jq '{tag_name, name, draft, prerelease, published_at, html_url}'
+                                    echo "${release}" | jq -e '.draft == false and .prerelease == false and (.body // "" | length) > 0' >/dev/null \
+                                        || { echo "GitHub release v${PMM_SERVER_LATEST} is a draft, a prerelease or has no notes" >&2; exit 1; }
+                                '''
+                            }
+                        }
                     }
                 }
-                stage('GSSAPI tarballs') {
-                    steps {
-                        // Private downloads area: reachable only the way pmm3-release uploads to it.
-                        withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                            sh '''
-                                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                                    "ssh -p 2222 -o StrictHostKeyChecking=no jenkins-deploy.jenkins-deploy.web.r.int.percona.com bash -s -- ${PMM_SERVER_LATEST}" <<'ENDSSH'
-                                    cd /data/downloads/private/pmm3-client-gssapi-tarballs
-                                    failed=0
-                                    for os in ol8 ol9; do
-                                        tarballs=$(ls pmm-client-${1}-*${os}*.tar.gz 2>/dev/null)
-                                        if [ "$(echo "${tarballs}" | grep -c .)" != "1" ]; then
-                                            echo "Expected one ${1} ${os} tarball, found: ${tarballs:-none}" >&2
-                                            failed=1
-                                            continue
-                                        fi
-                                        tarball=${tarballs}
-                                        if [ ! -s "${tarball}.sha256sum" ]; then
-                                            echo "Missing ${tarball}.sha256sum" >&2
-                                            failed=1
-                                            continue
-                                        fi
-                                        expected=$(awk '{print $1}' "${tarball}.sha256sum")
-                                        actual=$(sha256sum "${tarball}" | awk '{print $1}')
-                                        if [ "${expected}" != "${actual}" ]; then
-                                            echo "${tarball}: sha256 ${actual}, .sha256sum says ${expected}" >&2
-                                            failed=1
-                                            continue
-                                        fi
-                                        if ! tar -tzf "${tarball}" | grep -c '/bin/pmm-agent$' >/dev/null; then
-                                            echo "${tarball} has no bin/pmm-agent" >&2
-                                            failed=1
-                                            continue
-                                        fi
-                                        ls -l "${tarball}"
-                                    done
-                                    exit ${failed}
+                stage('Published release') {
+                    agent {
+                        label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
+                    }
+                    stages {
+                        stage('Downloads and repos') {
+                            steps {
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    sh '''
+                                        V=${PMM_SERVER_LATEST}
+                                        failed=0
+                                        check() {
+                                            local code
+                                            code=$(curl -s -o /dev/null -w "%{http_code}" -I "$1")
+                                            echo "${code} $1"
+                                            [ "${code}" = "200" ] || failed=1
+                                        }
+
+                                        downloads="https://downloads.percona.com/downloads/pmm3/${V}"
+                                        for f in \
+                                            binary/tarball/pmm-client-${V}-x86_64.tar.gz \
+                                            binary/tarball/pmm-client-${V}-x86_64.tar.gz.sha256sum \
+                                            binary/tarball/pmm-client-${V}-aarch64.tar.gz \
+                                            binary/tarball/pmm-client-${V}-aarch64.tar.gz.sha256sum \
+                                            docker/pmm-server-${V}.docker \
+                                            docker/pmm-server-${V}.sha256sum \
+                                            docker/pmm-server-${V}-amd64.docker \
+                                            docker/pmm-server-${V}-arm64.docker \
+                                            docker/pmm-client-${V}-amd64.docker \
+                                            docker/pmm-client-${V}-arm64.docker; do
+                                            check "${downloads}/${f}"
+                                        done
+
+                                        for el in 8 9 10; do
+                                            for arch in x86_64 aarch64; do
+                                                check "https://repo.percona.com/pmm3-client/yum/release/${el}/RPMS/${arch}/pmm-client-${V}-1.el${el}.${arch}.rpm"
+                                            done
+                                        done
+
+                                        pool=$(curl -sfL https://repo.percona.com/pmm3-client/apt/pool/main/p/pmm-client/)
+                                        for arch in amd64 arm64; do
+                                            debs=$(echo "${pool}" | grep -oE "pmm-client_${V}-[^\\"<]*_${arch}\\.deb" | sort -u)
+                                            echo "apt ${arch}: $(echo ${debs})"
+                                            [ -n "${debs}" ] || { echo "No pmm-client ${V} ${arch} .deb in the apt pool" >&2; failed=1; }
+                                        done
+
+                                        exit ${failed}
+                                    '''
+                                }
+                            }
+                        }
+                        stage('GSSAPI tarballs') {
+                            steps {
+                                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                                    // Private downloads area: reachable only the way pmm3-release uploads to it.
+                                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                                        sh '''
+                                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                                "ssh -p 2222 -o StrictHostKeyChecking=no jenkins-deploy.jenkins-deploy.web.r.int.percona.com bash -s -- ${PMM_SERVER_LATEST}" <<'ENDSSH'
+                                                cd /data/downloads/private/pmm3-client-gssapi-tarballs
+                                                failed=0
+                                                for os in ol8 ol9; do
+                                                    tarballs=$(ls pmm-client-${1}-*${os}*.tar.gz 2>/dev/null)
+                                                    if [ "$(echo "${tarballs}" | grep -c .)" != "1" ]; then
+                                                        echo "Expected one ${1} ${os} tarball, found: ${tarballs:-none}" >&2
+                                                        failed=1
+                                                        continue
+                                                    fi
+                                                    tarball=${tarballs}
+                                                    if [ ! -s "${tarball}.sha256sum" ]; then
+                                                        echo "Missing ${tarball}.sha256sum" >&2
+                                                        failed=1
+                                                        continue
+                                                    fi
+                                                    expected=$(awk '{print $1}' "${tarball}.sha256sum")
+                                                    actual=$(sha256sum "${tarball}" | awk '{print $1}')
+                                                    if [ "${expected}" != "${actual}" ]; then
+                                                        echo "${tarball}: sha256 ${actual}, .sha256sum says ${expected}" >&2
+                                                        failed=1
+                                                        continue
+                                                    fi
+                                                    if ! tar -tzf "${tarball}" | grep -c '/bin/pmm-agent$' >/dev/null; then
+                                                        echo "${tarball} has no bin/pmm-agent" >&2
+                                                        failed=1
+                                                        continue
+                                                    fi
+                                                    ls -l "${tarball}"
+                                                done
+                                                exit ${failed}
 ENDSSH
 
-                                for os in ol8 ol9; do
-                                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                                        "ssh -p 2222 -o StrictHostKeyChecking=no jenkins-deploy.jenkins-deploy.web.r.int.percona.com 'cat /data/downloads/private/pmm3-client-gssapi-tarballs/pmm-client-${PMM_SERVER_LATEST}-*${os}*.tar.gz'" \
-                                        > gssapi-${os}.tar.gz
-                                done
-                            '''
-                        }
-                        sh '''
-                            for os in ol8 ol9; do
-                                echo "--- ${os} ---"
-                                docker run --rm \
-                                    -e VERSION="${PMM_SERVER_LATEST}" \
-                                    -v "$(pwd)/gssapi-${os}.tar.gz:/tmp/client.tar.gz:ro" \
-                                    "oraclelinux:${os#ol}" bash -ec '
-                                        dnf install -y -q tar gzip findutils krb5-libs cyrus-sasl-lib cyrus-sasl-gssapi >/dev/null
-                                        mkdir /tmp/client
-                                        tar -xzf /tmp/client.tar.gz -C /tmp/client
-                                        bin=$(dirname "$(find /tmp/client -path "*/bin/pmm-agent" | head -1)")
-                                        command -v ldd > /dev/null
-                                        missing=$(for b in "${bin}"/*; do ldd "${b}" 2>/dev/null | grep "not found" | sed "s|^|$(basename "${b}"): |"; done)
-                                        if [ -n "${missing}" ]; then
-                                            echo "Unresolved shared libraries:" >&2
-                                            echo "${missing}" >&2
-                                            exit 1
-                                        fi
-                                        for b in pmm-admin pmm-agent; do
-                                            out=$("${bin}/${b}" --version 2>&1)
-                                            echo "${out}"
-                                            echo "${out}" | grep -qF "${VERSION}" || { echo "${b} does not report ${VERSION}" >&2; exit 1; }
+                                            for os in ol8 ol9; do
+                                                ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                                    "ssh -p 2222 -o StrictHostKeyChecking=no jenkins-deploy.jenkins-deploy.web.r.int.percona.com 'cat /data/downloads/private/pmm3-client-gssapi-tarballs/pmm-client-${PMM_SERVER_LATEST}-*${os}*.tar.gz'" \
+                                                    > gssapi-${os}.tar.gz
+                                            done
+                                        '''
+                                    }
+                                    sh '''
+                                        for os in ol8 ol9; do
+                                            echo "--- ${os} ---"
+                                            docker run --rm \
+                                                -e VERSION="${PMM_SERVER_LATEST}" \
+                                                -v "$(pwd)/gssapi-${os}.tar.gz:/tmp/client.tar.gz:ro" \
+                                                "oraclelinux:${os#ol}" bash -ec '
+                                                    dnf install -y -q tar gzip findutils krb5-libs cyrus-sasl-lib cyrus-sasl-gssapi >/dev/null
+                                                    mkdir /tmp/client
+                                                    tar -xzf /tmp/client.tar.gz -C /tmp/client
+                                                    bin=$(dirname "$(find /tmp/client -path "*/bin/pmm-agent" | head -1)")
+                                                    command -v ldd > /dev/null
+                                                    missing=$(for b in "${bin}"/*; do ldd "${b}" 2>/dev/null | grep "not found" | sed "s|^|$(basename "${b}"): |"; done)
+                                                    if [ -n "${missing}" ]; then
+                                                        echo "Unresolved shared libraries:" >&2
+                                                        echo "${missing}" >&2
+                                                        exit 1
+                                                    fi
+                                                    for b in pmm-admin pmm-agent; do
+                                                        out=$("${bin}/${b}" --version 2>&1)
+                                                        echo "${out}"
+                                                        echo "${out}" | grep -qF "${VERSION}" || { echo "${b} does not report ${VERSION}" >&2; exit 1; }
+                                                    done
+                                                '
                                         done
-                                    '
-                            done
-                        '''
-                    }
-                    post {
-                        always {
-                            sh 'rm -f gssapi-ol8.tar.gz gssapi-ol9.tar.gz'
+                                    '''
+                                }
+                            }
+                            post {
+                                always {
+                                    sh 'rm -f gssapi-ol8.tar.gz gssapi-ol9.tar.gz'
+                                }
+                            }
                         }
-                    }
-                }
-                stage('Docker') {
-                    stages {
                         stage('Fresh install through get/pmm') {
                             steps {
                                 sh 'docker network create pmm-qa'
-                                // A failure here must not stop the upgrade check below.
                                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                                     sh '''
                                         served() { curl -fsSL https://www.percona.com/get/pmm | sha256sum | awk '{print $1}'; }
@@ -343,83 +407,140 @@ ENDSSH
                                         docker rm -f pmm-server-fresh || true
                                         docker volume rm pmm-fresh-volume || true
                                     '''
+                                    archiveArtifacts artifacts: 'pmm-server-fresh.log', allowEmptyArchive: true
                                 }
                             }
                         }
-                        stage('PROD Version Service') {
-                            steps {
-                                // PMM-T2200 below finds the update through this entry.
-                                sh '''
-                                    entry=$(curl -fsS https://check.percona.com/metadata/v2/pmm-server \
-                                        | jq -c --arg v "${PMM_SERVER_LATEST}" '.versions[] | select(.version == $v) | .imageInfo')
-                                    echo "${entry}" | jq .
-                                    digest=$(curl -fsS "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags/${PMM_SERVER_LATEST}" | jq -r .digest)
-                                    if ! echo "${entry}" | jq -e --arg image "${DOCKER_TAG_UPGRADE}" --arg digest "${digest}" \
-                                        '.imagePath == $image and .imageHash == $digest' > /dev/null; then
-                                        echo "Version Service entry does not match ${DOCKER_TAG_UPGRADE} ${digest} on Docker Hub" >&2
-                                        exit 1
-                                    fi
-                                    code=$(curl -s -o /dev/null -w "%{http_code}" "https://check.percona.com/release-notes/v1/pmm/${PMM_SERVER_LATEST}")
-                                    if [ "${code}" != "200" ]; then
-                                        echo "Version Service has no release notes for ${PMM_SERVER_LATEST} (HTTP ${code})" >&2
-                                        exit 1
-                                    fi
-                                '''
-                            }
+                    }
+                    post {
+                        always {
+                            deleteDir()
                         }
-                        stage('Start previous release') {
+                    }
+                }
+                stage('Docker upgrade') {
+                    stages {
+                        stage('Wait for the Version Service') {
                             steps {
-                                sh 'docker volume create pmm-volume'
-                                startPmmServer('pmm-server', env.DOCKER_TAG, 'pmm-volume')
-                                waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                                 script {
-                                    env.SERVER_IP = "127.0.0.1"
-                                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
-                                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                                    waitFor("the ${env.PMM_SERVER_LATEST} entry in the PROD Version Service (is its PR merged?)", 24) {
+                                        fetch('https://check.percona.com/metadata/v2/pmm-server').contains('"imagePath":"percona/pmm-server:' + env.PMM_SERVER_LATEST + '"')
+                                    }
                                 }
-                                waitForPmmReady('pmm-server')
                             }
                         }
-                        stage('Install dependencies') {
-                            steps {
-                                sh '''
-                                    pushd /srv/pmm-qa/e2e_tests
-                                        npm ci
-                                        npx playwright install chromium
-                                    popd
-                                '''
+                        stage('Upgrade') {
+                            agent {
+                                label params.USE_ONDEMAND != false ? 'agent-amd64-ondemand' : 'agent-amd64'
                             }
-                        }
-                        stage('Run pre-upgrade post-release tests') {
-                            steps {
-                                sh '''
-                                    pushd /srv/pmm-qa/e2e_tests
-                                        export CI=true
-                                        npx playwright test --grep "@post-release|@downloads"
-                                    popd
-                                '''
+                            stages {
+                                stage('Prepare') {
+                                    steps {
+                                        sh '''
+                                            sudo rm -rf /srv/pmm-qa || :
+                                            sudo mkdir -p /srv/pmm-qa
+                                            pushd /srv/pmm-qa
+                                                sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                                                sudo chown -R ec2-user:ec2-user .
+                                            popd
+                                            sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium || :
+                                        '''
+                                        sh 'docker network create pmm-qa'
+                                    }
+                                }
+                                stage('PROD Version Service') {
+                                    steps {
+                                        // PMM-T2200 below finds the update through this entry.
+                                        sh '''
+                                            entry=$(curl -fsS https://check.percona.com/metadata/v2/pmm-server \
+                                                | jq -c --arg v "${PMM_SERVER_LATEST}" '.versions[] | select(.version == $v) | .imageInfo')
+                                            echo "${entry}" | jq .
+                                            digest=$(curl -fsS "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags/${PMM_SERVER_LATEST}" | jq -r .digest)
+                                            if ! echo "${entry}" | jq -e --arg image "${DOCKER_TAG_UPGRADE}" --arg digest "${digest}" \
+                                                '.imagePath == $image and .imageHash == $digest' > /dev/null; then
+                                                echo "Version Service entry does not match ${DOCKER_TAG_UPGRADE} ${digest} on Docker Hub" >&2
+                                                exit 1
+                                            fi
+                                            code=$(curl -s -o /dev/null -w "%{http_code}" "https://check.percona.com/release-notes/v1/pmm/${PMM_SERVER_LATEST}")
+                                            if [ "${code}" != "200" ]; then
+                                                echo "Version Service has no release notes for ${PMM_SERVER_LATEST} (HTTP ${code})" >&2
+                                                exit 1
+                                            fi
+                                        '''
+                                    }
+                                }
+                                stage('Start previous release') {
+                                    steps {
+                                        sh 'docker volume create pmm-volume'
+                                        startPmmServer('pmm-server', env.DOCKER_TAG, 'pmm-volume')
+                                        waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
+                                        script {
+                                            env.SERVER_IP = "127.0.0.1"
+                                            env.PMM_UI_URL = "https://${env.SERVER_IP}/"
+                                            env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                                        }
+                                        waitForPmmReady('pmm-server')
+                                    }
+                                }
+                                stage('Install dependencies') {
+                                    steps {
+                                        sh '''
+                                            pushd /srv/pmm-qa/e2e_tests
+                                                npm ci
+                                                npx playwright install chromium
+                                            popd
+                                        '''
+                                    }
+                                }
+                                stage('Run pre-upgrade post-release tests') {
+                                    steps {
+                                        sh '''
+                                            pushd /srv/pmm-qa/e2e_tests
+                                                export CI=true
+                                                npx playwright test --grep "@post-release|@downloads"
+                                            popd
+                                        '''
+                                    }
+                                }
+                                stage('Docker way upgrade') {
+                                    steps {
+                                        sh '''
+                                            docker stop pmm-server
+                                            docker rm pmm-server
+                                            docker pull ${DOCKER_TAG_UPGRADE}
+                                        '''
+                                        startPmmServer('pmm-server', env.DOCKER_TAG_UPGRADE, 'pmm-volume')
+                                        sh 'docker ps -a'
+                                        waitForPmmReady('pmm-server')
+                                        verifyPmmVersion(env.PMM_SERVER_LATEST)
+                                    }
+                                }
                             }
-                        }
-                        stage('Docker way upgrade') {
-                            steps {
-                                sh '''
-                                    docker stop pmm-server
-                                    docker rm pmm-server
-                                    docker pull ${DOCKER_TAG_UPGRADE}
-                                '''
-                                startPmmServer('pmm-server', env.DOCKER_TAG_UPGRADE, 'pmm-volume')
-                                sh 'docker ps -a'
-                                waitForPmmReady('pmm-server')
-                                verifyPmmVersion(env.PMM_SERVER_LATEST)
+                            post {
+                                always {
+                                    sh '''
+                                        if [[ -n "${PMM_URL:-}" ]]; then
+                                            curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                                        fi
+                                        docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
+                                        tar -zcvf playwright-report.tar.gz /srv/pmm-qa/e2e_tests/playwright-report || true
+                                    '''
+                                    archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
+                                    archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
+                                    archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
+                                    deleteDir()
+                                }
                             }
                         }
                     }
                 }
                 stage('Helm') {
                     stages {
-                        stage('Released charts') {
+                        stage('Wait for the charts') {
                             steps {
-                                checkReleasedCharts()
+                                script {
+                                    waitForCharts()
+                                }
                             }
                         }
                         stage('Helm on minikube') {
@@ -458,45 +579,51 @@ ENDSSH
                     }
                 }
                 stage('HA') {
-                    steps {
-                        checkReleasedCharts()
-                        script {
-                            def previousChart = sh(returnStdout: true, script: '''
-                                helm search repo percona/pmm-ha --versions --output json \
-                                    | jq -r --arg v "${PMM_SERVER_PREVIOUS}" \
-                                        'map(select(.name == "percona/pmm-ha" and .app_version == $v))[0].version // empty'
-                            ''').trim()
-                            if (!previousChart) {
-                                error "No published pmm-ha chart ships ${env.PMM_SERVER_PREVIOUS}"
+                    stages {
+                        stage('Wait for the pmm-ha chart') {
+                            steps {
+                                script {
+                                    waitForCharts()
+                                }
                             }
-                            echo "HA upgrade: pmm-ha ${previousChart} (${env.DOCKER_TAG}) -> latest published chart (${env.DOCKER_TAG_UPGRADE})"
-                            parallel(
-                                'HA install': {
-                                    build job: 'pmm3-ha-upgrade-tests', parameters: [
-                                        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-                                        string(name: 'CLUSTER_TYPE', value: params.CLUSTER_TYPE ?: 'OpenShift'),
-                                        string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
-                                        booleanParam(name: 'RUN_UPGRADE', value: false),
-                                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
-                                        string(name: 'CLIENTS', value: ''),
-                                        string(name: 'HA_TAGS', value: ''),
-                                    ]
-                                },
-                                'HA upgrade': {
-                                    // "latest" upgrades both charts from the published repo.
-                                    build job: 'pmm3-ha-upgrade-tests', parameters: [
-                                        string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-                                        string(name: 'CLUSTER_TYPE', value: params.CLUSTER_TYPE ?: 'OpenShift'),
-                                        string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG),
-                                        string(name: 'CHART_VERSION', value: previousChart),
-                                        string(name: 'DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
-                                        string(name: 'HELM_CHART_BRANCH', value: 'latest'),
-                                        booleanParam(name: 'RUN_UPGRADE', value: true),
-                                        booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
-                                        string(name: 'HA_TAGS', value: ''),
-                                    ]
-                                },
-                            )
+                        }
+                        stage('HA builds') {
+                            steps {
+                                script {
+                                    String previousChart = publishedChart(fetch('https://percona.github.io/percona-helm-charts/index.yaml'), 'pmm-ha', env.PMM_SERVER_PREVIOUS)
+                                    if (!previousChart) {
+                                        error "No published pmm-ha chart ships ${env.PMM_SERVER_PREVIOUS}"
+                                    }
+                                    echo "HA upgrade: pmm-ha ${previousChart} (${env.DOCKER_TAG}) -> latest published chart (${env.DOCKER_TAG_UPGRADE})"
+                                    parallel(
+                                        'HA install': {
+                                            build job: 'pmm3-ha-upgrade-tests', parameters: [
+                                                string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+                                                string(name: 'CLUSTER_TYPE', value: params.CLUSTER_TYPE ?: 'OpenShift'),
+                                                string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
+                                                booleanParam(name: 'RUN_UPGRADE', value: false),
+                                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
+                                                string(name: 'CLIENTS', value: ''),
+                                                string(name: 'HA_TAGS', value: ''),
+                                            ]
+                                        },
+                                        'HA upgrade': {
+                                            // "latest" upgrades both charts from the published repo.
+                                            build job: 'pmm3-ha-upgrade-tests', parameters: [
+                                                string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
+                                                string(name: 'CLUSTER_TYPE', value: params.CLUSTER_TYPE ?: 'OpenShift'),
+                                                string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG),
+                                                string(name: 'CHART_VERSION', value: previousChart),
+                                                string(name: 'DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
+                                                string(name: 'HELM_CHART_BRANCH', value: 'latest'),
+                                                booleanParam(name: 'RUN_UPGRADE', value: true),
+                                                booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
+                                                string(name: 'HA_TAGS', value: ''),
+                                            ]
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -505,23 +632,11 @@ ENDSSH
     }
     post {
         always {
-            sh '''
-                if [[ -n "${PMM_URL:-}" ]]; then
-                    curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                fi
-                docker exec pmm-server cat /srv/logs/pmm-managed.log > pmm-managed-full.log || true
-                tar -zcvf playwright-report.tar.gz /srv/pmm-qa/e2e_tests/playwright-report || true
-            '''
             script {
-                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'pmm-managed-full.log', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'pmm-server-fresh.log', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'playwright-report.tar.gz', allowEmptyArchive: true
                 def result = currentBuild.currentResult
                 slackSend botUser: true, channel: '#pmm-internal', color: result == 'SUCCESS' ? '#00FF00' : '#FF0000',
                           message: "PMM ${env.PMM_SERVER_LATEST ?: params.PMM_VERSION} post-release tests: ${result}. ${env.BUILD_URL}"
             }
-            deleteDir()
         }
     }
 }

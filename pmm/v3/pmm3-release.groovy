@@ -511,6 +511,10 @@ ENDSSH
             slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "[${JOB_NAME}]: PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "[${JOB_NAME}]: PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#pmm-internal', color: '#00FF00', message: "[${JOB_NAME}]: PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}"
+            // Its checks that need the Version Service and Helm release PRs merged wait for them.
+            build job: 'pmm3-post-release-testing', wait: false, parameters: [
+                string(name: 'PMM_VERSION', value: params.VERSION),
+            ]
         }
         failure {
             slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: PMM ${VERSION} release failed \nBuild URL: ${BUILD_URL}"
