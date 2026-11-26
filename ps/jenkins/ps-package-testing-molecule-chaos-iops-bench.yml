@@ -1,0 +1,29 @@
+- job:
+    name: ps-package-testing-molecule-chaos-iops-bench
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        OFFLINE guest-disk IOPS benchmark on the "lenovo" node. One VM at a
+        time. At each QEMU_IOPS point it boots the VM (disk throttled), runs a
+        zero-dependency Python O_DIRECT disk probe via converge -- NOT a PS
+        install -- and tears down. No network, so the IOPS curve is immune to
+        the package-download contention that made the install-time sweep
+        (ps-package-testing-molecule-chaos-iops) non-monotonic.
+    properties:
+        - build-discarder:
+            num-to-keep: 100
+    concurrent: false
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                refspec: '+refs/heads/local-jenkins-chaos:refs/remotes/origin/local-jenkins-chaos'
+                honor-refspec: true
+                branches:
+                    - 'local-jenkins-chaos'
+                shallow-clone: true
+                depth: 1
+                wipe-workspace: false
+                timeout: 20
+        lightweight-checkout: true
+        script-path: ps/jenkins/ps-package-testing-molecule-chaos-iops-bench.groovy
