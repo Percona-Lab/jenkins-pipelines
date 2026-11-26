@@ -92,7 +92,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'pxc',
                         platform              : 'aks',
-                        platform_provider     : 'azure',
                         platform_version      : PLATFORM_VER,
                         region                : params.AKS_LOCATION ?: getLocation(JOB_NAME),
                         cluster_wide          : CLUSTER_WIDE,
@@ -128,18 +127,6 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH
-                    )
-                }
-            }
-        }
-
         stage('Init Tests') {
             steps {
                 script {
@@ -149,6 +136,23 @@ pipeline {
                         ignorePreviousRun : IGNORE_PREVIOUS_RUN,
                         operator          : 'pxc'
                     ])
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH
+                    )
                 }
             }
         }

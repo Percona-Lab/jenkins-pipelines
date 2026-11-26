@@ -111,7 +111,7 @@ pipeline {
             description: 'percona-helm-charts branch whose pmm-ha chart the upgrade installs; the script clones it. The install always comes from the published chart. "latest" upgrades from the published chart too, making it an image-only upgrade.',
             name: 'HELM_CHART_BRANCH')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user password',
             name: 'ADMIN_PASSWORD')
         string(
@@ -151,6 +151,11 @@ pipeline {
     environment {
         HA_UPGRADE_BASELINE = "${WORKSPACE}/ha-upgrade-baseline.json"
         PMM_HA_SUMMARY = "${WORKSPACE}/pmm-ha-summary.env"
+        PMM_QA_AWS_ACCESS_KEY_ID = credentials('PMM_QA_AWS_ACCESS_KEY_ID')
+        PMM_QA_AWS_ACCESS_KEY = credentials('PMM_QA_AWS_ACCESS_KEY')
+        PMM_QA_MYSQL_RDS_8_4_HOST = credentials('PMM_QA_MYSQL_RDS_8_4_HOST')
+        PMM_QA_MYSQL_RDS_8_4_USER = credentials('PMM_QA_MYSQL_RDS_8_4_USER')
+        PMM_QA_MYSQL_RDS_8_4_PASSWORD = credentials('PMM_QA_MYSQL_RDS_8_4_PASSWORD')
     }
     stages {
         stage('Prepare') {

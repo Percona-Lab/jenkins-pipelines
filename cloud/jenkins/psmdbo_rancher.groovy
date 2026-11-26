@@ -24,7 +24,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['release', 'distro', 'backups'], description: 'Choose test suite from e2e-tests/tests.yaml (used only if TEST_LIST not specified).')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Set to 60/70/80/83 for a release run. Release runs force RANCHER_RELEASE_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70'], description: 'Set to 70/80/83 for a release run. Release runs force RANCHER_RELEASE_CHANNEL=stable and load images from source/e2e-tests/release_versions.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch')
         choice(name: 'RANCHER_RELEASE_CHANNEL', choices: ['stable', 'latest', 'testing'], description: 'Used when PLATFORM_VER=latest. Release runs override this to stable.')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'RKE2/Kubernetes version. Use latest to resolve from RANCHER_RELEASE_CHANNEL, min to use RKE2_MIN from release_versions, max to use RKE2_MAX from release_versions, or pass an explicit version.')
@@ -33,7 +33,7 @@ pipeline {
         string(name: 'RANCHER_ZONE', defaultValue: 'us-central1-a', description: 'Google zone to schedule Rancher instances')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster-wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
-        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.3')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
@@ -87,8 +87,7 @@ pipeline {
                         libraries             : libraries,
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb',
-                        platform              : 'rke2',
-                        platform_provider     : 'rancher',
+                        platform              : 'rancher',
                         platform_channel      : RANCHER_RELEASE_CHANNEL,
                         platform_version      : PLATFORM_VER,
                         platform_arch         : ARCH,
@@ -102,6 +101,7 @@ pipeline {
                         job_name              : JOB_NAME,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'make',
+                        allure                : true,
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
                         clusters              : clusters,
                         numClusters           : numClusters,
@@ -126,19 +126,6 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH,
-                        platform     : 'linux/amd64,linux/arm64'
-                    )
-                }
-            }
-        }
-
         stage('Init Tests') {
             steps {
                 script {
@@ -148,6 +135,24 @@ pipeline {
                         ignorePreviousRun : IGNORE_PREVIOUS_RUN,
                         operator          : 'psmdb'
                     ])
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
+                    )
                 }
             }
         }

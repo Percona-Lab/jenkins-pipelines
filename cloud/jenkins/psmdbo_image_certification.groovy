@@ -2,9 +2,9 @@ def certificationTests = []
 def certification
 def certifiableImages = [
     'IMAGE_OPERATOR',
-    'IMAGE_MONGOD60',
     'IMAGE_MONGOD70',
     'IMAGE_MONGOD80',
+    'IMAGE_MONGOD83',
     'IMAGE_BACKUP',
     'IMAGE_PMM_CLIENT',
     'IMAGE_LOGCOLLECTOR',
@@ -35,7 +35,6 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_OPERATOR':
             return target(image, projectId, params.RELEASE, credentials)
 
-        case 'IMAGE_MONGOD60':
         case 'IMAGE_MONGOD70':
         case 'IMAGE_MONGOD80':
         case 'IMAGE_MONGOD83':
@@ -75,7 +74,6 @@ pipeline {
         )
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
-        booleanParam(name: 'IMAGE_MONGOD60', defaultValue: true, description: 'Certify IMAGE_MONGOD60')
         booleanParam(name: 'IMAGE_MONGOD70', defaultValue: true, description: 'Certify IMAGE_MONGOD70')
         booleanParam(name: 'IMAGE_MONGOD80', defaultValue: true, description: 'Certify IMAGE_MONGOD80')
         booleanParam(name: 'IMAGE_MONGOD83', defaultValue: true, description: 'Certify IMAGE_MONGOD83')

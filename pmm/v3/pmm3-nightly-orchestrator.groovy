@@ -3,6 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 import groovy.json.JsonBuilder
 
 properties([
@@ -23,6 +28,11 @@ properties([
             defaultValue: 'main',
             description: 'Tag/Branch for the pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH',
+            trim: true),
+        string(
+            defaultValue: 'auto',
+            description: 'percona-helm-charts branch for the helm and HA lanes. auto: pmm-<version under test>, else the newest older pmm-X.Y.Z not yet merged into main, else main',
+            name: 'HELM_CHART_BRANCH',
             trim: true),
         string(
             defaultValue: 'latest',
@@ -192,8 +202,7 @@ def nightlyGha(String name, String serverImage, String amiId, Map cfg = [:]) {
         AMI_ID            : amiId,
         CLIENT_VERSION    : params.CLIENT_VERSION,
         SERVER_ARCH       : 'amd64',
-        ADMIN_PASSWORD    : 'pmm3admin!',
-        HELM_CHART_BRANCH : 'main',
+        ADMIN_PASSWORD    : 'PMM3testuser!',
         OPENSHIFT_VERSION : 'latest',
         K8S_VERSION       : '1.34',
         PTS_CONFIDENCE    : '100',
@@ -240,6 +249,7 @@ timestamps {
     def amiId = params.AMI_ID
     def compatVersions = pmmVersion('v3')[-5..-1]
     def latestDevVersion
+    def helmChartBranch
 
     stage('Plan') {
         // The one shell in this job, and the only executor it ever takes.
@@ -256,14 +266,16 @@ timestamps {
                     returnStdout: true,
                     script: 'curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION'
                 ).trim()
+                helmChartBranch = resolveHelmChartBranch(params.HELM_CHART_BRANCH, isRc ? version : latestDevVersion)
             } finally {
                 deleteDir()
             }
         }
-        currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION}"
+        currentBuild.description = "server=${serverImage} client=${params.CLIENT_VERSION} charts=${helmChartBranch}"
         echo """Nightly release readiness
   server image    : ${serverImage}
   client          : ${params.CLIENT_VERSION}
+  helm charts     : ${helmChartBranch}
   AMI             : ${amiId ?: 'none -- pmm3-ami produced no AMI, its lane will fail'}
   compat clients  : ${compatVersions.join(', ')}
   dev version     : ${latestDevVersion}
@@ -277,8 +289,8 @@ timestamps {
     branches['nightly / docker'] = nightlyGha('nightly / docker', serverImage, amiId)
     branches['nightly / docker arm64'] = nightlyGha('nightly / docker arm64', serverImage, amiId, [SERVER_ARCH: 'arm64'])
     branches['nightly / ami'] = nightlyGha('nightly / ami', serverImage, amiId, [SERVER_TYPE: 'ami'])
-    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1'])
-    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1'])
+    branches['nightly / helm'] = nightlyGha('nightly / helm', serverImage, amiId, [SERVER_TYPE: 'helm', ADMIN_PASSWORD: 'admin1', HELM_CHART_BRANCH: helmChartBranch])
+    branches['nightly / ha'] = nightlyGha('nightly / ha', serverImage, amiId, [SERVER_TYPE: 'ha', ADMIN_PASSWORD: 'admin1', HELM_CHART_BRANCH: helmChartBranch])
 
     compatVersions.each { ver ->
         def name = "compat / client ${ver}"
@@ -316,7 +328,7 @@ timestamps {
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz'),
         string(name: 'ENABLE_PULL_MODE',  value: 'no'),
-        string(name: 'ADMIN_PASSWORD',    value: 'pmm3admin!'),
+        string(name: 'ADMIN_PASSWORD',    value: 'PMM3testuser!'),
         string(name: 'PSMDB_VERSION',     value: '8.0'),
         string(name: 'MODB_VERSION',      value: '8.0'),
         booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND),
@@ -324,7 +336,7 @@ timestamps {
 
     branches['openshift'] = suite('openshift', 'openshift-helm-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
-        string(name: 'PMM_CHART_BRANCH',  value: 'latest'),
+        string(name: 'PMM_CHART_BRANCH',  value: helmChartBranch),
         string(name: 'IMAGE_REPO',        value: serverImage.split(':')[0]),
         string(name: 'IMAGE_TAG',         value: serverImage.split(':')[1]),
         string(name: 'OPENSHIFT_VERSION', value: 'latest'),
@@ -335,12 +347,14 @@ timestamps {
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: helmChartBranch),
     ])
 
     branches['ha backup-restore'] = suite('ha backup-restore', 'pmm3-ha-backup-restore-tests', [
         string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
         string(name: 'DOCKER_VERSION',    value: serverImage),
         string(name: 'CLIENT_VERSION',    value: params.CLIENT_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: helmChartBranch),
     ])
 
     if (params.RUN_GH_NIGHTLY_SUITE) {
@@ -359,6 +373,7 @@ timestamps {
                                 pmm_client_tarball_ol8   : params.PMM_CLIENT_TARBALL_OL8,
                                 pmm_client_tarball_ol9   : params.PMM_CLIENT_TARBALL_OL9,
                                 pmm_qa_branch            : params.PMM_QA_GIT_BRANCH,
+                                pmm_chart_branch         : helmChartBranch,
                                 pxc_version              : '8.0',
                                 pxc_glibc                : '2.35',
                                 pdpgsql_version          : '17',
@@ -463,7 +478,7 @@ timestamps {
             }
         }
 
-        currentBuild.description = "${serverImage} / client ${params.CLIENT_VERSION}" +
+        currentBuild.description = "${serverImage} / client ${params.CLIENT_VERSION} / charts ${helmChartBranch}" +
             "  |  ${results.size() - totalBad - totalWarn} ok, ${totalBad} failed" +
             (totalWarn > 0 ? ", ${totalWarn} unstable" : '') +
             "  |  " + tally.join(' \u00b7 ')

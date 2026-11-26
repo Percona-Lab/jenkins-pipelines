@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 // PMM HA backup and restore tests.
 //
 // Creates a bare Kubernetes cluster, installs PMM HA on it with backups to an in-cluster
@@ -74,7 +79,7 @@ pipeline {
             description: 'Branch of HELM_CHART_REPO whose pmm-ha and pmm-ha-dependencies charts are installed. It must carry backup support (PMM-13858). A fork PR\'s owner:branch label, e.g. theTibi:PMM-13858, clones that owner\'s fork instead.',
             name: 'HELM_CHART_BRANCH')
         string(
-            defaultValue: 'pmm3admin!',
+            defaultValue: 'PMM3testuser!',
             description: 'pmm-server admin user password',
             name: 'ADMIN_PASSWORD')
         string(
@@ -220,18 +225,26 @@ pipeline {
                         "CHART_REPO=${params.HELM_CHART_REPO}",
                         "PMM_CLIENT_IMAGE=${clientImage}",
                     ]) {
-                        sh '''
-                            /srv/pmm-qa/k8s/install_pmm_ha.sh \
-                                --platform "${PLATFORM}" \
-                                --image "${DOCKER_VERSION}" \
-                                --chart-branch "${HELM_CHART_BRANCH}" \
-                                --backup-minio \
-                                --external-access \
-                                --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
-                                --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}" \
-                                --summary-file "${PMM_HA_SUMMARY}" \
-                                --debug-dir "${WORKSPACE}/pmm-ha-debug"
-                        '''
+                        // install_pmm_ha.sh keeps an existing pmm-secret and backup secret and
+                        // re-applies everything else, so a rerun picks up where the API went away.
+                        withClusterApiRetry {
+                            sh '''
+                                # helm leaves a release locked in pending-* when it loses the API
+                                # mid-operation; nothing else runs helm on this cluster.
+                                kubectl delete secret -n pmm --ignore-not-found \
+                                    -l 'owner=helm,status in (pending-install,pending-upgrade,pending-rollback)'
+                                /srv/pmm-qa/k8s/install_pmm_ha.sh \
+                                    --platform "${PLATFORM}" \
+                                    --image "${DOCKER_VERSION}" \
+                                    --chart-branch "${HELM_CHART_BRANCH}" \
+                                    --backup-minio \
+                                    --external-access \
+                                    --set "pmmClient.image.repository=${PMM_CLIENT_IMAGE%:*}" \
+                                    --set "pmmClient.image.tag=${PMM_CLIENT_IMAGE##*:}" \
+                                    --summary-file "${PMM_HA_SUMMARY}" \
+                                    --debug-dir "${WORKSPACE}/pmm-ha-debug"
+                            '''
+                        }
                     }
 
                     def pmmAddress = sh(

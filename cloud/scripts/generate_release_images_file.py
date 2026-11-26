@@ -322,9 +322,9 @@ def get_image_tasks(op):
     D = fetch_dockerhub_tag
     return {
         "psmdb": {
+            "8.3": (D, "percona/percona-server-mongodb", "8.3"),
             "8.0": (D, "percona/percona-server-mongodb", "8.0"),
             "7.0": (D, "percona/percona-server-mongodb", "7.0"),
-            "6.0": (D, "percona/percona-server-mongodb", "6.0"),
             "backup": (D, "percona/percona-backup-mongodb", "2"),
             "logcollector": (D, "percona/fluentbit"),
             "pmm3": (D, "percona/pmm-client", "3"),
@@ -400,9 +400,9 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
     image_defs = {
         "psmdb": [
             ("OPERATOR", "percona-server-mongodb-operator", operator_version),
+            ("MONGOD83", "percona-server-mongodb", versions.get("8.3")),
             ("MONGOD80", "percona-server-mongodb", versions.get("8.0")),
             ("MONGOD70", "percona-server-mongodb", versions.get("7.0")),
-            ("MONGOD60", "percona-server-mongodb", versions.get("6.0")),
             ("BACKUP", "percona-backup-mongodb", versions.get("backup")),
             ("PMM_CLIENT", "pmm-client", pmm3),
             ("PMM_SERVER", "pmm-server", pmm3),

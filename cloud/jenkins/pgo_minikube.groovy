@@ -234,6 +234,20 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "passed"
             return true
         }
+        catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+            // Only the 90 minute test timeout may be handled here. A user abort or the stage timeout
+            // fires earlier and must stop the build instead of being retried as a test failure.
+            if (new Date().getTime() - timeStart < 90 * 60 * 1000) {
+                throw exc
+            }
+            echo "The $testName test timed out after 90 minutes"
+            if (retryCount >= 1) {
+                currentBuild.result = 'FAILURE'
+                return true
+            }
+            retryCount++
+            return false
+        }
         catch (exc) {
             echo "Error occurred while running test $testName: $exc"
             if (retryCount >= 1) {

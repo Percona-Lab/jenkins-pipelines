@@ -4,6 +4,10 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def sendSlackNotification(scenario, fromVersion, toVersion) {
+    // Failures only: no message for successful (or aborted) builds.
+    if (!(currentBuild.currentResult in ['FAILURE', 'UNSTABLE'])) {
+        return
+    }
     if (currentBuild.result == "SUCCESS") {
         buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
@@ -49,7 +53,7 @@ pipeline {
         booleanParam(
             name: 'USE_OBS_REPO',
             defaultValue: false,
-            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. OBS only ever carries the latest minor of each major, so the FROM version always installs from repo.percona.com regardless of this setting.'
+            description: 'Install the TO version from the OBS repo (isv:percona:ppg:&lt;channel&gt;:&lt;major_version&gt;) instead of repo.percona.com. TO_REPO maps to the OBS channel: testing-&gt;staging, release-&gt;releases, experimental-&gt;devel. A minor upgrade always installs the FROM version from repo.percona.com (OBS only carries the latest minor of each major); a major upgrade installs it from OBS too, see FROM_OBS_PROJECT.'
         )
         string(
             defaultValue: '',
@@ -60,6 +64,11 @@ pipeline {
             defaultValue: '',
             description: 'Full OBS project to install from when USE_OBS_REPO is enabled, e.g. isv:percona:PR:pr-42:ppg:staging:18 for a pull request build. Leave empty to derive it from REPO and VERSION.',
             name: 'OBS_PROJECT'
+        )
+        string(
+            defaultValue: '',
+            description: 'Major upgrades with USE_OBS_REPO only: full OBS project to install the FROM version from, e.g. isv:percona:ppg:staging:17. Leave empty for OBS_PROJECT with the major replaced by the previous one (...:staging:18 -&gt; ...:staging:17).',
+            name: 'FROM_OBS_PROJECT'
         )
         text(
             defaultValue: '',
@@ -144,6 +153,23 @@ pipeline {
                     // Carried to the Test stage through env: a parameter of the same name
                     // (FROM_VERSION) cannot be overridden, a variable of its own can.
                     env.RESOLVED_FROM_VERSION = fromVersion
+                    // A minor upgrade starts from a released minor of the same major.
+                    // Before a major's first release (e.g. PG 19 until 19.0 is out)
+                    // there is none: skip, starting no machines; it runs by itself once
+                    // the release exists. Only a 404 skips (other errors run and fail
+                    // visibly), and only for minor upgrades: a major upgrade starts from
+                    // an older, released major, so a missing repository is a real error.
+                    def kind = upgradeScenarioParts(env.SCENARIO)
+                    if (!env.SKIP_REASON && kind != null && kind[1] == 'minor') {
+                        // psp repositories are per major (psp-16), ppg per minor (ppg-18.6)
+                        def repoName = fromVersion.startsWith('psp-') ? fromVersion.tokenize('.')[0] : fromVersion
+                        def code = sh(returnStdout: true, script: "curl -s -o /dev/null -w '%{http_code}' --max-time 30 https://repo.percona.com/${repoName}/ || true").trim()
+                        if (code == '404') {
+                            env.SKIP_REASON = "${fromVersion} is not released on repo.percona.com yet, so there is no released minor to upgrade from"
+                            currentBuild.description = "Skipped: ${env.SKIP_REASON}"
+                            echo "Skipping ${env.SCENARIO}: ${env.SKIP_REASON}"
+                        }
+                    }
                 }
             }
         }

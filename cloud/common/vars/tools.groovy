@@ -147,6 +147,15 @@ void gitCheckoutTag(String tagName) {
     """
 }
 
+void gitCleanupLocalChanges() {
+    sh '''
+        set -eu
+
+        git reset --hard HEAD
+        git clean -fdx
+    '''
+}
+
 void gitCreateBranch(String branchName) {
     sh """
         set -eu
@@ -181,6 +190,29 @@ void gitFetchBranch(String branchName) {
 
             git checkout --detach \
                 "refs/remotes/origin/${GIT_BRANCH_NAME}"
+        '''
+    }
+}
+
+void gitVerifyLocalBranchFromRemote(String branchName) {
+    withEnv(["GIT_BRANCH_NAME=${branchName}"]) {
+        sh '''
+            set -eu
+
+            expected_commit=$(git rev-parse \
+                "refs/remotes/origin/${GIT_BRANCH_NAME}")
+            current_commit=$(git rev-parse HEAD)
+
+            if [ "${current_commit}" != "${expected_commit}" ]; then
+                echo "Expected ${expected_commit}, found ${current_commit}" >&2
+                exit 1
+            fi
+
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+                echo 'Workspace is dirty after checking out the remote branch' >&2
+                git status --short --untracked-files=no >&2
+                exit 1
+            fi
         '''
     }
 }
@@ -351,7 +383,7 @@ String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerL
     return params.JENKINS_AGENT == 'Hetzner' ? hetznerLabel : awsLabel
 }
 
-void kubernetesCleanupCluster(String kubeconfig) {
+void kubectlCleanupCluster(String kubeconfig) {
     sh """
         export KUBECONFIG=${kubeconfig}
 
@@ -378,39 +410,46 @@ void kubernetesCleanupCluster(String kubeconfig) {
     """
 }
 
-void kubernetesCleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
+void kubectlCleanupFailedNamespaces(Map testVariables, String testName, String clusterSuffix) {
     def clusterName = "${testVariables.cluster_name}-${clusterSuffix}"
-    def kubeconfig = "${testVariables.kubeconfigPath}/${clusterName}"
+    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${clusterName}"
 
     echo "Cleaning failed test namespaces for ${testName} on ${clusterName}"
 
-    sh """
-        set +e
-        export FAILED_TEST_NAME='${testName}'
-        export KUBECONFIG='${kubeconfig}'
-        if [ ! -s "\$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-            echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for \$KUBECONFIG"
-            exit 0
-        fi
-        kubectl get namespaces --request-timeout=10s --no-headers \
-            | awk '{print \$1}' \
-            | while read -r namespace; do
-                case "\$namespace" in
-                    "\$FAILED_TEST_NAME"-*|kuttl*)
-                        echo "Removing finalizers from resources in namespace: \$namespace"
-                        kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
-                            | while read -r resource; do
-                                kubectl get "\$resource" -n "\$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
-                                    | while read -r object; do
-                                        kubectl patch "\$object" -n "\$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
-                                    done
-                            done
-                        echo "Deleting namespace: \$namespace"
-                        kubectl delete namespace "\$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
-                        ;;
-                esac
-            done
-    """
+    withEnv([
+        "FAILED_TEST_NAME=${testName}",
+        "KUBECONFIG=${kubeconfig}"
+    ]) {
+        sh '''
+            set +e
+
+            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
+                exit 0
+            fi
+
+            kubectl get namespaces --request-timeout=10s --no-headers \
+                | awk '{print $1}' \
+                | while read -r namespace; do
+                    case "$namespace" in
+                        "$FAILED_TEST_NAME"-*|kuttl*)
+                            # Finalizers on the operator resources (not on the namespace) are what keep it Terminating.
+                            echo "Removing finalizers from resources in namespace: $namespace"
+                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
+                                | while read -r resource; do
+                                    kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
+                                        | while read -r object; do
+                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
+                                        done
+                                done
+
+                            echo "Deleting namespace: $namespace"
+                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
+                            ;;
+                    esac
+                done
+        '''
+    }
 }
 
 void stashClonedGitFiles() {

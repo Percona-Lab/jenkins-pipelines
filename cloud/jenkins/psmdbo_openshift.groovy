@@ -24,12 +24,12 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['release', 'distro', 'backups'], description: 'Choose test suite from e2e-tests/tests.yaml (used only if TEST_LIST not specified).')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70', '60'], description: 'Implies release run.')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '83', '70'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
-        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.3')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
@@ -85,7 +85,6 @@ pipeline {
                         release_versions      : 'source/e2e-tests/release_versions',
                         operator              : 'psmdb',
                         platform              : 'openshift',
-                        platform_provider     : 'openshift',
                         platform_version      : PLATFORM_VER,
                         region                : AWS_REGION,
                         cluster_wide          : CLUSTER_WIDE,
@@ -95,6 +94,7 @@ pipeline {
                         job_name              : JOB_NAME,
                         debug_tests           : DEBUG_TESTS,
                         test_executor_type    : 'make',
+                        allure                : true,
                         default_operator_image: "${operatorImage}:${GIT_BRANCH}",
                         clusters              : clusters,
                         numClusters           : numClusters,
@@ -119,19 +119,6 @@ pipeline {
             }
         }
 
-        stage('Docker Build and Push') {
-            steps {
-                script {
-                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
-                    libraries.tools.dockerBuildAndPush(
-                        operatorImage: operatorImage,
-                        branch       : GIT_BRANCH,
-                        platform     : 'linux/amd64,linux/arm64'
-                    )
-                }
-            }
-        }
-
         stage('Init Tests') {
             steps {
                 script {
@@ -141,6 +128,24 @@ pipeline {
                         ignorePreviousRun : IGNORE_PREVIOUS_RUN,
                         operator          : 'psmdb'
                     ])
+                }
+            }
+        }
+
+        stage('Docker Build and Push') {
+            steps {
+                script {
+                    if (!libraries.tests.hasPendingTests(testVariables)) {
+                        echo 'SKIP: no pending tests, the operator image is not needed.'
+                        return
+                    }
+
+                    env.IMAGE_OPERATOR = testVariables.images.IMAGE_OPERATOR
+                    libraries.tools.dockerBuildAndPush(
+                        operatorImage: operatorImage,
+                        branch       : GIT_BRANCH,
+                        platform     : 'linux/amd64,linux/arm64'
+                    )
                 }
             }
         }
