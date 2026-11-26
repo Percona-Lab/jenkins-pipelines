@@ -525,6 +525,11 @@ pipeline {
         string(defaultValue: 'percona', description: 'With RELEASE: DockerHub namespace for the release images (<ns>/valkey, <ns>/valkey-bundle, <ns>/valkey-mod-<name>, <ns>/valkey-admin)', name: 'RELEASE_IMAGE_NAMESPACE')
     }
     options {
+        // Save pipeline state at the end of each stage, not after every step. With
+        // many parallel platform stages the per-step saves overload the controller
+        // ("cannot find current thread in CpsStepContext", ClosedByInterruptException
+        // in saveProgram). A build cut off by a controller restart is rerun instead.
+        durabilityHint('PERFORMANCE_OPTIMIZED')
         disableConcurrentBuilds()
         // Each run reads the previous run's manifest.
         copyArtifactPermission('hetzner-valkey-ALL-NEXT')

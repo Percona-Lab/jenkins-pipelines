@@ -231,6 +231,11 @@ pipeline {
         booleanParam(defaultValue: true, description: 'Allow publishing a version-release that is already in the repo (the default). Uncheck to stop the build when the version-release is already published.', name: 'ALLOW_REPUBLISH')
     }
     options {
+        // Save pipeline state at the end of each stage, not after every step. With
+        // many parallel platform stages the per-step saves overload the controller
+        // ("cannot find current thread in CpsStepContext", ClosedByInterruptException
+        // in saveProgram). A build cut off by a controller restart is rerun instead.
+        durabilityHint('PERFORMANCE_OPTIMIZED')
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '20'))
         timestamps()

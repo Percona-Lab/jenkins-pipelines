@@ -15,7 +15,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         git checkout ${PACKAGING_BRANCH}
         cd ..
         pwd -P
-        ls -laR
         export build_dir=\$(pwd -P)
         sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
@@ -29,7 +28,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             install_deps || { echo 'Dependency installation failed, retry 1/2 in 60s'; clean_pkg_cache; sleep 60; install_deps; } || \\
                 { echo 'Dependency installation failed, retry 2/2 in 120s'; clean_pkg_cache; sleep 120; install_deps; } || \\
                 { echo 'ERROR: dependency installation failed after 3 attempts'; exit 1; }
-            bash -x ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --search_repo=${GIT_REPO} --search_branch=${GIT_BRANCH} --search_version=${VALKEY_SEARCH_VERSION} --release=${VALKEY_SEARCH_RELEASE} ${STAGE_PARAM}"
+            bash ./valkey-packaging/scripts/valkey_builder.sh --builddir=\${build_dir}/test --search_repo=${GIT_REPO} --search_branch=${GIT_BRANCH} --search_version=${VALKEY_SEARCH_VERSION} --release=${VALKEY_SEARCH_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -85,6 +84,11 @@ pipeline {
             name: 'COMPONENT')
     }
     options {
+        // Save pipeline state at the end of each stage, not after every step. With
+        // many parallel platform stages the per-step saves overload the controller
+        // ("cannot find current thread in CpsStepContext", ClosedByInterruptException
+        // in saveProgram). A build cut off by a controller restart is rerun instead.
+        durabilityHint('PERFORMANCE_OPTIMIZED')
         skipDefaultCheckout()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
