@@ -22,9 +22,9 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 //                        previous -> latest upgrade with the @post-release specs run before it
 //   Helm                 waits for the pmm and pmm-ha charts that ship the release, then
 //                        k8s/helm-post-release.bats from pmm-qa on minikube
-//   HA                   waits for the same charts, then two pmm3-ha-upgrade-tests builds on
-//                        CLUSTER_TYPE: the released pmm-ha chart installed, and the previous
-//                        release's chart upgraded to it
+//   HA                   unless RUN_HA is unchecked: waits for the same charts, then two
+//                        pmm3-ha-upgrade-tests builds on CLUSTER_TYPE: the released pmm-ha
+//                        chart installed, and the previous release's chart upgraded to it
 //
 // Ends with a one-line result in #pmm-internal.
 
@@ -150,6 +150,10 @@ pipeline {
             defaultValue: 'main',
             description: 'pmm-qa git branch.',
             name: 'PMM_QA_GIT_BRANCH')
+        booleanParam(
+            defaultValue: true,
+            description: 'Run the HA branch: two pmm3-ha-upgrade-tests clusters, which take hours. Uncheck to finish without it.',
+            name: 'RUN_HA')
         choice(
             choices: ['OpenShift', 'EKS'],
             description: 'Kubernetes platform of the HA builds',
@@ -579,6 +583,9 @@ ENDSSH
                     }
                 }
                 stage('HA') {
+                    when {
+                        expression { params.RUN_HA != false }
+                    }
                     stages {
                         stage('Wait for the pmm-ha chart') {
                             steps {
@@ -603,7 +610,6 @@ ENDSSH
                                                 string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
                                                 booleanParam(name: 'RUN_UPGRADE', value: false),
                                                 booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
-                                                string(name: 'CLIENTS', value: ''),
                                                 string(name: 'HA_TAGS', value: ''),
                                             ]
                                         },
