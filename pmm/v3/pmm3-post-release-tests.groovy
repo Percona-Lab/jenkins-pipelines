@@ -610,7 +610,6 @@ ENDSSH
                                                 string(name: 'RELEASE_DOCKER_VERSION', value: env.DOCKER_TAG_UPGRADE),
                                                 booleanParam(name: 'RUN_UPGRADE', value: false),
                                                 booleanParam(name: 'USE_ONDEMAND', value: params.USE_ONDEMAND != false),
-                                                string(name: 'CLIENTS', value: ''),
                                                 string(name: 'HA_TAGS', value: ''),
                                             ]
                                         },
