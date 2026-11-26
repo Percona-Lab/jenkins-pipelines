@@ -1087,6 +1087,9 @@ void runTest(Map testConfig) {
                 def command = defineTestCommand(testVariables, testName)
                 // One Allure results folder per test: slots on a cluster share one checkout.
                 def allureExports = testVariables.allure ? "export ALLURE_RESULTS_DIR=e2e-tests/allure-results/${testName}" : ''
+                if (testVariables.allure) {
+                    sh "mkdir -p source/e2e-tests/allure-results && touch source/e2e-tests/allure-results/.${testName}.attempt"
+                }
 
                 timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
                     exitCode = sh(
@@ -1112,6 +1115,17 @@ void runTest(Map testConfig) {
                 echo "The ${testName} test timed out after ${testTimeoutMinutes} minutes"
             } catch (exc) {
                 echo "Error occurred while running test ${testName}: ${exc}"
+            }
+
+            if (testVariables.allure) {
+                // As in the operator PR checks: the Allure timeline shows one row per cluster and
+                // one lane per slot, instead of the agent's hostname and the pytest process.
+                testVariables.libraries.tools.labelAllureResults(
+                    "source/e2e-tests/allure-results/${testName}",
+                    "source/e2e-tests/allure-results/.${testName}.attempt",
+                    getClusterFullName(testVariables.cluster_name, clusterSuffix),
+                    testConfig.slotName ?: "${clusterSuffix}-slot1"
+                )
             }
 
             if (exitCode == 0) {
@@ -1203,14 +1217,18 @@ Integer testsPerCluster(Map testVariables) {
     return value < 1 ? 1 : value
 }
 
-// Cluster load sampling settings from testVariables.cluster_load, or [:] when it is off:
+// Cluster load sampling settings from testVariables.cluster_load, or [:] when it is off. On by
+// default, as in the operator PR checks; cluster_load: [enabled: false] turns it off. Defaults:
 // [enabled: true, interval_seconds: 30, cpu_percent: 90, memory_percent: 70, high_after_seconds: 120]
 // A cluster counts as highly loaded when its busiest node stays at the CPU or memory percent for
 // high_after_seconds without a break. The load goes into the Allure report and one log line.
 Map clusterLoadSettings(Map testVariables) {
     def cfg = testVariables.cluster_load
-    if (!cfg?.enabled) {
+    if (cfg == false || (cfg instanceof Map && cfg.enabled == false)) {
         return [:]
+    }
+    if (!(cfg instanceof Map)) {
+        cfg = [:]
     }
     return [
         interval : (cfg.interval_seconds ?: 30) as Integer,
@@ -1267,7 +1285,7 @@ void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubecon
                     continue
                 }
                 try {
-                    runSlotTest(testVariables, testId, clusterSuffix, clusterKubeconfig, slotDir)
+                    runSlotTest(testVariables, testId, clusterSuffix, clusterKubeconfig, slotDir, "${clusterSuffix}-slot${slotIndex}")
                 } finally {
                     markTestFinished(testVariables.tests, testId)
                 }
@@ -1279,7 +1297,7 @@ void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubecon
 }
 
 // One test in a slot: its own kubeconfig and helm home, then only its own namespaces are deleted.
-void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String clusterKubeconfig, String slotDir) {
+void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String clusterKubeconfig, String slotDir, String slotName) {
     def testName = testVariables.tests[testId].name
 
     // A fresh kubeconfig per test: the harness writes the test namespace into its context.
@@ -1313,6 +1331,7 @@ void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String
         retries: testVariables.retries ?: 1,
         retryAlone: !ownCluster && testsPerCluster(testVariables) > 1,
         sharedClusterKubeconfig: clusterKubeconfig,
+        slotName: slotName,
         slotExports: """
             export KUBECONFIG='${slotDir}/kubeconfig'
             export HELM_CONFIG_HOME='${slotDir}/helm'

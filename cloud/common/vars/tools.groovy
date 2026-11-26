@@ -687,6 +687,30 @@ void addClusterLoadToAllure(String resultsDir, String samplesFile, Map limits) {
     }
 }
 
+// Sets the Allure host label to the cluster and thread to the slot in the results this attempt
+// wrote (newer than the marker file). The timeline groups tests by these labels; pytest sets them
+// to the agent's hostname and its own process. A problem here only prints a warning.
+void labelAllureResults(String resultsDir, String marker, String host, String thread) {
+    try {
+        withEnv(["RESULTS=${resultsDir}", "MARKER=${marker}", "LABEL_HOST=${host}", "LABEL_THREAD=${thread}"]) {
+            sh '''
+                [ -d "$RESULTS" ] && [ -f "$MARKER" ] || exit 0
+                find "$RESULTS" -maxdepth 1 -name '*-result.json' -newer "$MARKER" | while read -r result; do
+                    jq --arg host "$LABEL_HOST" --arg thread "$LABEL_THREAD" '
+                        .labels = ([(.labels // [])[] | select(.name != "host" and .name != "thread")]
+                            + [{"name": "host", "value": $host}, {"name": "thread", "value": $thread}])
+                    ' "$result" > "$result.tmp" && mv "$result.tmp" "$result"
+                done
+                rm -f "$MARKER"
+            '''
+        }
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (labelErr) {
+        echo "Warning: failed to label the Allure results in ${resultsDir}: ${labelErr}"
+    }
+}
+
 void stashClonedGitFiles() {
     stash includes: 'source/**', name: 'sourceFILES', useDefaultExcludes: false
 }
