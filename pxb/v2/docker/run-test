@@ -22,11 +22,33 @@ if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
     SOURCE_IMAGE='oraclelinux:9'
 fi
 
+# A line of SERVER_TARBALL_URLS holds "<DOCKER_OS> <CMAKE_BUILD_TYPE> <URL>" for
+# x86_64, or "<DOCKER_OS> <CMAKE_BUILD_TYPE> <ARCH> <URL>". An xtradb run takes
+# its own line and stops when the list has none. A set SERVER_TARBALL_URL is kept.
+function select_server_tarball_url() {
+  if [[ -n ${SERVER_TARBALL_URL} || -z ${SERVER_TARBALL_URLS} || ${XTRABACKUP_TARGET} != xtradb* ]]; then
+    return 0
+  fi
+  local arch
+  arch=$(uname -m)
+  SERVER_TARBALL_URL=$(awk -v os="${SOURCE_IMAGE}" -v build_type="${CMAKE_BUILD_TYPE}" -v arch="${arch}" '
+    { sub(/\r$/, "") }
+    $1 != os || $2 != build_type { next }
+    NF == 3 && arch == "x86_64" { print $3; exit }
+    NF == 4 && $3 == arch { print $4; exit }' <<< "${SERVER_TARBALL_URLS}")
+  if [[ -z ${SERVER_TARBALL_URL} ]]; then
+    echo "SERVER_TARBALL_URLS has no line for ${SOURCE_IMAGE} ${CMAKE_BUILD_TYPE} ${arch}" >&2
+    return 1
+  fi
+}
+
 function check_pxb_network() {
   if [[ $(docker network list | grep pxb_network) != *pxb_network* ]]; then
     docker network create pxb_network
   fi
 }
+
+select_server_tarball_url
 
 # Only Percona Server ships the auth_openid_connect server plugin, so the
 # OIDC tests skip on every other target and need no Keycloak there.
@@ -121,6 +143,7 @@ docker run --rm \
     export XTRABACKUP_TARGET='${XTRABACKUP_TARGET}'
     export XTRABACKUP_TARGET_VERSION='${XTRABACKUP_TARGET_VERSION}'
     export BOOTSTRAP_URL='${BOOTSTRAP_URL}'
+    export SERVER_TARBALL_URL='${SERVER_TARBALL_URL}'
     export WITH_AZURITE='${WITH_AZURITE}'
     export LANG=en_AU.UTF-8
     export XBCLOUD_CREDENTIALS='${XBCLOUD_CREDENTIALS}'
