@@ -210,6 +210,7 @@ void validateTestVariables(Map testVariables) {
         'git_branch',
         'cluster_wide',
         'pillar_version',
+        'test_executor_type',
         'images'
     ]
     def missingKeys = requiredKeys.findAll { key ->
@@ -241,7 +242,7 @@ void validateTestVariables(Map testVariables) {
     if (testVariables.debug_tests && !(testVariables.debug_tests in ['YES', 'NO'])) {
         error("debug_tests must be YES or NO, got: ${testVariables.debug_tests}")
     }
-    if (testVariables.test_executor_type && !(testVariables.test_executor_type in ['kuttl', 'make'])) {
+    if (!(testVariables.test_executor_type in ['kuttl', 'make', 'script'])) {
         error("Unsupported test_executor_type: ${testVariables.test_executor_type}")
     }
 
@@ -278,6 +279,7 @@ void validateTestVariables(Map testVariables) {
         'default_operator_image',
         'extra_envs',
         'git_branch',
+        'hugepages',
         'images',
         'jenkins_agent_label',
         'job_name',
@@ -392,8 +394,9 @@ Map prepareVersions(Map testVariables) {
         returnStdout: true
     ).trim()
 
+    def clusterNamePrefix = testVariables.platform.toLowerCase() == 'openshift' ? '' : 'jenkins-'
     testVariables.cluster_name = sh(
-        script: "echo jenkins-${testVariables.job_name}-${testVariables.git_short_commit} | tr '[:upper:]' '[:lower:]'",
+        script: "echo ${clusterNamePrefix}${testVariables.job_name}-${testVariables.git_short_commit} | tr '[:upper:]' '[:lower:]'",
         returnStdout: true
     ).trim()
 
@@ -490,8 +493,8 @@ void initTestRun(Map testVariables, Map config) {
         echo 'All tests will be re-run, ignoring previous execution results!'
         purgePreviousRunArtifacts(testVariables)
     }
-    // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
-    // never part of the operator Docker build context.
+// Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
+// never part of the operator Docker build context.
 }
 
 // Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
@@ -502,57 +505,6 @@ void prepareTestSources(Map testVariables) {
 
 Boolean hasPendingTests(Map testVariables) {
     return countSkippedTests(testVariables.tests ?: []) > 0
-}
-
-void initTests(List tests, Map testVariables, Map config) {
-    echo '=========================[ Initializing the tests ]========================='
-
-    echo 'Populating tests into the tests array!'
-    def suiteFileName = "source/e2e-tests/${config.testSuite}"
-
-    if (config.testList?.trim()) {
-        suiteFileName = 'source/e2e-tests/run-custom.csv'
-        writeFile file: suiteFileName, text: config.testList
-        sh """
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
-    }
-
-    readCSV(file: suiteFileName).each { record ->
-        tests.add([name: record[0], cluster: 'NA', result: 'skipped', time: '0'])
-    }
-
-    echo 'Marking passed tests in the tests map!'
-    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        if (config.ignorePreviousRun == 'NO') {
-            sh """
-                aws s3 ls s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/ || :
-            """
-
-            tests.each { test ->
-                def file = artifactFileName(testVariables, test.name)
-                def retFileExists = sh(
-                    script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${testVariables.job_name}/${testVariables.git_short_commit}/${file} >/dev/null 2>&1",
-                    returnStatus: true
-                )
-                if (retFileExists == 0) {
-                    test.result = 'passed'
-                }
-            }
-        } else {
-            sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/${testVariables.job_name}/${testVariables.git_short_commit}/" --recursive --exclude "*" --include "*-${testVariables.params_hash}" || :
-            """
-        }
-    }
-
-    withCredentials([file(credentialsId: config.cloudSecretCredentialId, variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
-            cp \$CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-            ${config.secretFileMode ? "chmod ${config.secretFileMode} source/e2e-tests/conf/cloud-secret.yml" : ''}
-        """
-    }
 }
 
 String artifactFileName(Map testVariables, String testName) {
@@ -685,6 +637,26 @@ Map resolveImages(Map testVariables) {
     return resolvedImages
 }
 
+Map buildPgExtraEnvs(Map cfg) {
+    def envs = [SKIP_TEST_WARNINGS: cfg.skipTestWarnings]
+    if (cfg.extra) {
+        envs.putAll(cfg.extra)
+    }
+
+    def pillarVersion = "${cfg.pillarVersion ?: ''}"
+    if (pillarVersion.endsWith('-community')) {
+        if (pillarVersion == '19-community' && "${cfg.ubiVersion}" != 'UBI9') {
+            error('PostgreSQL 19 community images support UBI9 only.')
+        }
+        envs.PG_VER = pillarVersion.replace('-community', '')
+        envs.PG_DISTRIBUTION = 'community'
+    } else if (pillarVersion == 'none' && !cfg.imagePostgresql && cfg.pgVer) {
+        envs.PG_VER = cfg.pgVer
+    }
+
+    return envs
+}
+
 String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     def exports = []
 
@@ -727,53 +699,6 @@ String getExportedVariablesForTests(Map testVariables, String clusterSuffix) {
     return exports.join('\n')
 }
 
-Map buildPsmdbTestVariables(Map config) {
-    return [
-        cluster_name           : config.cluster_name,
-        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
-        kubeconfig             : config.kubeconfig,
-        skip_kubeconfig        : config.skip_kubeconfig ?: false,
-        debug_tests            : config.debug_tests,
-        cluster_wide           : config.cluster_wide,
-        operator               : 'psmdb',
-        default_operator_image : config.default_operator_image,
-        test_executor_type     : 'make',
-        images                 : config.images,
-        extra_envs             : config.extra_envs ?: [:]
-    ]
-}
-
-Map buildPxcTestVariables(Map config) {
-    return [
-        cluster_name           : config.cluster_name,
-        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
-        kubeconfig             : config.kubeconfig,
-        skip_kubeconfig        : config.skip_kubeconfig ?: false,
-        debug_tests            : config.debug_tests,
-        cluster_wide           : config.cluster_wide,
-        operator               : 'pxc',
-        default_operator_image : config.default_operator_image,
-        images                 : config.images,
-        extra_envs             : config.extra_envs ?: [:]
-    ]
-}
-
-Map buildPsTestVariables(Map config) {
-    return [
-        cluster_name           : config.cluster_name,
-        kubeconfigPath         : config.kubeconfigPath ?: '/tmp',
-        kubeconfig             : config.kubeconfig,
-        skip_kubeconfig        : config.skip_kubeconfig ?: false,
-        debug_tests            : config.debug_tests ?: 'NO',
-        cluster_wide           : config.cluster_wide,
-        operator               : 'ps',
-        default_operator_image : config.default_operator_image,
-        test_executor_type     : 'kuttl',
-        images                 : config.images,
-        extra_envs             : config.extra_envs ?: [:]
-    ]
-}
-
 String defineTestCommand(Map testVariables, String testName) {
     switch (testVariables.test_executor_type) {
         case 'kuttl':
@@ -791,52 +716,15 @@ String defineTestCommand(Map testVariables, String testName) {
                 make e2e-test TEST=${testName} 2>&1 | tee e2e-tests/logs/${testName}.log
             """
 
-        default:
+        case 'script':
             return """
                 mkdir -p e2e-tests/{logs,reports}
                 set -o pipefail
                 e2e-tests/${testName}/run 2>&1 | tee e2e-tests/logs/${testName}.log
             """
-    }
-}
 
-void cleanupFailedTestNamespaces(Map testVariables, String testName, String clusterSuffix) {
-    def kubeconfig = "${testVariables.kubeconfigPath ?: '/tmp'}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-
-    echo "Cleaning failed test namespaces for ${testName} on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
-
-    withEnv([
-        "FAILED_TEST_NAME=${testName}",
-        "KUBECONFIG=${kubeconfig}"
-    ]) {
-        sh '''
-            set +e
-
-            if [ ! -s "$KUBECONFIG" ] || ! kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                echo "Skipping failed test namespace cleanup: Kubernetes API is not reachable for $KUBECONFIG"
-                exit 0
-            fi
-
-            kubectl get namespaces --request-timeout=10s --no-headers \
-                | awk '{print $1}' \
-                | while read -r namespace; do
-                    case "$namespace" in
-                        "$FAILED_TEST_NAME"-*|kuttl*)
-                            echo "Removing finalizers from resources in namespace: $namespace"
-                            kubectl api-resources --verbs=list --namespaced -o name --request-timeout=10s \
-                                | while read -r resource; do
-                                    kubectl get "$resource" -n "$namespace" -o name --ignore-not-found --request-timeout=10s 2>/dev/null \
-                                        | while read -r object; do
-                                            kubectl patch "$object" -n "$namespace" --type=merge -p '{"metadata":{"finalizers":[]}}' --request-timeout=10s || true
-                                        done
-                                done
-
-                            echo "Deleting namespace: $namespace"
-                            kubectl delete namespace "$namespace" --force --grace-period=0 --wait=false --request-timeout=10s || true
-                            ;;
-                    esac
-                done
-        '''
+        default:
+            error("Unsupported test_executor_type: ${testVariables.test_executor_type}")
     }
 }
 
@@ -1031,6 +919,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         machineType     : testVariables.machine_type,
         region          : testVariables.region ?: '',
         zone            : testVariables.zone ?: '',
+        hugepages       : testVariables.hugepages ?: false,
         kubeconfig      : "${testVariables.kubeconfigPath}/${getClusterFullName(testVariables.cluster_name, clusterSuffix)}",
         platformArch    : testVariables.platform_arch ?: ''
     ]

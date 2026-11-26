@@ -15,19 +15,16 @@ void dockerBuildAndPush(Map cfg) {
                 --password-stdin
         '''
 
-        dockerBuildOperatorImage(
-            cfg.operator,
-            cfg.operatorImage,
-            cfg.branch,
-            cfg.sourceDir ?: 'source'
-        )
-
-        dockerPushImage(
-            cfg.operatorImage,
-            cfg.branch
-        )
-
-        sh 'docker logout docker.io'
+        try {
+            dockerBuildOperatorImage(
+                cfg.operator,
+                cfg.operatorImage,
+                cfg.branch,
+                cfg.sourceDir ?: 'source'
+            )
+        } finally {
+            sh 'docker logout docker.io || true'
+        }
     }
 }
 
@@ -73,17 +70,6 @@ void dockerCleanupVolumes() {
     sh '''
         sudo docker system prune --volumes -af
     '''
-}
-
-void dockerPushImage(String image, String tag) {
-    echo "=========================[ Pushing ${image}:${tag} Docker image ]========================="
-    sh """
-        sg docker -c '
-            echo "\$PASS" | docker login -u "\$USER" --password-stdin
-            docker push ${image}:${tag}
-            docker logout
-        '
-    """
 }
 
 void dockerTagImage(String sourceImage, String targetImage) {
@@ -377,10 +363,6 @@ boolean gitTagExists(String tagName) {
     }
 
     return exists
-}
-
-String jenkinsAgentLabel(def params, String awsLabel = 'docker', String hetznerLabel = 'docker-x64-min') {
-    return params.JENKINS_AGENT == 'Hetzner' ? hetznerLabel : awsLabel
 }
 
 void kubectlCleanupCluster(String kubeconfig) {

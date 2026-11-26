@@ -18,7 +18,7 @@ addons:
 nodeGroups:
 - name: ng-1
   minSize: 3
-  maxSize: 4
+  maxSize: 5
   iam:
     attachPolicyARNs:
     - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
@@ -27,6 +27,7 @@ nodeGroups:
     - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
   instancesDistribution:
     instanceTypes: ["m5.xlarge", "m5.2xlarge"]
+<pre-bootstrap-commands>
   tags:
     'iit-billing-tag': 'jenkins-eks'
     'delete-cluster-after-hours': '6'

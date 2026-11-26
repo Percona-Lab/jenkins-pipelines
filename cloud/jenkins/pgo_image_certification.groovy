@@ -28,8 +28,8 @@ def certifiableImages = [
 ]
 
 def imageTag(image) {
-    def parts = image.tokenize(":")
-    return parts.size() > 1 ? parts[-1] : "latest"
+    def parts = image.tokenize(':')
+    return parts.size() > 1 ? parts[-1] : 'latest'
 }
 
 def target(src, projectId, tag, credentials) {
@@ -140,7 +140,7 @@ pipeline {
         stage('Prepare Sources') {
             steps {
                 script {
-                    certification = load "cloud/common/imageCertification.groovy"
+                    certification = load 'cloud/common/imageCertification.groovy'
 
                     def release = certification.requireReleaseVersion(params)
                     currentBuild.displayName = release
@@ -157,7 +157,7 @@ pipeline {
         stage('Certify Image') {
             steps {
                 script {
-                    certification = certification ?: load("cloud/common/imageCertification.groovy")
+                    certification = certification ?: load('cloud/common/imageCertification.groovy')
 
                     def images = certification.loadReleaseVersions()
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
@@ -182,7 +182,7 @@ pipeline {
                     }
 
                     if (!imagesToCertify) {
-                        error("Select at least one image to certify")
+                        error('Select at least one image to certify')
                     }
 
                     imagesToCertify.each { key, image ->
@@ -218,7 +218,7 @@ pipeline {
     post {
         always {
             script {
-                certification = certification ?: load("cloud/common/imageCertification.groovy")
+                certification = certification ?: load('cloud/common/imageCertification.groovy')
 
                 certification.publishResults()
                 certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM, params.RELEASE)
