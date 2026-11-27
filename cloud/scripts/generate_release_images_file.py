@@ -10,8 +10,8 @@ from urllib.parse import urljoin
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
-PG_MAJOR_VERSIONS = ["14", "15", "16", "17", "18"]
-PG_COMMUNITY_MAJOR_VERSIONS = [*PG_MAJOR_VERSIONS, "19"]
+PG_MAJOR_VERSIONS = ["14", "15", "16", "17", "18", "19"]
+PG_COMMUNITY_MAJOR_VERSIONS = PG_MAJOR_VERSIONS
 
 MONTH_MAP = {
     "jan": 1,
@@ -343,11 +343,17 @@ def get_image_tasks(op):
             "pmm3": (D, "percona/pmm-client", "3"),
         },
         "pg": {
+            "19": (D, "percona/percona-distribution-postgresql", "19"),
             "18": (D, "percona/percona-distribution-postgresql", "18"),
             "17": (D, "percona/percona-distribution-postgresql", "17"),
             "16": (D, "percona/percona-distribution-postgresql", "16"),
             "15": (D, "percona/percona-distribution-postgresql", "15"),
             "14": (D, "percona/percona-distribution-postgresql", "14"),
+            "postgis19": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "19",
+            ),
             "postgis18": (
                 D,
                 "percona/percona-distribution-postgresql-with-postgis",

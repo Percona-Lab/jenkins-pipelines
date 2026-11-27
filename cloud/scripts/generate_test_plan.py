@@ -13,8 +13,9 @@ from pathlib import Path
 
 GENERATOR_VERSION = "1"
 
-PG_RELEASE_MAJORS = ("18", "17", "16", "15", "14")
+PG_RELEASE_MAJORS = ("19", "18", "17", "16", "15", "14")
 PG_PRIMARY_ROWS = (
+    ("19", "max", "YES"),
     ("18", "max", "YES"),
     ("17", "max", "NO"),
     ("16", "min", "YES"),
@@ -321,7 +322,7 @@ def _add_pg_gke_arm(add) -> None:
 
 
 def _add_pg_custom(add, versions: dict[str, str]) -> None:
-    for major in ("18", "17", "16"):
+    for major in ("19", "18", "17", "16"):
         if versions.get(f"IMAGE_POSTGRESQL{major}"):
             add(
                 "DOKS",
