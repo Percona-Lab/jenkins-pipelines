@@ -20,16 +20,18 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 // the scenario's converge/prepare, which still pulls in the PS install. So this
 // job NEVER calls converge. Instead, per IOPS point it:
 //
+//     (swap scenario converge.yml/prepare.yml for our offline playbooks)
 //     molecule create  -s <os>     # qemu setup + disk throttled to QEMU_IOPS
-//     ansible-playbook  <task>      # run a FIXED disk task, time it (NO converge)
+//     molecule converge -s <os>    # runs the disk probe, NOT the PS install
 //     molecule destroy -s <os>
 //
-// The task is driven by a throwaway playbook in the WORKSPACE (not in
-// package-testing), executed straight against molecule's own ephemeral
-// inventory. Nothing from package-testing's converge/prepare/ps_80 runs, so no
-// bytes cross the network. The task itself is a zero-dependency Python O_DIRECT
-// benchmark (python3 ships in every cloud image for cloud-init) that does a
-// fixed number of random 4 KiB ops and reports how long it took.
+// Rather than SSH in by hand, we let molecule drive the connection (it already
+// works) but OVERWRITE the scenario's converge.yml with our own disk-probe
+// playbook and neutralise prepare.yml -- both in the local package-testing
+// clone, before running. So molecule converge no longer installs PS; it runs a
+// zero-dependency Python O_DIRECT benchmark (python3 ships in every cloud image
+// for cloud-init) that does a fixed number of random 4 KiB ops and reports how
+// long it took. No install, no repo, no network.
 //
 // Output per point: task total seconds (the headline curve), write/read
 // seconds, achieved write/read IOPS, write p99 latency -> archived CSV.
@@ -60,9 +62,10 @@ def parseOsList(String raw) {
 }
 
 // Write the task artifacts into the Jenkins WORKSPACE (NOT package-testing):
-//   iops_task.py  - the offline fixed-work O_DIRECT disk probe
-//   iops_task.yml - a tiny playbook that runs the probe on the molecule guest,
-//                   stamps the result with the run label/cap and fetches it back
+//   iops_task.py       - the offline fixed-work O_DIRECT disk probe
+//   bench_converge.yml - converge playbook we drop into the scenario; runs the
+//                        probe, stamps the result and fetches it back
+//   bench_prepare.yml  - no-op prepare we drop in so no package setup runs
 // Using writeFile (not shell heredocs) keeps the content verbatim with no
 // escaping games.
 def writeTaskArtifacts() {
@@ -130,10 +133,14 @@ try:
     write_secs = time.time() - t0
 
     # ---- fixed-work random READ ----
+    # O_DIRECT reads need a block-ALIGNED destination buffer. os.pread allocates
+    # a fresh unaligned one -> EINVAL, so read into a page-aligned mmap with
+    # preadv instead (mmap pages are page-aligned, which satisfies O_DIRECT).
+    rbuf = mmap.mmap(-1, BS)
     t0 = time.time()
     for _ in range(OPS):
         off = rnd.randrange(BLOCKS) * BS
-        os.pread(fd, BS, off)
+        os.preadv(fd, [rbuf], off)
     read_secs = time.time() - t0
 finally:
     os.close(fd)
@@ -149,11 +156,13 @@ print("%.3f,%.3f,%.3f,%.1f,%.1f,%.3f" % (
     write_secs, read_secs, total_secs, write_iops, read_iops, p99(wlat)))
 '''
 
-    // --- the task playbook: run the probe on the guest, fetch the result ----
-    // Driven by `ansible-playbook -i <molecule inventory>` -- NOT molecule
-    // converge -- so the scenario's install playbook never runs.
-    writeFile file: 'iops_task.yml', text: '''---
-- name: Offline guest disk IOPS task (no network, no converge)
+    // --- the converge playbook we DROP INTO the scenario (replacing the PS
+    // install). molecule runs this with its own working connection; it just
+    // runs our offline probe on the guest, stamps the result with label+cap and
+    // fetches it back to the agent. probe_script/ops/bench_label/iops_cap come
+    // in as extra-vars via `molecule converge -- -e ...`.
+    writeFile file: 'bench_converge.yml', text: '''---
+- name: Offline guest disk IOPS task (no network, no install)
   hosts: all
   gather_facts: false
   vars:
@@ -180,13 +189,28 @@ print("%.3f,%.3f,%.3f,%.1f,%.1f,%.3f" % (
         dest: "/tmp/iops-bench-{{ bench_label }}.csvline"
         flat: true
 '''
-    echo "Wrote iops_task.py + iops_task.yml into the workspace."
+
+    // --- a no-op prepare that REPLACES whatever the scenario shipped, so no
+    // repo setup / package install can sneak network in before converge. The
+    // VM is already booted + reachable (molecule create waited for SSH), so a
+    // ping is all prepare needs to do.
+    writeFile file: 'bench_prepare.yml', text: '''---
+- name: No-op prepare (offline benchmark -- skip all package setup)
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Confirm connectivity only
+      ansible.builtin.ping:
+'''
+    echo "Wrote iops_task.py + bench_converge.yml + bench_prepare.yml into the workspace."
 }
 
 // Sequential OFFLINE sweep. For each OS (one VM at a time) and each IOPS value:
-// export QEMU_IOPS, `molecule create` (qemu setup + throttle), run the timed
-// task via ansible-playbook against molecule's ephemeral inventory, then
-// `molecule destroy`. converge is NEVER called, so the PS install never runs.
+// export QEMU_IOPS, overwrite the scenario's converge.yml/prepare.yml with our
+// offline playbooks, `molecule create` (qemu setup + throttle), `molecule
+// converge` (now runs the disk probe, NOT the PS install), then
+// `molecule destroy`. The install playbook is swapped out, so nothing hits the
+// network -- but molecule still handles the connection.
 //
 // Returns per-run maps with the timings/metrics parsed from the fetched result.
 def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir, ops) {
@@ -206,6 +230,21 @@ def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir, ops) {
                         export QEMU_IOPS=${iops}
                         echo "===== ${os}: OFFLINE disk task, guest disk throttled to ${iops} IOPS ====="
 
+                        # Swap the SHARED converge (PS install) + prepare (repo
+                        # setup) for our OFFLINE playbooks in the local clone. The
+                        # scenario's molecule.yml points converge/prepare at
+                        # molecule/shared/*.yml (NOT a per-OS file), so that is the
+                        # file molecule actually runs. Overwriting it makes molecule
+                        # converge run the disk probe with its OWN working
+                        # connection -- no install, nothing hitting the network.
+                        SHARED="${chaosMoleculeDir()}/molecule/shared"
+                        if [ ! -f "\$SHARED/converge.yml" ]; then
+                            SHARED=\$(dirname "\$(find ${chaosMoleculeDir()} -name converge.yml 2>/dev/null | head -1)")
+                        fi
+                        echo "Shared playbook dir: \$SHARED"
+                        cp "\${WORKSPACE}/bench_converge.yml" "\$SHARED/converge.yml"
+                        [ -f "\$SHARED/prepare.yml" ] && cp "\${WORKSPACE}/bench_prepare.yml" "\$SHARED/prepare.yml"
+
                         molecule create -s ${os}
                         crc=\$?
                         if [ \$crc -ne 0 ]; then
@@ -217,26 +256,16 @@ def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir, ops) {
 
                         vrc=1
                         if [ \$crc -eq 0 ]; then
-                            # Locate molecule's ephemeral inventory for this
-                            # scenario (default path, with a find fallback) and
-                            # run OUR task playbook straight against it -- no
-                            # converge, so no install playbook is ever invoked.
-                            INV="\${HOME}/.cache/molecule/chaos/${os}/inventory"
-                            if [ ! -d "\$INV" ]; then
-                                INV=\$(dirname "\$(find \${HOME}/.cache/molecule -path '*${os}*/inventory/*' 2>/dev/null | head -1)")
-                            fi
-                            echo "Using molecule inventory: \$INV"
-                            if [ -d "\$INV" ]; then
-                                ansible-playbook -i "\$INV" "\${WORKSPACE}/iops_task.yml" \
-                                    -e probe_script="\${WORKSPACE}/iops_task.py" \
-                                    -e ops=${ops} \
-                                    -e bench_label=${label} \
-                                    -e iops_cap=${iops}
-                                vrc=\$?
-                            else
-                                echo "ERROR: could not locate molecule inventory for ${os}"
-                                vrc=1
-                            fi
+                            # molecule converge now runs OUR converge.yml (the disk
+                            # probe) using molecule's own inventory/connection. Pass
+                            # the probe path + run labels as extra-vars (everything
+                            # after -- goes to ansible-playbook).
+                            molecule converge -s ${os} -- \
+                                -e probe_script="\${WORKSPACE}/iops_task.py" \
+                                -e ops=${ops} \
+                                -e bench_label=${label} \
+                                -e iops_cap=${iops}
+                            vrc=\$?
                         fi
 
                         molecule destroy -s ${os} || true
@@ -397,8 +426,8 @@ pipeline {
     environment {
         VENV_DIR = "${env.HOME}/.venv/molecule_qemu"
         ANSIBLE_DEPRECATION_WARNINGS = "False"
-        // Our ansible-playbook talks straight to molecule's inventory; disable
-        // host-key prompting so a fresh VM's unknown key never blocks the run.
+        // Fresh VM each run -> disable host-key prompting so molecule converge's
+        // SSH to the new guest never blocks on an unknown key.
         ANSIBLE_HOST_KEY_CHECKING = "False"
     }
     options {
