@@ -105,6 +105,9 @@ pipeline {
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/pxb-new-ps-replication/";
+    // Per-build Ansible/Molecule state (default ~/.ansible is keyed only on the scenario
+    // dir name, so concurrent builds on one agent would share instance config).
+    ANSIBLE_HOME = "${WORKSPACE}/.ansible";
     PXB_VERSION = "${params.PXB_VERSION}";
     PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
@@ -185,7 +188,6 @@ pipeline {
   }
   options {
     withCredentials(moleculepxbJenkinsCreds())
-    disableConcurrentBuilds()
   }
 
   stages {
