@@ -56,6 +56,10 @@
             name: WITH_KMIP_TESTS
             default: false
             description: "Run kmip tests"
+        - bool:
+            name: WITH_AARCH64
+            default: false
+            description: "Add the aarch64 cells to the matrix. Off by default"
         - choice:
             name: CLOUD
             choices:

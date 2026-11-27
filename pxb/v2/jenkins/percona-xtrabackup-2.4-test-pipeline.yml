@@ -28,6 +28,11 @@
           - asan
         description: OS version for compilation
     - choice:
+        name: ARCH
+        choices:
+          - x86_64
+        description: CPU architecture. PXB 2.4 is EOL and builds x86_64 only (no aarch64 base images for centos:7/EOL distros).
+    - choice:
         name: CMAKE_BUILD_TYPE
         choices:
           - RelWithDebInfo

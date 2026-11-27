@@ -35,6 +35,10 @@
         name: MAKE_OPTS
         default:
         description: make options, like VERBOSE=1
+    - bool:
+        name: WITH_AARCH64
+        default: false
+        description: "Add the aarch64 cells to the matrix. Off by default"
     - choice:
         name: CLOUD
         choices:
@@ -57,13 +61,27 @@
          - ubuntu:noble
          - debian:bookworm
          - debian:trixie
+         - amazonlinux:2023
          - asan
+      - axis:
+         type: user-defined
+         name: ARCH
+         values:
+         - x86_64
+         - aarch64
+    execution-strategy:
+      # The x86_64 amazonlinux:2023 cell always runs. The aarch64 one runs only when WITH_AARCH64 is ticked.
+      combination-filter: >-
+        (ARCH == "x86_64" && DOCKER_OS != "amazonlinux:2023") ||
+        (DOCKER_OS == "amazonlinux:2023" && CMAKE_BUILD_TYPE == "RelWithDebInfo" &&
+        (ARCH == "x86_64" || WITH_AARCH64 == "true"))
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-9.x-compile-pipeline
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${{DOCKER_OS}}
+          ARCH=${{ARCH}}
           CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
           CLOUD=${{CLOUD}}
         block: true

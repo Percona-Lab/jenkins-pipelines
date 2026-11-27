@@ -60,6 +60,10 @@
             name: WITH_KEYCLOAK_TESTS
             default: true
             description: "Run OIDC tests against a Keycloak container (xtradb targets only)"
+        - bool:
+            name: WITH_AARCH64
+            default: false
+            description: "Add the aarch64 cells to the matrix. Off by default"
         - choice:
             name: CLOUD
             choices:
