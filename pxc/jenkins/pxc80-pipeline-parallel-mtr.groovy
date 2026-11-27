@@ -311,16 +311,35 @@ void doTestWorkerJobWithGuard(Integer WORKER_ID, String SUITES, String STANDALON
     } // catch
 }
 
-void checkoutSources(String COMPONENT) {
-    echo "Checkout ${COMPONENT} sources"
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf sources
-        ./pxc/local/checkout ${COMPONENT}
-    """
+// Shell snippet that derives GIT_REPO_LINK from GIT_REPO, injecting an access
+// token for private repositories so raw-file fetches can authenticate. The
+// token (PXC_SECRET_TOKEN) is bound in the environment via withCredentials and
+// expanded by the shell at runtime - it is deliberately NOT interpolated into
+// the Groovy script text, so it stays masked in the console and off the agent's
+// durable-task script file on disk.
+String gitRepoLinkSnippet() {
+    return '''
+            GIT_REPO_LINK=${GIT_REPO}
+            if [[ "${GIT_REPO}" =~ private ]]; then
+                echo "Private repository detected"
+                GIT_REPO_LINK=$(echo "${GIT_REPO}" | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|")
+            fi'''
+}
+
+void checkoutSources() {
+    echo "Checkout PXC sources"
+    // PXC sources may live in a private repo; bind the token so the
+    // ./pxc/local/checkout child process inherits it from the environment.
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
+        sh """
+            # sudo is needed for better node recovery after compilation failure
+            # if building failed on compilation stage directory will have files owned by docker user
+            sudo git reset --hard
+            sudo git clean -xdf
+            sudo rm -rf sources
+            ./pxc/local/checkout PXC80
+        """
+    }
 }
 
 void build(String SCRIPT) {
@@ -340,8 +359,10 @@ void build(String SCRIPT) {
 void setupTestSuitesSplit() {
     def split_script = """#!/bin/bash
         if [[ "${FULL_MTR}" == "yes" ]]; then
+            ${gitRepoLinkSnippet()}
+
             # Try to get suites split from PS repo. If not present, fallback to hardcoded.
-            RAW_VERSION_LINK=\$(echo \${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+            RAW_VERSION_LINK=\$(echo \${GIT_REPO_LINK%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
             REPLY=\$(curl -Is \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh | head -n 1 | awk '{print \$2}')
             CUSTOM_SPLIT=0
             if [[ \${REPLY} != 200 ]]; then
@@ -350,11 +371,11 @@ void setupTestSuitesSplit() {
                 cp ./pxc/jenkins/suites-groups.sh ${WORKSPACE}/suites-groups.sh
             else
                 echo "Using custom MTR suites split"
-                wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh -O ${WORKSPACE}/suites-groups.sh
+                curl -fsS \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/suites-groups.sh -o ${WORKSPACE}/suites-groups.sh
                 CUSTOM_SPLIT=1
             fi
             # Check if split contain all suites
-            wget \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/mysql-test-run.pl -O ${WORKSPACE}/mysql-test-run.pl
+            curl -fsS \${RAW_VERSION_LINK}/${BRANCH}/mysql-test/mysql-test-run.pl -o ${WORKSPACE}/mysql-test-run.pl
             chmod +x ${WORKSPACE}/suites-groups.sh
             set +e
             echo "Check if suites list is consistent with the one specified in mysql-test-run.pl"
@@ -424,12 +445,14 @@ void validatePxcBranch() {
             sudo apt-get update
         fi
 
-        RAW_VERSION_LINK=\$(echo \${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+        ${gitRepoLinkSnippet()}
+
+        RAW_VERSION_LINK=\$(echo \${GIT_REPO_LINK%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
         REPLY=\$(curl -Is \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print \$2}')
         if [[ \${REPLY} != 200 ]]; then
-            wget \${RAW_VERSION_LINK}/\${BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+            curl -fsS \${RAW_VERSION_LINK}/\${BRANCH}/VERSION -o ${WORKSPACE}/VERSION-${BUILD_NUMBER}
         else
-            wget \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+            curl -fsS \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION -o ${WORKSPACE}/VERSION-${BUILD_NUMBER}
         fi
         source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
         if [[ \${MYSQL_VERSION_MAJOR} -lt \${MY_BRANCH_BASE_MAJOR} ]] ; then
@@ -565,8 +588,10 @@ pipeline {
 
                 sh 'echo Prepare: $(date -u "+%s")'
 
-                validatePxcBranch()
-                setupTestSuitesSplit()
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
+                    validatePxcBranch()
+                    setupTestSuitesSplit()
+                }
 
                 script{
                     env.BUILD_TAG_BINARIES = "jenkins-${env.JOB_NAME}-${env.BUILD_NUMBER_BINARIES}"
@@ -586,7 +611,7 @@ pipeline {
                     steps {
                         checkoutScripts()
 
-                        checkoutSources("PXC80")
+                        checkoutSources()
                         build("./pxc/docker/run-build-pxc-parallel-mtr")
 
                         script {

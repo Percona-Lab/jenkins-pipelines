@@ -38,6 +38,7 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
     export MTR_STANDALONE_TESTS_PARALLEL='${MTR_STANDALONE_TESTS_PARALLEL}'
     export CI_FS_MTR='${CI_FS_MTR}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
+    export GIT_REPO='${GIT_REPO}'
     export WORKER_NO='${WORKER_NO}'
     export PXB_PREV_LTS_TARGET_DIR='${PXB_PREV_LTS_VERSION_TARGET_DIR}'
     export PXB_A_TARGET_DIR='${PXB_PREV_VERSION_TARGET_DIR}'

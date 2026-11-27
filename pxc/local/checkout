@@ -30,6 +30,12 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     sudo rm -rf ${PXC_ROOT_DIR}
 
+    # Private repositories require an access token to clone over HTTPS.
+    # PXC_SECRET_TOKEN is bound from Jenkins credentials and expanded here by
+    # the shell at runtime, so it never ends up in the pipeline script text.
+    if [[ "${GIT_REPO}" =~ private ]]; then
+        GIT_REPO=$(echo "${GIT_REPO}" | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|")
+    fi
     git clone --depth 1 "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}" -b "${BRANCH}"
 
     pushd $PXC_ROOT_DIR
