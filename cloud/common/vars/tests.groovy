@@ -269,6 +269,7 @@ void validateTestVariables(Map testVariables) {
     def knownKeys = [
         'allure',
         'cert_manager_version',
+        'cluster_load',
         'cluster_suffix_prefix',
         'cluster_wide',
         'clusters',
@@ -299,9 +300,11 @@ void validateTestVariables(Map testVariables) {
         'release_versions',
         'retries',
         'skip_kubeconfig',
+        'slot_start_delay_seconds',
         'source_repo',
         'test_executor_type',
         'test_timeout_minutes',
+        'tests_per_cluster',
         'ubi_version',
         'worker_count',
         'zone'
@@ -484,6 +487,18 @@ void initTestRun(Map testVariables, Map config) {
         imageMongod   : testVariables.images?.IMAGE_MONGOD
     ])
 
+    if (testsPerCluster(testVariables) > 1) {
+        def placed = loadTestPlacement(testVariables.tests)
+        if (placed == null) {
+            // Without the tags, tests that change the CRD, cert-manager or other cluster-wide
+            // resources would break the tests next to them: run one test at a time.
+            echo "WARNING: select_tests.py placement is not available on this operator branch; running 1 test per cluster instead of ${testsPerCluster(testVariables)}"
+            testVariables.tests_per_cluster = 1
+        } else {
+            testVariables.tests = placed
+        }
+    }
+
     if (config.ignorePreviousRun == 'NO') {
         updateListWithLastExecutionStatus(testVariables)
     } else {
@@ -492,6 +507,67 @@ void initTestRun(Map testVariables, Map config) {
     }
     // Cloud secrets are copied into the sources later, in prepareTestSources(), so that they are
     // never part of the operator Docker build context.
+}
+
+// Reads ownCluster and locks from the operator's tests.yaml (select_tests.py placement) and returns
+// the tests with ownCluster ones first, then tests with locks, so they spread over the clusters
+// early. Returns null on an operator branch without the command.
+List loadTestPlacement(List tests) {
+    // One line per tagged test, "<name> <own|shared> <lock,lock|->", or NONE without the command.
+    def output = sh(
+        script: '''
+            export PATH="$HOME/.local/bin:$PATH"
+            cd source
+            json=$(uv run e2e-tests/select_tests.py placement 2>/dev/null | tail -n 1) || json=''
+            case "$json" in
+                '{'*) echo "$json" | jq -r 'to_entries[] | [.key, (if .value.ownCluster then "own" else "shared" end), ((.value.locks // []) | if length == 0 then "-" else join(",") end)] | join(" ")' ;;
+                *) echo NONE ;;
+            esac
+        ''',
+        returnStdout: true
+    ).trim()
+    if (output == 'NONE') {
+        return null
+    }
+
+    def placement = [:]
+    for (line in output.split('\n')) {
+        def fields = line.trim().split(' ')
+        if (fields.size() == 3) {
+            placement[fields[0]] = [own: fields[1] == 'own', locks: fields[2] == '-' ? [] : fields[2].split(',').toList()]
+        }
+    }
+
+    def own = []
+    def locked = []
+    def free = []
+    for (test in tests) {
+        def entry = placement[test.name]
+        test.ownCluster = entry ? entry.own : false
+        test.locks = entry ? entry.locks : []
+        if (test.ownCluster) {
+            own << test
+        } else if (test.locks) {
+            locked << test
+        } else {
+            free << test
+        }
+    }
+    def ordered = []
+    for (group in [own, locked, free]) {
+        for (test in group) {
+            ordered << test
+        }
+    }
+
+    echo "Placement: ${own.size()} tests run alone on a cluster, ${locked.size()} hold locks, ${free.size()} share freely"
+    if (own) {
+        echo "Own cluster: ${own.collect { it.name }.join(', ')}"
+    }
+    for (test in locked) {
+        echo "Locks ${test.locks.join(', ')}: ${test.name}"
+    }
+    return ordered
 }
 
 // Copies the cloud secrets into the e2e-tests config and stashes the sources for the cluster agents.
@@ -859,6 +935,93 @@ Integer claimNextSkippedTest(List tests, String clusterSuffix) {
     }
 }
 
+// For slots: returns the next test a slot on clusterSuffix may start, -1 when tests are
+// left but none may start on this cluster yet, or null when no test is left.
+// - An ownCluster test starts only on a cluster with nothing running, and nothing else starts
+//   next to it. Pending ownCluster tests come first in the queue, so a busy cluster waits for
+//   them instead of starting other tests, and they are not starved.
+// - A test with locks does not start while a test with one of those locks runs on the cluster.
+@com.cloudbees.groovy.cps.NonCPS
+Integer claimNextTestForSlot(List tests, String clusterSuffix) {
+    synchronized (tests) {
+        def running = []
+        def held = []
+        def pending = false
+        for (test in tests) {
+            if (test.result == 'skipped') {
+                pending = true
+            } else if (test.running && test.cluster == clusterSuffix) {
+                running << test
+                for (lock in (test.locks ?: [])) {
+                    held << lock
+                }
+            }
+        }
+        if (!pending) {
+            return null
+        }
+        for (test in running) {
+            if (test.ownCluster) {
+                return -1
+            }
+        }
+
+        for (int i = 0; i < tests.size(); i++) {
+            def test = tests[i]
+            if (test.result != 'skipped') {
+                continue
+            }
+            if (test.ownCluster) {
+                if (running.size() > 0) {
+                    return -1
+                }
+            } else if (holdsAny(held, test.locks)) {
+                continue
+            }
+            test.result = 'failure'
+            test.cluster = clusterSuffix
+            test.running = true
+            return i
+        }
+        return -1
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+Boolean holdsAny(List held, List locks) {
+    for (lock in (locks ?: [])) {
+        if (held.contains(lock)) {
+            return true
+        }
+    }
+    return false
+}
+
+// A test that failed next to other tests (runTest with retryAlone) goes back to the queue as an
+// ownCluster test, so its retry runs alone. Done here, under the lock and after `running` is
+// cleared, so no slot can claim the retry while this slot still counts it as running.
+@com.cloudbees.groovy.cps.NonCPS
+void markTestFinished(List tests, Integer testId) {
+    synchronized (tests) {
+        def test = tests[testId]
+        test.running = false
+        if (test.requeueAlone) {
+            test.requeueAlone = false
+            test.retriedAlone = true
+            test.ownCluster = true
+            test.result = 'skipped'
+        }
+    }
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void markTestForRetryAlone(List tests, Integer testId, Integer attemptsDone) {
+    synchronized (tests) {
+        tests[testId].requeueAlone = true
+        tests[testId].attemptsDone = attemptsDone
+    }
+}
+
 @com.cloudbees.groovy.cps.NonCPS
 Integer countSkippedTests(List tests) {
     synchronized (tests) {
@@ -911,11 +1074,16 @@ void runTest(Map testConfig) {
     def testTimeoutMinutes = (testVariables.test_timeout_minutes ?: 60) as Integer
     def timeStart = System.currentTimeMillis()
     def finalResult = 'failure'
+    // A retry that runs alone after a failure next to other tests continues the attempt count.
+    def firstAttempt = ((testVariables.tests[testId].attemptsDone ?: 0) as Integer) + 1
+    def timeBefore = (firstAttempt > 1) ? ((testVariables.tests[testId].time ?: 0) as Double) : 0
+    def retriedAlone = testVariables.tests[testId].retriedAlone
+    def requeued = false
 
     updateTestResult(testVariables.tests, testId, 'failure')
 
     try {
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        for (int attempt = firstAttempt; attempt <= maxAttempts; attempt++) {
             echo "The ${testName} test was started on cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} (attempt ${attempt}/${maxAttempts}, timeout ${testTimeoutMinutes} min)!"
 
             def exitCode = 1
@@ -924,14 +1092,18 @@ void runTest(Map testConfig) {
             try {
                 def exports = getExportedVariablesForTests(testVariables, clusterSuffix)
                 def command = defineTestCommand(testVariables, testName)
-                // One Allure results folder per test: publishAllureReport collects them per test.
+                // One Allure results folder per test: slots on a cluster share one checkout.
                 def allureExports = testVariables.allure ? "export ALLURE_RESULTS_DIR=e2e-tests/allure-results/${testName}" : ''
+                if (testVariables.allure) {
+                    sh "mkdir -p source/e2e-tests/allure-results && touch source/e2e-tests/allure-results/.${testName}.attempt"
+                }
 
                 timeout(time: testTimeoutMinutes, unit: 'MINUTES') {
                     exitCode = sh(
                         script: """
                             cd source
                             ${exports}
+                            ${testConfig.slotExports ?: ''}
                             ${allureExports}
                             ${testVariables.pre_test_sh ?: ''}
                             ${command}
@@ -952,12 +1124,26 @@ void runTest(Map testConfig) {
                 echo "Error occurred while running test ${testName}: ${exc}"
             }
 
+            if (testVariables.allure) {
+                // As in the operator PR checks: the Allure timeline shows one row per cluster and
+                // one lane per slot, instead of the agent's hostname and the pytest process.
+                testVariables.libraries.tools.labelAllureResults(
+                    "source/e2e-tests/allure-results/${testName}",
+                    "source/e2e-tests/allure-results/.${testName}.attempt",
+                    getClusterFullName(testVariables.cluster_name, clusterSuffix),
+                    testConfig.slotName ?: "${clusterSuffix}-slot1"
+                )
+            }
+
             if (exitCode == 0) {
                 pushArtifactFile(
                     artifactFileName(testVariables, testName),
                     testVariables.git_short_commit
                 )
                 updateTestResult(testVariables.tests, testId, 'passed')
+                if (retriedAlone) {
+                    echo "The ${testName} test passed alone after failing next to other tests. If this repeats, tag it ownCluster in tests.yaml."
+                }
                 return
             }
 
@@ -965,7 +1151,12 @@ void runTest(Map testConfig) {
                 echo "The ${testName} test failed with exit code ${exitCode} on attempt ${attempt}/${maxAttempts}"
             }
             try {
-                testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+                if (testConfig.sharedClusterKubeconfig) {
+                    // Other tests run on this cluster: delete only this test's namespaces.
+                    testVariables.libraries.tools.kubectlDeleteTestNamespaces(testConfig.sharedClusterKubeconfig, testName)
+                } else {
+                    testVariables.libraries.tools.kubectlCleanupFailedNamespaces(testVariables, testName, clusterSuffix)
+                }
             } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
                 throw exc
             } catch (cleanupErr) {
@@ -976,6 +1167,13 @@ void runTest(Map testConfig) {
                 // A hung test usually hangs again; retrying would hold the cluster for another full timeout.
                 finalResult = 'error'
                 break
+            }
+
+            if (attempt < maxAttempts && testConfig.retryAlone) {
+                echo "The ${testName} test failed next to other tests: its retry will run alone on a cluster"
+                markTestForRetryAlone(testVariables.tests, testId, attempt)
+                requeued = true
+                return
             }
 
             if (attempt < maxAttempts) {
@@ -1002,7 +1200,7 @@ void runTest(Map testConfig) {
             error(failureMessage)
         }
     } finally {
-        updateTestTime(testVariables.tests, testId, elapsedSeconds(System.currentTimeMillis() - timeStart))
+        updateTestTime(testVariables.tests, testId, timeBefore + elapsedSeconds(System.currentTimeMillis() - timeStart))
         try {
             pushLogFile(testName, [
                 sourceDir     : 'source',
@@ -1015,7 +1213,212 @@ void runTest(Map testConfig) {
         if (testVariables.allure) {
             stash name: "allure-${testName}", includes: "source/e2e-tests/allure-results/${testName}/**", allowEmpty: true
         }
-        echo "The ${testName} test was finished!"
+        if (!requeued) {
+            echo "The ${testName} test was finished!"
+        }
+    }
+}
+
+Integer testsPerCluster(Map testVariables) {
+    def value = (testVariables.tests_per_cluster ?: 1) as Integer
+    return value < 1 ? 1 : value
+}
+
+// Cluster load sampling settings from testVariables.cluster_load, or [:] when it is off. On by
+// default, as in the operator PR checks; cluster_load: [enabled: false] turns it off. Defaults:
+// [enabled: true, interval_seconds: 30, cpu_percent: 90, memory_percent: 70, high_after_seconds: 120]
+// A cluster counts as highly loaded when its busiest node stays at the CPU or memory percent for
+// high_after_seconds without a break. The load goes into the Allure report and one log line.
+Map clusterLoadSettings(Map testVariables) {
+    def cfg = testVariables.cluster_load
+    if (cfg == false || (cfg instanceof Map && cfg.enabled == false)) {
+        return [:]
+    }
+    if (!(cfg instanceof Map)) {
+        cfg = [:]
+    }
+    return [
+        interval : (cfg.interval_seconds ?: 30) as Integer,
+        cpu      : (cfg.cpu_percent ?: 90) as Integer,
+        memory   : (cfg.memory_percent ?: 70) as Integer,
+        highAfter: (cfg.high_after_seconds ?: 120) as Integer
+    ]
+}
+
+String formatDuration(def seconds) {
+    def total = (seconds ?: 0) as Integer
+    def rest = total % 60
+    def minutes = ((total - rest) / 60) as Integer
+    return minutes > 0 ? (rest > 0 ? "${minutes}m${rest}s" : "${minutes}m") : "${rest}s"
+}
+
+@com.cloudbees.groovy.cps.NonCPS
+void recordClusterLoad(Map testVariables, String clusterSuffix, String line) {
+    synchronized (testVariables) {
+        if (testVariables.cluster_load_summary == null) {
+            testVariables.cluster_load_summary = [:]
+        }
+        testVariables.cluster_load_summary[clusterSuffix] = line
+    }
+}
+
+// Runs up to tests_per_cluster tests at the same time on one cluster. Each slot takes the next test
+// from the shared queue, so a slot that finishes a short test starts the next one at once. Tests
+// tagged ownCluster or with locks in tests.yaml are kept apart, see claimNextTestForSlot.
+void runTestSlots(String clusterSuffix, Map testVariables, String clusterKubeconfig) {
+    def slots = testsPerCluster(testVariables)
+    def startDelay = (testVariables.slot_start_delay_seconds ?: 0) as Integer
+    def branches = [:]
+
+    echo "Running up to ${slots} tests at a time on ${getClusterFullName(testVariables.cluster_name, clusterSuffix)}"
+
+    for (int i = 1; i <= slots; i++) {
+        def slotIndex = i
+        def slotDir = "${clusterKubeconfig}-slot${slotIndex}"
+
+        branches["${clusterSuffix}-slot${slotIndex}"] = {
+            if (startDelay > 0 && slotIndex > 1) {
+                sleep(time: startDelay * (slotIndex - 1), unit: 'SECONDS')
+            }
+
+            while (true) {
+                def testId = claimNextTestForSlot(testVariables.tests, clusterSuffix)
+                if (testId == null) {
+                    break
+                }
+                if (testId < 0) {
+                    // Tests are left, but an ownCluster test or a lock keeps this slot waiting.
+                    sleep(time: 30, unit: 'SECONDS')
+                    continue
+                }
+                try {
+                    runSlotTest(testVariables, testId, clusterSuffix, clusterKubeconfig, slotDir, "${clusterSuffix}-slot${slotIndex}")
+                } finally {
+                    markTestFinished(testVariables.tests, testId)
+                }
+            }
+        }
+    }
+
+    parallel branches
+}
+
+// One test in a slot: its own kubeconfig and helm home, then only its own namespaces are deleted.
+void runSlotTest(Map testVariables, Integer testId, String clusterSuffix, String clusterKubeconfig, String slotDir, String slotName) {
+    def testName = testVariables.tests[testId].name
+
+    // A fresh kubeconfig per test: the harness writes the test namespace into its context.
+    // A helm home per slot: deploy_s3_storage runs `helm repo remove/add`, which races in a shared one.
+    sh """
+        rm -rf '${slotDir}'
+        mkdir -p '${slotDir}'
+        cp '${clusterKubeconfig}' '${slotDir}/kubeconfig'
+    """
+
+    // DELETE_CRD_ON_START=0: a test must not delete the CRD under the tests that run next to it.
+    // CLEAN_NAMESPACE=0: with 1, create_infra deletes every namespace (and chaos-mesh) when a test
+    // starts, so a test starting later wipes out the tests already running.
+    // SKIP_DELETE=1: the teardown after a test also removes cert-manager and RBAC, so the
+    // runner deletes only the test's own namespaces below instead.
+    // Cluster-wide: a test that shares the cluster gets its own operator namespace
+    // <test>-<hex>-op (new on each attempt), and SHARED_CLUSTER=1 makes that operator use its own
+    // ClusterRole and ClusterRoleBinding and watch only the test namespace.
+    def ownCluster = testVariables.tests[testId].ownCluster
+    def clusterWide = testVariables.cluster_wide == 'YES'
+    def operatorExports = (clusterWide && !ownCluster) ? """
+            export OPERATOR_NS="${testName}-\$(head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \\n')-op"
+            export SHARED_CLUSTER=1
+    """ : ''
+    // retryAlone: a test that fails next to other tests is retried alone, so a failure caused by
+    // sharing the cluster does not repeat, and "passed alone" shows which tests need ownCluster.
+    runTest(
+        testId: testId,
+        clusterSuffix: clusterSuffix,
+        testVariables: testVariables,
+        retries: testVariables.retries ?: 1,
+        retryAlone: !ownCluster && testsPerCluster(testVariables) > 1,
+        sharedClusterKubeconfig: clusterKubeconfig,
+        slotName: slotName,
+        slotExports: """
+            export KUBECONFIG='${slotDir}/kubeconfig'
+            export HELM_CONFIG_HOME='${slotDir}/helm'
+            export HELM_CACHE_HOME='${slotDir}/helm-cache'
+            export DELETE_CRD_ON_START=0
+            export CLEAN_NAMESPACE=0
+            export SKIP_DELETE=1
+            ${operatorExports}
+        """.stripIndent().trim()
+    )
+
+    // Free the CPU and memory of a finished test before the slot starts the next one. A test that
+    // ran alone may leave cluster-wide state the next tests must not see, such as cert-manager, or
+    // in cluster-wide mode its operator, which watches every namespace.
+    try {
+        testVariables.libraries.tools.kubectlDeleteTestNamespaces(clusterKubeconfig, testName)
+        if (ownCluster) {
+            testVariables.libraries.tools.kubectlDeleteCertManager(clusterKubeconfig)
+            if (clusterWide) {
+                testVariables.libraries.tools.kubectlDeleteClusterWideOperator(clusterKubeconfig, "${testVariables.operator}-operator")
+            }
+        }
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (cleanupErr) {
+        echo "Warning: failed to delete namespaces of ${testName}: ${cleanupErr}"
+    }
+}
+
+// Starts load sampling on a new cluster. Returns the state that finishClusterLoad needs, or [:].
+Map startClusterLoad(Map testVariables, String clusterSuffix, String kubeconfig) {
+    def settings = clusterLoadSettings(testVariables)
+    if (!settings) {
+        return [:]
+    }
+    // Not *.txt: the pilot archives *.txt, and the samples belong in the Allure report only.
+    def load = [
+        tools   : testVariables.libraries.tools,
+        limits  : [cpu: settings.cpu, memory: settings.memory, interval: settings.interval],
+        settings: settings,
+        samples : "cluster-load-${clusterSuffix}.samples"
+    ]
+    try {
+        load.tools.startClusterLoadSampler(kubeconfig, "${env.WORKSPACE}/${load.samples}", settings.interval)
+        return load
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: cluster load sampling did not start: ${loadErr}"
+    }
+    return [:]
+}
+
+// Stops sampling, prints one line with the cluster's load and stashes the samples, which
+// publishAllureReport adds to each test case. Never fails the build.
+void finishClusterLoad(Map testVariables, String clusterSuffix, Map load) {
+    if (!load) {
+        return
+    }
+    def clusterName = getClusterFullName(testVariables.cluster_name, clusterSuffix)
+    try {
+        load.tools.stopClusterLoadSampler("${env.WORKSPACE}/${load.samples}")
+        def s = load.tools.clusterLoadSummary("${env.WORKSPACE}/${load.samples}", load.limits)
+        if (s.samples == '0') {
+            echo "Cluster load on ${clusterName}: no samples (is metrics-server running?)"
+            return
+        }
+
+        def settings = load.settings
+        def high = (s.cpu_longest as Integer) >= settings.highAfter || (s.mem_longest as Integer) >= settings.highAfter
+        def line = "${high ? 'HIGH ' : ''}busiest node CPU peak ${s.cpu_peak}% " +
+            "(${formatDuration(s.cpu_over)} at ${settings.cpu}%+), memory peak ${s.mem_peak}% " +
+            "(${formatDuration(s.mem_over)} at ${settings.memory}%+), cluster average CPU peak ${s.cluster_cpu_peak}%"
+        echo "Cluster load on ${clusterName}: ${line}"
+        recordClusterLoad(testVariables, clusterSuffix, line)
+        stash name: "cluster-load-${clusterSuffix}", includes: "${load.samples}*", allowEmpty: true
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: cluster load report failed: ${loadErr}"
     }
 }
 
@@ -1053,6 +1456,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
         testVariables.libraries.tools.kubectlCleanupCluster(clusterCfg.kubeconfig)
     }
     def shutdownCluster = { testVariables.libraries[platform].shutdownCluster(clusterCfg, testVariables.libraries) }
+    def load = [:]
 
     try {
         // The cluster is created before a test is claimed, so a failed creation leaves every test in
@@ -1074,6 +1478,12 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
 
                 echo "=========================[ Creating cluster ${getClusterFullName(testVariables.cluster_name, clusterSuffix)} ]========================="
                 createCluster.call()
+                load = startClusterLoad(testVariables, clusterSuffix, clusterCfg.kubeconfig)
+            }
+
+            if (testsPerCluster(testVariables) > 1) {
+                runTestSlots(clusterSuffix, testVariables, clusterCfg.kubeconfig)
+                break
             }
 
             def testId = claimNextSkippedTest(testVariables.tests, clusterSuffix)
@@ -1089,6 +1499,7 @@ void clusterRunner(String clusterSuffix, Map testVariables) {
             )
         }
     } finally {
+        finishClusterLoad(testVariables, clusterSuffix, load)
         // Each cluster contains only suffix
         createdClusters.each { cluster ->
             try {
@@ -1454,6 +1865,47 @@ void shutdownLeftoverClusters(Map testVariables) {
     }
 }
 
+// Adds the load of the cluster a test ran on to each of its Allure test cases. The samples of a
+// cluster are unstashed once; loadSamples remembers which clusters have them.
+void addTestClusterLoad(Map testVariables, String clusterSuffix, String resultsDir, Map settings, Map loadSamples) {
+    if (!clusterSuffix || clusterSuffix == 'NA') {
+        return
+    }
+    try {
+        if (!loadSamples.containsKey(clusterSuffix)) {
+            loadSamples[clusterSuffix] = false
+            unstash "cluster-load-${clusterSuffix}"
+            loadSamples[clusterSuffix] = true
+        }
+        if (loadSamples[clusterSuffix]) {
+            testVariables.libraries.tools.addClusterLoadToAllure(
+                resultsDir,
+                "cluster-load-${clusterSuffix}.samples",
+                [cpu: settings.cpu, memory: settings.memory, interval: settings.interval]
+            )
+        }
+    } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {
+        throw exc
+    } catch (loadErr) {
+        echo "Warning: no cluster load in the Allure report for ${resultsDir}: ${loadErr}"
+    }
+}
+
+// One Environment entry per cluster on the Allure overview, with the line finishClusterLoad printed.
+void writeClusterLoadEnvironment(Map testVariables, String resultsDir) {
+    def summary = testVariables.cluster_load_summary ?: [:]
+    if (!summary) {
+        return
+    }
+    def lines = ["Tests.per.cluster=${testsPerCluster(testVariables)}"]
+    for (clusterSuffix in summary.keySet().sort()) {
+        lines << "Cluster.load.${clusterSuffix}=${summary[clusterSuffix]}"
+    }
+    def file = "${resultsDir}/environment.properties"
+    def existing = fileExists(file) ? readFile(file).trim() : ''
+    writeFile file: file, text: (existing ? existing + '\n' : '') + lines.join('\n') + '\n'
+}
+
 // Publishes one Allure report from the per-test results that runTest stashes when
 // testVariables.allure is set. The per-test folders are merged into one before publishing:
 // the plugin copies the previous build's history into every results path, so several paths
@@ -1467,6 +1919,8 @@ void publishAllureReport(Map testVariables) {
     def merged = 'source/e2e-tests/allure-results-merged'
     sh "rm -rf ${merged} && mkdir -p ${merged}"
     def found = false
+    def loadSettings = clusterLoadSettings(testVariables)
+    def loadSamples = [:]
     for (int i = 0; i < testVariables.tests.size(); i++) {
         def testName = testVariables.tests[i].name
         if (testVariables.tests[i].result == 'skipped') {
@@ -1479,6 +1933,9 @@ void publishAllureReport(Map testVariables) {
         }
         def dir = "source/e2e-tests/allure-results/${testName}"
         if (sh(returnStatus: true, script: "ls ${dir}/*-result.json >/dev/null 2>&1") == 0) {
+            if (loadSettings) {
+                addTestClusterLoad(testVariables, testVariables.tests[i].cluster, dir, loadSettings, loadSamples)
+            }
             // Result files have unique names; environment.properties is the same per run.
             sh "cp -R ${dir}/. ${merged}/"
             found = true
@@ -1489,6 +1946,7 @@ void publishAllureReport(Map testVariables) {
         echo 'No Allure results to publish (operator branches before PR #2726 write none)'
         return
     }
+    writeClusterLoadEnvironment(testVariables, merged)
     try {
         allure includeProperties: false, results: [[path: merged]]
     } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException exc) {

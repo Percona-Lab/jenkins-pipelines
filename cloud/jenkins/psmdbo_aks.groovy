@@ -32,6 +32,7 @@ pipeline {
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'AKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
+        choice(name: 'TESTS_PER_CLUSTER', choices: ['3', '2', '1'], description: 'Tests that run at the same time on each cluster. 1 runs one test at a time per cluster.')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.3')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
@@ -92,6 +93,7 @@ pipeline {
                         platform_version      : PLATFORM_VER,
                         region                : params.AKS_LOCATION ?: getLocation(JOB_NAME),
                         cluster_wide          : CLUSTER_WIDE,
+                        tests_per_cluster     : (params.TESTS_PER_CLUSTER ?: '3') as Integer,
                         pillar_version        : PILLAR_VERSION,
                         git_branch            : GIT_BRANCH,
                         source_repo           : sourceRepo,
