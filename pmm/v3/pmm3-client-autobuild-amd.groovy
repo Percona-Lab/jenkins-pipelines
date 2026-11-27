@@ -8,6 +8,11 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
+// Worker for the sign and upload steps. It follows USE_ONDEMAND like the build agent.
+def uploadNode() {
+    return params.USE_ONDEMAND ? 'cli-ondemand' : 'cli'
+}
+
 pipeline {
     agent {
         label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
@@ -71,7 +76,7 @@ pipeline {
                     steps {
                         sh "${PATH_TO_SCRIPTS}/build-client-source"
                         stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                        uploadTarball('source')
+                        uploadTarball('source', uploadNode())
                     }
                 }
                 stage('Build client binary') {
@@ -90,7 +95,7 @@ pipeline {
                             '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                        uploadTarball('binary')
+                        uploadTarball('binary', uploadNode())
                     }
                 }
                 stage('Build dynamic client binary for OL8') {
@@ -113,7 +118,7 @@ pipeline {
                             '''
                         }
                         stash includes: 'results/tarball/pmm-client-*-dynamic-ol8.tar.gz', name: 'binary.ol8.tarball'
-                        uploadTarball('binary.ol8')
+                        uploadTarball('binary.ol8', uploadNode())
                     }
                 }
                 stage('Build dynamic client binary for OL9') {
@@ -136,7 +141,7 @@ pipeline {
                             '''
                         }
                         stash includes: 'results/tarball/pmm-client-*-dynamic-ol9.tar.gz', name: 'binary.ol9.tarball'
-                        uploadTarball('binary.ol9')
+                        uploadTarball('binary.ol9', uploadNode())
                     }
                 }
                 stage('Build client docker') {
@@ -180,7 +185,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            uploadPMM3RPM()
+                            uploadPMM3RPM(uploadNode())
                         }
                     }
                 }
@@ -214,7 +219,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                            uploadPMM3RPM()
+                            uploadPMM3RPM(uploadNode())
                         }
                     }
                 }
@@ -222,7 +227,7 @@ pipeline {
                     steps {
                         sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:jammy"
                         stash includes: 'results/source_deb/*', name: 'debs'
-                        uploadDEB()
+                        uploadDEB(uploadNode())
                     }
                 }
                 stage('Build client binary debs') {
@@ -256,14 +261,14 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/deb/*.deb', name: 'debs'
-                            uploadDEB()
+                            uploadDEB(uploadNode())
                         }
                     }
                 }
                 stage('Sign packages') {
                     steps {
-                        signRPM()
-                        signDEB()
+                        signRPM(uploadNode())
+                        signDEB(uploadNode())
                     }
                 }
             }
