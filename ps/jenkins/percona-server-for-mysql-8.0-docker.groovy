@@ -670,13 +670,88 @@ parameters {
             } // script
           } // steps
         } // stage
+        stage('Get PS build info') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            when {
+                // Same condition as 'Run docker tests on ps80'
+                expression {
+                    params.COMPONENT != 'experimental' && params.BRANCH ==~ /^release-\d+\.\d+\.\d+-\d+$/
+                }
+            }
+            steps {
+                script {
+                    // test-ps-docker-image compares `mysqld --version` with the expected version and revision.
+                    // The revision is read from the pushed image and checked against the head of BRANCH.
+                    env.PS_TEST_VERSION = params.BRANCH.replaceFirst(/^release-/, '')
+                    env.PS_TEST_REVISION = getImageRevision(
+                        image: "${params.ORGANIZATION}/percona-server:${env.PS_TEST_VERSION}-amd64",
+                        binary: 'mysqld',
+                        gitRef: params.BRANCH,
+                        gitRepos: ['https://github.com/percona/percona-server.git',
+                                   'https://github.com/percona/percona-server-private.git'])
+                    echo "PS tests: version ${env.PS_TEST_VERSION}, revision ${env.PS_TEST_REVISION}"
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
+        stage('Run docker tests on ps80') {
+            agent {
+                label 'launcher-x64'
+            }
+            when {
+                // Only release builds are tested: branch builds (trunk, 8.4, 9.7) have no matching
+                // PRODUCT_TO_TEST for every line (e.g. trunk) and -fr (experimental) images are not
+                // covered by test-ps-docker-image.
+                expression {
+                    params.COMPONENT != 'experimental' && params.BRANCH ==~ /^release-\d+\.\d+\.\d+-\d+$/
+                }
+            }
+            options {
+                timeout(time: 30, unit: 'MINUTES')
+            }
+            steps {
+                script {
+                    // PRODUCT_TO_TEST selects the PS line (e.g. PS84), the version and revision of the
+                    // image built here are passed as overrides, so VERSIONS is not used for them.
+                    def ps = params.BRANCH.replaceFirst(/^release-/, '').tokenize('.')
+                    String product = "PS${ps[0]}${ps[1]}".toString()
+                    if (!(product in ['PS80', 'PS84', 'PS97'])) {
+                        // other 9.x releases are Innovation releases
+                        product = (ps[0] == '9') ? 'PS_INN_LTS' : ''
+                    }
+                    if (!product) {
+                        error "No test-ps-docker-image PRODUCT_TO_TEST matches PS ${ps[0]}.${ps[1]}"
+                    }
+                    runRemoteJob(server: 'https://ps80.cd.percona.com',
+                                 job: 'test-ps-docker-image',
+                                 credentialsId: 'JNKPERCONA_PS80_TOKEN',
+                                 parameters: [
+                                     DOCKER_ACC: params.ORGANIZATION,
+                                     PRODUCT_TO_TEST: product,
+                                     PS_VERSION_OVERRIDE: env.PS_TEST_VERSION,
+                                     PS_REVISION_OVERRIDE: env.PS_TEST_REVISION
+                                 ])
+                }
+            }
+            post {
+                always {
+                    deleteDir()
+                }
+            }
+        } // stage
     }
     post {
         success {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#00FF00", "✅ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build has been finished successfully for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}${env.REMOTE_BUILD_URL ? '\nTests: ' + env.REMOTE_BUILD_URL : ''}")
                 }
             }
             deleteDir()
@@ -685,13 +760,13 @@ parameters {
             script {
                 def slackChannel = (env.BRANCH in ['trunk', '9.7', '8.4']) ? '#mysql_operators' : env.SLACKNOTIFY
                 if (slackChannel) {
-                    slackNotify(slackChannel, "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build finished with warnings (Trivy) for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}")
+                    slackNotify(slackChannel, "#FFFF00", "⚠️ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build finished with warnings (Trivy) for ${BRANCH} - [${BUILD_URL}]\nImages: ${env.TRIVY_IMAGES ?: 'N/A'}${env.GIT_COMMIT_ID ? '\nCommit: ' + env.GIT_COMMIT_ID : ''}${env.REMOTE_BUILD_URL ? '\nTests: ' + env.REMOTE_BUILD_URL : ''}")
                 }
             }
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("${SLACKNOTIFY}", "#FF0000", "❌ ${ORGANIZATION == 'perconalab' ? '🧪 ' : '🦾 '}[${JOB_NAME}]: (${ORGANIZATION}) Docker build failed for ${BRANCH} - [${BUILD_URL}]${env.REMOTE_BUILD_URL ? '\nTests: ' + env.REMOTE_BUILD_URL : ''}")
             deleteDir()
         }
         always {
@@ -699,7 +774,7 @@ parameters {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization"
+                currentBuild.description = "Built on ${BRANCH} for ${ORGANIZATION} organization${env.REMOTE_BUILD_URL ? ", tests: ${env.REMOTE_BUILD_URL}" : ""}"
             }
             deleteDir()
         }
