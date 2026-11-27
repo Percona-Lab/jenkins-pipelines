@@ -1,6 +1,7 @@
 - job:
     name: pxb-new-ps-inc-backup-load
     project-type: pipeline
+    concurrent: true
     description: |
         Do not edit this job through the web!
     pipeline-scm:

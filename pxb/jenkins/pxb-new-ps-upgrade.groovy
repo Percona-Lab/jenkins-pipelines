@@ -105,6 +105,9 @@ pipeline {
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/pxb-new-ps-upgrade/";
+    // Per-build Ansible/Molecule state (default ~/.ansible is keyed only on the scenario
+    // dir name, so concurrent builds on one agent would share instance config).
+    ANSIBLE_HOME = "${WORKSPACE}/.ansible";
     PXB_VERSION = "${params.PXB_VERSION}";
     OLD_PXB_VERSION = "${params.OLD_PXB_VERSION}";
     PS_VERSION = "${params.PS_VERSION}";
@@ -191,7 +194,6 @@ pipeline {
   }
   options {
     withCredentials(moleculepxbJenkinsCreds())
-    disableConcurrentBuilds()
   }
 
   stages {
