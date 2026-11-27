@@ -3,11 +3,12 @@
 // writes the results back to the issue. Its state lives on the bot-state branch of that repo, so a
 // pass on any agent carries on where the last one stopped. The bot code and README are in that repo.
 //
+// The job lives in the release-bot folder, which holds its Jenkins API and Claude credentials.
 // Set RELEASE to the version under test; an empty RELEASE pauses the bot.
 
 pipeline {
     agent {
-        label 'docker-x64-min'
+        label 'launcher-x64'
     }
     options {
         skipDefaultCheckout()
@@ -32,7 +33,8 @@ pipeline {
             steps {
                 withCredentials([
                     string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GH_TOKEN'),
-                    usernamePassword(credentialsId: 'PSMDBO_RELEASE_BOT_JENKINS_API', usernameVariable: 'JENKINS_USER', passwordVariable: 'JENKINS_TOKEN')
+                    usernamePassword(credentialsId: 'PSMDBO_RELEASE_BOT_JENKINS_API', usernameVariable: 'JENKINS_USER', passwordVariable: 'JENKINS_TOKEN'),
+                    string(credentialsId: 'PSMDBO_RELEASE_BOT_ANTHROPIC_KEY', variable: 'RELEASE_BOT_ANTHROPIC_API_KEY')
                 ]) {
                     sh '''
                         set -e
@@ -53,7 +55,7 @@ pipeline {
                         if [ "$DRY_RUN" != true ]; then set -- "$@" --apply --trigger; fi
 
                         docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
-                            -e GH_TOKEN -e JENKINS_USER -e JENKINS_TOKEN \
+                            -e GH_TOKEN -e JENKINS_USER -e JENKINS_TOKEN -e RELEASE_BOT_ANTHROPIC_API_KEY \
                             -v "$WORKSPACE/bot:/w" -w /w python:3.13 \
                             jenkins/run-once.sh "$@"
                     '''

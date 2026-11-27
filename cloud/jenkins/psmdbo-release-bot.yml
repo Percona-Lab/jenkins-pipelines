@@ -1,5 +1,7 @@
 - job:
-    name: psmdbo-release-bot
+    # The release-bot folder is made by hand and holds the job's credentials. Do not add it here:
+    # a job-builder update of the folder would replace its config and drop the credentials.
+    name: release-bot/psmdbo-release-bot
     project-type: pipeline
     description: |
         PSMDB release bot: one pass every 3 minutes over the release tracking issue in
