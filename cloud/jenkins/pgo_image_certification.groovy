@@ -10,21 +10,25 @@ def certifiableImages = [
     'IMAGE_POSTGRESQL16',
     'IMAGE_POSTGRESQL17',
     'IMAGE_POSTGRESQL18',
+    'IMAGE_POSTGRESQL19',
     'IMAGE_POSTGIS14',
     'IMAGE_POSTGIS15',
     'IMAGE_POSTGIS16',
     'IMAGE_POSTGIS17',
     'IMAGE_POSTGIS18',
+    'IMAGE_POSTGIS19',
     'IMAGE_PGBOUNCER14',
     'IMAGE_PGBOUNCER15',
     'IMAGE_PGBOUNCER16',
     'IMAGE_PGBOUNCER17',
     'IMAGE_PGBOUNCER18',
+    'IMAGE_PGBOUNCER19',
     'IMAGE_BACKREST14',
     'IMAGE_BACKREST15',
     'IMAGE_BACKREST16',
     'IMAGE_BACKREST17',
-    'IMAGE_BACKREST18'
+    'IMAGE_BACKREST18',
+    'IMAGE_BACKREST19',
 ]
 
 def imageTag(image) {
@@ -64,6 +68,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_POSTGRESQL16':
         case 'IMAGE_POSTGRESQL17':
         case 'IMAGE_POSTGRESQL18':
+        case 'IMAGE_POSTGRESQL19':
             return target(image, containersProjectId, "${params.RELEASE}-pg-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_POSTGIS14':
@@ -71,6 +76,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_POSTGIS16':
         case 'IMAGE_POSTGIS17':
         case 'IMAGE_POSTGIS18':
+        case 'IMAGE_POSTGIS19':
             return target(image, containersProjectId, "${params.RELEASE}-postgis-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_PGBOUNCER14':
@@ -78,6 +84,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_PGBOUNCER16':
         case 'IMAGE_PGBOUNCER17':
         case 'IMAGE_PGBOUNCER18':
+        case 'IMAGE_PGBOUNCER19':
             return target(image, containersProjectId, "${params.RELEASE}-pgbouncer-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_BACKREST14':
@@ -85,6 +92,7 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_BACKREST16':
         case 'IMAGE_BACKREST17':
         case 'IMAGE_BACKREST18':
+        case 'IMAGE_BACKREST19':
             return target(image, containersProjectId, "${params.RELEASE}-pgbackrest-${imageTag(image)}", containersCredentials)
 
         default:
@@ -117,21 +125,25 @@ pipeline {
         booleanParam(name: 'IMAGE_POSTGRESQL16', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL16')
         booleanParam(name: 'IMAGE_POSTGRESQL17', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL17')
         booleanParam(name: 'IMAGE_POSTGRESQL18', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL18')
+        booleanParam(name: 'IMAGE_POSTGRESQL19', defaultValue: true, description: 'Certify IMAGE_POSTGRESQL19')
         booleanParam(name: 'IMAGE_POSTGIS14', defaultValue: true, description: 'Certify IMAGE_POSTGIS14')
         booleanParam(name: 'IMAGE_POSTGIS15', defaultValue: true, description: 'Certify IMAGE_POSTGIS15')
         booleanParam(name: 'IMAGE_POSTGIS16', defaultValue: true, description: 'Certify IMAGE_POSTGIS16')
         booleanParam(name: 'IMAGE_POSTGIS17', defaultValue: true, description: 'Certify IMAGE_POSTGIS17')
-        booleanParam(name: 'IMAGE_POSTGIS18', defaultValue: true, description: 'Certify IMAGE_POSTGIS18')
+        booleanParam(name: 'IMAGE_POSTGIS18', defaultValue: true, description: 'Certify IMAGE_POSTGIS18')   
+        booleanParam(name: 'IMAGE_POSTGIS19', defaultValue: true, description: 'Certify IMAGE_POSTGIS19')
         booleanParam(name: 'IMAGE_PGBOUNCER14', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER14')
         booleanParam(name: 'IMAGE_PGBOUNCER15', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER15')
         booleanParam(name: 'IMAGE_PGBOUNCER16', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER16')
         booleanParam(name: 'IMAGE_PGBOUNCER17', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER17')
-        booleanParam(name: 'IMAGE_PGBOUNCER18', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER18')
+        booleanParam(name: 'IMAGE_PGBOUNCER18', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER18')   
+        booleanParam(name: 'IMAGE_PGBOUNCER19', defaultValue: true, description: 'Certify IMAGE_PGBOUNCER19')
         booleanParam(name: 'IMAGE_BACKREST14', defaultValue: true, description: 'Certify IMAGE_BACKREST14')
         booleanParam(name: 'IMAGE_BACKREST15', defaultValue: true, description: 'Certify IMAGE_BACKREST15')
         booleanParam(name: 'IMAGE_BACKREST16', defaultValue: true, description: 'Certify IMAGE_BACKREST16')
         booleanParam(name: 'IMAGE_BACKREST17', defaultValue: true, description: 'Certify IMAGE_BACKREST17')
         booleanParam(name: 'IMAGE_BACKREST18', defaultValue: true, description: 'Certify IMAGE_BACKREST18')
+        booleanParam(name: 'IMAGE_BACKREST19', defaultValue: true, description: 'Certify IMAGE_BACKREST19')
 
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }

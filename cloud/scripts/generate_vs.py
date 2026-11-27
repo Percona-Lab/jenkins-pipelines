@@ -373,10 +373,10 @@ PS_VERSION_LIMITS = {
 }
 
 PG_VERSION_LIMITS = {
-    "postgresql": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
-    "pgbackrest": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
-    "pgbouncer": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
-    "postgis": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5},
+    "postgresql": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5, "19": 5},
+    "pgbackrest": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5, "19": 5},
+    "pgbouncer": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5, "19": 5},
+    "postgis": {"14": 5, "15": 5, "16": 5, "17": 5, "18": 5, "19": 5},
     "pmm": {"2": 1, "3": 1},
     "operator": 1,
     "pgupgrade": 1,
@@ -668,7 +668,7 @@ def sort_matrix_versions(data: Dict) -> Dict:
 
 
 def filter_supported_pg_majors(data: Dict) -> Dict:
-    supported = {"14", "15", "16", "17", "18"}
+    supported = {"14", "15", "16", "17", "18", "19"}
     for version_entry in data.get("versions", []):
         matrix = version_entry.get("matrix", {})
         for category in ["postgresql", "pgbackrest", "pgbouncer", "postgis"]:
