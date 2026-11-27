@@ -206,7 +206,7 @@ pipeline {
                                         --data-urlencode IMAGE_PXC=perconalab/percona-xtradb-cluster:${VERSION} \
                                         --data-urlencode IMAGE_PROXY=percona/proxysql2:${PROXYSQL_VERSION} \
                                         --data-urlencode IMAGE_HAPROXY=perconalab/haproxy:${HAPROXY_VERSION} \
-                                        --data-urlencode IMAGE_PMM_SERVER=perconalab/pmm-server:dev-latest https://cloud.cd.percona.com/job/pxco-gke-1/buildWithParameters
+                                        --data-urlencode IMAGE_PMM_SERVER=perconalab/pmm-server:3-dev-latest https://cloud.cd.percona.com/job/pxco-gke-1/buildWithParameters
                                 """
 
                             }

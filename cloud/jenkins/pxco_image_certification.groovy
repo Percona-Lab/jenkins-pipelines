@@ -3,7 +3,6 @@ def certification
 def certifiableImages = [
     'IMAGE_OPERATOR',
     'IMAGE_PMM_CLIENT',
-    'IMAGE_PMM3_CLIENT',
     'IMAGE_PXC84',
     'IMAGE_PXC80',
     'IMAGE_PXC57',
@@ -41,9 +40,6 @@ def buildTargetImage(key, image, params) {
 
         case 'IMAGE_PMM_CLIENT':
             return target(image, containersProjectId, "${params.RELEASE}-pmm", containersCredentials)
-
-        case 'IMAGE_PMM3_CLIENT':
-            return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
 
         case 'IMAGE_PXC84':
         case 'IMAGE_PXC80':
@@ -90,7 +86,6 @@ pipeline {
 
         booleanParam(name: 'IMAGE_OPERATOR', defaultValue: true, description: 'Certify IMAGE_OPERATOR')
         booleanParam(name: 'IMAGE_PMM_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM_CLIENT')
-        booleanParam(name: 'IMAGE_PMM3_CLIENT', defaultValue: true, description: 'Certify IMAGE_PMM3_CLIENT')
         booleanParam(name: 'IMAGE_PXC84', defaultValue: true, description: 'Certify IMAGE_PXC84')
         booleanParam(name: 'IMAGE_PXC80', defaultValue: true, description: 'Certify IMAGE_PXC80')
         booleanParam(name: 'IMAGE_PXC57', defaultValue: true, description: 'Certify IMAGE_PXC57')

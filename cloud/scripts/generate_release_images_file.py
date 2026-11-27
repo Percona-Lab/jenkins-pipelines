@@ -8,8 +8,6 @@ from packaging.version import parse as parse_version
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urljoin
 
-PMM_CLIENT = "2.44.1-1"
-PMM_SERVER = "2.44.1"
 PG_MAJOR_VERSIONS = ["14", "15", "16", "17", "18"]
 PG_COMMUNITY_MAJOR_VERSIONS = [*PG_MAJOR_VERSIONS, "19"]
 
@@ -420,10 +418,8 @@ def build_standard_image_lines(op, operator_version, versions, pmm3):
             ("PROXY3", "proxysql3", versions.get("proxysql3")),
             ("HAPROXY", "haproxy", versions.get("haproxy")),
             ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
-            ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            ("PMM_SERVER", "pmm-server", PMM_SERVER),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
+            ("PMM_CLIENT", "pmm-client", pmm3),
+            ("PMM_SERVER", "pmm-server", pmm3),
         ],
         "ps": [
             ("OPERATOR", "percona-server-mysql-operator", operator_version),
