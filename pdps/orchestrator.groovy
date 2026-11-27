@@ -107,7 +107,7 @@ pipeline {
             script {
                 if (env.DESTROY_ENV == "yes") {
                     moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "ubuntu-jammy")
-                    junit "${MOLECULE_DIR}/report.xml"
+                    junit "${MOLECULE_DIR}/molecule/ubuntu-jammy/report.xml"
                 }
             }
         }
