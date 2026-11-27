@@ -302,6 +302,36 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Resolute(26.04)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'ps4m-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
+                        script {
+                            buildStage("ubuntu:resolute", "--build_deb=1")
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Resolute(26.04)(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'ps4m-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
+                        script {
+                            buildStage("ubuntu:resolute", "--build_deb=1")
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm(12)(x86_64)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -313,6 +343,36 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
                         script {
                             buildStage("debian:bookworm", "--build_deb=1")
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie(13)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'ps4m-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_X64)
+                        script {
+                            buildStage("debian:trixie", "--build_deb=1")
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie(13)(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'AWS' ? 'docker-64gb-aarch64' : 'docker-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'ps4m-properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH, S3_FILTER_ARM)
+                        script {
+                            buildStage("debian:trixie", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
