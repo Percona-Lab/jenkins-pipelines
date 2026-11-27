@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@test-shell", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 pipeline {
@@ -31,6 +31,26 @@ pipeline {
             defaultValue: '',
             description: 'Percona Server revision for test. Empty by default (not checked).',
             name: 'PS_REVISION'
+        )
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell own version, e.g. 8.4.10. Empty: shell is checked against VERSION as before.',
+            name: 'PSHELL_VERSION'
+        )
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell DEB package build, e.g. 8.4.10-1-3. Empty: not checked.',
+            name: 'PSHELL_PKG_VERSION'
+        )
+        string(
+            defaultValue: '',
+            description: 'Expected percona-mysql-shell RPM package build, e.g. 8.4.10-3. Empty: not checked.',
+            name: 'PSHELL_RPM_PKG_VERSION'
+        )
+        string(
+            defaultValue: '',
+            description: 'PS version percona-mysql-shell is built for (the "for MySQL" part of mysqlsh --version), e.g. 8.4.13-13. Empty means VERSION.',
+            name: 'PSHELL_BUILT_FOR'
         )
         string(
             defaultValue: '2.5.1',
