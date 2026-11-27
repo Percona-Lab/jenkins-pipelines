@@ -131,6 +131,11 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-binutils"
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc"
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-libatomic-devel" 
+
+        # Next packages are required by 9.7 (EL9 only: the centos:8 vault repos stop at toolset-13)
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-gcc gcc-toolset-14-gcc-c++ gcc-toolset-14-binutils"
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-annobin-annocheck gcc-toolset-14-annobin-plugin-gcc"
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-libatomic-devel"
     fi
 
     # KH: why?
@@ -179,7 +184,7 @@ if [ -f /usr/bin/yum ]; then
     done
 
     if [[ ${RHVER} -eq 9 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}; do
             echo "waiting"
             sleep 1
         done           
