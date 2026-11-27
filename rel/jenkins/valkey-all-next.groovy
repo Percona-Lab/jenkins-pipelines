@@ -345,23 +345,7 @@ Map waitForPublished(Map packages, long since, String channel = null, Map exact 
             d=\$(curl -fsS --max-time 60 '${aptDist}/Release' | sed -n 's/^Date: //p' | head -1)
             [ -n "\$d" ] && date -d "\$d" +%s || echo 0
         """).trim()
-        // One "<build time> <file name>" line per package in primary.xml.
-        // createrepo writes <time file=".." build=".."/> before <location href="..">.
-        String rpms = sh(returnStdout: true, script: """
-            set +x
-            primary=\$(curl -fsS --max-time 60 '${yumRepo}/repodata/repomd.xml' | grep -oE 'repodata/[^"]*primary[.]xml[.]gz' | head -1)
-            [ -n "\$primary" ] && curl -fsS --max-time 60 "${yumRepo}/\$primary" | gzip -dc | awk '
-                /<time / { if (match(\$0, /build="[0-9]+"/)) bt = substr(\$0, RSTART + 7, RLENGTH - 8) }
-                /<location href=/ { if (match(\$0, /href="[^"]+"/)) print bt, substr(\$0, RSTART + 6, RLENGTH - 7) }
-            ' || true
-        """)
-        Map rpmBuilt = [:]
-        for (String line : rpms.readLines()) {
-            List parts = line.trim().tokenize(' ')
-            if (parts.size() == 2) {
-                rpmBuilt[parts[1].toString()] = parts[0] as long
-            }
-        }
+        Map rpmBuilt = rpmBuildTimes(yumRepo)
         List missing = []
         for (String file : expected) {
             if (!listed.contains(file)) {
@@ -395,6 +379,91 @@ Map waitForPublished(Map packages, long since, String channel = null, Map exact 
     }
     error("Packages were not published to ${index} within ${waitMinutes} minutes")
     return [:]
+}
+
+// rpmBuildTimes — RPM file name -> build time for every package in a yum
+// directory's primary.xml ([:] when the directory has no metadata yet).
+// createrepo writes <time file=".." build=".."/> before <location href="..">.
+Map rpmBuildTimes(String yumRepo) {
+    String rpms = sh(returnStdout: true, script: """
+        set +x
+        primary=\$(curl -fsS --max-time 60 '${yumRepo}/repodata/repomd.xml' | grep -oE 'repodata/[^"]*primary[.]xml[.]gz' | head -1)
+        [ -n "\$primary" ] && curl -fsS --max-time 60 "${yumRepo}/\$primary" | gzip -dc | awk '
+            /<time / { if (match(\$0, /build="[0-9]+"/)) bt = substr(\$0, RSTART + 7, RLENGTH - 8) }
+            /<location href=/ { if (match(\$0, /href="[^"]+"/)) print bt, substr(\$0, RSTART + 6, RLENGTH - 7) }
+        ' || true
+    """)
+    Map built = [:]
+    for (String line : rpms.readLines()) {
+        List parts = line.trim().tokenize(' ')
+        if (parts.size() == 2) {
+            built[parts[1].toString()] = parts[0] as long
+        }
+    }
+    return built
+}
+
+// debChecksums — .deb file name -> SHA256 for every package in an apt
+// Packages index ([:] when the index does not exist yet).
+Map debChecksums(String packagesUrl) {
+    String text = fetchIndex(packagesUrl)
+    Map sums = [:]
+    String file = ''
+    for (String line : text.readLines()) {
+        if (line.startsWith('Filename: ')) {
+            file = line.substring(10).trim().tokenize('/')[-1]
+        } else if (line.startsWith('SHA256: ') && file) {
+            sums[file] = line.substring(8).trim()
+            file = ''
+        }
+    }
+    return sums
+}
+
+// releaseState — which of the manifest's builds release already serves.
+// A released version-release can't be pushed again: the release job copies
+// the RPM over the released file (clients that cached the metadata then get
+// "checksum doesn't match") while reprepro keeps the released DEB, so the two
+// would come from different builds. And packages can't be removed from
+// release. So per component:
+//   absent   - not in release: push it
+//   released - release serves exactly this build (RPM build time from the
+//              manifest, DEB checksum as in CHANNEL): nothing to push, which
+//              makes a rerun after a later failure safe
+//   clash    - release has this version-release from another build: stop
+// Checks the EL9 x86_64 RPM and the noble amd64 DEB, as waitForPublished does.
+// Returns [key: [state: .., detail: ..]].
+Map releaseState(List keys) {
+    String base = "https://repo.percona.com/${params.VALKEY_REPO}"
+    Map relRpm = rpmBuildTimes("${base}/yum/release/9/RPMS/x86_64")
+    Map relDeb = debChecksums("${base}/apt/dists/noble/main/binary-amd64/Packages")
+    Map srcDeb = debChecksums("${base}/apt/dists/noble/${params.CHANNEL}/binary-amd64/Packages")
+    Map states = [:]
+    for (String k : keys) {
+        Map e = MANIFEST[k]
+        String rpmFile = "${e.rpm}-${e.version}.el9.x86_64.rpm".toString()
+        // The file name carries no epoch: percona-valkey-server_9.2.1-1.noble_amd64.deb
+        String debFile = "${e.deb}_${e.version}.noble_amd64.deb".toString()
+        boolean rpmIn = relRpm.containsKey(rpmFile)
+        boolean debIn = relDeb.containsKey(debFile)
+        if (!rpmIn && !debIn) {
+            states[k] = [state: 'absent', detail: '']
+            continue
+        }
+        List diffs = []
+        if (!rpmIn) {
+            diffs << "${rpmFile} is not in release although the DEB is"
+        } else if ("${relRpm[rpmFile]}".toString() != "${e.rpm_build_time}".toString()) {
+            diffs << "release serves ${rpmFile} built ${relRpm[rpmFile]}, the manifest build is from ${e.rpm_build_time}"
+        }
+        if (!debIn) {
+            diffs << "the noble DEB is not in release although the RPM is"
+        } else if (srcDeb.containsKey(debFile) && srcDeb[debFile] != relDeb[debFile]) {
+            diffs << "release serves another build of ${debFile} than ${params.CHANNEL}"
+        }
+        states[k] = diffs ? [state: 'clash', detail: diffs.join('; ')] : [state: 'released', detail: '']
+    }
+    return states
 }
 
 // epochNow — the current time in seconds, taken on the agent as waitForPublished
@@ -842,6 +911,34 @@ pipeline {
             steps {
                 script {
                     List keys = releaseKeys()
+                    // Push only what release does not serve yet; stop on a
+                    // version-release that release has from another build.
+                    Map states = releaseState(keys)
+                    List clashes = []
+                    List already = []
+                    List toPush = []
+                    for (String k : keys) {
+                        Map st = states[k]
+                        if (st.state == 'clash') {
+                            clashes << "${k} ${MANIFEST[k].version}: ${st.detail}".toString()
+                        } else if (st.state == 'released') {
+                            already << k
+                        } else {
+                            toPush << k
+                        }
+                    }
+                    if (clashes) {
+                        error("Already in ${params.VALKEY_REPO}/release from another build, and a released package can't be replaced:\n  " +
+                              clashes.join('\n  ') + "\nRebuild these with a new release number, or leave them out of RELEASE_COMPONENTS.")
+                    }
+                    if (already) {
+                        echo "Already released as exactly the manifest build, not pushed again: ${already.join(', ')}"
+                        RELEASED.addAll(already)
+                    }
+                    if (!toPush) {
+                        echo 'Nothing left to push: release already serves every manifest build'
+                        return
+                    }
                     long since = epochNow()
                     Map packages = [:]
                     Map exact = [:]
@@ -849,7 +946,7 @@ pipeline {
                     // them: it pushes the builds in this order (dependencies first,
                     // the bundle last), then syncs the repo to production once.
                     List paths = []
-                    for (String k : keys) {
+                    for (String k : toPush) {
                         Map e = MANIFEST[k]
                         paths << releasePath(e.path)
                         packages[e.deb] = e.version
@@ -861,7 +958,7 @@ pipeline {
                         string(name: 'REPOSITORY', value: params.VALKEY_REPO.toUpperCase()),
                         string(name: 'COMPONENT',  value: 'RELEASE'),
                     ]).call()
-                    RELEASED.addAll(keys)
+                    RELEASED.addAll(toPush)
                     // Wait until the release channel serves exactly the builds in
                     // the manifest before building images from it.
                     waitForPublished(packages, since, 'release', exact)
