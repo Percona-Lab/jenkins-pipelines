@@ -13,7 +13,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         cd ..
         pwd -P
         export build_dir=\$(pwd -P)
-        sudo docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+        sudo docker run -u root -e VALKEY_REPO_NAME=${VALKEY_ADMIN_REPO} -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             # Dependency installation reaches distro mirrors and repo.percona.com;
