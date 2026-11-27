@@ -270,10 +270,12 @@ List releaseKeys() {
 }
 
 // releasePath — the PATH_TO_BUILD hetzner-RELEASE-from-repository takes: the
-// package job's path without its leading "experimental/".
+// package job's path as it is under /srv/UPLOAD, starting with "experimental/"
+// (the release job reads the product, release and revision from its fields).
+// Paths recorded without the prefix get it back.
 String releasePath(String path) {
     String prefix = 'experimental/'
-    return path.startsWith(prefix) ? path.substring(prefix.length()) : path
+    return path.startsWith(prefix) ? path : prefix + path
 }
 
 // The version part of a manifest version-release ("9.2.0-3" -> "9.2.0").
