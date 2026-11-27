@@ -7,50 +7,42 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 // ---------------------------------------------------------------------------
 // ps-package-testing-molecule-chaos-iops-bench
 //
-// OFFLINE sibling of ps-package-testing-molecule-chaos-iops.groovy.
+// OFFLINE IOPS-curve benchmark. Measures the TIME a fixed disk-bound task takes
+// at each guest-disk IOPS cap -- no network anywhere.
 //
-// The original job used converge (= installing PS) as the IOPS metric. But
-// "install PS" is a NETWORK step -- it downloads packages from repo.percona.com
-// -- so under network contention its wall-time is dominated by the download,
-// not the guest disk throttle. The observed curve proved it: times were
-// non-monotonic in IOPS (1000 IOPS was the SLOWEST) and every run FAILED, so
-// converge-time was really time-to-failure of a network operation. Useless as
-// a disk metric.
+// Why this exists: the original job (ps-package-testing-molecule-chaos-iops)
+// used `molecule converge` == "install PS" as the metric. That is a NETWORK
+// step (packages come from repo.percona.com), so its time is dominated by
+// download contention, not the disk throttle -- the observed curve was
+// non-monotonic (1000 IOPS was the SLOWEST) and every run FAILED.
 //
-// This job removes the network entirely. At each QEMU_IOPS point it:
-//     molecule create   (offline boot, disk throttled to QEMU_IOPS)
-//     molecule converge (runs a LOCAL disk probe -- NOT a PS install)
-//     molecule destroy
-// The probe is a zero-dependency Python O_DIRECT random read/write benchmark
-// that generates its own I/O inside the guest: no apt/yum, no repo, no network.
-// Network contention physically cannot affect the numbers.
+// Crucially, swapping PLAYBOOK_VAR was NOT enough: `molecule converge` also runs
+// the scenario's converge/prepare, which still pulls in the PS install. So this
+// job NEVER calls converge. Instead, per IOPS point it:
 //
-// No fork, no manually-shipped file: after cloning package-testing onto the
-// agent this pipeline WRITES the probe playbook into that local clone's
-// playbooks/ dir and sets PLAYBOOK_VAR to it, so converge imports it exactly
-// the way it would import a product playbook. Everything lives in this repo.
+//     molecule create  -s <os>     # qemu setup + disk throttled to QEMU_IOPS
+//     ansible-playbook  <task>      # run a FIXED disk task, time it (NO converge)
+//     molecule destroy -s <os>
 //
-// Per IOPS point we record: achieved write IOPS, write p95/p99 latency,
-// achieved read IOPS, read p95/p99 latency, and write bandwidth -- a clean
-// IOPS curve you can graph from the archived CSV.
+// The task is driven by a throwaway playbook in the WORKSPACE (not in
+// package-testing), executed straight against molecule's own ephemeral
+// inventory. Nothing from package-testing's converge/prepare/ps_80 runs, so no
+// bytes cross the network. The task itself is a zero-dependency Python O_DIRECT
+// benchmark (python3 ships in every cloud image for cloud-init) that does a
+// fixed number of random 4 KiB ops and reports how long it took.
+//
+// Output per point: task total seconds (the headline curve), write/read
+// seconds, achieved write/read IOPS, write p99 latency -> archived CSV.
 // ---------------------------------------------------------------------------
 
-// Chaos QEMU scenarios live in the package-testing clone under
-// molecule/ps/chaos/. Molecule resolves scenarios as molecule/<os>/ relative
-// to this dir, and converge imports playbooks/${PLAYBOOK_VAR}.yml.
+// Where the molecule chaos scenario lives in the package-testing clone. We only
+// use it for create/destroy (qemu setup + throttle + teardown).
 def chaosMoleculeDir() {
     return "\${HOME}/package-testing/molecule/ps/chaos"
 }
 
-// Name (without .yml) of the offline probe playbook this pipeline drops into
-// the local package-testing clone and sets as PLAYBOOK_VAR.
-def benchPlaybookName() {
-    return "disk_iops_benchmark"
-}
-
-// Build the inclusive list of IOPS points to sweep: [minv, minv+step, ...]
-// capped at maxv, and always including maxv so the top of the range is tested.
-// e.g. (100, 1000, 300) -> [100, 400, 700, 1000].
+// Build the inclusive list of IOPS points: [minv, minv+step, ...] capped at
+// maxv, always including maxv. e.g. (100, 1000, 300) -> [100, 400, 700, 1000].
 def iopsSweepValues(int minv, int maxv, int step) {
     def vals = []
     for (int v = minv; v <= maxv; v += step) {
@@ -62,152 +54,124 @@ def iopsSweepValues(int minv, int maxv, int step) {
     return vals
 }
 
-// Parse the OPERATING_SYSTEMS parameter: accepts comma and/or whitespace
-// separated scenario names and returns a clean list.
+// Parse OPERATING_SYSTEMS: comma/whitespace separated scenario names -> list.
 def parseOsList(String raw) {
     return raw.split('[,\\s]+').findAll { it?.trim() }.collect { it.trim() }
 }
 
-// Materialise the OFFLINE probe playbook into the freshly-cloned
-// package-testing/playbooks/ dir on the agent. Converge imports it by name via
-// PLAYBOOK_VAR, so no fork and no out-of-repo file is needed.
-//
-// The playbook runs a small Python O_DIRECT benchmark inside the guest:
-//   * lays down a 4 MiB file on the throttled root disk
-//   * timed random-WRITE pass, then timed random-READ pass, O_DIRECT|O_DSYNC so
-//     every op is a real device op (page cache can't hide the throttle)
-//   * emits one CSV line and fetches it back to the agent as
-//     /tmp/iops-bench-<label>.csvline
-// Written with a QUOTED heredoc (<<'YAML_EOF') so neither Groovy nor the shell
-// expands anything -- the file lands verbatim. The embedded Python likewise
-// uses a quoted heredoc so Ansible/the shell leave it untouched.
-def writeBenchPlaybook() {
-    sh '''
-        set -e
-        PB_DIR="${HOME}/package-testing/playbooks"
-        mkdir -p "${PB_DIR}"
-        cat > "${PB_DIR}/disk_iops_benchmark.yml" <<'YAML_EOF'
----
-- name: Offline guest disk IOPS benchmark (no network)
+// Write the task artifacts into the Jenkins WORKSPACE (NOT package-testing):
+//   iops_task.py  - the offline fixed-work O_DIRECT disk probe
+//   iops_task.yml - a tiny playbook that runs the probe on the molecule guest,
+//                   stamps the result with the run label/cap and fetches it back
+// Using writeFile (not shell heredocs) keeps the content verbatim with no
+// escaping games.
+def writeTaskArtifacts() {
+    // --- the probe: fixed WORK, reports how long it took -------------------
+    // argv: <path> <ops>   ops = number of random 4 KiB operations per phase.
+    // Prints ONE line:
+    //   write_secs,read_secs,total_secs,write_iops,read_iops,write_p99_ms
+    writeFile file: 'iops_task.py', text: '''#!/usr/bin/env python3
+# Offline fixed-work O_DIRECT disk task. Stdlib only, so it runs on any cloud
+# image with python3 (every one -- cloud-init needs it). Does a FIXED number of
+# random 4 KiB operations and reports how long that took, so the headline metric
+# is "time for a task execution" and falls cleanly as the IOPS cap rises.
+import os, sys, time, random, mmap
+
+PATH = sys.argv[1] if len(sys.argv) > 1 else "/var/tmp/iops_probe.bin"
+OPS  = int(sys.argv[2]) if len(sys.argv) > 2 else 3000
+BS = 4096
+FILE_BYTES = 4 * 1024 * 1024    # small file: bounded lay-down even at 100 IOPS
+BLOCKS = FILE_BYTES // BS
+
+def open_target(path):
+    flags = os.O_RDWR | os.O_CREAT
+    # O_DIRECT|O_DSYNC so every op is a real device op (page cache cannot hide
+    # the QEMU throttle). getattr keeps it import-safe where the names are
+    # absent; fall back if the filesystem rejects O_DIRECT.
+    o_direct = getattr(os, "O_DIRECT", 0)
+    o_dsync  = getattr(os, "O_DSYNC", 0)
+    try:
+        return os.open(path, flags | o_direct | o_dsync)
+    except OSError:
+        try:
+            return os.open(path, flags | o_dsync)
+        except OSError:
+            return os.open(path, flags)
+
+def aligned(nbytes):
+    buf = mmap.mmap(-1, nbytes)   # page-aligned, required for O_DIRECT buffers
+    buf.write(b"a" * nbytes)
+    buf.seek(0)
+    return buf
+
+def p99(samples):
+    if not samples:
+        return 0.0
+    s = sorted(samples)
+    idx = min(len(s) - 1, int(round(0.99 * len(s) + 0.5)) - 1)
+    return s[max(0, idx)] * 1000.0   # ms
+
+rnd = random.Random(1234)
+fd = open_target(PATH)
+try:
+    wbuf = aligned(BS)
+    # lay the file down once so reads hit allocated blocks
+    for b in range(BLOCKS):
+        os.pwrite(fd, wbuf, b * BS)
+
+    # ---- fixed-work random WRITE ----
+    wlat = []
+    t0 = time.time()
+    for _ in range(OPS):
+        off = rnd.randrange(BLOCKS) * BS
+        s = time.time()
+        os.pwrite(fd, wbuf, off)
+        wlat.append(time.time() - s)
+    write_secs = time.time() - t0
+
+    # ---- fixed-work random READ ----
+    t0 = time.time()
+    for _ in range(OPS):
+        off = rnd.randrange(BLOCKS) * BS
+        os.pread(fd, BS, off)
+    read_secs = time.time() - t0
+finally:
+    os.close(fd)
+    try:
+        os.unlink(PATH)
+    except OSError:
+        pass
+
+total_secs = write_secs + read_secs
+write_iops = OPS / write_secs if write_secs > 0 else 0.0
+read_iops  = OPS / read_secs  if read_secs  > 0 else 0.0
+print("%.3f,%.3f,%.3f,%.1f,%.1f,%.3f" % (
+    write_secs, read_secs, total_secs, write_iops, read_iops, p99(wlat)))
+'''
+
+    // --- the task playbook: run the probe on the guest, fetch the result ----
+    // Driven by `ansible-playbook -i <molecule inventory>` -- NOT molecule
+    // converge -- so the scenario's install playbook never runs.
+    writeFile file: 'iops_task.yml', text: '''---
+- name: Offline guest disk IOPS task (no network, no converge)
   hosts: all
   gather_facts: false
   vars:
     iops_cap: "unknown"
     bench_label: "run"
-    probe_py: "/var/tmp/iops_probe.py"
+    ops: 3000
     probe_file: "/var/tmp/iops_probe.bin"
     result_file: "/tmp/iops_result.csv"
   tasks:
-    - name: Install the probe script into the guest (no packages, just a file)
-      ansible.builtin.copy:
-        dest: "{{ probe_py }}"
-        mode: "0755"
-        content: |
-          #!/usr/bin/env python3
-          # Offline O_DIRECT disk IOPS probe. No imports beyond the stdlib, so it
-          # runs on any cloud image that has python3 (all of them -- cloud-init).
-          # Measures achieved random-write then random-read IOPS with per-op
-          # latency, bypassing the page cache so the QEMU disk throttle is what
-          # we actually see. Prints ONE csv line:
-          #   write_iops,write_p95_ms,write_p99_ms,read_iops,read_p95_ms,read_p99_ms,bw_kib_s
-          import os, sys, time, random, mmap
-
-          PATH = sys.argv[1] if len(sys.argv) > 1 else "/var/tmp/iops_probe.bin"
-          BS = 4096                 # 4 KiB ops ~= 1 device IOP
-          FILE_BYTES = 4 * 1024 * 1024   # small: bounded lay-down even at 100 IOPS
-          BLOCKS = FILE_BYTES // BS
-          PHASE_SECS = 10           # duration of each timed pass
-
-          def open_direct(path, write):
-              flags = os.O_RDWR | os.O_CREAT
-              # O_DIRECT / O_DSYNC are Linux-only names; getattr keeps the probe
-              # import-safe on platforms that lack them (falls back to 0 = no-op).
-              o_direct = getattr(os, "O_DIRECT", 0)
-              o_dsync = getattr(os, "O_DSYNC", 0)
-              direct = False
-              # Prefer O_DIRECT|O_DSYNC so every op hits the device. Fall back
-              # gracefully if the filesystem rejects O_DIRECT (EINVAL).
-              try:
-                  fd = os.open(path, flags | o_direct | o_dsync)
-                  direct = bool(o_direct)
-              except OSError:
-                  try:
-                      fd = os.open(path, flags | o_dsync)
-                  except OSError:
-                      fd = os.open(path, flags)
-              return fd, direct
-
-          def aligned(nbytes, fill):
-              # mmap pages are page-aligned (required for O_DIRECT buffers).
-              buf = mmap.mmap(-1, nbytes)
-              buf.write(fill * nbytes)
-              buf.seek(0)
-              return buf
-
-          def pct(samples, p):
-              if not samples:
-                  return 0.0
-              s = sorted(samples)
-              idx = min(len(s) - 1, int(round((p / 100.0) * len(s) + 0.5)) - 1)
-              return s[max(0, idx)] * 1000.0   # seconds -> ms
-
-          # Deterministic offset sequence (no network, no /dev/urandom needed).
-          rnd = random.Random(1234)
-
-          fd, _ = open_direct(PATH, True)
-          try:
-              # Lay the file down once so reads hit allocated blocks. O_DIRECT
-              # makes even this small file force real device reads later.
-              wbuf = aligned(BS, b"\\xab")
-              for b in range(BLOCKS):
-                  os.pwrite(fd, wbuf, b * BS)
-
-              # ---- timed random WRITE pass ----
-              wlat = []
-              end = time.time() + PHASE_SECS
-              wcount = 0
-              while time.time() < end:
-                  off = rnd.randrange(BLOCKS) * BS
-                  t0 = time.time()
-                  os.pwrite(fd, wbuf, off)
-                  wlat.append(time.time() - t0)
-                  wcount += 1
-              wsecs = sum(wlat) if wlat else PHASE_SECS
-              # Use wall time of the phase for IOPS (includes everything).
-              wiops = wcount / PHASE_SECS
-
-              # ---- timed random READ pass ----
-              rlat = []
-              end = time.time() + PHASE_SECS
-              rcount = 0
-              while time.time() < end:
-                  off = rnd.randrange(BLOCKS) * BS
-                  t0 = time.time()
-                  os.pread(fd, BS, off)
-                  rlat.append(time.time() - t0)
-                  rcount += 1
-              riops = rcount / PHASE_SECS
-          finally:
-              os.close(fd)
-              try:
-                  os.unlink(PATH)
-              except OSError:
-                  pass
-
-          bw_kib = (wiops * BS) / 1024.0
-          print("%.1f,%.3f,%.3f,%.1f,%.3f,%.3f,%.1f" % (
-              wiops, pct(wlat, 95), pct(wlat, 99),
-              riops, pct(rlat, 95), pct(rlat, 99), bw_kib))
-
-    - name: Run the offline probe
-      ansible.builtin.command: "python3 {{ probe_py }} {{ probe_file }}"
+    - name: Run the fixed-work disk task on the guest
+      ansible.builtin.script: "{{ probe_script }} {{ probe_file }} {{ ops }}"
       register: probe
       changed_when: false
 
-    - name: Record the result on the guest (label + cap + measurements)
+    - name: Stamp the result with the run label + cap
       ansible.builtin.copy:
         dest: "{{ result_file }}"
-        content: "{{ bench_label }},{{ iops_cap }},{{ probe.stdout_lines[-1] | trim }}\\n"
+        content: "{{ bench_label }},{{ iops_cap }},{{ probe.stdout_lines[-1] | trim }}"
         mode: "0644"
 
     - name: Fetch the result back to the Jenkins agent
@@ -215,20 +179,17 @@ def writeBenchPlaybook() {
         src: "{{ result_file }}"
         dest: "/tmp/iops-bench-{{ bench_label }}.csvline"
         flat: true
-YAML_EOF
-        echo "Wrote offline probe playbook -> ${PB_DIR}/disk_iops_benchmark.yml"
-    '''
+'''
+    echo "Wrote iops_task.py + iops_task.yml into the workspace."
 }
 
-// Sequential IOPS sweep, OFFLINE. For each OS (one VM at a time) and each IOPS
-// value, export QEMU_IOPS so create.yml throttles the guest disk, then run
-// create/converge(probe)/destroy. converge runs the local disk benchmark, NOT
-// a PS install, so no bytes cross the network. The probe result is fetched to
-// /tmp/iops-bench-<os>-<iops>.csvline on the agent and read back here.
+// Sequential OFFLINE sweep. For each OS (one VM at a time) and each IOPS value:
+// export QEMU_IOPS, `molecule create` (qemu setup + throttle), run the timed
+// task via ansible-playbook against molecule's ephemeral inventory, then
+// `molecule destroy`. converge is NEVER called, so the PS install never runs.
 //
-// Returns per-run maps: [os, iops, status, writeIops, wP95, wP99, readIops,
-// rP95, rP99, bwKib].
-def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir) {
+// Returns per-run maps with the timings/metrics parsed from the fetched result.
+def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir, ops) {
     def results = []
     operatingSystems.each { os ->
         iopsValues.each { iops ->
@@ -238,14 +199,12 @@ def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir) {
                 def runFailed = false
                 sh "rm -f ${resultFile} || true"
                 try {
-                    // set +e so a create/probe failure never skips teardown; the
-                    // explicit test at the end re-propagates failure to Jenkins.
                     sh """
                         set +e
                         . ${venvDir}/bin/activate
                         cd ${chaosMoleculeDir()}
                         export QEMU_IOPS=${iops}
-                        echo "===== ${os}: OFFLINE disk probe, guest disk throttled to ${iops} IOPS ====="
+                        echo "===== ${os}: OFFLINE disk task, guest disk throttled to ${iops} IOPS ====="
 
                         molecule create -s ${os}
                         crc=\$?
@@ -258,11 +217,26 @@ def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir) {
 
                         vrc=1
                         if [ \$crc -eq 0 ]; then
-                            # Pass the label + cap into the probe playbook as
-                            # extra-vars (everything after -- goes to ansible).
-                            molecule converge -s ${os} -- \
-                                -e bench_label=${label} -e iops_cap=${iops}
-                            vrc=\$?
+                            # Locate molecule's ephemeral inventory for this
+                            # scenario (default path, with a find fallback) and
+                            # run OUR task playbook straight against it -- no
+                            # converge, so no install playbook is ever invoked.
+                            INV="\${HOME}/.cache/molecule/chaos/${os}/inventory"
+                            if [ ! -d "\$INV" ]; then
+                                INV=\$(dirname "\$(find \${HOME}/.cache/molecule -path '*${os}*/inventory/*' 2>/dev/null | head -1)")
+                            fi
+                            echo "Using molecule inventory: \$INV"
+                            if [ -d "\$INV" ]; then
+                                ansible-playbook -i "\$INV" "\${WORKSPACE}/iops_task.yml" \
+                                    -e probe_script="\${WORKSPACE}/iops_task.py" \
+                                    -e ops=${ops} \
+                                    -e bench_label=${label} \
+                                    -e iops_cap=${iops}
+                                vrc=\$?
+                            else
+                                echo "ERROR: could not locate molecule inventory for ${os}"
+                                vrc=1
+                            fi
                         fi
 
                         molecule destroy -s ${os} || true
@@ -275,17 +249,14 @@ def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir) {
                     echo "Run ${os} @ ${iops} IOPS failed: ${err}"
                 }
 
-                // Read back the probe result the guest produced and the fetch
-                // module copied to the agent. Missing/short -> zeros + FAIL.
-                def m = [writeIops: '0', wP95: '0', wP99: '0',
-                         readIops: '0', rP95: '0', rP99: '0', bwKib: '0']
+                def m = [totalSec: '0', writeSec: '0', readSec: '0',
+                         writeIops: '0', readIops: '0', wP99: '0']
                 if (fileExists(resultFile)) {
-                    // line: label,cap,wiops,wp95,wp99,riops,rp95,rp99,bw
+                    // line: label,cap,write_secs,read_secs,total_secs,write_iops,read_iops,write_p99
                     def parts = readFile(resultFile).trim().split(',')
-                    if (parts.size() >= 9) {
-                        m.writeIops = parts[2]; m.wP95 = parts[3]; m.wP99 = parts[4]
-                        m.readIops  = parts[5]; m.rP95 = parts[6]; m.rP99 = parts[7]
-                        m.bwKib     = parts[8]
+                    if (parts.size() >= 8) {
+                        m.writeSec = parts[2]; m.readSec = parts[3]; m.totalSec = parts[4]
+                        m.writeIops = parts[5]; m.readIops = parts[6]; m.wP99 = parts[7]
                     } else {
                         runFailed = true
                     }
@@ -296,33 +267,29 @@ def moleculeIopsBenchSweep(operatingSystems, iopsValues, venvDir) {
                 def status = runFailed ? 'FAIL' : 'PASS'
                 results << [os: os, iops: iops, status: status] + m
                 echo "RESULT ${os} @ ${iops} IOPS -> ${status} | " +
-                     "write ${m.writeIops} iops (p99 ${m.wP99}ms) | " +
-                     "read ${m.readIops} iops (p99 ${m.rP99}ms) | bw ${m.bwKib} KiB/s"
+                     "task ${m.totalSec}s (write ${m.writeSec}s read ${m.readSec}s) | " +
+                     "write ${m.writeIops} iops p99 ${m.wP99}ms"
             }
         }
     }
     return results
 }
 
-// Render the sweep results as a human-readable table and a CSV, print the
-// table, write + archive the CSV so the IOPS curve can be graphed.
+// Render results as a table + CSV, print, archive. Sandbox-safe string ops only.
 def reportIopsResults(results) {
     if (!results) {
         echo "No IOPS runs were executed - nothing to report."
         return
     }
-    // Sandbox-safe: only GString interpolation and String += (no StringBuilder
-    // <<, no String.format/padRight).
-    def table = "\n===== OFFLINE IOPS BENCHMARK SUMMARY =====\n"
-    def csv = "os,iops_cap,status,write_iops,write_p95_ms,write_p99_ms," +
-              "read_iops,read_p95_ms,read_p99_ms,write_bw_kib_s\n"
+    def table = "\n===== OFFLINE IOPS TASK-TIME SUMMARY =====\n"
+    def csv = "os,iops_cap,status,task_total_sec,write_sec,read_sec," +
+              "write_iops,read_iops,write_p99_ms\n"
     results.each { r ->
         table += "${r.os} | cap ${r.iops} | ${r.status} | " +
-                 "W ${r.writeIops} iops (p95 ${r.wP95} p99 ${r.wP99} ms) | " +
-                 "R ${r.readIops} iops (p95 ${r.rP95} p99 ${r.rP99} ms) | " +
-                 "bw ${r.bwKib} KiB/s\n"
-        csv += "${r.os},${r.iops},${r.status},${r.writeIops},${r.wP95},${r.wP99}," +
-               "${r.readIops},${r.rP95},${r.rP99},${r.bwKib}\n"
+                 "task ${r.totalSec}s (W ${r.writeSec}s / R ${r.readSec}s) | " +
+                 "W ${r.writeIops} iops p99 ${r.wP99}ms\n"
+        csv += "${r.os},${r.iops},${r.status},${r.totalSec},${r.writeSec},${r.readSec}," +
+               "${r.writeIops},${r.readIops},${r.wP99}\n"
     }
     echo table
     writeFile file: 'iops-bench.csv', text: csv
@@ -356,9 +323,8 @@ def installMoleculeChaos() {
     '''
 }
 
-// Clone/refresh the package-testing repo (needed only for the molecule chaos
-// scenario + shared create/destroy wiring; the converge WORKLOAD is the offline
-// probe playbook this pipeline writes into its playbooks/ dir).
+// Clone/refresh package-testing (needed only for the molecule chaos scenario's
+// create/destroy wiring; the task workload lives in the workspace).
 def clonePackageTesting(gitAccount, gitBranch) {
     sh """
         set -e
@@ -404,6 +370,12 @@ properties([
             trim: true
         ),
         string(
+            defaultValue: '3000',
+            description: 'Fixed number of random 4 KiB ops the task performs per phase (the "work" whose time is measured)',
+            name: 'TASK_OPS',
+            trim: true
+        ),
+        string(
             defaultValue: 'Percona-QA',
             description: 'Git account name (for the molecule chaos scenario / create wiring only)',
             name: 'git_account',
@@ -425,9 +397,9 @@ pipeline {
     environment {
         VENV_DIR = "${env.HOME}/.venv/molecule_qemu"
         ANSIBLE_DEPRECATION_WARNINGS = "False"
-        // converge imports playbooks/${PLAYBOOK_VAR}.yml -- point it at the
-        // offline probe this pipeline writes, NOT a PS-install playbook.
-        PLAYBOOK_VAR = "disk_iops_benchmark"
+        // Our ansible-playbook talks straight to molecule's inventory; disable
+        // host-key prompting so a fresh VM's unknown key never blocks the run.
+        ANSIBLE_HOST_KEY_CHECKING = "False"
     }
     options {
         timeout(time: 4, unit: 'HOURS')
@@ -455,9 +427,9 @@ pipeline {
                 script { clonePackageTesting(params.git_account, params.git_branch) }
             }
         }
-        stage('Write offline probe playbook') {
+        stage('Write task artifacts') {
             steps {
-                script { writeBenchPlaybook() }
+                script { writeTaskArtifacts() }
             }
         }
         stage('RUN OFFLINE IOPS BENCHMARK') {
@@ -472,9 +444,9 @@ pipeline {
                     if (osList.isEmpty()) {
                         error("OPERATING_SYSTEMS is empty - nothing to test")
                     }
-                    echo "Sweeping IOPS ${iopsValues.join(', ')} over scenarios: ${osList.join(', ')} (one VM at a time, OFFLINE)"
+                    echo "Sweeping IOPS ${iopsValues.join(', ')} over scenarios: ${osList.join(', ')} (one VM at a time, OFFLINE, no converge)"
 
-                    def results = moleculeIopsBenchSweep(osList, iopsValues, "${VENV_DIR}")
+                    def results = moleculeIopsBenchSweep(osList, iopsValues, "${VENV_DIR}", params.TASK_OPS.trim())
 
                     reportIopsResults(results)
                     if (results.any { it.status == 'FAIL' }) {
