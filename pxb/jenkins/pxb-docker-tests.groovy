@@ -24,6 +24,16 @@ pipeline {
             description: 'Package Testing Repository Branch',
             name: 'PACKAGE_TESTING_REPO_BRANCH',
             trim: true)
+        string(
+            defaultValue: '',
+            description: 'PXB version (docker tag) to test, e.g. 8.0.35-36. Leave empty to take it from package-testing VERSIONS for PRODUCT_TO_TEST',
+            name: 'PXB_VERSION_OVERRIDE',
+            trim: true)
+        string(
+            defaultValue: '',
+            description: 'Expected PXB revision, e.g. 7233322c. Leave empty to take <PRODUCT_TO_TEST>_REV from package-testing VERSIONS',
+            name: 'PXB_REVISION_OVERRIDE',
+            trim: true)
     }
     options {
         skipDefaultCheckout()
@@ -55,10 +65,6 @@ pipeline {
                         ).trim()
                     }
 
-                    def PXB_VER = grepVar("${PRODUCT_TO_TEST}_VER")
-                    def PXB_PKG_VER = grepVar("${PRODUCT_TO_TEST}_PKG_VER")
-                    def PXB_REV = grepVar("${PRODUCT_TO_TEST}_REV")
-
                     // Map PXB versions to PS versions for docker image testing
                     def PS_VERSION_MAP = [
                         'PXB24': 'PS57',
@@ -71,21 +77,36 @@ pipeline {
                     def PS_VER = grepVar("${PS_PRODUCT}_VER")
                     def PS_REV = grepVar("${PS_PRODUCT}_REV")
 
-                    // The 9.x LTS lines (PXB_INN_LTS, PXB97) already contain the pkg
-                    // suffix in _VER (e.g. "9.6.0-1" / "9.7.1-1"); PXB24/80/84 _VER is
-                    // upstream-only, needs _PKG_VER appended.
-                    if (PRODUCT_TO_TEST == 'PXB_INN_LTS' || PRODUCT_TO_TEST == 'PXB97') {
-                        env.PXB_VERSION = "${PXB_VER}"
+                    if (params.PXB_VERSION_OVERRIDE || params.PXB_REVISION_OVERRIDE) {
+                        // Values passed by the caller (e.g. the rel.cd docker build) skip VERSIONS for PXB.
+                        // The PS image used by the backup tests still comes from VERSIONS.
+                        if (!params.PXB_VERSION_OVERRIDE || !params.PXB_REVISION_OVERRIDE) {
+                            error("PXB_VERSION_OVERRIDE and PXB_REVISION_OVERRIDE must be set together")
+                        }
+                        env.PXB_VERSION = params.PXB_VERSION_OVERRIDE
+                        env.PXB_REVISION = params.PXB_REVISION_OVERRIDE
+                        echo "Using PXB_VERSION_OVERRIDE and PXB_REVISION_OVERRIDE parameters instead of VERSIONS"
                     } else {
-                        env.PXB_VERSION = "${PXB_VER}-${PXB_PKG_VER}"
-                    }
+                        def PXB_VER = grepVar("${PRODUCT_TO_TEST}_VER")
+                        def PXB_PKG_VER = grepVar("${PRODUCT_TO_TEST}_PKG_VER")
+                        def PXB_REV = grepVar("${PRODUCT_TO_TEST}_REV")
 
-                    // The 9.x LTS lines carry a _REV in VERSIONS; fail loudly if it's
-                    // missing so the docker test doesn't silently skip the revision check.
-                    if ((PRODUCT_TO_TEST == 'PXB_INN_LTS' || PRODUCT_TO_TEST == 'PXB97') && !PXB_REV) {
-                        error("${PRODUCT_TO_TEST}_REV not found in package-testing/VERSIONS — add ${PRODUCT_TO_TEST}_REV=\"<sha>\" so the docker test can assert it.")
+                        // The 9.x LTS lines (PXB_INN_LTS, PXB97) already contain the pkg
+                        // suffix in _VER (e.g. "9.6.0-1" / "9.7.1-1"); PXB24/80/84 _VER is
+                        // upstream-only, needs _PKG_VER appended.
+                        if (PRODUCT_TO_TEST == 'PXB_INN_LTS' || PRODUCT_TO_TEST == 'PXB97') {
+                            env.PXB_VERSION = "${PXB_VER}"
+                        } else {
+                            env.PXB_VERSION = "${PXB_VER}-${PXB_PKG_VER}"
+                        }
+
+                        // The 9.x LTS lines carry a _REV in VERSIONS; fail loudly if it's
+                        // missing so the docker test doesn't silently skip the revision check.
+                        if ((PRODUCT_TO_TEST == 'PXB_INN_LTS' || PRODUCT_TO_TEST == 'PXB97') && !PXB_REV) {
+                            error("${PRODUCT_TO_TEST}_REV not found in package-testing/VERSIONS — add ${PRODUCT_TO_TEST}_REV=\"<sha>\" so the docker test can assert it.")
+                        }
+                        env.PXB_REVISION = "${PXB_REV}"
                     }
-                    env.PXB_REVISION = "${PXB_REV}"
 
                     if (!PS_VER) {
                         error("${PS_PRODUCT}_VER not found in package-testing/VERSIONS")
