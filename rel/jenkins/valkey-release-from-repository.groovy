@@ -100,9 +100,11 @@ pipeline {
                     echo "Releasing ${paths.size()} build(s) to ${params.REPOSITORY}/${params.COMPONENT}:\n${paths.join('\n')}"
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                         // Stop before pushing anything when one of the builds is missing.
+                        // No errexit here: the remote login shell runs ~/.bash_logout on
+                        // `exit`, and Ubuntu's runs clear_console, which fails without a
+                        // terminal; under errexit that turned `exit 0` into exit code 1.
                         sh """
                             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
-                                set -o errexit
                                 missing=0
                                 for p in ${paths.join(' ')}; do
                                     if [ -d "/srv/UPLOAD/\$p/binary" ]; then
